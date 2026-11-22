@@ -23,6 +23,7 @@ export const presets: T.Task<Outcome, never, CliEnv> = T.gen(function* () {
         installed: installed[index]!,
         state: presetState(preset),
         accountRisk: preset.accountRisk,
+        undocumented: preset.undocumented,
       })),
     },
     [
@@ -33,6 +34,7 @@ export const presets: T.Task<Outcome, never, CliEnv> = T.gen(function* () {
         `    here:    ${versionLine(preset, installed[index]!)}`,
         `    agent:   ${presetAgent(preset, platform)}`,
         `    reader:  ${readerLine(preset, platform)}`,
+        ...(preset.undocumented === null ? [] : [`    unverified: ${preset.undocumented}`]),
         ...(preset.accountRisk === null ? [] : [`    account: ${preset.accountRisk}`]),
       ]),
       '',

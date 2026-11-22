@@ -10,6 +10,8 @@ import {
   UNSUPPORTED_PROTOCOL_VERSION_CODE,
 } from '../src/revisions.ts'
 import {
+  CHANNEL_CLIENT_NAME,
+  CHANNEL_DECLINED_INSTRUCTIONS,
   CHARACTER_INSTRUCTIONS,
   DESK_INSTRUCTIONS,
   INSTRUCTIONS,
@@ -97,7 +99,56 @@ describe('handleMcpMessage', () => {
     expect(toolContextOf(base).desk).toBeUndefined()
     expect(toolContextOf({ ...base, desk: false }).desk).toBeUndefined()
     expect(toolContextOf({ ...base, desk: true }).desk).toBe(true)
-    expect(toolContextOf({ ...base, channel: { opened: T.unit } }).desk).toBe(true)
+    expect(
+      toolContextOf({ ...base, channel: { opened: T.unit, declined: () => T.unit } }).desk,
+    ).toBeUndefined()
+  })
+
+  it('makes a channel session a desk in Claude Code only, and tells any other client why it is not one', async () => {
+    const opened: string[] = []
+    const declined: string[] = []
+    const sessionFor = async (clientInfo?: unknown) => {
+      const context = {
+        api: fakeApi({}).api,
+        serverVersion: ADAPTER_VERSION,
+        nonce: sequentialNonce(),
+        desk: true,
+        channel: {
+          opened: T.sync(() => void opened.push('opened')),
+          declined: (client: string) => T.sync(() => void declined.push(client)),
+        },
+      }
+      const send = (method: string, params: object) =>
+        T.runPromise(handleMcpMessage({ jsonrpc: '2.0', id: 1, method, params }, context)) as Promise<any>
+      const greeting = (
+        await send('initialize', {
+          protocolVersion: '2025-06-18',
+          capabilities: {},
+          ...(clientInfo !== undefined && { clientInfo }),
+        })
+      ).result
+      await T.runPromise(handleMcpMessage({ jsonrpc: '2.0', method: 'notifications/initialized' }, context))
+      return { greeting, tools: toolContextOf(context) }
+    }
+    const claude = await sessionFor({ name: CHANNEL_CLIENT_NAME, version: '2.1.400' })
+    expect(claude.greeting.capabilities.experimental).toEqual({ 'claude/channel': {} })
+    expect(claude.greeting.instructions).toContain(DESK_INSTRUCTIONS)
+    expect(claude.tools.desk).toBe(true)
+    expect(opened).toEqual(['opened'])
+    for (const clientInfo of [{ name: 'codex-mcp-client' }, { name: 7 }, 'claude-code', undefined]) {
+      const other = await sessionFor(clientInfo)
+      expect(other.greeting.capabilities.experimental).toBeUndefined()
+      expect(other.greeting.instructions).toContain(CHANNEL_DECLINED_INSTRUCTIONS)
+      expect(other.greeting.instructions).not.toContain(DESK_INSTRUCTIONS)
+      expect(other.tools.desk).toBeUndefined()
+    }
+    expect(opened).toEqual(['opened'])
+    expect(declined).toEqual([
+      'codex-mcp-client',
+      'an unnamed client',
+      'an unnamed client',
+      'an unnamed client',
+    ])
   })
 
   it('lists waiting notes without picking them up in an ordinary session', async () => {

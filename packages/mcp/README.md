@@ -32,17 +32,32 @@ In a client configured with JSON:
 
 Ask your agent to log in, or run the `login` prompt. The `login` tool opens the browser, where you
 sign in and confirm with one click; the `status` tool then says whether the agent is signed in. The
-agent never sees a credential, and the one it gets can read and draft, never send.
+agent never sees a credential, and the one it gets can read and draft, never send. With
+`--no-browser` (or `HOMINGBIRD_NO_BROWSER=1`) neither `login` nor `open_homingbird` opens a tab: they
+give the link, and the code, for you to open.
 
 ## One desk
+
+In a client whose chat can stay open, such as Cursor or Gemini CLI, run the `watch` prompt in one
+chat: it waits for notes and drafts a reply to each until you tell it to stop. For a desk that needs
+no chat, use `--run-agent` ([below](#run-your-desk-from-your-mcp-client)).
+
+**In Claude Code only**, `--desk` makes the session your desk:
 
 ```sh
 npx -y @homingbird/mcp --server https://<server> --desk
 ```
 
-`--desk` makes this client your desk: the one session that holds the event stream, checks the inbox
-when it starts and answers the notes that arrive: a draft, a holding reply when it cannot answer yet, or
-`skip_note` with a reason only you see. What it relied on (`basis`) is shown to you on the draft in the web client; the colleague never sees it. Keep only one desk; every other session drafts only when you ask it.
+It holds the event stream, checks the inbox when it starts and pushes each note that arrives into the
+session as a Claude Code channel notification (`notifications/claude/channel`), which the session
+answers: a draft, a holding reply when it cannot answer yet, or `skip_note` with a reason only you see.
+What it relied on (`basis`) is shown to you on the draft in the web client; the colleague never sees
+it. Keep only one desk; every other session drafts only when you ask it.
+
+No other client shows a channel notification, so the adapter tells from `initialize` which client
+started it. Started with `--desk` or `--channel` by any other client, it writes one line saying so to
+standard error and acts as an ordinary session: it pushes nothing, picks nothing up and holds no event
+stream, so no note is taken and left unseen.
 
 ## Run your desk from your MCP client
 
@@ -67,16 +82,18 @@ or `--desk`, not both.
 - **One desk.** It claims your desk on this computer, as `homingbird run` does. When another one
   holds it, such as a second app with the same configuration or a runner in a terminal, this one waits,
   says so in `status`, and takes over when that one stops. Only runners take part: a desk on another
-  computer, a client started with `--desk`, or the Claude Code plugin's pane is not seen, so do not run
-  one of those as well.
+  computer, a Claude Code session started with `--desk`, or the Claude Code plugin's pane is not held
+  back, so do not run one of those as well. Should two run anyway, the server hands neither a note the
+  other picked up in the last ten minutes, drafted a reply to, or skipped.
 - **Pausing.** The `desk` prompt with `on` or `off` sets the desk on or off; asking twice changes
   nothing more, and it takes no command. Clients that offer prompts as slash commands show it: in
   Claude Code `/homingbird:desk off` (also `/mcp__homingbird__desk`), in Gemini CLI `/desk`. Codex does
-  not offer MCP prompts yet: there, pause by removing `--run-agent` and restarting Codex. A
-  `homingbird desk pause` command for such clients is on the roadmap.
+  not offer MCP prompts yet: there, run `homingbird desk pause` and `homingbird desk resume` from the
+  [command line](https://github.com/let-sunny/homingbird/blob/main/packages/cli/README.md), which pause
+  every desk of yours on that computer.
 - **Only while the app is open.** When the app quits, the desk stops, and so does an agent run it
-  started. Notes wait until the next start. An always-on desk is on the
-  [roadmap](https://github.com/let-sunny/homingbird/blob/main/docs/roadmap.md) as a background service.
+  started. Notes wait until the next start. For an always-on desk that starts when you log in, use
+  `homingbird service install` from the command line.
 - **Logs** go to standard error, which your client keeps as the server log: no note text, no token.
 
 - **Split mode.** Add `--split` (or `HOMINGBIRD_SPLIT=1`) to have a reader describe each note in a
@@ -106,9 +123,11 @@ The configuration, client by client, as each client's documentation gave it on 2
   }
   ```
 
-- **Cursor** ([MCP](https://cursor.com/docs/context/mcp)): `~/.cursor/mcp.json`, or `.cursor/mcp.json`
+- **Cursor** ([MCP](https://cursor.com/docs/mcp)): `~/.cursor/mcp.json`, or `.cursor/mcp.json`
   in a project, with the same entry plus `"type": "stdio"`; `env` and `envFile` set variables. Its log
-  is in the Output panel, "MCP Logs".
+  is in the Output panel, "MCP Logs". Cursor's own command line (`agent`, formerly `cursor-agent`) as
+  the `--run-agent` command is not verified: its documentation passes the prompt as an argument, never
+  on standard input.
 - **Claude Code** ([MCP](https://code.claude.com/docs/en/mcp)):
 
   ```sh
@@ -118,12 +137,14 @@ The configuration, client by client, as each client's documentation gave it on 2
   With `--env HOMINGBIRD_RUN_AGENT="claude -p"` instead of `--run-agent`, keep another option such as
   `-s user` between `--env` and the name. Prompt arguments are split on spaces.
 - **Codex CLI** ([MCP](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)): `~/.codex/config.toml`,
-  or `codex mcp add homingbird -- npx -y @homingbird/mcp --server https://homingbird.example.com --run-agent "codex exec"`.
+  or `codex mcp add homingbird -- npx -y @homingbird/mcp --server https://homingbird.example.com --run-agent "codex exec --skip-git-repo-check --ephemeral --sandbox read-only -"`.
+  `codex exec` alone stops outside a git repository, which is where Codex starts the server; this
+  command is not yet run against the real CLI.
 
   ```toml
   [mcp_servers.homingbird]
   command = "npx"
-  args = ["-y", "@homingbird/mcp", "--server", "https://homingbird.example.com", "--run-agent", "codex exec"]
+  args = ["-y", "@homingbird/mcp", "--server", "https://homingbird.example.com", "--run-agent", "codex exec --skip-git-repo-check --ephemeral --sandbox read-only -"]
 
   [mcp_servers.homingbird.env]
   PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
@@ -132,10 +153,13 @@ The configuration, client by client, as each client's documentation gave it on 2
   Codex does not offer MCP prompts ([openai/codex#5059](https://github.com/openai/codex/issues/5059)),
   so the `desk` prompt is not available there.
 - **Gemini CLI** ([MCP](https://geminicli.com/docs/tools/mcp-server/)): `~/.gemini/settings.json` with
-  the same `mcpServers` entry, or `gemini mcp add homingbird -- npx -y @homingbird/mcp --server https://homingbird.example.com --run-agent "gemini -p"`.
-  Prompts become slash commands by name, such as `/desk`. Gemini CLI's documentation says it was
-  replaced by Antigravity CLI for free and Google One users on 2026-06-18; where Antigravity CLI reads
-  its MCP configuration is not verified here.
+  the same `mcpServers` entry, or `gemini mcp add homingbird npx -y @homingbird/mcp -- --server https://homingbird.example.com`
+  (Gemini takes the server's own options after `--`). For a desk, add `--run-agent "gemini -p '' --output-format text --approval-mode default"`
+  after the server address: a bare `gemini -p` needs a value and fails. Not yet run against the real
+  CLI. Prompts become slash commands by name, such as `/desk`. Gemini CLI's documentation says it was
+  replaced by Antigravity CLI for free and Google One users on 2026-06-18.
+- **Antigravity CLI** (`agy`): `~/.gemini/config/mcp_config.json`, or `.agents/mcp_config.json` in a
+  project, with the same `mcpServers` entry. Not verified here.
 
 `--run-agent "claude -p"` arrives as one argument and runs through your shell, so `claude` is started
 with the option `-p`. A desktop app starts the server with its own `PATH`, often shorter than your

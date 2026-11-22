@@ -22,10 +22,12 @@ export const resolvedProgram = (
   })
 
 /**
- * The first of the commands that is a preset and whose program is missing from `path`. Commands of
- * one's own are not checked here: they may be anything the shell runs.
+ * The first of the commands whose program is missing from `path`. A preset's program is always looked
+ * up; a command of one's own only when its first word names a program the shell would look up as it
+ * is: a bare name that is not a shell builtin, or an absolute path. Anything else, such as
+ * `./agent.sh` or `cd x && agent`, is left for the shell to decide.
  */
-export const missingPresetCommand = (
+export const missingAgentCommand = (
   commands: ReadonlyArray<string>,
   path: string | undefined,
 ): T.Task<string | null, never, Pick<CliEnv, 'programs' | 'platform' | 'variables' | 'homeDirectory'>> =>
@@ -33,7 +35,7 @@ export const missingPresetCommand = (
     const env = yield* T.ask<Pick<CliEnv, 'programs' | 'platform' | 'variables' | 'homeDirectory'>>()
     if (path === undefined) return null
     for (const command of commands) {
-      if (!isPresetCommand(command, env.platform)) continue
+      if (!isPresetCommand(command, env.platform) && !isLookedUp(command, env.platform)) continue
       if ((yield* resolvedProgram(command, path)) === null) return command
     }
     return null
@@ -139,6 +141,31 @@ const VERSION_MANAGERS: ReadonlyArray<VersionManager> = [
 ]
 
 const DEFAULT_PATHEXT = '.COM;.EXE;.BAT;.CMD'
+
+/** Whether the shell would look a command's program up on PATH, or at its absolute path, as it is. */
+const isLookedUp = (command: string, platform: string): boolean => {
+  const program = programWord(command)
+  if (program === null) return false
+  const isWindows = platform === 'win32'
+  if (/[\\/]/.test(program)) return isAbsolute(program, isWindows) || (!isWindows && program.startsWith('~/'))
+  return !(isWindows ? CMD_BUILTINS : SH_BUILTINS).has(isWindows ? program.toLowerCase() : program)
+}
+
+/** Words sh runs itself, with no program on PATH. */
+const SH_BUILTINS: ReadonlySet<string> = new Set([
+  ...['.', ':', 'alias', 'bg', 'break', 'builtin', 'cd', 'command', 'continue', 'echo', 'eval', 'exec'],
+  ...['exit', 'export', 'false', 'fg', 'getopts', 'hash', 'jobs', 'kill', 'local', 'printf', 'pwd'],
+  ...['read', 'readonly', 'return', 'set', 'shift', 'source', 'test', 'time', 'times', 'trap', 'true'],
+  ...['type', 'ulimit', 'umask', 'unalias', 'unset', 'wait'],
+])
+
+/** Words cmd.exe runs itself, with no program on PATH. */
+const CMD_BUILTINS: ReadonlySet<string> = new Set([
+  ...['assoc', 'call', 'cd', 'chdir', 'cls', 'copy', 'date', 'del', 'dir', 'echo', 'endlocal', 'erase'],
+  ...['for', 'ftype', 'goto', 'if', 'md', 'mkdir', 'mklink', 'move', 'path', 'popd', 'pushd', 'rd'],
+  ...['ren', 'rename', 'rmdir', 'set', 'setlocal', 'shift', 'start', 'time', 'title', 'type', 'ver'],
+  ...['vol'],
+])
 
 /** A POSIX shell expands a leading ~ in PATH entries and commands alike. */
 const expandHome = (path: string, home: string | null): string =>

@@ -10,8 +10,8 @@ import {
   REVOKED_AND_REMOVED,
   SIGN_IN_FIRST,
 } from '../src/local-session.ts'
-import { DESK_INSTRUCTIONS, INSTRUCTIONS } from '../src/server.ts'
-import { type StdioProgram, USAGE, runStdioProgram } from '../src/stdio-program.ts'
+import { CHANNEL_DECLINED_INSTRUCTIONS, DESK_INSTRUCTIONS, INSTRUCTIONS } from '../src/server.ts'
+import { type StdioProgram, USAGE, channelDeclined, runStdioProgram } from '../src/stdio-program.ts'
 import { ADAPTER_VERSION } from '../src/version.ts'
 import { type RunningServer, SERVER_URL, startRunningServer } from './running-server.ts'
 import { sequentialNonce } from './support.ts'
@@ -92,6 +92,8 @@ const program = (overrides: Partial<StdioProgram> = {}) => {
   }
 }
 
+const CLAUDE_CODE = { name: 'claude-code', version: '2.1.400' }
+
 const TOKEN = /hb[ah]_[A-Za-z0-9_-]{20,}/
 
 describe('runStdioProgram', () => {
@@ -137,6 +139,23 @@ describe('runStdioProgram', () => {
     expect((await exit)._tag).toBe('Ok')
   })
 
+  it.each([
+    [{ arguments: ['--server', SERVER_URL, '--no-browser'] }],
+    [{ environment: { HOMINGBIRD_NO_BROWSER: '1' } }],
+  ])('opens no browser tab with %j, and gives the link and the code instead', async (overrides) => {
+    const { exit, said, feed } = program(overrides)
+    const started = await said('login')
+    expect(started).toMatch(/^To sign in, show your human this link: .*\/#\/device\/[A-Z]{4}-[A-Z]{4}\n/)
+    expect(await said('open_homingbird')).toMatch(/^Not signed in|^Show this link/)
+    expect(running.launched).toEqual([])
+    await running.decide(started)
+    await running.until(async () => (await said('status')).startsWith('Signed in'))
+    expect(await said('open_homingbird')).toMatch(/^Show this link to your human: /)
+    expect(running.launched).toEqual([])
+    feed.end()
+    expect((await exit)._tag).toBe('Ok')
+  })
+
   it('signs in through the browser with the code filled in, and never shows the credential', async () => {
     const { exit, said, feed, written } = program()
     const started = await said('login')
@@ -174,7 +193,9 @@ describe('runStdioProgram', () => {
     const ben = await running.server.signIn('ben@example.com', 'Ben')
     const ana = running.owner.me.member.id
     const desk = program({ arguments: ['--server', SERVER_URL, '--desk'] })
-    const greeting = (await desk.request('initialize', { protocolVersion: '2025-06-18' })).result
+    const greeting = (
+      await desk.request('initialize', { protocolVersion: '2025-06-18', clientInfo: CLAUDE_CODE })
+    ).result
     expect(greeting.instructions).toContain(DESK_INSTRUCTIONS)
     expect(greeting.capabilities.experimental).toEqual({ 'claude/channel': {} })
     const early = (await ben.api('POST', '/drafts', { to: [ana], body: 'Is the migration safe?' })).json
@@ -213,6 +234,45 @@ describe('runStdioProgram', () => {
     await desk.exit
     expect(await running.agentOnline()).toBe(false)
   })
+
+  it.each([
+    ['cursor-vscode', { name: 'cursor-vscode', version: '1.0' }],
+    ['an unnamed client', undefined],
+  ])(
+    'leaves notes waiting when %s starts it with --desk: it pushes, picks up and holds the stream for nothing',
+    async (client, clientInfo) => {
+      const ben = await running.server.signIn('ben@example.com', 'Ben')
+      const ana = running.owner.me.member.id
+      const logged: string[] = []
+      const desk = program({
+        arguments: ['--server', SERVER_URL, '--desk'],
+        log: (line) => logged.push(line),
+      })
+      const greeting = (
+        await desk.request('initialize', {
+          protocolVersion: '2025-06-18',
+          capabilities: {},
+          ...(clientInfo !== undefined && { clientInfo }),
+        })
+      ).result
+      expect(greeting.capabilities.experimental).toBeUndefined()
+      expect(greeting.instructions).toContain(INSTRUCTIONS)
+      expect(greeting.instructions).toContain(CHANNEL_DECLINED_INSTRUCTIONS)
+      expect(greeting.instructions).not.toContain(DESK_INSTRUCTIONS)
+      expect(logged).toEqual([channelDeclined(client)])
+      const early = (await ben.api('POST', '/drafts', { to: [ana], body: 'Is the migration safe?' })).json
+      await ben.api('POST', `/drafts/${early.id}/send`, await asShown(ben, early.id))
+      await desk.signIn()
+      desk.notify('notifications/initialized')
+      expect(await desk.said('check_inbox')).toContain('1 note(s) are waiting for a reply')
+      expect(await desk.said('check_inbox')).toContain('1 note(s) are waiting for a reply')
+      expect(desk.pushed()).toEqual([])
+      expect(running.recorded.some((call) => call.path === '/api/v1/events/stream')).toBe(false)
+      expect(running.recorded.some((call) => call.path.endsWith('/pickup'))).toBe(false)
+      desk.feed.end()
+      await desk.exit
+    },
+  )
 
   it('refuses every tool in one sentence once signed in to a server whose protocol it cannot read', async () => {
     const newer = async (url: string, init?: RequestInit) => {

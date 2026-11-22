@@ -72,8 +72,27 @@ describe('the Claude Code channel contract', () => {
 describe('makeChannel', () => {
   it('pushes nothing, and picks nothing up, before the client has finished initializing', async () => {
     const { channel, written, calls } = channelOver()
-    await T.runPromise(channel.online)
+    let isOnline = false
+    const online = T.runPromise(channel.online).then(() => {
+      isOnline = true
+    })
     await T.runPromise(channel.received(NOTE_SENT))
+    await Promise.resolve()
+    expect(isOnline).toBe(false)
+    expect(written).toEqual([])
+    expect(calls).toEqual([])
+    await T.runPromise(channel.opened)
+    await online
+    expect(written).toHaveLength(1)
+  })
+
+  it('never goes online, pushes or picks up once the client says it cannot show pushed work', async () => {
+    const { channel, written, calls } = channelOver()
+    await T.runPromise(channel.declined)
+    const online = T.runFork(channel.online)
+    await T.runPromise(channel.received(NOTE_SENT))
+    await Promise.resolve()
+    expect(await online.interrupt()).toMatchObject({ _tag: 'Err', error: { _tag: 'Interrupt' } })
     expect(written).toEqual([])
     expect(calls).toEqual([])
   })

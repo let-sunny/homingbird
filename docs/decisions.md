@@ -646,6 +646,17 @@ states the decision first, then the reason. Add new entries at the top of their 
   creates the conversation row, but the recipient's list only shows conversations with a sent note,
   so a draft never reveals itself.
 - **A pickup without a draft stops showing as `drafting reply` after ten minutes.**
+- **A fresh note is one none of the person's agents is handling.** Leaving out only what the asking
+  credential picked up let a person's runner and MCP desk each draft every waiting note, 23 drafts
+  for 13 notes in one evaluation. `inbox.list` with `fresh` also leaves out a note another credential of the same person picked up
+  within those ten minutes, one any of the person's agents skipped, and one with the person's reply
+  draft waiting. A desk that picked a note up and left it without a draft or a skip hands it on after
+  the grace, so a crashed desk loses nothing.
+- **`--desk` and `--channel` are for Claude Code only.** They push work as `notifications/claude/channel`,
+  which only Claude Code shows. The stdio adapter reads `clientInfo.name` from `initialize`: for any
+  name other than `claude-code`, or none, it pushes nothing, picks nothing up, holds no event stream,
+  tells the model it is an ordinary session and writes one line to standard error. A pushed note in a
+  client that cannot show it would be marked as being drafted for ten minutes and never answered.
 
 ## Architecture
 
@@ -1434,7 +1445,9 @@ command through the injected process service.
   command would get, through cmd.exe only for a Windows batch file such as npm's `codex.cmd`, with a
   time limit and stopped when the runner is, and what that prints
   shapes the command (Codex's reader switches off each server `codex mcp list --json` names, one
-  `-c mcp_servers."<name>".enabled=false` each, so the rest of its entry stays) or
+  `-c mcp_servers.<name>.enabled=false` each, the name bare because Codex splits the key on dots and
+  keeps quotes, so the rest of its entry stays; a name outside `[A-Za-z0-9_-]` stops it; the probe and
+  the reader leave out `--ignore-user-config`, which only `codex exec` takes) or
   refuses it (an `agy --help` without `--settings`); Antigravity is asked first whether it is signed
   in. A probe that fails stops the runner instead of starting a weaker command. Commands of one's own
   are never probed. `verifiedWith` still means a run with the real agent; `optionsSeenIn` only records

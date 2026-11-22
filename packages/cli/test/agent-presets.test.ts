@@ -87,7 +87,6 @@ describe('agent presets', () => {
     expect(CODEX_READER).toContain('-c features.plugins=false -c features.apps=false -')
     expect(CODEX_READER.endsWith(' -')).toBe(true)
     expect(codexProbe.args).toEqual([
-      '--ignore-user-config',
       '-c',
       'features.plugins=false',
       '-c',
@@ -98,13 +97,44 @@ describe('agent presets', () => {
     ])
   })
 
-  it('switch off every MCP server Codex lists for the reader, and none when it lists none', () => {
-    const listed = '[{"name":"github","transport":{"type":"stdio"}},{"name":"my \\"docs\\""}]'
+  it('ask Codex for its MCP servers with options the root command takes, never one only exec takes', () => {
+    for (const execOnly of ['--ignore-user-config', '--ignore-rules', '--ephemeral', '--skip-git-repo-check'])
+      expect(codexProbe.args).not.toContain(execOnly)
+    expect(CODEX_READER).not.toContain('--ignore-user-config')
+    expect(CODEX_READER).toContain('codex exec --skip-git-repo-check --ephemeral --ignore-rules ')
+  })
+
+  it('switch off every MCP server Codex lists for the reader by its bare name, and none when it lists none', () => {
+    const listed = '[{"name":"github","transport":{"type":"stdio"}},{"name":"Team_docs-2"}]'
     expect(codexProbe.wordsFrom({ exitCode: 0, output: `warning: old config\n${listed}\n` })).toEqual({
       _tag: 'Ok',
-      value: ['-c', 'mcp_servers."github".enabled=false', '-c', 'mcp_servers."my \\"docs\\"".enabled=false'],
+      value: ['-c', 'mcp_servers.github.enabled=false', '-c', 'mcp_servers.Team_docs-2.enabled=false'],
     })
     expect(codexProbe.wordsFrom({ exitCode: 0, output: '[]' })).toEqual({ _tag: 'Ok', value: [] })
+  })
+
+  it('refuse to prepare the Codex reader when a listed server has a name -c cannot address', () => {
+    for (const name of ['my.docs', 'my "docs"', 'docs ', 'café'])
+      expect(
+        codexProbe.wordsFrom({ exitCode: 0, output: JSON.stringify([{ name: 'github' }, { name }]) }),
+      ).toEqual({
+        _tag: 'Err',
+        error: `codex mcp list names a server, ${JSON.stringify(name)}, that -c cannot switch off`,
+      })
+  })
+
+  it('build every word of the Codex reader, with each listed server switched off before the final -', () => {
+    const switched = codexProbe.wordsFrom({ exitCode: 0, output: '[{"name":"github"}]' })
+    expect(switched._tag).toBe('Ok')
+    expect(
+      withWords(presetNamed('codex')!.reader!.words, switched._tag === 'Ok' ? switched.value : []),
+    ).toEqual([
+      ...['codex', 'exec', '--skip-git-repo-check', '--ephemeral', '--ignore-rules'],
+      ...['--sandbox', 'read-only', '--disable', 'shell_tool', '--disable', 'unified_exec'],
+      ...['--disable', 'view_image', '-c', 'web_search="disabled"'],
+      ...['-c', 'features.plugins=false', '-c', 'features.apps=false'],
+      ...['-c', 'mcp_servers.github.enabled=false', '-'],
+    ])
   })
 
   it('refuse to prepare the Codex reader when its MCP servers cannot be listed', () => {

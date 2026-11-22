@@ -1,4 +1,4 @@
-import { Task as T, makeMutex } from '@homingbird/kernel'
+import { Task as T, makeDeferred, makeMutex } from '@homingbird/kernel'
 import { ANSWER_RULE, type AsRead, LINKS_RULE, isWakingEvent } from '@homingbird/protocol'
 import type { ToolContext } from './tools.ts'
 import { type Trigger, freshTriggers } from './triggers.ts'
@@ -16,24 +16,30 @@ export const CHANNEL_INSTRUCTIONS = [
 export interface Channel {
   readonly opened: T.Task<void>
   readonly armed: T.Task<void>
+  /** The client cannot show what is pushed: nothing is pushed or picked up, and the stream stays closed. */
+  readonly declined: T.Task<void>
+  /** Waits until the client has said whether it shows pushed work, and never returns when it does not. */
   readonly online: T.Task<void>
   readonly received: (event: AsRead.StreamEvent) => T.Task<void>
 }
 
 export const makeChannel = (context: () => ToolContext, write: (line: string) => void): Channel => {
   let isOpen = false
+  const decided = makeDeferred<boolean>()
   const pushing = makeMutex()
   const push: T.Task<void> = pushing.withPermit(T.suspend(() => pushOnce(context(), write)))
   const pushWhenOpen: T.Task<void> = T.suspend(() => (isOpen ? push : T.unit))
+  const open = T.sync(() => {
+    isOpen = true
+    decided.resolve(true)
+  })
   return {
-    opened: T.suspend(() => {
-      isOpen = true
-      return push
+    opened: T.flatMap(() => push)(open),
+    armed: open,
+    declined: T.sync(() => {
+      decided.resolve(false)
     }),
-    armed: T.sync(() => {
-      isOpen = true
-    }),
-    online: pushWhenOpen,
+    online: T.flatMap((isShown: boolean) => (isShown ? pushWhenOpen : T.never))(decided.wait),
     received: (event) => (isWakingEvent(event.body, null) ? pushWhenOpen : T.unit),
   }
 }

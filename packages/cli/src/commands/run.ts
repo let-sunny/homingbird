@@ -62,7 +62,7 @@ import { PAUSE_CHECK_MS, deskPausePath, isDeskPaused } from '../desk-pause.ts'
 import type { AgentRun, CliEnv } from '../environment.ts'
 import { CliFailure, EXIT, failed } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
-import { missingPresetCommand } from '../program-paths.ts'
+import { missingAgentCommand } from '../program-paths.ts'
 import { type Session, calling, openSession, requireReadable } from '../session.ts'
 import { CLI_VERSION } from '../version.ts'
 import { authorsOf } from './reading.ts'
@@ -134,12 +134,12 @@ export const withAgentDirectories = <A, E>(task: T.Task<A, E, CliEnv>): T.Task<A
     T.provide({ variables: withAgentInstallDirectories(env.variables, env.platform) })(task),
   )(T.ask<CliEnv>())
 
-/** Says which preset command is not on this PATH, before any note waits on it; null when all are. */
+/** Says which agent or reader command's program is not on this PATH, before any note waits on it; null when all are. */
 export const missingCommandOf = (settings: RunnerSettings): T.Task<string | null, never, CliEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<CliEnv>()
     const commands = [settings.agent, ...(settings.split === null ? [] : [settings.split.reader])]
-    const missing = yield* missingPresetCommand(commands, agentSearchPath(env.variables, env.platform))
+    const missing = yield* missingAgentCommand(commands, agentSearchPath(env.variables, env.platform))
     if (missing === null) return null
     return `The ${missing === settings.agent ? 'agent' : 'reader'} command ${notFound(missing, env.platform)}.`
   })

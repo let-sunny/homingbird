@@ -288,18 +288,36 @@ describe('homingbird run', () => {
     expect(w.problems[0]).toMatch(/^The reader command could not be found: "codex"/)
   })
 
-  it('starts with a preset found on its PATH, and with a command of one’s own without looking', async () => {
+  it('starts with a preset or a command of one’s own found on its PATH, and with a script without looking', async () => {
     const found = runner({ variables: { PATH: '/opt/bin' }, runnable: (path) => path === '/opt/bin/claude' })
     await settle(() => found.w.lines.some((line) => line.includes('Answering notes')))
     expect(await found.stop()).toBe(INTERRUPTED)
     const own = runner({
       argv: ['--agent', 'my-agent --fast'],
       variables: { PATH: '/usr/bin' },
-      runnable: () => false,
+      runnable: (path) => path === '/usr/bin/my-agent',
     })
     await settle(() => own.w.lines.some((line) => line.includes('Answering notes')))
     expect(own.w.problems).toEqual([])
     expect(await own.stop()).toBe(INTERRUPTED)
+    const script = runner({
+      argv: ['--agent', './my-agent.sh'],
+      variables: { PATH: '/usr/bin' },
+      runnable: () => false,
+    })
+    await settle(() => script.w.lines.some((line) => line.includes('Answering notes')))
+    expect(script.w.problems).toEqual([])
+    expect(await script.stop()).toBe(INTERRUPTED)
+  })
+
+  it('refuses to start, before reading any note, when the program of a command of one’s own is not on its PATH', async () => {
+    const w = world({ variables: { PATH: '/usr/local/bin:/usr/bin' }, runnable: () => false })
+    expect(await w.run('run', '--agent', 'codex exec')).toBe(EXIT.failed)
+    expect(w.problems).toEqual([
+      'The agent command could not be found: "codex" is not on the PATH this runs with; give its absolute path, such as /usr/local/bin/codex, or set PATH.',
+    ])
+    expect(w.calls).toEqual([])
+    expect(w.agentRuns).toEqual([])
   })
 
   it('says on Windows when cmd.exe cannot find the agent’s program, with a Windows path', async () => {
@@ -1083,7 +1101,7 @@ describe('homingbird run --split', () => {
         args.includes('mcp') ? { exitCode: 0, output: '[{"name":"github"}]' } : undefined,
     })
     await settle(() => r.created.length === 1)
-    expect(r.w.agentRuns[0]!.command).toContain(`-c 'mcp_servers."github".enabled=false' -`)
+    expect(r.w.agentRuns[0]!.command).toContain('-c mcp_servers.github.enabled=false -')
     expect(r.w.agentRuns[1]!.command).not.toContain('mcp_servers')
     await r.stop()
   })
