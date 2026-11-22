@@ -59,12 +59,13 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
     ).json
     return person.api('PUT', `/principles/${saved.id}/auto-send`, { enabled: false, places: [] })
   },
+  draftPreviews: (person) => person.api('GET', '/me/draft-previews'),
 }
 
 let probedAnswers = 0
 
 describe('feature switches', () => {
-  it('are all on by default but analytics, channel agents, the cloud desk and automatic sending, and server.info says which are on', async () => {
+  it('are all on by default but analytics, channel agents, the cloud desk, automatic sending and draft previews, and server.info says which are on', async () => {
     const info = (await server.request('GET', '/api/v1/info')).json
     expect(info.features).toEqual({
       ...Object.fromEntries(FEATURE_NAMES.map((name) => [name, true])),
@@ -72,6 +73,7 @@ describe('feature switches', () => {
       channelAgents: false,
       cloudDesk: false,
       autoSend: false,
+      draftPreviews: false,
     })
     await switchTo({ teaching: false })
     expect((await server.request('GET', '/api/v1/info')).json.features.teaching).toBe(false)

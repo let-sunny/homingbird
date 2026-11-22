@@ -62,6 +62,7 @@ export const browserPage = (window: BrowserWindow): Page => {
       probe.setAttribute('popover', 'hint')
       return (probe as { popover?: unknown }).popover === 'hint'
     },
+    supportsInterestInvokers: () => 'interestForElement' in document.createElement('button'),
     storage: {
       local: (key) => attempt(() => window.localStorage.getItem(key)),
       setLocal: (key, value) => void attempt(() => window.localStorage.setItem(key, value)),
@@ -137,6 +138,8 @@ export interface Page {
   readonly shownNotifications: () => Promise<ReadonlyArray<ShownNotification>>
   /** Whether popovers of the `hint` kind exist, which leave other open popovers alone. */
   readonly supportsHintPopovers: () => boolean
+  /** Whether a button can show a popover on hover and focus by itself, through `interestfor`. */
+  readonly supportsInterestInvokers: () => boolean
   readonly storage: PageStorage
   readonly download: (file: DownloadedFile) => void
   /** Copies text to the clipboard; false where the browser refuses or has no clipboard. */

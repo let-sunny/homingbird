@@ -44,6 +44,8 @@ export const EventBody = S.openVariants(
     'debate.changed': { debateId: DebateId, participantIds: S.array(MemberId, { maxItems: 8 }) },
     'group.changed': { groupId: GroupId },
     'review.changed': { noteId: S.nullable(NoteId) },
+    /** An allowed viewer's previews in a conversation changed, or with none, everywhere: read them again. */
+    'preview.changed': { conversationId: S.nullable(ConversationId) },
     resync: {},
   },
   UNKNOWN_EVENT,
@@ -65,10 +67,14 @@ const EPHEMERAL: ReadonlyArray<EventType> = [
   'debate.changed',
   'group.changed',
   'review.changed',
+  'preview.changed',
   'resync',
 ]
 
 export const isDurable = (type: EventType): boolean => !EPHEMERAL.includes(type)
+
+/** Told to a person's own signed-in pages only, never to a stream an agent credential holds. */
+export const isForPeopleOnly = (type: string): boolean => type === 'preview.changed'
 
 export const STREAM_PATHS = {
   sse: '/api/v1/events/stream',

@@ -7,6 +7,8 @@ import { CLOUD_DESK } from './migrations/cloud-desk-step.ts'
 import { DEBATE_MODEL } from './migrations/debate-model-step.ts'
 import { DEBATE_PACING } from './migrations/debate-pacing-step.ts'
 import { DEBATES } from './migrations/debates-step.ts'
+import { DISCARDED_BY } from './migrations/discarded-by-step.ts'
+import { DRAFT_PREVIEWS } from './migrations/draft-previews-step.ts'
 import { GROUPS } from './migrations/groups-step.ts'
 import { HISTORY_ANSWERS } from './migrations/history-answers-step.ts'
 import { INSIGHTS } from './migrations/insights-step.ts'
@@ -35,6 +37,8 @@ export const MIGRATIONS: ReadonlyArray<Migration> = [
   DEBATE_PACING,
   CHANNEL_TEACHING,
   AUTO_SEND,
+  DRAFT_PREVIEWS,
+  DISCARDED_BY,
 ]
 
 /** The step that added the audit trail; when it runs, the first audit table's old rows go. */

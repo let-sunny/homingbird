@@ -45,6 +45,7 @@ How agents, the server and the web client fit together is drawn in [architecture
 - [When your agent cannot answer](#when-your-agent-cannot-answer)
 - [Answering flow](#answering-flow)
 - [Approve, edit or discard](#approve-edit-or-discard)
+- [Let colleagues see your agent's drafts early](#let-colleagues-see-your-agents-drafts-early)
 - [Activity: everything that waits for you](#activity-everything-that-waits-for-you)
 - [Read a conversation: who wrote each note](#read-a-conversation-who-wrote-each-note)
 - [See how far you can trust your agent](#see-how-far-you-can-trust-your-agent)
@@ -557,6 +558,14 @@ writes.
   you to read it again before you can send it. The person who asked sees only that an answer is being
   drafted, never the draft, so a manager never reviews the answer to their own question: if you are the
   only manager, add another first.
+- **See what was decided.** On the agent's page, below the answers waiting, **Recent decisions** lists
+  every answer the managers sent or discarded in the last 30 days, newest first: sent as written, sent
+  after an edit, or discarded, who decided it and when, the question it answered, and the principles it
+  said it applied. An edited answer shows what the agent wrote above what was sent; a discarded one
+  shows its text and the reason, if one was given. Only the channel's current managers see the list,
+  never an administrator outside them, and a decision on a question you asked yourself is never in
+  yours, because its draft was hidden from you. **Show where it was asked** opens the answer, or the
+  question a discarded answer left, in its room or private question.
 - **Read the answer.** A sent answer shows the agent as its author and who approved it, such as
   "#payments-wiki · approved by Kim". The audit trail records the approver and the agent, never the
   text.
@@ -580,9 +589,10 @@ writes.
   before drafting and before its checks; an instruction asking it to approve, send or discard anything
   is ignored, and the form says so. A manager still approves every answer. The audit trail records
   which manager changed it, never what it says.
-- **Teach from a correction.** When you edit an answer before sending it, or discard it, its card
-  offers **Teach from this correction** (or **Teach what it should have done**). It opens the same form,
-  prefilled from what you changed; nothing is saved until you save it.
+- **Teach from a decision.** Each row of **Recent decisions** offers to teach the agent: **Teach from
+  this correction** on an edited answer, **Teach what it should have done** on a discarded one, and
+  **Teach …** on one sent as written. It opens the same form, prefilled from what was changed in an
+  edit; nothing is saved until you save it.
 - **Ask privately.** **Ask … privately** opens your own conversation with the channel's agent. Its
   first screen says who else is there: the channel's managers, now and later, who read everything in it.
   Your question goes to the agent alone and its answer to you alone, once a manager approves it. In a
@@ -786,6 +796,24 @@ You can also write a note yourself in the composer at the bottom of any conversa
 When you have often approved drafts quickly this week and a draft contains a date, a number or a
 promise, one quiet line above **Send** asks you to read it first, such as "This draft has a date in
 it. Read it before sending." It never stops you from sending.
+
+## Let colleagues see your agent's drafts early
+
+When your organization turns on early previews, you can let chosen colleagues read what your agent
+drafted before you check it, so they need not wait for you. Open **My agent → Early previews**, tick the
+people and the channels, and choose **Save**. Nobody is ticked until you do.
+
+- A ticked person sees your agent's drafts in direct and group messages with you; a ticked channel
+  shows them to everyone in its room.
+- They see each draft as a dashed card, "Unconfirmed draft from June's agent. June has not checked it
+  yet." They cannot reply to it or quote it, it is not in search, and it does not count as unread.
+- When you send it, they see your note as usual, with a line saying you checked it, or that you changed
+  it before sending. When you discard it, the card says you withdrew it and its text is gone.
+- Only what your agent wrote is shown early: never a draft you wrote yourself, a debate room's result,
+  a private question, or a channel agent's answer.
+- Under your own waiting draft, a line says who can see it before you check it.
+- Agents never see a preview, yours or your colleagues': no tool, command or connector can read one or
+  change who may.
 
 ## Activity: everything that waits for you
 

@@ -199,6 +199,34 @@ export const ko: Translation<typeof en> = {
   privateChannel: '비공개',
   answerHere: '여기서 답하기',
   answerHereHelp: '“여기서 답하기”란?',
+  hintClose: '도움말 닫기',
+  hints: {
+    legend: '도움말',
+    intro:
+      '처음 2주 동안, Homingbird만의 기능을 한 번 써 보기 전까지 무엇을 할 수 있는지 짧은 도움말이 떠요.',
+    showAgain: '도움말 다시 보기',
+    shownAgain: '이 브라우저에서 지금부터 도움말이 다시 떠요.',
+    kindRule: '규칙은 에이전트에게 답을 찾는 방법을 알려 줘서, 사실이 바뀌어도 맞게 답해요.',
+    kindAnswer: '답은 에이전트가 그대로 전하는 내용이에요. 잘 바뀌지 않는 사실에 쓰세요.',
+    makePublic: '누르면 이 원칙에 대한 문장 하나를 동료에게 보여 줘요. 원칙 자체는 나만 봐요.',
+    makePrivate: '누르면 이 원칙에 대한 문장을 동료에게 더 이상 보여 주지 않아요.',
+    approveAndSend: '누르면 보이는 그대로 보내요. 누르기 전에는 아무것도 나가지 않아요.',
+    draft: '내 에이전트가 쓴 초안이에요. 승인하고 보내기 전에는 다른 사람에게 보이지 않아요.',
+    channelAgent: '이 채널에 답하는 에이전트를 열어요. 답마다 채널 운영자가 승인해요.',
+    channelManagers: '운영자는 이 채널의 에이전트를 돌리고, 그 답을 읽은 뒤 보내요.',
+    privateQuestion: '나와 채널 운영자만 보는 곳에서 이 채널의 에이전트에게 물어요.',
+    debateRoom: '몇 사람의 에이전트가 한 질문을 차례대로 토론하는 방이에요. 열어서 따라가 보세요.',
+    debateTurns: '에이전트마다 한 말을 읽어요. 차례는 승인 없이 보이고 방 안에만 남아요.',
+    debateResult: '에이전트들이 투표로 정한 결론이에요. 사람이 보내야만 방 밖으로 나가요.',
+    skippedDraft: '에이전트가 초안을 쓰지 않기로 한 노트예요. 직접 답하거나 어떻게 할지 가르쳐 주세요.',
+    sentAsWritten: '한 글자도 고치지 않고 보낸 초안이에요. 에이전트를 믿어도 되는 곳을 보여 줘요.',
+    teachingChances: '고치거나 버린 초안을 다음번을 위한 원칙으로 바꿔요.',
+    insights: '에이전트 초안이 어떻게 처리되는지 조직 전체의 합계를 봐요. 누구의 노트도 보이지 않아요.',
+    draftPreviews: '내가 확인하기 전의 에이전트 초안을, 미확인 표시와 함께 누가 볼 수 있을지 골라요.',
+    autoSend: '작성자가 스스로 보내도록 허락한 저장된 답이 승인을 기다리지 않고 보낸 노트예요.',
+    joinCode:
+      '서버를 이 에이전트로 로그인시키는 일회용 서버 연결 코드를 만들어요. 에이전트는 초안만 쓰고 보내지 않아요.',
+  },
   answerHereHint:
     '켜면 이 채널의 질문이 나에게 전달되고, 내 에이전트가 답장 초안을 써서 승인을 기다려요. 끄면 채널에 남아 읽기만 해요.',
   leaveChannel: '채널 나가기',
@@ -639,6 +667,7 @@ export const ko: Translation<typeof en> = {
       invites: '초대 링크',
       analytics: '익명 제품 분석',
       autoSend: '스스로 보내지는 저장한 답',
+      draftPreviews: '에이전트 초안 미리 보여 주기',
     },
     whenOff: {
       channels: '끄면: 새 채널을 만들 수 없어요. 있는 채널은 그대로예요.',
@@ -669,6 +698,8 @@ export const ko: Translation<typeof en> = {
         '끄면: 저장한 답이 스스로 보내지지 않고, 모든 초안이 본인의 승인을 기다려요. 켜면: 각자 저장한 답을 스스로 보내지게 켤 수 있지만, 그 답과 똑같은 글만, 본인이 허락한 곳에만 보내져요.',
       analytics:
         '끄면: 사용 통계가 이 서버 밖으로 나가지 않아요. 켜면 서버 운영자가 정한 곳으로만 본 페이지 같은 익명 통계가 가요. 내용, 이름, 이메일은 보내지 않아요.',
+      draftPreviews:
+        '끄면: 본인이 확인하기 전에는 아무도 동료 에이전트의 초안을 볼 수 없어요. 켜면: 각자 내 에이전트에서 누가 볼지 골라요. 고르기 전에는 아무도 볼 수 없어요.',
     },
   },
   todo: {
@@ -708,6 +739,7 @@ export const ko: Translation<typeof en> = {
       teaching: '가르치기',
       doing: '현황',
       routes: '경로 지도',
+      previews: '미리 보여 주기',
     },
     tabsLabel: '내 에이전트 메뉴',
     sectionHints: {
@@ -718,6 +750,7 @@ export const ko: Translation<typeof en> = {
         '이 숫자는 내가 아니라 에이전트 초안에 관한 거예요. 초안이 어디서 이미 내 뜻대로 나가고, 어디서 아직 내 손이 필요한지 보여 줘요.',
       routes:
         '에이전트가 이미 나처럼 답하는 곳이에요. 초안을 쓰는 곳마다 원칙이 얼마나 도움이 되는지 보여 줘요.',
+      previews: '내가 확인하기 전에 에이전트 초안을 읽을 수 있는 사람이에요.',
     },
     verdict: {
       unknown: '이 버전에서는 아직 이 숫자를 설명할 수 없어요',
@@ -1640,6 +1673,33 @@ export const ko: Translation<typeof en> = {
     figuresApproved: { other: '{name}: 답변 {count}개' },
     figuresLoadFailed: '에이전트가 어떻게 하고 있는지 불러오지 못했어요. 잠시 뒤에 다시 해 보세요.',
   },
+  channelDecisions: {
+    title: '최근 결정',
+    intro:
+      '최근 {days}일 동안 {channel} 채널 운영자가 에이전트 {agent}의 답을 어떻게 결정했는지 최근 것부터 보여 줘요. 운영자만 보고, 운영자 자신이 한 질문에 대한 결정은 보이지 않아요.',
+    none: '최근 {days}일 동안 보내거나 버린 답이 없어요.',
+    loadFailed: '최근 결정을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
+    listLabel: '에이전트 {agent}의 답에 대한 최근 결정',
+    outcome: {
+      sent_as_written: '그대로 보냄',
+      sent_edited: '수정 후 보냄',
+      discarded: '버림',
+      unknown: '결정됨',
+    },
+    decidedBy: {
+      sent_as_written: '{name} 님이 보냄',
+      sent_edited: '{name} 님이 수정해서 보냄',
+      discarded: '{name} 님이 버림',
+      unknown: '{name} 님이 결정함',
+    },
+    discardedByAManager: '운영자가 버림',
+    answerSent: '보낸 답',
+    answerDiscarded: '버린 답',
+    agentWrote: '에이전트 {agent}의 원래 답',
+    reason: '버린 이유',
+    principles: '적용한 원칙: {principles}',
+    open: '질문한 곳에서 보기',
+  },
   channelTeach: {
     tabsLabel: '{channel} 채널의 에이전트',
     tabs: { answers: '답', teach: '가르치기' },
@@ -1739,6 +1799,28 @@ export const ko: Translation<typeof en> = {
     expired: '이 서버 연결 코드는 쓰이기 전에 만료됐어요.',
     again: '새 서버 연결 코드 만들기',
     failed: '지금은 서버 연결 코드를 만들 수 없어요. 잠시 후 다시 시도하세요.',
+  },
+  draftPreviews: {
+    intro:
+      '내가 확인하기 전에도 고른 동료가 에이전트 초안을 볼 수 있게 해요. 동료는 나를 기다리지 않아도 돼요. 동료에게는 확인 전 초안으로 표시되고, 답장하거나 인용할 수 없으며, 내가 버리면 사라져요. 내가 직접 쓴 초안과 채널 에이전트의 답은 보여 주지 않아요.',
+    people: '사람',
+    peopleHint: '나와 주고받는 DM과 그룹 DM에서 에이전트 초안을 볼 수 있어요.',
+    channels: '채널',
+    channelsHint: '채널 방에 있는 모두가 그 방의 에이전트 초안을 볼 수 있어요.',
+    noPeople: '아직 다른 사람이 없어요.',
+    noChannels: '채널에 들어가면 여기서 고를 수 있어요.',
+    nobody: '내가 확인하기 전에는 아무도 에이전트 초안을 볼 수 없어요.',
+    somebody: '{people}명과 채널 {channels}곳에 미리 보여 줘요.',
+    save: '저장',
+    saved: '저장했어요.',
+    cardTitle: '{name}님의 에이전트가 쓴 확인 전 초안',
+    cardNote: '{name}님이 아직 확인하지 않았어요. 바뀌거나 철회될 수 있어요.',
+    withdrawn: '{name}님이 이 초안을 철회했어요',
+    withdrawnNote: '보내지 않았어요.',
+    ownNotice: '내가 확인하기 전에도 {names}님이 여기서 에이전트 초안을 볼 수 있어요.',
+    ownNoticeRoom: '내가 확인하기 전에도 이 방의 모두가 에이전트 초안을 볼 수 있어요.',
+    confirmed: '{name}님이 미리 본 초안을 확인하고 보냈어요.',
+    confirmedEdited: '{name}님이 미리 본 초안을 고친 뒤 보냈어요.',
   },
   cloudDesk: {
     legend: '클라우드 데스크',

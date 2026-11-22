@@ -1,5 +1,14 @@
 import type { AsRead, ConversationId, NoteId } from '@homingbird/protocol'
-import { type Lifetime, h, keyedRegion, lifetime, onAnyChange, region, slice } from '@homingbird/ui'
+import {
+  type Child,
+  type Lifetime,
+  h,
+  keyedRegion,
+  lifetime,
+  onAnyChange,
+  region,
+  slice,
+} from '@homingbird/ui'
 import {
   type ActivityInput,
   type ActivityItem,
@@ -13,6 +22,7 @@ import { reviewCard } from './channel-agent.ts'
 import type { ViewContext } from './context.ts'
 import { renderDraftsItem, reportWhenSeen } from './drafts-item.ts'
 import { heldToastInPanel, placeHeldToast, renderHeldLine } from './held-toast.ts'
+import { hinted } from './hint.ts'
 import { bellIcon } from './mute-toggle.ts'
 import { button, timeLabel } from './parts.ts'
 import { teachFromMiss } from './teaching.ts'
@@ -234,7 +244,7 @@ const activityContent = (context: ViewContext, life: Lifetime, me: AsRead.Me): H
       const section = h(
         'section',
         { class: 'activity-group', data: { kind } },
-        h('h3', {}, strings.activity.groups[kind]),
+        activityHeading(context, kind),
         keyedRegion(life, h('ul', { class: 'activity-list' }), sources, items, {
           key: (item) => item.key,
           signature: (item) => JSON.stringify(item),
@@ -252,6 +262,14 @@ const activityContent = (context: ViewContext, life: Lifetime, me: AsRead.Me): H
 }
 
 const ACTIVITY_KINDS: ReadonlyArray<ActivityKind> = ['drafts', 'reviews', 'skipped', 'debates']
+
+/** A group's heading, with a hint for the kinds other messengers lack: skipped notes and debate rooms. */
+const activityHeading = (context: ViewContext, kind: ActivityKind): Child => {
+  const heading = h('h3', {}, strings.activity.groups[kind])
+  if (kind === 'skipped') return hinted(context, 'skippedDraft', strings.hints.skippedDraft, heading)
+  if (kind === 'debates') return hinted(context, 'debateRoom', strings.hints.debateRoom, heading)
+  return heading
+}
 
 const renderItem = (context: ViewContext, item: ActivityItem): HTMLElement => {
   const head = placeLine(item.place)

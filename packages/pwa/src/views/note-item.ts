@@ -6,6 +6,7 @@ import { strings } from '../strings.ts'
 import { authorButton } from './author-details.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
+import { hinted } from './hint.ts'
 import { actionMenu } from './menu.ts'
 import { noteBody } from './note-body.ts'
 import { button, sourceList, timeLabel } from './parts.ts'
@@ -94,7 +95,7 @@ export const renderNoteItem = (
         h(
           'p',
           { class: 'note-auto-sent' },
-          h('span', {}, model.autoSent.text),
+          hinted(context, 'autoSend', strings.hints.autoSend, h('span', {}, model.autoSent.text)),
           model.autoSent.recall !== null &&
             button(
               model.autoSent.recall,

@@ -73,6 +73,7 @@ export const FEATURES = {
       'channels.agent.retire',
       'channels.agent.credentials.revoke',
       'channels.agent.figures',
+      'channels.agent.decisions',
       'channels.agent.teaching.get',
       'channels.agent.teaching.set',
       'channels.agent.principles.create',
@@ -93,6 +94,10 @@ export const FEATURES = {
   invites: { default: true, routes: ['invites.list', 'invites.create', 'invites.revoke'] },
   analytics: { default: false, routes: ['analytics.track'] },
   autoSend: { default: false, routes: ['principles.autoSend.set', 'notes.recall'] },
+  draftPreviews: {
+    default: false,
+    routes: ['me.draftPreviews.get', 'me.draftPreviews.set', 'previews.list'],
+  },
 } as const satisfies Readonly<
   Record<string, { readonly default: boolean; readonly routes: ReadonlyArray<RouteName> }>
 >

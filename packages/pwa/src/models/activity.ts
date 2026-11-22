@@ -397,6 +397,7 @@ const threadInputOf = (
   sending: false,
   now: input.now,
   focusedDraft: null,
+  previewedBodies: new Map(),
 })
 
 const noteInThreads = (

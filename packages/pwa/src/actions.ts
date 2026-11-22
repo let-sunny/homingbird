@@ -16,6 +16,7 @@ import * as held from './tasks/held.ts'
 import * as mutes from './tasks/mutes.ts'
 import * as notes from './tasks/notes.ts'
 import * as people from './tasks/people.ts'
+import * as previews from './tasks/previews.ts'
 import * as teaching from './tasks/teaching.ts'
 import * as workspace from './tasks/workspace.ts'
 
@@ -103,6 +104,7 @@ export const TASKS = {
   confirmReviewRead: channelAgents.confirmReviewRead,
   loadChannelAgent: channelAgents.loadChannelAgent,
   loadChannelAgentFigures: channelAgents.loadChannelAgentFigures,
+  loadChannelDecisions: channelAgents.loadChannelDecisions,
   createChannelAgent: channelAgents.createChannelAgent,
   renameChannelAgent: channelAgents.renameChannelAgent,
   retireChannelAgent: channelAgents.retireChannelAgent,
@@ -149,6 +151,9 @@ export const TASKS = {
   turnPushOn: () => turnPushOn,
   turnPushOff: () => turnPushOff,
   testPush: () => testPush,
+  loadPreviews: previews.loadPreviews,
+  loadPreviewAllowance: () => previews.loadPreviewAllowance,
+  savePreviewAllowance: previews.savePreviewAllowance,
   loadDeskWake: () => cloudDesk.loadDeskWake,
   saveDeskWake: cloudDesk.saveDeskWake,
   removeDeskWake: () => cloudDesk.removeDeskWake,

@@ -2673,6 +2673,63 @@ button.group-member-name:focus-visible::after {
   padding: var(--hb-space-2);
 }
 
+/*
+ * A quiet one-line hint of what a Homingbird control does, for people who are new: under the control,
+ * where the script placed it, or anchored to it by the browser where interest invokers anchor it.
+ */
+.hint-tip {
+  inset: var(--hb-hint-y, auto) auto auto var(--hb-hint-x, auto);
+  margin: 0;
+  max-inline-size: min(18rem, calc(100vi - var(--hb-space-4)));
+  padding: var(--hb-space-1) var(--hb-space-2);
+  border: var(--hb-border);
+  background: var(--hb-color-surface);
+  color: var(--hb-color-text);
+  box-shadow: var(--hb-shadow-hover);
+  font: 400 var(--hb-text-small) / 1.35 var(--hb-font-body);
+  text-align: start;
+  white-space: normal;
+  pointer-events: none;
+}
+
+[interestfor] {
+  interest-delay-start: var(--hb-duration-hint-delay);
+}
+
+@supports (position-area: block-end span-inline-end) {
+  .hint-tip.is-anchored {
+    inset: auto;
+    margin-block-start: var(--hb-space-1);
+    position-area: block-end span-inline-end;
+    position-try-fallbacks: flip-block, flip-inline;
+  }
+}
+
+/* On a touch screen the hint shows once on its own line under the control, never over it. */
+.hint-inline {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: var(--hb-space-2);
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  margin: var(--hb-space-1) 0 0;
+  padding-inline-start: var(--hb-space-2);
+  border-inline-start: var(--hb-border);
+  color: var(--hb-color-muted);
+  font-size: var(--hb-text-small);
+  font-weight: 400;
+}
+
+.hint-close {
+  flex: none;
+  padding: 0 var(--hb-space-1);
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+}
+
 .group-people-open {
   flex: none;
   padding: var(--hb-space-1) var(--hb-space-2);
@@ -5760,6 +5817,53 @@ textarea:disabled {
   flex-wrap: wrap;
 }
 
+.decision-rows {
+  display: grid;
+  gap: var(--hb-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.decision-row {
+  display: grid;
+  gap: var(--hb-space-2);
+  padding: var(--hb-space-3);
+  border: var(--hb-border);
+  background: var(--hb-color-surface);
+}
+
+.decision-row.is-discarded {
+  border-inline-start-width: var(--hb-border-rule);
+}
+
+.decision-head,
+.decision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hb-space-2);
+  margin: 0;
+}
+
+.decision-original,
+.decision-answer,
+.decision-reason {
+  display: grid;
+  gap: var(--hb-space-1);
+  margin: 0;
+}
+
+.decision-original .note-body,
+.decision-answer .note-body,
+.decision-reason span {
+  white-space: pre-wrap;
+}
+
+.decision-principles {
+  margin: 0;
+}
+
 .note-approval {
   margin: var(--hb-space-1) 0 0;
   font: var(--hb-text-small) / 1.6 var(--hb-font-mono);
@@ -5869,6 +5973,7 @@ textarea:disabled {
     .activity-page-link,
     .answering-chip,
     .answering-help,
+    .hint-close,
     .author-button,
     .todo-switch,
     .todo-move,
@@ -5897,6 +6002,7 @@ textarea:disabled {
     .activity-page-link,
     .answering-chip,
     .answering-help,
+    .hint-close,
     .author-button,
     .todo-switch,
     .todo-move,
@@ -6052,6 +6158,7 @@ textarea:disabled {
           .icon,
           .switch,
           .answering-help,
+          .hint-close,
           .author-button,
           .todo-switch,
           .todo-move,
@@ -6151,4 +6258,49 @@ textarea:disabled {
   gap: var(--hb-space-1);
   font-size: var(--hb-text-small);
   white-space: nowrap;
+}
+
+.draft-previews {
+  display: grid;
+  gap: var(--hb-space-2);
+}
+
+.draft-previews:empty {
+  display: none;
+}
+
+.draft-preview {
+  display: grid;
+  gap: var(--hb-space-1);
+  justify-self: start;
+  max-inline-size: min(36rem, 100%);
+  padding: var(--hb-space-2) var(--hb-space-3);
+  border: var(--hb-border-width) dashed var(--hb-color-line);
+  background: var(--hb-color-surface);
+  color: var(--hb-color-muted);
+}
+
+.draft-preview-title,
+.draft-preview-note {
+  margin: 0;
+  font-size: var(--hb-text-small);
+}
+
+.draft-preview-title {
+  font-weight: 600;
+}
+
+.draft-preview-body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.draft-preview.is-withdrawn {
+  border-style: dotted;
+}
+
+.draft-preview-own {
+  justify-self: end;
+  margin: 0;
 }

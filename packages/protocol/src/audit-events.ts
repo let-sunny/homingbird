@@ -100,6 +100,10 @@ export const AUDIT_EVENTS = {
   'note.discarded': event('full', 'note', { conversationId: ConversationId }),
   'note.auto_sent': event('full', 'note', { conversationId: ConversationId, principleId: PrincipleId }),
   'note.recalled': event('full', 'note', { conversationId: ConversationId }),
+  'draft_preview.allowed_changed': event('full', 'member', {
+    people: S.int({ min: 0 }),
+    channels: S.int({ min: 0 }),
+  }),
   'member.profile_changed': event('full', 'member', {
     fields: S.array(S.literal('name', 'profile', 'locale'), { maxItems: 3 }),
   }),
