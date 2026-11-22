@@ -47,6 +47,11 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
     T.map((host: string) => () => ({ targetId: caller.member.id, detail: { host } }))(
       deskWakeHostOf(caller.member.id),
     ),
+  'me.draftPreviews.set': (_, caller) =>
+    afterwards((allowance) => ({
+      targetId: caller.member.id,
+      detail: { people: allowance.people.length, channels: allowance.channels.length },
+    })),
   'conversations.mute': ({ params }) => afterwards(() => ({ targetId: params.id, detail: { muted: true } })),
   'conversations.unmute': ({ params }) =>
     afterwards(() => ({ targetId: params.id, detail: { muted: false } })),
@@ -167,6 +172,13 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
         ...(body.enabled !== undefined && { enabled: body.enabled }),
       },
     })),
+  'principles.autoSend.set': ({ params, body }) =>
+    afterwards(() => ({
+      targetId: params.id,
+      detail: { enabled: body.enabled, places: new Set(body.places).size },
+    })),
+  'notes.recall': () =>
+    afterwards((note) => ({ targetId: note.id, detail: { conversationId: note.conversationId } })),
   'principles.reorder': ({ body }) =>
     afterwards(() => ({ targetId: null, detail: { count: body.ids.length } })),
   'principles.delete': ({ params }) => afterwards(() => ({ targetId: params.id, detail: {} })),

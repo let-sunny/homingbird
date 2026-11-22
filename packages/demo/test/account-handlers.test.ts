@@ -168,3 +168,22 @@ describe('connecting an agent', () => {
     ).toMatchObject({ _tag: 'Forbidden' })
   })
 })
+
+describe('principles.autoSend.set', () => {
+  it('keeps the visitor’s switch and each place once, and starts a new answer switched off', async () => {
+    const { api } = demoApi()
+    const { principles } = await succeeded(api['principles.list']({}))
+    const refunds = principles.find((each) => each.topic === 'Annual refunds')!
+    expect(refunds.autoSend).toMatchObject({ enabled: true })
+    const off = await succeeded(
+      api['principles.autoSend.set']({ params: { id: refunds.id }, body: { enabled: false, places: [] } }),
+    )
+    expect(off.autoSend).toEqual({ enabled: false, places: [] })
+    const created = await succeeded(
+      api['principles.create']({
+        body: { kind: 'answer', topic: 'Hours', rule: 'Nine to five.', place: null },
+      }),
+    )
+    expect(created.autoSend).toEqual({ enabled: false, places: [] })
+  })
+})

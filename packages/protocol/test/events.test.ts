@@ -9,6 +9,7 @@ import {
   STREAM_PATHS,
   StreamEvent,
   isDurable,
+  isForPeopleOnly,
 } from '../src/events.ts'
 
 const types: EventType[] = [
@@ -27,7 +28,9 @@ const types: EventType[] = [
   'group.changed',
   'review.changed',
   'proposals.changed',
+  'preview.changed',
   'note.released',
+  'note.withdrawn',
   'resync',
 ]
 
@@ -46,7 +49,7 @@ describe('stream events', () => {
     expect([...seen].sort()).toEqual([...types].sort())
   })
 
-  it('treats presence, directory, debate room, group, review and proposal changes and resync as ephemeral, and everything else as durable', () => {
+  it('treats presence, directory, debate room, group, review, proposal and preview changes and resync as ephemeral, and everything else as durable', () => {
     expect(types.filter((type) => !isDurable(type))).toEqual([
       'presence',
       'directory.changed',
@@ -54,8 +57,14 @@ describe('stream events', () => {
       'group.changed',
       'review.changed',
       'proposals.changed',
+      'preview.changed',
       'resync',
     ])
+  })
+
+  it('keeps a preview change for a person’s own pages, and every other event for any stream', () => {
+    expect(types.filter(isForPeopleOnly)).toEqual(['preview.changed'])
+    expect(isForPeopleOnly('unknown')).toBe(false)
   })
 
   it('refuses an unknown event type and reports the discriminator', () => {

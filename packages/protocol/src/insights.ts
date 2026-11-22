@@ -66,6 +66,7 @@ export const AgentFigures = S.struct({
   wroteYourself: count,
   /** Debate results the person sent: counted apart, neither as agent drafts nor as notes they wrote. */
   debateResultsSent: S.optional(count),
+  autoSent: S.optional(count),
   verdict: TrustVerdict,
   places: S.array(PlaceTrust),
   byClient: S.array(LabelTotals),
@@ -186,6 +187,7 @@ export const OrganizationFigures = S.struct({
   answeredFromHistory: S.optional(count),
   /** Debate results sent, apart from notes and drafts; null while fewer people than the minimum sent one. */
   debateResultsSent: S.optional(S.nullable(count)),
+  autoSent: S.optional(S.nullable(count)),
   places: S.array(PlaceTotals),
   hiddenPlaces: count,
   byClient: S.array(OrganizationLabelTotals),

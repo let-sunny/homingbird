@@ -197,6 +197,13 @@ const figuresTable = (
           : formats.decimal.format(figures.debateResultsSent),
       ),
       line(rows.answeredFromHistory, (figures) => formats.decimal.format(figures.answeredFromHistory ?? 0)),
+      ...(current.autoSent === undefined
+        ? []
+        : [
+            line(rows.autoSent, (figures) =>
+              figures.autoSent == null ? strings.insights.hidden : formats.decimal.format(figures.autoSent),
+            ),
+          ]),
       line(strings.measures.decisionTimeRow, (figures) =>
         figures.medianDecisionMs == null
           ? missing(insights.minimumGroupSize)
@@ -215,6 +222,13 @@ const figuresTable = (
       insights.minimumGroupSize <= 1
         ? strings.insights.debateResultsCounted
         : strings.insights.debateResultsExplained({ minimum: insights.minimumGroupSize }),
+      ...(current.autoSent === undefined
+        ? []
+        : [
+            insights.minimumGroupSize <= 1
+              ? strings.insights.autoSentCounted
+              : strings.insights.autoSentExplained({ minimum: insights.minimumGroupSize }),
+          ]),
       strings.insights.quickExplained({ seconds: insights.quickApprovalSeconds }),
       strings.insights.skipExplained,
       ...(decisionsShown(current) === null

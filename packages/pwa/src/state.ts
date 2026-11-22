@@ -81,6 +81,9 @@ export const createState = (hash: string): AppState => {
     ),
     changes: changeCounter(),
     seenDrafts: new Set(),
+    previews: signal<ReadonlyMap<ConversationId, ReadonlyArray<AsRead.DraftPreview>>>(new Map()),
+    previewedBodies: signal<ReadonlyMap<NoteId, string>>(new Map()),
+    previewAllowance: signal<AsRead.DraftPreviewAllowance | null>(null),
   }
 }
 
@@ -158,6 +161,12 @@ export interface AppState {
   readonly changes: ChangeCounter
   /** Drafts already reported as seen in this page. */
   readonly seenDrafts: Set<NoteId>
+  /** Other people's agents' unconfirmed drafts this person may see, by conversation, as last loaded. */
+  readonly previews: Signal<ReadonlyMap<ConversationId, ReadonlyArray<AsRead.DraftPreview>>>
+  /** Each preview's words as this page last showed them, so a sent note can say whether they changed. */
+  readonly previewedBodies: Signal<ReadonlyMap<NoteId, string>>
+  /** Whom the person lets see their own agent's drafts early, once loaded. */
+  readonly previewAllowance: Signal<AsRead.DraftPreviewAllowance | null>
 }
 
 export type Connection = 'connecting' | 'live' | 'polling' | 'offline'

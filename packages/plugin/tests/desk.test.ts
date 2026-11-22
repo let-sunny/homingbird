@@ -208,6 +208,18 @@ test('a change in a room the agent takes no part in runs nothing', async ($, on)
   expect(seen.commands.filter((args) => args[0] === 'debates')).toEqual([])
 })
 
+test('a draft preview change, which no agent stream carries, prompts and runs nothing', async ($, on) => {
+  const seen = engineBeneath(on, {
+    overview: OVERVIEW,
+    streamLines: [streamLine({ type: 'preview.changed', conversationId: 'conv_room00000000' })],
+  })
+  await $.session.start(START)
+  await openDesk($, seen)
+  await seen.clock.advance(120_000)
+  expect(seen.prompts).toEqual([])
+  expect(seen.commands.filter((args) => args.some((arg) => String(arg).includes('preview')))).toEqual([])
+})
+
 test('a declined result gives a new notice when the room asks for the result again', async ($, on) => {
   const changed = streamLine({
     type: 'debate.changed',

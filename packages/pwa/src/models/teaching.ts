@@ -20,6 +20,7 @@ import {
   suggestionText,
 } from '../principles.ts'
 import { percentOf, strings } from '../strings.ts'
+import { autoSendDetails, canSendItself } from './auto-send.ts'
 import { placeName } from './places.ts'
 
 /** "What I have taught it": the principles in the person's order, chances to teach, and milestones. */
@@ -280,6 +281,8 @@ export interface PrincipleRow {
   readonly kindBadge: string
   readonly problems: ReadonlyArray<string>
   readonly publicSwitch: { readonly isPublic: boolean; readonly label: string; readonly text: string }
+  /** The menu's way to let a saved answer send itself, for an item that can. */
+  readonly autoSend: { readonly menu: string; readonly title: string } | null
 }
 
 export interface PrincipleFormState {
@@ -360,7 +363,7 @@ export const channelPrincipleRow = (principle: AsRead.Principle): ChannelPrincip
   }
 }
 
-export type ChannelPrincipleRow = Omit<PrincipleRow, 'publicSwitch'>
+export type ChannelPrincipleRow = Omit<PrincipleRow, 'publicSwitch' | 'autoSend'>
 
 const SEED_TOPIC_MAX = 60
 
@@ -383,6 +386,9 @@ const principleRow = (principle: AsRead.Principle): PrincipleRow => {
     problems: principleAdvice(principle)
       .filter((kind) => kind === 'forbidden')
       .map((kind) => strings.teach.advice[kind]),
+    autoSend: canSendItself(principle)
+      ? { menu: strings.autoSend.menu, title: strings.autoSend.dialogTitle({ name: principle.topic }) }
+      : null,
     publicSwitch: {
       isPublic,
       label: (isPublic ? strings.teach.makePrivate : strings.teach.makePublic)({ name: principle.topic }),
@@ -406,6 +412,7 @@ const principleDetails = (principle: AsRead.Principle, owner: 'person' | 'channe
           strings.teach.origin[principle.origin],
         ]),
     ...(host === null ? [] : [strings.teach.sourceHost({ host })]),
+    ...autoSendDetails(principle),
     ...(counts === null
       ? []
       : [

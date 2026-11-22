@@ -13,6 +13,7 @@ import { loadDebate, loadDebates } from './debates.ts'
 import { loadGroups } from './groups.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
 import { closeDraftNotice } from './notifications.ts'
+import { loadPreviews, reloadPreviews } from './previews.ts'
 import { refreshInterview } from './teaching-interview.ts'
 import { loadAgents, loadConversations, loadKnownChannels, loadPeople, loadWorkspace } from './workspace.ts'
 
@@ -95,6 +96,11 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         }
         launch(loadConversations)
         break
+      case 'note.withdrawn':
+        forgetNote(state, body.conversationId, body.noteId)
+        if (state.threads.get().has(body.conversationId)) launch(loadThread(body.conversationId))
+        launch(loadConversations)
+        break
       case 'note.released':
         state.releases.update((all) =>
           new Map(all).set(body.noteId, { reason: body.reason, agentName: body.agentName }),
@@ -136,6 +142,10 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         break
       case 'proposals.changed':
         if (state.interview.get() !== null) reloadInterviewSoon()
+        break
+      case 'preview.changed':
+        if (body.conversationId === null) launch(reloadPreviews)
+        else if (state.previews.get().has(body.conversationId)) launch(loadPreviews(body.conversationId))
         break
       case 'debate.changed':
         reloadShownDebate(app, body.debateId)
@@ -187,6 +197,7 @@ const reloadEverything = (app: App): void => {
   if (app.state.groupsLoaded.get()) app.launch(loadGroups)
   const current = app.state.route.get()
   if (current.name === 'conversation') app.launch(loadThread(current.id as ConversationId))
+  app.launch(reloadPreviews)
 }
 
 /** A note counts as just arrived, and is announced, while it is this fresh. */
