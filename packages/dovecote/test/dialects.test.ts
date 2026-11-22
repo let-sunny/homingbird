@@ -11,7 +11,7 @@ import { MUTE } from '../src/sql/migrations/mute-step.ts'
 import { raw } from '../src/sql/query.ts'
 import type { Migration } from '../src/sql/schema-steps.ts'
 import { migrate, migrateThrough, schemaStatements } from '../src/sql/schema.ts'
-import { TEST_DIALECTS, testDialects } from './dialect-support.ts'
+import { TEST_DIALECTS, migrationTimeout, testDialects } from './dialect-support.ts'
 import {
   type Agent,
   type Session,
@@ -184,6 +184,13 @@ describe('The databases these tests run on', () => {
       ['PostgreSQL', 'postgres://pg'],
       ['MySQL', 'mysql://my'],
     ])
+  })
+
+  it('give a migration on MySQL more time for every step, and keep the default elsewhere', () => {
+    expect(migrationTimeout('mysql://my')).toBe(5000 + MIGRATIONS.length * 500)
+    expect(migrationTimeout('postgres://pg')).toBeUndefined()
+    expect(migrationTimeout('sqlite::memory:')).toBeUndefined()
+    expect(migrationTimeout(undefined)).toBeUndefined()
   })
 
   it('refuse to skip PostgreSQL or MySQL silently in the run HB_TEST_DATABASE_URL names it for', () => {
@@ -368,6 +375,8 @@ describe.each(DIALECTS)('Dovecote on %s', (_, url) => {
 })
 
 describe.each(DIALECTS)('The schema on %s', (_, url) => {
+  const timeout = migrationTimeout(url)
+
   const emptyDatabase = () => openTestDatabase(url?.startsWith('sqlite:') ? null : url)
   const migrated = (database: Database, migrations?: ReadonlyArray<Migration>) =>
     T.runPromise(T.result(migrations === undefined ? migrate : migrateThrough(migrations)), {
@@ -387,17 +396,21 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
     },
   }
 
-  it.skipIf(url === undefined)('creates every step on an empty database, once', async () => {
-    const database = await emptyDatabase()
-    try {
-      expect(await migrated(database)).toEqual({ _tag: 'Ok', value: stepsFrom(1) })
-      expect(await migrated(database)).toEqual({ _tag: 'Ok', value: [] })
-      expect(await versionsOf(database)).toEqual(stepsFrom(1))
-      expect(await T.runPromise(database.all(raw('SELECT archived_at FROM conversations')))).toEqual([])
-    } finally {
-      await T.runPromise(database.close)
-    }
-  })
+  it.skipIf(url === undefined)(
+    'creates every step on an empty database, once',
+    async () => {
+      const database = await emptyDatabase()
+      try {
+        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: stepsFrom(1) })
+        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: [] })
+        expect(await versionsOf(database)).toEqual(stepsFrom(1))
+        expect(await T.runPromise(database.all(raw('SELECT archived_at FROM conversations')))).toEqual([])
+      } finally {
+        await T.runPromise(database.close)
+      }
+    },
+    timeout,
+  )
 
   it.skipIf(url === undefined)(
     'adds the debate room tables as step 3 to a database that has steps 1 and 2, keeping its rows',
@@ -427,6 +440,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         await T.runPromise(database.close)
       }
     },
+    timeout,
   )
 
   it.skipIf(url === undefined)(
@@ -446,6 +460,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         await T.runPromise(database.close)
       }
     },
+    timeout,
   )
 
   it.skipIf(url === undefined)(
@@ -468,6 +483,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         await T.runPromise(database.close)
       }
     },
+    timeout,
   )
 
   it.skipIf(url === undefined || !url.startsWith('mysql'))(
@@ -488,6 +504,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         await T.runPromise(database.close)
       }
     },
+    timeout,
   )
 
   it.skipIf(url === undefined)(
@@ -513,6 +530,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         await T.runPromise(database.close)
       }
     },
+    timeout,
   )
 
   it.skipIf(url === undefined || !url.startsWith('mysql'))(
@@ -533,6 +551,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         await T.runPromise(database.close)
       }
     },
+    timeout,
   )
 
   it.skipIf(url === undefined)(
@@ -556,6 +575,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         await T.runPromise(database.close)
       }
     },
+    timeout,
   )
 
   it.skipIf(url === undefined || !url.startsWith('mysql'))(
@@ -575,6 +595,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         await T.runPromise(database.close)
       }
     },
+    timeout,
   )
 
   it.skipIf(url === undefined || !url.startsWith('mysql'))(
@@ -593,6 +614,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         await T.runPromise(database.close)
       }
     },
+    timeout,
   )
 
   it.skipIf(url === undefined)(
@@ -620,6 +642,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         await T.runPromise(database.close)
       }
     },
+    timeout,
   )
 
   it.skipIf(url === undefined)(
@@ -664,6 +687,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         await T.runPromise(database.close)
       }
     },
+    timeout,
   )
 
   it.skipIf(url === undefined || !url.startsWith('mysql'))(
@@ -685,6 +709,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         await T.runPromise(database.close)
       }
     },
+    timeout,
   )
 
   it.skipIf(url === undefined)(
@@ -706,6 +731,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         await T.runPromise(database.close)
       }
     },
+    timeout,
   )
 
   it.skipIf(url === undefined)(
@@ -734,6 +760,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         await T.runPromise(database.close)
       }
     },
+    timeout,
   )
 })
 
