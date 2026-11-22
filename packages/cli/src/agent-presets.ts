@@ -86,6 +86,8 @@ export interface AgentPreset {
   readonly mcpAttach: McpAttach | null
   /** What the vendor's terms put at risk when a desk runs the program on a personal sign-in; null when nothing known. */
   readonly accountRisk: string | null
+  /** What the preset rests on that the program's own documentation does not describe; null when nothing. */
+  readonly undocumented: string | null
 }
 
 export interface McpAttach {
@@ -185,6 +187,7 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
       verified: false,
     },
     accountRisk: null,
+    undocumented: null,
   },
   {
     name: 'codex',
@@ -197,23 +200,13 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
     },
     reader: {
       words: [
-        ...[
-          'codex',
-          'exec',
-          '--skip-git-repo-check',
-          '--ephemeral',
-          '--ignore-user-config',
-          '--ignore-rules',
-        ],
+        ...['codex', 'exec', '--skip-git-repo-check', '--ephemeral', '--ignore-rules'],
         ...['--sandbox', 'read-only', '--disable', 'shell_tool', '--disable', 'unified_exec'],
         ...['--disable', 'view_image', '-c', 'web_search="disabled"'],
         ...['-c', 'features.plugins=false', '-c', 'features.apps=false', '-'],
       ],
       probe: {
-        args: [
-          ...['--ignore-user-config', '-c', 'features.plugins=false', '-c', 'features.apps=false'],
-          ...['mcp', 'list', '--json'],
-        ],
+        args: ['-c', 'features.plugins=false', '-c', 'features.apps=false', 'mcp', 'list', '--json'],
         timeoutMs: 15_000,
         wordsFrom: (printed) => codexServersSwitchedOff(printed),
       },
@@ -232,6 +225,7 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
       verified: false,
     },
     accountRisk: null,
+    undocumented: null,
   },
   {
     name: 'antigravity',
@@ -262,6 +256,8 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
     mcpAttach: null,
     accountRisk:
       'Google’s terms bar other tools from using an Antigravity sign-in and suspensions have been reported; whether a desk starting agy counts is not settled, so run it only on an account you can afford to lose.',
+    undocumented:
+      'agy’s documentation does not describe --settings taking inline JSON, which the reader’s deny list needs, a role in the input event, or `agy -p /usage` as a sign-in check, which may fail for an API-key sign-in; and `-p` approves workspace edits in newer versions unless the sandbox holds. Treat this preset as unverified.',
   },
   {
     name: 'gemini',
@@ -283,6 +279,7 @@ export const AGENT_PRESETS: ReadonlyArray<AgentPreset> = [
     mcpAttach: null,
     accountRisk:
       'Google may treat a desk on a Google sign-in as third-party access and suspend the account; sign Gemini CLI in with an API key or Vertex AI for a desk.',
+    undocumented: null,
   },
 ]
 
@@ -306,18 +303,27 @@ const shellWord = (word: string, platform: string): string => {
 
 /**
  * Codex loads every MCP server its configuration names, also in a read-only sandbox, so the reader
- * switches off each one `codex mcp list --json` names, asked with the reader's own configuration
- * options. One `-c` per server changes only its `enabled`, keeping the rest of its entry.
+ * switches off each one `codex mcp list --json` names, asked with the same configuration the reader
+ * loads: `--ignore-user-config` and `--ignore-rules` exist on `codex exec` only, so the reader keeps
+ * the person's configuration too. One `-c` per server changes only its `enabled`, keeping the rest of
+ * its entry. Codex splits the key of `-c` on every dot and keeps quotes as part of a name, so a name
+ * is written bare, and one that could not be written bare is refused rather than left on.
  */
 const codexServersSwitchedOff = (printed: ProcessRun): Result.Result<ReadonlyArray<string>, string> => {
   if (printed.exitCode !== 0)
     return Result.err(`codex mcp list exited with code ${printed.exitCode ?? 'unknown'}`)
   const listed = CodexServers.read(jsonArrayIn(printed.output))
   if (listed._tag === 'Err') return Result.err('codex mcp list --json printed no list of servers')
-  return Result.ok(
-    listed.value.flatMap((server) => ['-c', `mcp_servers.${JSON.stringify(server.name)}.enabled=false`]),
-  )
+  const unaddressable = listed.value.find((server) => !CODEX_SERVER_NAME.test(server.name))
+  if (unaddressable !== undefined)
+    return Result.err(
+      `codex mcp list names a server, ${JSON.stringify(unaddressable.name.slice(0, 80))}, that -c cannot switch off`,
+    )
+  return Result.ok(listed.value.flatMap((server) => ['-c', `mcp_servers.${server.name}.enabled=false`]))
 }
+
+/** The names `codex mcp add` accepts, which a `-c` key path can address. */
+const CODEX_SERVER_NAME = /^[A-Za-z0-9_-]+$/
 
 /** One MCP server as an inline TOML table, which `-c` reads; a JSON string is a TOML string. */
 const codexServerTable = (server: AttachedServer): string => {

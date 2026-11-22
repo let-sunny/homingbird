@@ -16,6 +16,10 @@ describe('homingbird presets', () => {
     expect(text).toContain('reader:  none known; with --split, give --reader yourself')
     expect(text).toContain('    account: Google’s terms bar other tools from using an Antigravity sign-in')
     expect(text.match(/ {4}account: /g)).toHaveLength(2)
+    expect(text).toContain(
+      '    unverified: agy’s documentation does not describe --settings taking inline JSON',
+    )
+    expect(text.match(/ {4}unverified: /g)).toHaveLength(1)
     await w.run('presets', '--json')
     const listed = w.json().presets
     expect(listed.map((preset: { name: string }) => preset.name)).toEqual([
@@ -35,6 +39,8 @@ describe('homingbird presets', () => {
     expect(listed[0]).toMatchObject({ minimumVersion: '2.1.259', installed: { status: 'unknown' } })
     expect(listed[0].accountRisk).toBeNull()
     expect(listed[3].accountRisk).toContain('API key or Vertex AI')
+    expect(listed[2].undocumented).toContain('Treat this preset as unverified.')
+    expect(listed[0].undocumented).toBeNull()
     expect(w.calls).toEqual([])
   })
 

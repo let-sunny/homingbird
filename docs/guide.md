@@ -11,8 +11,8 @@ numbers show where it already answers the way you would.
 | Your agent | How to make the desk | When a note arrives |
 | --- | --- | --- |
 | Claude Code | Type `/homingbird` in one session. The plugin's pane opens. | It wakes by itself and drafts; the pane shows each draft as waiting for your approval and opens it in the web client, where you approve. |
-| Codex CLI, Gemini CLI, Cursor agent | Keep `homingbird run --agent "codex exec"` running in a terminal (or `--agent "gemini -p"`, `--agent "cursor-agent -p"`). | It drafts by itself; you approve in the web client. |
-| An MCP client whose chat can stay open, such as Cursor | Run the `watch` prompt in one chat. | It drafts while that chat is open; you approve in the web client. |
+| Codex CLI, Gemini CLI, Antigravity CLI | Keep `homingbird run --agent codex` running in a terminal (or `--agent gemini`, `--agent antigravity`). These presets are not yet tested with the real CLIs. | It drafts by itself; you approve in the web client. |
+| An MCP client whose chat can stay open, such as Cursor | Run the `watch` prompt in one chat. Cursor's own command line as a runner is not verified. | It drafts while that chat is open; you approve in the web client. |
 | ChatGPT, claude.ai and other web connectors | Pick one chat that has the Homingbird connector. | It cannot be woken. A phone notification tells you; say "check Homingbird" in that chat, or answer by hand in the web client. |
 
 - Every other session drafts only when you ask it: "Ask June whether the billing migration is safe to
@@ -145,11 +145,24 @@ to rename or revoke them are under **My agent**, **Connection**, in the header.
    ```
 
    The sign-in gives the command line an agent credential, which can read and draft, never send.
-2. Keep the desk running in a terminal:
+2. Keep the desk running in a terminal, with your agent's preset or a command of your own:
 
    ```sh
-   homingbird run --agent "codex exec"
+   homingbird run --agent codex         # Codex CLI: not yet run against the real CLI
+   homingbird run --agent gemini        # Gemini CLI with an API key or Code Assist: not yet run
+   homingbird run --agent antigravity   # Antigravity CLI (agy): not yet run
+   homingbird run --agent "<command>"   # anything that reads the prompt on stdin and prints the draft
    ```
+
+   A Codex command of your own, when the preset's writable sandbox is not wanted (`codex exec` alone
+   stops outside a git repository, which is where a runner usually starts):
+
+   ```sh
+   homingbird run --agent "codex exec --skip-git-repo-check --ephemeral --sandbox read-only -"
+   ```
+
+   The runner checks before it starts that the command's program is on its `PATH`, unless the command
+   is a script path such as `./agent.sh` or starts with a shell builtin.
 
    It answers arriving notes and draft requests by running the agent once per note. `--timeout <seconds>`
    limits each run.
@@ -187,13 +200,13 @@ SSH keys, no source you would not show the agent.
 ```sh
 sudo useradd --create-home homingbird-desk
 sudo -iu homingbird-desk homingbird login --server https://homingbird.example.com --no-browser
-sudo -iu homingbird-desk homingbird run --agent "codex exec"
+sudo -iu homingbird-desk homingbird run --agent codex
 ```
 
 ### Agent presets
 
-`--agent claude`, `--agent codex`, `--agent antigravity` and `--agent gemini` stand for tested command
-lines; `homingbird presets` prints them for this computer, with the version installed here. Before the
+`--agent claude`, `--agent codex`, `--agent antigravity` and `--agent gemini` stand for prepared
+command lines; only `claude` has been run against the real CLI. `homingbird presets` prints them for this computer, with the version installed here. Before the
 first note the runner asks each preset's program for its `--version` and refuses one older than the
 preset works with, saying how to upgrade it. Any other `--agent` value runs exactly as written, without
 any of the preparation below.
@@ -201,8 +214,8 @@ any of the preparation below.
 | Preset | What the runner adds | Reader for `--split` | Checked against the real CLI | Still assumed |
 | --- | --- | --- | --- | --- |
 | `claude` (Claude Code 2.1.259 or later) | `--permission-prompts none`, so a tool that needs approval is denied instead of waiting; `--settings '{"disableAllHooks":true}'`, so your hooks never run inside the runner | `--tools ''` and `--strict-mcp-config`: no tools and no MCP servers. Where your organization manages Claude Code's MCP configuration, Claude Code refuses `--strict-mcp-config`; the runner then runs the reader once more without it, with `--disallowedTools 'mcp__*'`, and keeps that for the rest of the run | Run with 2.1.327; every option seen in `claude --help` of 2.1.329 | The wording of the managed-configuration refusal, taken from another project's handling of it |
-| `codex` | `--ephemeral`, `--sandbox workspace-write` | Read-only sandbox, `--ignore-user-config`, plugins, apps, web search, shell and image tools off; before it starts the runner asks `codex mcp list --json` and switches off each server listed. Some tools remain | Nothing: Codex CLI was not installed where this was written | Every option; the reader refuses to start when the server list cannot be read |
-| `antigravity` (agy 1.1.15 or later) | `--print=` with stream-json in and out, `--sandbox`, and `AGY_CLI_DISABLE_AUTO_UPDATE=true`; before the first note, `agy -p /usage` with a 20-second limit checks it is signed in | `--settings` that denies writing, commands, MCP, reading and running URLs, and reading files; used only when `agy --help` lists `--settings`. Marked as keeping some tools, since a tool agy adds later would not be on the list | Nothing: agy was not installed where this was written | Every option and the stream format |
+| `codex` | `--ephemeral`, `--sandbox workspace-write` | Read-only sandbox, `--ignore-rules`, plugins, apps, web search, shell and image tools off; before it starts the runner asks `codex mcp list --json` and switches off each server listed with `-c mcp_servers.<name>.enabled=false`. Some tools remain | Nothing: Codex CLI was not installed where this was written | Every option; the reader refuses to start when the server list cannot be read or names a server `-c` cannot address, such as one with a dot |
+| `antigravity` (agy 1.1.15 or later) | `--print=` with stream-json in and out, `--sandbox`, and `AGY_CLI_DISABLE_AUTO_UPDATE=true`; before the first note, `agy -p /usage` with a 20-second limit checks it is signed in | `--settings` that denies writing, commands, MCP, reading and running URLs, and reading files; used only when `agy --help` lists `--settings`. Marked as keeping some tools, since a tool agy adds later would not be on the list | Nothing: agy was not installed where this was written | Every option and the stream format. **Unverified**: agy's documentation does not describe `--settings` taking inline JSON, the `role` in the input event, or `/usage` as a sign-in check, which may fail for an API-key sign-in |
 | `gemini` | `-p ''`, `--approval-mode default`, text output | None known | Nothing | Every option; a failed run says only its exit code |
 
 `homingbird run --attach-mcp` also gives the agent, never the reader, the Homingbird MCP server for
@@ -295,11 +308,27 @@ In a client configured with JSON, that is:
 { "mcpServers": { "homingbird": { "command": "npx", "args": ["-y", "@homingbird/mcp", "--server", "https://homingbird.example.com"] } } }
 ```
 
-The first tool call opens the browser to sign in. Add `--desk` to make that client your desk: it holds
-the event stream, checks the inbox when it starts, and answers what arrives. Keep only one desk.
+The first tool call opens the browser to sign in; add `--no-browser` to the arguments (or set
+`HOMINGBIRD_NO_BROWSER=1`) and it gives the link and code for you to open instead. Per client:
 
-In a client whose chat can stay open, such as Cursor, run the `watch` prompt in one chat instead: it
-keeps waiting for notes and drafts a reply to each until you tell it to stop.
+```sh
+# Codex
+codex mcp add homingbird -- npx -y @homingbird/mcp --server https://homingbird.example.com
+
+# Gemini CLI
+gemini mcp add homingbird npx -y @homingbird/mcp -- --server https://homingbird.example.com
+```
+
+The JSON entry above goes in `~/.cursor/mcp.json` for Cursor (add `"type": "stdio"`) and in
+`~/.gemini/config/mcp_config.json` for Antigravity CLI (not verified).
+
+To make such a client your desk, run the `watch` prompt in one chat whose chat can stay open, such as
+Cursor or Gemini CLI: it keeps waiting for notes and drafts a reply to each until you tell it to stop.
+For a desk that needs no chat, add `--run-agent` ([below](#run-your-desk-from-your-mcp-client)).
+
+`--desk` is for Claude Code only: it pushes each arriving note into the session as a Claude Code
+channel notification, which no other client shows. Started by any other client, the server says so on
+its error output and acts as an ordinary session, so no note is picked up and left unseen.
 
 ### Run your desk from your MCP client
 
@@ -321,8 +350,11 @@ Codex reads `~/.codex/config.toml`:
 ```toml
 [mcp_servers.homingbird]
 command = "npx"
-args = ["-y", "@homingbird/mcp", "--server", "https://homingbird.example.com", "--run-agent", "codex exec"]
+args = ["-y", "@homingbird/mcp", "--server", "https://homingbird.example.com", "--run-agent", "codex exec --skip-git-repo-check --ephemeral --sandbox read-only -"]
 ```
+
+`--run-agent` takes a command, not a preset name: `codex exec` alone stops outside a git repository,
+which is where an MCP client starts it. This Codex command is not yet run against the real CLI.
 
 The [MCP adapter's README](../packages/mcp/README.md#run-your-desk-from-your-mcp-client) has each
 client's details and documentation links, checked on 2026-11-19. Gemini CLI's documentation says it
@@ -339,8 +371,10 @@ absolute path.
 - Until you are signed in, ask the agent to log in; the desk starts as soon as you are, and `status`
   says what it is doing.
 - It claims your desk on this computer: a second app with the same configuration, or a runner in a
-  terminal, waits until the first one stops, so two never draft the same note. Do not also run a
-  `--desk` session or the Claude Code plugin's pane for the same account.
+  terminal, waits until the first one stops, so two never draft the same note. A desk of yours
+  elsewhere is not held back, but the server hands it no note another of your desks picked up in the
+  last ten minutes, drafted a reply to, or skipped. Do not also run a `--desk` session or the Claude
+  Code plugin's pane for the same account.
 - The `desk` prompt with `on` or `off` sets it on or off, without taking any command: `/homingbird:desk off`
   in Claude Code, `/desk off` in Gemini CLI. Codex offers no MCP prompts; there, run
   `homingbird desk pause` and `homingbird desk resume`, which pause every desk of yours on that
@@ -749,7 +783,7 @@ follows each person's own tools and permissions: Homingbird passes links, not do
 agent cannot open something, it records that, or skips the note with that reason; it
 never guesses the content and never asks the colleague for access. The desk's model runs where its tools are: the
 Claude Code plugin's default **Desk drafting** (`turn`) and an MCP desk (the Homingbird MCP server
-started with `homingbird-mcp --desk`, see [Run your desk from your MCP client](#run-your-desk-from-your-mcp-client)) answer in your
+started with `homingbird-mcp --desk` in Claude Code) answer in your
 interactive session, with its connectors; `quiet` drafts without any tools, so it cannot open links and
 skips such notes saying so; `homingbird run` starts your agent command as its own process, with the
 tools that command loads.

@@ -40,18 +40,18 @@ describe('preparedLaunches', () => {
       ['codex', ...presetNamed('codex')!.reader!.probe!.args],
     ])
     expect(exit._tag === 'Ok' && exit.value.reader?.command).toBe(
-      `${defaultReader('codex', 'linux').slice(0, -2)} -c 'mcp_servers."github".enabled=false' -`,
+      `${defaultReader('codex', 'linux').slice(0, -2)} -c mcp_servers.github.enabled=false -`,
     )
     expect(exit._tag === 'Ok' && exit.value.agent.command).toBe(agentCommand('codex', 'linux'))
   })
 
-  it('quotes the added words for cmd.exe on Windows', async () => {
+  it('adds the bare server names on Windows too, which cmd.exe needs no quotes for', async () => {
     const { exit } = await prepared(
       { agent: 'my-agent', split: { reader: defaultReader('codex', 'win32') } },
       { platform: 'win32', process: () => ({ exitCode: 0, output: '[{"name":"github"}]' }) },
     )
     expect(exit._tag === 'Ok' && exit.value.reader?.command).toContain(
-      '-c "mcp_servers.\\"github\\".enabled=false" -',
+      '-c mcp_servers.github.enabled=false -',
     )
   })
 

@@ -255,8 +255,8 @@ uses it underneath.
 
 | Agent | Make it your desk | When a note arrives |
 | --- | --- | --- |
-| Codex CLI, Gemini CLI, Cursor agent | Keep `homingbird run --agent "codex exec"` running (or `"gemini -p"`, `"cursor-agent -p"`) | Drafts by itself; approve in the web client |
-| An MCP client whose chat stays open, such as Cursor | Run the `watch` prompt in one chat | Drafts while that chat is open; approve in the web client |
+| Codex CLI, Gemini CLI, Antigravity CLI | Keep `homingbird run --agent codex` running (or `--agent gemini`, `--agent antigravity`); these presets are not yet tested with the real CLIs | Drafts by itself; approve in the web client |
+| An MCP client whose chat stays open, such as Cursor | Run the `watch` prompt in one chat. Cursor's own command line as a runner is not verified | Drafts while that chat is open; approve in the web client |
 | Claude Code | `/homingbird` in one session | Drafts by itself; approve in the web client, which each draft in the pane links to |
 | ChatGPT, claude.ai, other web connectors | Pick one chat with the connector | Cannot be woken: a phone notification tells you; say "check Homingbird" there, or answer in the web client |
 
@@ -278,10 +278,18 @@ agent. `homingbird presets` prints the same state on your computer, with the ver
 | Codex CLI | `--agent codex` | Not yet tested with the real CLI |
 | Antigravity CLI (`agy`) | `--agent antigravity` | Not yet tested with the real CLI |
 | Gemini CLI | `--agent gemini` | Not yet tested with the real CLI |
+| Cursor | None: use its MCP client and the `watch` prompt | MCP: yes. Runner: not verified |
 | Any other command | `--agent "<command>"` | Your command: try one note before you rely on it |
 
 Try an untested preset on one person's desk before a team relies on it; the
-[command line's README](packages/cli/README.md#agent-presets) lists the exact commands.
+[command line's README](packages/cli/README.md#agent-presets) lists the exact commands. The
+`antigravity` preset also rests on behaviour agy's documentation does not describe, which
+`homingbird presets` lists. A Codex command of your own, for a read-only sandbox instead of the
+preset's writable one (`codex exec` alone stops outside a git repository):
+
+```sh
+homingbird run --agent "codex exec --skip-git-repo-check --ephemeral --sandbox read-only -"
+```
 
 ## Usage
 
@@ -305,11 +313,13 @@ the note, and it is sent when you approve it. June's approved reply arrives in t
 `https://homingbird.example.com/mcp` as a remote connector, or run the adapter locally as a stdio server:
 
 ```sh
-npx -y @homingbird/mcp --server https://homingbird.example.com          # any chat session
-npx -y @homingbird/mcp --server https://homingbird.example.com --desk   # your one desk session
+npx -y @homingbird/mcp --server https://homingbird.example.com   # any chat session
 ```
 
-Drafts wait for your approval in the web client.
+To make such a client your desk, run the `watch` prompt in one chat, or add `--run-agent` with an
+agent command so the server drafts by itself while the client is open. `--desk` is for Claude Code
+only: it pushes notes as Claude Code channel notifications, which no other client shows, so in any
+other client it does nothing. Drafts wait for your approval in the web client.
 
 **Ask a channel** when you do not know who can answer: "Ask the billing channel who owns the nightly export."
 It reaches the people who answer questions in billing. When no channel fits, the agent asks a colleague whose
@@ -330,7 +340,7 @@ homingbird inbox                                           # notes waiting for a
 homingbird draft --to june@example.com "Is the billing migration safe to run today?"
 homingbird draft --channel billing "Who owns the nightly export?"
 homingbird drafts                                          # drafts waiting for approval
-homingbird run --agent "codex exec"                        # be the desk: answer what arrives
+homingbird run --agent codex                               # be the desk: answer what arrives
 homingbird stream                                          # live events, one JSON object per line
 ```
 

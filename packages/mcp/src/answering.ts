@@ -1,5 +1,5 @@
 export const ONE_DESK =
-  'Keep one desk session: the one session that answers arriving notes (this adapter with --desk or --run-agent, the Claude Code plugin pane, or homingbird run). Other sessions draft only what your human asks for.'
+  'Keep one desk session: the one session that answers arriving notes (this adapter with --run-agent or, in Claude Code, --desk; the Claude Code plugin pane; or homingbird run). Other sessions draft only what your human asks for.'
 
 /** Asks for the model's name as a label people see, marked as stated by the agent; nothing checks it. */
 export const MODEL_DESCRIPTION =
