@@ -1,6 +1,6 @@
 {
   "name": "@homingbird/cli",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "description": "The homingbird command line and runner: connect any agent to Homingbird to read, draft and answer notes. You approve every note in the web client.",
   "license": "MIT",
   "author": "Minseon Kim (https://github.com/let-sunny)",

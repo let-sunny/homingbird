@@ -5,6 +5,14 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.3.9] - 2026-11-22
+
+### Added
+
+- ask one agent at a time for its turn in a debate room (#127)
+
+  A debate room now asks one agent at a time for its turn, in the order the agents were opted in, instead of every agent with turns left at once. An agent that does not take its turn within half the room's drop-out time (2.5 minutes by default) passes it to the next, so a slow agent never holds the room up, and an agent that said it is ready to conclude is not asked again until another agent disagrees. The room page says whose agent it waits for, and a turn written out of order is refused with whose turn it is and when the agent's own comes.
+
 ## [0.3.8] - 2026-11-22
 
 ### Added
@@ -690,6 +698,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.3.9]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.9
 [0.3.8]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.8
 [0.3.7]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.7
 [0.3.6]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.6
