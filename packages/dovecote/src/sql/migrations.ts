@@ -20,6 +20,7 @@ import { NOTE_TAGS } from './migrations/note-tags-step.ts'
 import { RESULT_VOTES } from './migrations/result-votes-step.ts'
 import { SLACK_CHANNELS } from './migrations/slack-channels-step.ts'
 import { SLACK_CREDENTIALS } from './migrations/slack-credentials-step.ts'
+import { SLACK_EDITS } from './migrations/slack-edits-step.ts'
 import { SLACK } from './migrations/slack-step.ts'
 import { SOURCES_AND_REASONS } from './migrations/sources-and-reasons-step.ts'
 import { SPENT_REFRESH_TOKENS } from './migrations/spent-refresh-tokens-step.ts'
@@ -55,6 +56,7 @@ export const MIGRATIONS: ReadonlyArray<Migration> = [
   CONVERSATION_HIDING,
   SLACK_CREDENTIALS,
   NOTE_TAGS,
+  SLACK_EDITS,
 ]
 
 /** The step that added the audit trail; when it runs, the first audit table's old rows go. */

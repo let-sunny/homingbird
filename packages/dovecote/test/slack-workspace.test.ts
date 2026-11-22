@@ -1,7 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
 import { afterEach, describe, expect, it } from 'vitest'
 import { transact } from '../src/events/events.ts'
-import { stopSlack, workingSlack } from '../src/slack/slack-workspace.ts'
+import { slackTokenRefused, stopSlack, workingSlack } from '../src/slack/slack-workspace.ts'
 import { type TestServer, startTestServer, storedRows } from './harness.ts'
 import { SLACK_VARIABLES, TEAM_ID, connectWorkspace, fakeSlack, startSlackServer } from './slack-support.ts'
 
@@ -64,6 +64,40 @@ describe('the Slack workspace', () => {
       stopped_because: null,
     })
     expect(await auditOf(server, 'slack.connected')).toHaveLength(2)
+  })
+
+  it('remembers that Slack refused the token before any workspace was pinned, and forgets it once one works', async () => {
+    const slack = fakeSlack()
+    slack.refuseNext('auth.test', 'invalid_auth')
+    server = await startSlackServer(slack)
+    expect(await storedRows(server, 'slack_workspaces')).toEqual([])
+    expect(await T.runPromise(slackTokenRefused, server.env)).toBe(true)
+    const admin = await server.signIn('ana@example.com', 'Ana')
+    expect((await admin.api('GET', '/admin/slack')).json).toMatchObject({
+      workspace: null,
+      tokenRefused: true,
+    })
+    expect((await admin.api('GET', '/me/slack')).json).toMatchObject({
+      connected: false,
+      stopped: 'token_refused',
+    })
+    await connectWorkspace(server)
+    expect(await T.runPromise(slackTokenRefused, server.env)).toBe(false)
+    expect((await admin.api('GET', '/admin/slack')).json).toMatchObject({ tokenRefused: false })
+    expect((await admin.api('GET', '/me/slack')).json).toMatchObject({ connected: true, stopped: null })
+  })
+
+  it('tells a person why Slack stopped once a pinned workspace stops', async () => {
+    const slack = fakeSlack()
+    server = await startSlackServer(slack)
+    slack.refuseNext('auth.test', 'invalid_auth')
+    await connectWorkspace(server)
+    const person = await server.signIn('ana@example.com', 'Ana')
+    expect((await person.api('GET', '/me/slack')).json).toMatchObject({
+      team: 'Acme',
+      connected: false,
+      stopped: 'token_refused',
+    })
   })
 
   it('leaves the state as it was when Slack cannot be reached or refuses for another reason', async () => {

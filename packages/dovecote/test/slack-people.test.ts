@@ -32,7 +32,12 @@ const lastCode = (): string => {
 
 describe('linking a person to their Slack user', () => {
   it('sends the Slack user with the person’s email a direct message with a link only that person can confirm', async () => {
-    expect((await ana.api('GET', '/me/slack')).json).toEqual({ team: 'Acme', connected: true, link: null })
+    expect((await ana.api('GET', '/me/slack')).json).toEqual({
+      team: 'Acme',
+      connected: true,
+      stopped: null,
+      link: null,
+    })
     expect((await ana.api('POST', '/me/slack/connect', {})).json).toEqual({ sent: true })
     const [message] = slack.posted()
     expect(message!.channel).toBe('DU0ANA')

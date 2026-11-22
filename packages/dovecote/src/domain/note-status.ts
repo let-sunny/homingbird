@@ -20,6 +20,14 @@ export const announceStatus = (id: NoteId): T.Task<void, never, RequestEnv> =>
     })
   })
 
+/** Tells every participant of a sent note how it reads now, after an edit in Slack or a change to its post there. */
+export const announceChange = (id: NoteId): T.Task<void, never, RequestEnv> =>
+  T.gen(function* () {
+    const note = yield* noteById(id, null)
+    if (note.status !== 'sent') return
+    yield* emit(yield* participantsOf(note.conversationId), { type: 'note.changed', note })
+  })
+
 /** A note known to exist, as the viewer sees it; `null` views it as nobody in particular. */
 export const noteById = (id: NoteId, viewerId: MemberId | null): T.Task<Note, never, RequestEnv> =>
   T.gen(function* () {

@@ -10,6 +10,8 @@ export const EventBody = S.openVariants(
   'type',
   {
     'note.sent': { note: Note },
+    /** A sent note changed where people read it: an edit in Slack, or how its post to Slack stands. */
+    'note.changed': { note: Note },
     'note.status': { noteId: NoteId, conversationId: ConversationId, receipts: S.array(Receipt) },
     'draft.saved': { note: Note },
     'draft.discarded': {

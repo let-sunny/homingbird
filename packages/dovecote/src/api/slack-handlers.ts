@@ -12,7 +12,7 @@ import {
   slackOfMember,
   unlinkSlackPerson,
 } from '../slack/slack-people.ts'
-import { pinnedWorkspace, workspaceView } from '../slack/slack-workspace.ts'
+import { pinnedWorkspace, slackTokenRefused, workspaceView } from '../slack/slack-workspace.ts'
 import { first } from '../sql/database.ts'
 import { sql } from '../sql/query.ts'
 import type { Handlers } from './handlers.ts'
@@ -46,5 +46,6 @@ const adminSlack: T.Task<AdminSlack, never, AppEnv> = T.gen(function* () {
     eventsUrl: `${env.config.publicUrl}${SLACK_EVENTS_PATH}`,
     manifest: slackManifest(env.config.publicUrl),
     linkedPeople: Number(people?.total ?? 0),
+    tokenRefused: workspace === null && (yield* slackTokenRefused),
   }
 })

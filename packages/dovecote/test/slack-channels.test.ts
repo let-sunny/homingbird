@@ -3,6 +3,7 @@ import { type Session, type TestServer, storeChannelAsPrivate, storedRows } from
 import {
   BOT_USER_ID,
   type FakeSlack,
+  connectWorkspace,
   fakeSlack,
   lastCodeIn,
   linkChannel,
@@ -41,6 +42,26 @@ afterEach(() => server?.close())
 const auditOf = async (event: string) =>
   (await storedRows(server, 'audit_events')).filter((row) => row.event === event)
 
+describe('a linked channel that stopped', () => {
+  it('says why: the link’s own stop, or Slack stopped on the server', async () => {
+    await linkChannel(server, slack, ana, 'U0ANA', 'billing')
+    slack.refuseNext('auth.test', 'invalid_auth')
+    await connectWorkspace(server)
+    expect((await ana.api('GET', '/channels/billing')).json.link).toMatchObject({
+      state: 'active',
+      stoppedBecause: 'slack_stopped',
+    })
+    await connectWorkspace(server)
+    expect((await ana.api('GET', '/channels/billing')).json.link.stoppedBecause).toBeNull()
+    await sendSlackEvent(server, slackEvent({ type: 'channel_archive', channel: 'C0HELP' }))
+    await server.slackPass()
+    expect((await ana.api('GET', '/channels/billing')).json.link).toMatchObject({
+      state: 'stopped',
+      stoppedBecause: 'archived',
+    })
+  })
+})
+
 describe('linking a Slack channel to a channel', () => {
   it('links it for a manager who asked in Slack, shows it to the room, and says so in Slack', async () => {
     const linked = await linkChannel(server, slack, ana, 'U0ANA', 'billing')
@@ -51,6 +72,7 @@ describe('linking a Slack channel to a channel', () => {
       isPrivate: false,
       memberCount: 12,
       state: 'active',
+      stoppedBecause: null,
     })
     const [link] = await storedRows(server, 'slack_channel_links')
     expect(link).toMatchObject({ slack_channel_id: 'C0HELP', state: 'active', linked_by: ana.me.member.id })

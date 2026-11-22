@@ -10,6 +10,8 @@ export interface SlackTexts {
   readonly alreadyLinked: (name: string) => string
   readonly membersOnly: (team: string) => string
   readonly reviewWaiting: (url: string) => string
+  readonly notPosted: (url: string) => string
+  readonly linkStopped: string
   readonly channelLinkOffered: (url: string) => string
   readonly channelLinked: (channel: string) => string
   readonly sharedChannel: string
@@ -30,6 +32,10 @@ const en: SlackTexts = {
     `Your Slack user is linked to Homingbird as ${escapeSlackText(name)}. To change it, unlink it under My agent in Homingbird first.`,
   membersOnly: (team) => `Homingbird answers full members of ${escapeSlackText(team)} only.`,
   reviewWaiting: (url) => `A draft waits for your decision. ${slackLink(url, 'Open it in Homingbird')}`,
+  notPosted: (url) =>
+    `A reply could not be posted to Slack. ${slackLink(url, 'Open it in Homingbird')} to try again.`,
+  linkStopped:
+    'This channel’s link to Homingbird stopped, so questions here do not arrive. A manager of the Homingbird channel unlinks it there, invites the app here again and mentions @Homingbird with the word link.',
   channelLinkOffered: (url) =>
     `To link this channel to a Homingbird channel you manage, ${slackLink(url, 'open this link')} within 10 minutes and choose the channel.`,
   channelLinked: (channel) =>
@@ -50,6 +56,10 @@ const ko: SlackTexts = {
     `이 Slack 사용자는 Homingbird의 ${escapeSlackText(name)}에 연결되어 있습니다. 바꾸려면 먼저 Homingbird의 내 에이전트에서 연결을 끊으세요.`,
   membersOnly: (team) => `Homingbird는 ${escapeSlackText(team)}의 정식 멤버에게만 답합니다.`,
   reviewWaiting: (url) => `결정을 기다리는 초안이 있습니다. ${slackLink(url, 'Homingbird에서 열기')}`,
+  notPosted: (url) =>
+    `답장을 Slack에 올리지 못했습니다. ${slackLink(url, 'Homingbird에서 열어')} 다시 시도하세요.`,
+  linkStopped:
+    '이 채널과 Homingbird의 연결이 멈춰서 이곳의 질문이 전달되지 않습니다. Homingbird 채널 운영자가 그곳에서 연결을 끊고, 앱을 이 채널에 다시 초대한 뒤 @Homingbird를 멘션하고 link라고 쓰면 됩니다.',
   channelLinkOffered: (url) =>
     `이 채널을 내가 운영하는 Homingbird 채널에 연결하려면 10분 안에 ${slackLink(url, '이 링크를 열고')} 채널을 고르세요.`,
   channelLinked: (channel) =>

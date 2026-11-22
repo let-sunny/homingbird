@@ -9,6 +9,7 @@ export interface PushTitles {
   readonly noteFromColleague: string
   readonly draftWaiting: string
   readonly reviewWaiting: (channel: string) => string
+  readonly notPosted: (channel: string) => string
   readonly test: string
   readonly testBody: string
   readonly deskStopped: string

@@ -131,6 +131,7 @@ const renderPerson = (model: SlackPersonModel, context: ViewContext, actions: Pe
   if (model.loading) return loading()
   return [
     h('p', { class: 'slack-status', role: 'status' }, model.status),
+    model.stopped !== null && h('p', { class: 'slack-status is-stopped', role: 'note' }, model.stopped),
     model.canConnect &&
       button(strings.slack.connect, () => context.actions.connectSlack({ done: actions.requested }), {
         class: 'primary',

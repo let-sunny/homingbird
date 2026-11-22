@@ -108,12 +108,23 @@ export const OPERATIONAL_EVENTS = {
     kind: S.string({ maxLength: 40 }),
     kept: S.boolean,
   }),
+  'slack.event_dropped': line(
+    'warn',
+    'A signed Slack event was dropped: no workspace is connected, or it came from another one.',
+    {
+      kind: S.string({ maxLength: 40 }),
+      reason: S.literal('not_connected', 'other_workspace', 'no_event_id'),
+    },
+  ),
   'slack.call_failed': line('warn', 'A call to Slack failed.', {
     method: S.string({ maxLength: 40 }),
     failure: S.literal('SlackUnreachable', 'SlackRateLimited', 'SlackRefused'),
     error: S.string({ maxLength: 60 }),
   }),
   'slack.review_request_sent': line('info', 'A person was told in Slack that a draft waits for them.', {
+    memberId: S.string({ maxLength: 64 }),
+  }),
+  'slack.not_posted_told': line('info', 'A person was told in Slack that a reply was not posted there.', {
     memberId: S.string({ maxLength: 64 }),
   }),
   'oauth.client_metadata_refused': line('warn', 'A client metadata document was refused.', {

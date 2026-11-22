@@ -1082,7 +1082,10 @@ HMAC-SHA256 of `v0:<timestamp>:<body>` under the signing secret, from the last f
 else is refused and logged as `slack.event_refused` with the reason only. An event Homingbird uses is
 stored by Slack's event id, answered at once, and handled by a pass every few seconds, so a retry does
 nothing; its payload is deleted once handled. Messages in channels that are not for Homingbird are
-dropped unread: never stored, never logged. A person links their Slack user with a single-use code that
+dropped unread: never stored, never logged. A signed event that arrives while no workspace is pinned
+(the token was never accepted), or from another workspace, is dropped too and logged as
+`slack.event_dropped` with its kind and that reason only; until then the admin page says Slack refused
+the bot token when it did. A person links their Slack user with a single-use code that
 works for ten minutes, kept only as a hash: the email finds the user, only the person's confirmation in
 the web client links them, and one Slack user links to one person. Deactivating a member deletes their
 link, and so does Slack deactivating the user; Slack is not the identity provider, so it never
@@ -1100,8 +1103,19 @@ it links to; a private Slack channel links only to a private channel, and a shar
 then on a message there that mentions the app is a question in the channel, read by its members, and an
 answer a person approves is posted in the Slack thread by the app, under who wrote and approved it.
 Messages that do not mention the app are not copied. Posts go through an outbox: one row per sent note,
-retried after 5, 15 and 60 minutes, then shown as not posted with **Try again**. The audit trail keeps
-`slack.channel.linked`, `slack.channel.unlinked` and `slack.channel.stopped`, with ids only.
+retried after 5, 15 and 60 minutes, then shown as not posted with **Try again**. While it waits, the note
+says when the next attempt is; when it gives up, its sender and the channel's managers are told in the
+web client, on their devices and in a Slack direct message that links to it. A link stops when the app
+leaves the Slack channel, the channel is archived or deleted, or five posts in a row fail; the room says
+why and how to restart it: unlink it there, invite the app again and mention it with `link`. The audit
+trail keeps `slack.channel.linked`, `slack.channel.unlinked` and `slack.channel.stopped`, with ids only.
+
+**Edits and deletions in Slack.** An arrived question follows its Slack message. An edit replaces its
+text, marks a draft that answers it, and refuses that draft's send once so the person reads the question
+again. A deletion replaces the text with "Deleted in Slack." and discards the drafts that answer it.
+Either rewrites every copy of the note in the event backlog, so the old text is gone from the database.
+What it does not remove: answers already sent and posted, Slack's own copy, push notifications already
+shown on a device, and database backups taken before.
 
 ## Connecting claude.ai
 

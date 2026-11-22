@@ -559,6 +559,7 @@ export const ko: Translation<typeof en> = {
     draftChanged: '읽은 뒤에 이 초안이 바뀌어서 보내지 않았어요. 다시 읽어 주세요.',
     slackThreadMoved:
       '읽은 뒤에 Slack 스레드에 새 글이 올라와서 보내지 않았어요. Slack에서 읽은 다음 다시 보내 주세요.',
+    slackQuestionEdited: '읽은 뒤에 질문이 Slack에서 고쳐져서 보내지 않았어요. 다시 읽은 다음 보내 주세요.',
     nameTaken: '쓸 수 없는 이름이에요.',
     lastManager: '멤버가 있는 채널에는 운영자가 있어야 해요. 먼저 다른 운영자를 추가해 주세요.',
     managerStays:
@@ -2089,6 +2090,15 @@ export const ko: Translation<typeof en> = {
     linked: '{workspace} 워크스페이스의 Slack 사용자 {name} 님과 연결되어 있어요.',
     notLinked: '아직 {workspace} 워크스페이스의 Slack 사용자와 연결되지 않았어요.',
     notConnected: '이 서버에는 아직 Slack이 연결되지 않았어요. 관리자가 설정해요.',
+    stopped: {
+      tokenRefused:
+        '이 서버의 Slack이 멈췄어요. Slack이 앱의 봇 토큰을 거부했어요. 관리자가 쓸 수 있는 토큰을 넣을 때까지 Slack으로 아무것도 가지 않아요.',
+      revoked:
+        '이 서버의 Slack이 멈췄어요. 앱이 삭제되었거나 토큰이 취소되었어요. 관리자가 앱을 다시 설치할 때까지 Slack으로 아무것도 가지 않아요.',
+      otherWorkspace:
+        '이 서버의 Slack이 멈췄어요. 봇 토큰이 다른 워크스페이스의 것이에요. 관리자가 이 워크스페이스의 토큰을 넣을 때까지 Slack으로 아무것도 가지 않아요.',
+      unknown: '이 서버의 Slack이 멈췄어요. 관리자가 다시 시작할 때까지 Slack으로 아무것도 가지 않아요.',
+    },
     connect: 'Slack 연결',
     requestSent: '내 이메일을 쓰는 Slack 사용자에게 DM을 보냈어요. 10분 안에 그 안의 링크를 여세요.',
     requestNotFound:
@@ -2111,13 +2121,31 @@ export const ko: Translation<typeof en> = {
     postedToSlack: 'Slack에 올라감',
     notPostedToSlack: 'Slack에 올라가지 않음',
     tryAgain: '다시 시도',
+    retryingAt: '아직 Slack에 올라가지 않음. {time}에 다시 시도해요',
+    tryNow: '지금 시도',
+    waitingForSlack: '아직 Slack에 올라가지 않음. 이 채널의 Slack이 멈췄어요',
+    notPostedNotice: '답장을 Slack #{channel}에 올리지 못했어요. 열어서 다시 시도를 누르세요.',
+    questionEdited: '이 초안을 쓴 뒤에 질문이 Slack에서 고쳐졌어요. 보내기 전에 다시 읽으세요',
     postsTo: { other: 'Slack #{channel}({count}명)에 올라가요' },
     postsToUncounted: 'Slack #{channel}에 올라가요',
     newerMessages: { other: 'Slack 스레드에 새 글 {count}개. 보내기 전에 Slack에서 읽으세요' },
     draftDiscardedDeleted: '초안을 버렸어요. 답하려던 질문이 Slack에서 지워졌어요.',
     linkedChannel:
       'Slack #{channel}에 연결되어 있어요. 그곳에서 Homingbird를 멘션한 글이 여기로 오고, 사람이 승인한 답이 그곳에 올라가요.',
-    linkStopped: 'Slack #{channel} 연결이 멈췄어요. 그곳에서 오는 글도, 그곳에 올리는 글도 없어요.',
+    linkStoppedBecause: {
+      appRemoved:
+        'Slack #{channel} 연결이 멈췄어요. 그 채널에서 앱이 빠졌어요. 다시 시작하려면 운영자가 여기서 연결을 끊고, 앱을 #{channel}에 다시 초대한 뒤 그곳에서 @Homingbird를 멘션하고 link라고 쓰세요.',
+      archived:
+        'Slack #{channel} 연결이 멈췄어요. 그 채널이 보관되었어요. 채널이 돌아오면 운영자가 여기서 연결을 끊고 그곳에서 @Homingbird를 멘션하고 link라고 쓰세요.',
+      deleted:
+        'Slack #{channel} 연결이 멈췄어요. 그 채널이 Slack에서 지워졌어요. 운영자가 여기서 연결을 끊으세요.',
+      failures:
+        'Slack #{channel} 연결이 멈췄어요. 답장 다섯 개를 연달아 올리지 못했어요. 다시 시작하려면 운영자가 여기서 연결을 끊고 #{channel}에서 @Homingbird를 멘션하고 link라고 쓰세요.',
+      slackStopped:
+        '이 서버의 Slack이 멈춰서 Slack #{channel}에서 오는 글도, 그곳에 올리는 글도 없어요. 관리자가 관리 → 설정 → Slack에서 다시 시작해요.',
+      unknown:
+        'Slack #{channel} 연결이 멈췄어요. 그곳에서 오는 글도, 그곳에 올리는 글도 없어요. 다시 시작하려면 운영자가 여기서 연결을 끊고 #{channel}에서 @Homingbird를 멘션하고 link라고 쓰세요.',
+    },
     unlinkChannel: 'Slack 연결 끊기',
     confirmChannel: { other: 'Slack #{channel}({count}명)을 내가 운영하는 채널에 연결할까요?' },
     confirmChannelHint:
@@ -2131,6 +2159,8 @@ export const ko: Translation<typeof en> = {
         '조직의 Slack 앱이에요. 아래 매니페스트로 앱을 만들어 워크스페이스에 설치한 다음, 봇 토큰과 서명 비밀값을 여기에 넣거나 서버에 HB_SLACK_BOT_TOKEN과 HB_SLACK_SIGNING_SECRET을 설정하세요. Slack이 이벤트 주소에 닿아야 해요.',
       enterValues: '연결되지 않았어요: 아래에 앱의 봇 토큰과 서명 비밀값을 넣으세요.',
       waiting: '서버에 앱 토큰은 있지만 아직 Slack에 닿지 못했어요.',
+      tokenRefused:
+        'Slack이 봇 토큰을 거부해서 Slack에서 아무것도 받지 않아요. 쓸 수 있는 토큰을 넣으세요. 그때까지 Slack이 보내는 이벤트는 버려지고 slack.event_dropped로 기록돼요.',
       connected: '{workspace} 워크스페이스에 연결되어 있어요.',
       credentials: {
         legend: '봇 토큰과 서명 비밀값',

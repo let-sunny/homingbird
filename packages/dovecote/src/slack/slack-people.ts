@@ -18,7 +18,13 @@ import { insertInto, sql } from '../sql/query.ts'
 import { type SlackChannelFacts, channelChoicesFor } from './slack-channels.ts'
 import { slackTextsIn } from './slack-texts.ts'
 import type { SlackCallFailure, SlackUser } from './slack-web-api.ts'
-import { type WorkingSlack, pinnedWorkspace, slackCallFailed, workingSlack } from './slack-workspace.ts'
+import {
+  type WorkingSlack,
+  pinnedWorkspace,
+  slackCallFailed,
+  slackStopOf,
+  workingSlack,
+} from './slack-workspace.ts'
 
 export const slackOfMember = (memberId: MemberId): T.Task<MeSlack, never, AppEnv> =>
   T.gen(function* () {
@@ -27,6 +33,7 @@ export const slackOfMember = (memberId: MemberId): T.Task<MeSlack, never, AppEnv
     return {
       team: workspace?.team_name ?? null,
       connected: (yield* workingSlack) !== null,
+      stopped: yield* slackStopOf(workspace),
       link: link === null ? null : { slackName: link.slack_name, linkedAt: Number(link.linked_at) },
     }
   })
@@ -148,10 +155,10 @@ export const tellOnly = (
   slack: WorkingSlack,
   user: SlackUser,
   place: { readonly channel: string; readonly threadTs?: string },
-  what: 'membersOnly' | 'notLinkedHere',
+  what: 'membersOnly' | 'notLinkedHere' | 'linkStopped',
 ): T.Task<void, never, AppEnv> => {
   const texts = slackTextsIn(null)
-  const text = what === 'membersOnly' ? texts.membersOnly(slack.workspace.team_name) : texts.notLinkedHere
+  const text = what === 'membersOnly' ? texts.membersOnly(slack.workspace.team_name) : texts[what]
   return T.asUnit(calling('chat.postEphemeral', slack.api.postEphemeral({ ...place, user: user.id, text })))
 }
 

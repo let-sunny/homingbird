@@ -19,6 +19,7 @@ import {
   page,
   presenceBadges,
   privateMarkOf,
+  slackReplyLines,
   timeLabel,
   youMark,
 } from '../../src/views/parts.ts'
@@ -27,6 +28,18 @@ import { usingFakeDom } from '../support/dom.ts'
 usingFakeDom()
 
 describe('the parts of every page', () => {
+  it('puts where a reply to Slack goes, and what changed there, each on its own line', () => {
+    const shown = slackReplyLines({ postsTo: 'Posts to Slack #help', newer: '2 newer', edited: 'Edited' })!
+    expect([...shown.querySelectorAll('p')].map((line) => textOf(line))).toEqual([
+      'Posts to Slack #help',
+      '2 newer',
+      'Edited',
+    ])
+    const plain = slackReplyLines({ postsTo: 'Posts to Slack #help', newer: null, edited: null })!
+    expect(plain.querySelectorAll('p')).toHaveLength(1)
+    expect(slackReplyLines(null)).toBeNull()
+  })
+
   it('makes a page with a back link and its title', () => {
     const shown = page('People', 'body')
     expect(getByRole(shown, 'heading', { name: 'People' })).toBeTruthy()

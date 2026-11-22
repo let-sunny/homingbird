@@ -120,6 +120,7 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "CREATE TABLE IF NOT EXISTS slack_credentials (slot VARCHAR(400) NOT NULL, given_by VARCHAR(64) NOT NULL, bot_token_sealed MEDIUMTEXT NOT NULL, signing_secret_sealed MEDIUMTEXT NOT NULL, given_at BIGINT NOT NULL, PRIMARY KEY (slot), INDEX slack_credentials_given_by_idx (given_by))",
   "ALTER TABLE notes ADD COLUMN tags MEDIUMTEXT",
   "ALTER TABLE receipts ADD COLUMN asked BIGINT",
+  "ALTER TABLE slack_arrivals ADD COLUMN edited_ts VARCHAR(64)",
 ]
 `;
 
@@ -300,6 +301,7 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "CREATE INDEX IF NOT EXISTS slack_credentials_given_by_idx ON slack_credentials (given_by)",
   "ALTER TABLE notes ADD COLUMN tags TEXT",
   "ALTER TABLE receipts ADD COLUMN asked BIGINT",
+  "ALTER TABLE slack_arrivals ADD COLUMN edited_ts VARCHAR(64)",
 ]
 `;
 
@@ -480,5 +482,6 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "CREATE INDEX IF NOT EXISTS slack_credentials_given_by_idx ON slack_credentials (given_by)",
   "ALTER TABLE notes ADD COLUMN tags TEXT",
   "ALTER TABLE receipts ADD COLUMN asked INTEGER",
+  "ALTER TABLE slack_arrivals ADD COLUMN edited_ts TEXT",
 ]
 `;

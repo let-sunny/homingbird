@@ -29,21 +29,26 @@ export const slackFactsOf = (
     const posting =
       sent.length === 0
         ? []
-        : yield* all<{ note_id: NoteId; state: string }>(
-            sql`SELECT note_id, state FROM slack_outbox WHERE note_id IN ${list(sent)}`,
+        : yield* all<OutboxFacts>(
+            sql`SELECT note_id, state, next_at FROM slack_outbox WHERE note_id IN ${list(sent)}`,
           )
+    const now = (yield* T.ask<AppEnv>()).clock.now()
     return {
       via: new Map(via.map((row) => [row.note_id, viaOf(row)])),
-      posting: new Map(posting.map((row) => [row.note_id, row.state as PostingState])),
+      posting: new Map(posting.map((row) => [row.note_id, postingOf(row, now)])),
     }
   })
 
 export interface SlackFacts {
   readonly via: ReadonlyMap<NoteId, NonNullable<Note['via']>>
-  readonly posting: ReadonlyMap<NoteId, PostingState>
+  readonly posting: ReadonlyMap<NoteId, Pick<Note, 'posting' | 'postingRetryAt'>>
 }
 
-type PostingState = NonNullable<Note['posting']>
+interface OutboxFacts {
+  readonly note_id: NoteId
+  readonly state: 'pending' | 'posted' | 'failed'
+  readonly next_at: number
+}
 
 interface ArrivalFacts {
   readonly note_id: NoteId
@@ -71,3 +76,8 @@ const viaOf = (row: ArrivalFacts): NonNullable<Note['via']> => ({
   newerMessages:
     Number(row.newest_arrival_at) === Number(row.created_at) ? Number(row.newer_messages ?? 0) : 0,
 })
+
+const postingOf = (row: OutboxFacts, now: number): Pick<Note, 'posting' | 'postingRetryAt'> =>
+  row.state === 'pending' && Number(row.next_at) > now
+    ? { posting: 'retrying', postingRetryAt: Number(row.next_at) }
+    : { posting: row.state }

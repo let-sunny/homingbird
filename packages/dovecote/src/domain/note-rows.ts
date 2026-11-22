@@ -168,7 +168,7 @@ const toNote = (
     : (row.approved_by ?? null) !== null && { approvedBy: row.approved_by }),
   ...(row.debate_id && debates.has(row.debate_id) && { fromDebate: debates.get(row.debate_id)! }),
   ...(slack.via.has(row.id) && { via: slack.via.get(row.id)! }),
-  ...(slack.posting.has(row.id) && { posting: slack.posting.get(row.id)! }),
+  ...slack.posting.get(row.id),
 })
 
 /** Sent by its person's saved answer: the note records them as approver, and the wire says how. */

@@ -3,6 +3,7 @@ import { type TestServer, startTestServer, storedRows } from './harness.ts'
 import {
   type FakeSlack,
   SLACK_VARIABLES,
+  connectWorkspace,
   fakeSlack,
   sendSlackEvent,
   slackEvent,
@@ -32,6 +33,26 @@ describe('the Slack events address', () => {
     await server.close()
     server = await startTestServer({ HB_FEATURES: 'slack=on' })
     expect((await server.request('POST', '/slack/events', { body: {} })).status).toBe(404)
+  })
+
+  it('logs why it drops a signed event while no workspace is connected or of another one, and nothing of it', async () => {
+    slack = fakeSlack()
+    slack.refuseNext('auth.test', 'invalid_auth')
+    server = await startSlackServer(slack)
+    const mention = { type: 'app_mention', user: 'U0ANA', text: SECRET_TEXT, channel: 'C1', ts: '1.0' }
+    expect((await sendSlackEvent(server, slackEvent(mention))).status).toBe(200)
+    await connectWorkspace(server)
+    expect((await sendSlackEvent(server, slackEvent(mention, 'T0OTHER'))).status).toBe(200)
+    expect((await sendSlackEvent(server, { type: 'event_callback', team_id: 'T0ACME' })).status).toBe(200)
+    const dropped = server.logged.filter((line) => line.includes('slack.event_dropped'))
+    expect(dropped).toHaveLength(3)
+    expect(dropped[0]).toContain('not_connected')
+    expect(dropped[0]).toContain('app_mention')
+    expect(dropped[1]).toContain('other_workspace')
+    expect(dropped[2]).toContain('no_event_id')
+    expect(server.logged.join('\n')).not.toContain(SECRET_TEXT)
+    expect(server.logged.join('\n')).not.toContain('U0ANA')
+    expect(await storedRows(server, 'slack_events')).toEqual([])
   })
 
   it('answers Slack’s address check with its challenge, only when signed', async () => {

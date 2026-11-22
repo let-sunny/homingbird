@@ -15,7 +15,7 @@ import { cardOf, focusAfterDecision } from './decision-focus.ts'
 import { closeDialog, closesDialog, opensDialog, submitOnModifierEnter } from './dialog.ts'
 import { hinted } from './hint.ts'
 import { noteBody } from './note-body.ts'
-import { button, channelCounts, sourceList } from './parts.ts'
+import { button, channelCounts, slackReplyLines, sourceList } from './parts.ts'
 import { renderAppliedMarkers } from './teaching.ts'
 
 /**
@@ -35,14 +35,7 @@ export const renderDraftsItem = (context: ViewContext, model: DraftsItemModel): 
       h('span', {}, model.replyTo),
     ),
     model.choose !== null && h('p', { class: 'pending-choose' }, model.choose),
-    model.slack !== null &&
-      h(
-        'p',
-        { class: 'slack-destination hint' },
-        h('span', {}, model.slack.postsTo),
-        model.slack.newer !== null &&
-          h('strong', { class: 'slack-newer', role: 'status' }, model.slack.newer),
-      ),
+    slackReplyLines(model.slack),
     model.archived !== null && h('p', { class: 'archived-drafts', role: 'note' }, model.archived),
     h(
       'div',

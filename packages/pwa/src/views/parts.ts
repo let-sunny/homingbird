@@ -2,6 +2,7 @@ import type { AsRead } from '@homingbird/protocol'
 import { type Child, type Properties, h } from '@homingbird/ui'
 import { channelLabel } from '../channels.ts'
 import type { SourceShown } from '../draft-basis.ts'
+import type { SlackReplyLines } from '../models/slack-reply.ts'
 import type { TimeShown } from '../models/time.ts'
 import { type PresenceMarks, presenceShown } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
@@ -179,6 +180,20 @@ export const channelCounts = (channel: {
 export const archivedMark = (): HTMLElement => h('span', { class: 'archived-mark' }, strings.archived)
 
 export const youMark = (): HTMLElement => h('small', { class: 'is-you' }, strings.youMark)
+
+/** Where a reply to Slack is posted, and what changed there since, each on its own line. */
+export const slackReplyLines = (lines: SlackReplyLines | null): HTMLElement | null =>
+  lines === null
+    ? null
+    : h(
+        'div',
+        { class: 'slack-destination hint', role: 'note' },
+        h('p', {}, lines.postsTo),
+        lines.newer !== null &&
+          h('p', { class: 'slack-newer', role: 'status' }, h('strong', {}, lines.newer)),
+        lines.edited !== null &&
+          h('p', { class: 'slack-newer', role: 'status' }, h('strong', {}, lines.edited)),
+      )
 
 export const privateMarkOf = (text: string, title?: string): HTMLElement =>
   h(

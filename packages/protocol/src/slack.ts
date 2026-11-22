@@ -4,10 +4,12 @@ import { Timestamp } from './ids.ts'
 import { ChannelSlug } from './model.ts'
 
 /** The server's Slack workspace as an administrator reads it: never its token or signing secret. */
+export const SlackStop = S.tolerant(S.literal('token_refused', 'revoked', 'other_workspace'), UNKNOWN)
+
 export const SlackWorkspace = S.struct({
   team: S.string({ maxLength: 200 }),
   state: S.tolerant(S.literal('connected', 'stopped'), UNKNOWN),
-  stoppedBecause: S.nullable(S.tolerant(S.literal('token_refused', 'revoked', 'other_workspace'), UNKNOWN)),
+  stoppedBecause: S.nullable(SlackStop),
   connectedAt: Timestamp,
   lastEventAt: S.nullable(Timestamp),
 })
@@ -26,6 +28,7 @@ export const AdminSlack = S.struct({
   eventsUrl: S.string({ maxLength: 2100 }),
   manifest: S.string({ maxLength: 8000 }),
   linkedPeople: S.int({ min: 0 }),
+  tokenRefused: S.optional(S.boolean),
 })
 export type AdminSlack = S.Infer<typeof AdminSlack>
 
@@ -36,6 +39,7 @@ export type SlackPersonLink = S.Infer<typeof SlackPersonLink>
 export const MeSlack = S.struct({
   team: S.nullable(S.string({ maxLength: 200 })),
   connected: S.boolean,
+  stopped: S.optional(S.nullable(SlackStop)),
   link: S.nullable(SlackPersonLink),
 })
 export type MeSlack = S.Infer<typeof MeSlack>
@@ -71,6 +75,8 @@ export const SLACK_EVENTS_PATH = '/slack/events'
 
 /** The refusal of a reply whose Slack thread moved since the card was read; clients match it exactly. */
 export const SLACK_THREAD_MOVED = 'The Slack thread has newer messages. Read them, then send again.'
+
+export const SLACK_QUESTION_EDITED = 'The question was edited in Slack. Read it again, then send again.'
 
 /** Where a link code is confirmed in the web client. */
 export const slackCodeHref = (code: string): string => `#/slack/link/${encodeURIComponent(code)}`

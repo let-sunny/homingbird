@@ -8,6 +8,7 @@ import { strings } from '../strings.ts'
 import { excerpt, isArchived, otherParticipants } from '../thread.ts'
 import { agentAskReach } from './agent-ask.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
+import { type SlackReplyLines, slackReplyLines } from './slack-reply.ts'
 import {
   type ThreadInput,
   channelAskedIn,
@@ -55,10 +56,7 @@ export const composerModel = (input: ThreadInput): ComposerModel => {
     theirAgent: theirAgentUnavailable(recipientPresence(input)),
     answers: answerersIn(input),
     replyingTo: target === null ? null : strings.replyingTo({ excerpt: excerpt(target.body, 60) }),
-    postsTo:
-      target?.via === undefined
-        ? null
-        : postsToText(target.via.channelName, channelOfRoom(input.channels, input.conversationId)?.link),
+    slack: slackReplyLines(target, channelOfRoom(input.channels, input.conversationId)?.link, null),
     asksAgent: draftRequestsOn,
     askAgentReason: draftRequestsOn ? reasonOf(agentAskReach(true, mine?.presence)) : null,
     lookUpEarlierAnswers: isOn(input, 'earlierAnswers') && mayMessageIn(input),
@@ -88,8 +86,8 @@ export type ComposerModel =
       /** In a channel, who answers a question asked there, and a warning when nobody can now. */
       readonly answers: AnswerersLine | null
       readonly replyingTo: string | null
-      /** Where a reply to a question from Slack is posted once sent. */
-      readonly postsTo: string | null
+      /** Where a reply to a question from Slack is posted once sent, and whether its thread moved. */
+      readonly slack: SlackReplyLines | null
       /** Whether the composer offers to ask the person's agent for a draft: only where the server takes requests. */
       readonly asksAgent: boolean
       /** Why the person's agent cannot be asked for a draft now, if it cannot. */
@@ -117,12 +115,4 @@ const recipientPresence = (input: ThreadInput): AsRead.Presence | undefined => {
   if (room?.kind !== 'direct') return undefined
   const [other] = otherParticipants(room, input.me.member.id)
   return input.directory.find((entry) => entry.member.id === other)?.presence
-}
-
-/** "Posts to Slack #billing-help (12 members)", with the count when the link knows it. */
-export const postsToText = (channel: string, link: AsRead.Channel['link'] | null | undefined): string => {
-  const count = link?.memberCount ?? null
-  return count === null
-    ? strings.slack.postsToUncounted({ channel })
-    : strings.slack.postsTo({ channel, count })
 }

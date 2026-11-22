@@ -37,7 +37,7 @@ import { renderHeldLine } from './held-toast.ts'
 import { hinted } from './hint.ts'
 import { joinCodeSection } from './join-code.ts'
 import { noteBody } from './note-body.ts'
-import { button, field, loading, page as pageOf, sourceList } from './parts.ts'
+import { button, field, loading, page as pageOf, slackReplyLines, sourceList } from './parts.ts'
 
 /** The agent's buttons among a channel's own controls: its panel for a manager, and asking it privately. */
 export const agentButtons = (context: ViewContext, channel: AsRead.Channel): Child => {
@@ -196,7 +196,15 @@ const waitingAnswers = (
       life.add(state.reviews.subscribe(learnWhatBecameOfFocus))
     },
   })
-  const sources = [state.reviews, state.reviewsRead, state.members, decided, state.held, state.draftEdits]
+  const sources = [
+    state.reviews,
+    state.reviewsRead,
+    state.members,
+    decided,
+    state.held,
+    state.draftEdits,
+    state.channels,
+  ]
   return region(life, sources, () => {
     const settled = decided.get()
     const model = reviewCardsModel(
@@ -206,6 +214,7 @@ const waitingAnswers = (
       state.members.get(),
       state.draftEdits.get(),
       focus,
+      state.channels.get(),
     )
     if (!broughtIntoView && model.cards.some((card) => card.focused)) {
       broughtIntoView = true
@@ -464,6 +473,7 @@ export const reviewCard = (
         h('small', {}, card.question.from),
         h('p', {}, card.question.body),
       ),
+    slackReplyLines(card.slack),
     noteBody(context, card.body, 'review-body'),
     card.basis !== null &&
       h(

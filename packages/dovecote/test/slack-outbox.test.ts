@@ -1,4 +1,5 @@
-import { SLACK_THREAD_MOVED } from '@homingbird/protocol'
+import { Task as T } from '@homingbird/kernel'
+import { SLACK_QUESTION_EDITED, SLACK_THREAD_MOVED } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type Agent, type Session, type TestServer, connectAgent, storedRows } from './harness.ts'
 import {
@@ -58,6 +59,27 @@ const send = (draft: { id: string; body: string; conversationId: string }, threa
 
 const posts = () => slack.posted().filter((post) => post.channel === 'C0HELP' && post.thread_ts !== undefined)
 
+/** How a note's post to Slack stood in each live change a person was told about. */
+const postingChanges = async (person: Session, noteId: string) =>
+  ((await person.api('GET', '/events/poll?after=0')).json.events as any[])
+    .filter((event) => event.body.type === 'note.changed' && event.body.note.id === noteId)
+    .map((event) => event.body.note.posting)
+
+/** Runs the notifier until what it was given is done, as the server does in the background. */
+const notified = async () => {
+  const running = T.runFork(server.background, server.env)
+  await server.settled()
+  await running.interrupt()
+}
+
+const failFourTimes = async () => {
+  for (const wait of [0, 5, 15, 60]) {
+    await server.clock.advance(wait * 60_000)
+    slack.refuseNext('chat.postMessage', 'internal_error')
+    await server.slackPass()
+  }
+}
+
 describe('posting an approved answer to Slack', () => {
   it('posts nothing for a draft, then posts the sent answer in the thread, escaped, under who wrote it', async () => {
     const { ts, question, draft } = await draftAnswer()
@@ -93,6 +115,49 @@ describe('posting an approved answer to Slack', () => {
     expect((await send(draft, '1800000001.0')).status).toBe(200)
   })
 
+  it('refuses a send once with the edit as the reason when the question was edited in Slack after it was read', async () => {
+    const { ts, question, draft } = await draftAnswer()
+    await sendSlackEvent(
+      server,
+      slackEvent({
+        type: 'message',
+        subtype: 'message_changed',
+        channel: 'C0HELP',
+        ts: '1800000002.0',
+        message: { ts, user: 'U0BOB', text: '<@U0BOT> Do refunds keep the PROD discount?' },
+      }),
+    )
+    await server.slackPass()
+    const refused = await send(draft, question.via.threadAt)
+    expect(refused.status).toBe(409)
+    expect(refused.json.error.message).toBe(SLACK_QUESTION_EDITED)
+    const edited = (await ben.api('GET', `/notes/${question.id}`)).json
+    expect(edited.via).toMatchObject({ edited: true, threadAt: '1800000002.0' })
+    expect((await send(draft, edited.via.threadAt)).status).toBe(200)
+  })
+
+  it('says newer messages, not an edit, when the thread moved after an edit the person had read', async () => {
+    const { ts, question, draft } = await draftAnswer()
+    await sendSlackEvent(
+      server,
+      slackEvent({
+        type: 'message',
+        subtype: 'message_changed',
+        channel: 'C0HELP',
+        ts: '1800000002.0',
+        message: { ts, user: 'U0BOB', text: '<@U0BOT> Edited' },
+      }),
+    )
+    await server.slackPass()
+    const read = (await ben.api('GET', `/notes/${question.id}`)).json.via.threadAt
+    await sendSlackEvent(
+      server,
+      slackEvent({ type: 'message', channel: 'C0HELP', user: 'U0BOB', ts: '1800000003.0', thread_ts: ts }),
+    )
+    await server.slackPass()
+    expect((await send(draft, read)).json.error.message).toBe(SLACK_THREAD_MOVED)
+  })
+
   it('refuses a reply into a stopped link, and while Slack is off', async () => {
     const { question, draft } = await draftAnswer()
     await sendSlackEvent(server, slackEvent({ type: 'channel_archive', channel: 'C0HELP' }))
@@ -126,6 +191,46 @@ describe('posting an approved answer to Slack', () => {
     expect(posts()).toHaveLength(1)
   })
 
+  it('shows when it tries again while a post waits, live, and posts at once when someone tries it now', async () => {
+    const { question, draft } = await draftAnswer()
+    await send(draft, question.via.threadAt)
+    slack.refuseNext('chat.postMessage', 'internal_error')
+    await server.slackPass()
+    expect((await ben.api('GET', `/notes/${draft.id}`)).json).toMatchObject({
+      posting: 'retrying',
+      postingRetryAt: server.clock.now() + 5 * 60_000,
+    })
+    expect(await postingChanges(ana, draft.id)).toEqual(['retrying'])
+    expect((await ana.api('POST', `/notes/${draft.id}/posting/retry`, {})).json.posting).toBe('pending')
+    await server.slackPass()
+    expect(posts()).toHaveLength(2)
+    expect(await postingChanges(ana, draft.id)).toEqual(['retrying', 'pending', 'posted'])
+  })
+
+  it('tells the channel’s managers in Slack, with a link and nothing of the reply, when a post is given up', async () => {
+    const { question, draft } = await draftAnswer()
+    await send(draft, question.via.threadAt)
+    await failFourTimes()
+    await notified()
+    expect(await postingChanges(ben, draft.id)).toEqual(['retrying', 'retrying', 'retrying', 'failed'])
+    const told = slack
+      .posted()
+      .filter((post) => post.channel === 'DU0ANA' && /not be posted/.test(post.text!))
+    expect(told).toHaveLength(1)
+    expect(told[0]!.text).toContain(`/#/c/${draft.conversationId}`)
+    expect(told[0]!.text).not.toContain('Refunds')
+    expect(server.logged.some((line) => line.includes('slack.not_posted_told'))).toBe(true)
+  })
+
+  it('tells nobody when the post was given up because a manager unlinked the channel', async () => {
+    const { question, draft } = await draftAnswer()
+    await send(draft, question.via.threadAt)
+    await ana.api('DELETE', '/channels/billing/slack')
+    await notified()
+    expect(await postingChanges(ben, draft.id)).toEqual(['failed'])
+    expect(slack.posted().filter((post) => /not be posted/.test(post.text ?? ''))).toEqual([])
+  })
+
   it('checks the thread before trying again a post whose answer was lost, and never posts twice', async () => {
     const { question, draft } = await draftAnswer()
     await send(draft, question.via.threadAt)
@@ -143,11 +248,7 @@ describe('posting an approved answer to Slack', () => {
   it('waits 5, 15 and 60 minutes between failures, then shows it as not posted, to be tried again', async () => {
     const { question, draft } = await draftAnswer()
     await send(draft, question.via.threadAt)
-    for (const wait of [0, 5, 15, 60]) {
-      await server.clock.advance(wait * 60_000)
-      slack.refuseNext('chat.postMessage', 'internal_error')
-      await server.slackPass()
-    }
+    await failFourTimes()
     expect((await ben.api('GET', `/notes/${draft.id}`)).json.posting).toBe('failed')
     expect((await ana.api('POST', `/notes/${draft.id}/posting/retry`, {})).json.posting).toBe('pending')
     expect((await ana.api('POST', `/notes/${draft.id}/posting/retry`, {})).status).toBe(409)

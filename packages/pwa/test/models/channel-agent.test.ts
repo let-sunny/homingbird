@@ -194,6 +194,7 @@ describe('reviewCardsModel', () => {
       members,
       new Map(),
       'note_two',
+      [],
     )
     expect(model.none).toBeNull()
     expect(model.cards.map((card) => card.focused)).toEqual([false, true])
@@ -219,6 +220,7 @@ describe('reviewCardsModel', () => {
       members,
       new Map(),
       null,
+      [],
     ).cards
     expect(asked).toMatchObject({
       why: strings.channelAgent.whyYouReview({ channel: '#payments-wiki' }),
@@ -243,6 +245,7 @@ describe('reviewCardsModel', () => {
       members,
       new Map(),
       null,
+      [],
     ).cards[0]!
     expect(unknownAsker.held.send.pending).toBe(strings.heldSending({ names: '#payments-wiki' }))
     const askedPrivately = reviewCardsModel(
@@ -252,6 +255,7 @@ describe('reviewCardsModel', () => {
       members,
       new Map([[review().note.id, 'my words']]),
       null,
+      [],
     ).cards[0]!
     expect(askedPrivately).toMatchObject({
       held: heldWordsFor('Cy'),
@@ -271,15 +275,63 @@ describe('reviewCardsModel', () => {
       members,
       new Map(),
       null,
+      [],
     )
     expect(changed.cards[0]!.readAgain).toEqual({
       notice: strings.draftChangedSinceRead,
       confirm: strings.draftReadAgain,
     })
     expect(changed.cards[0]!.question!.from).toBe(`Question from ${strings.formerMember}`)
-    expect(reviewCardsModel([], 'payments-wiki', new Map(), members, new Map(), null).none).toBe(
+    expect(reviewCardsModel([], 'payments-wiki', new Map(), members, new Map(), null, []).none).toBe(
       strings.channelAgent.reviewsNone,
     )
+  })
+
+  it('names a Slack asker as Slack does, and says where the answer is posted and what changed in Slack', () => {
+    const fromSlack = note('note_question000', {
+      authorId: 'mem_link00000000' as MemberId,
+      origin: 'outside',
+      updatedAt: 20,
+      via: {
+        tool: 'slack',
+        askerName: 'Pat Rivera',
+        askerId: null,
+        channelName: 'eng-help',
+        edited: true,
+        deleted: false,
+        threadAt: '2.0',
+        newerMessages: 2,
+      },
+    })
+    const linked = channel('payments-wiki', {
+      link: { tool: 'slack', name: 'eng-help', isPrivate: false, memberCount: 42, state: 'active' },
+    })
+    const [card] = reviewCardsModel(
+      [review({ question: fromSlack, note: draft('note_answer00000', { authorId: AGENT, updatedAt: 10 }) })],
+      'payments-wiki',
+      new Map(),
+      members,
+      new Map(),
+      null,
+      [linked],
+    ).cards
+    expect(card).toMatchObject({
+      question: { from: 'Question from Pat Rivera, in Slack #eng-help' },
+      discarding: {
+        hint: strings.channelAgent.discardReasonHint({
+          channel: '#payments-wiki',
+          name: strings.slack.askedIn({ name: 'Pat Rivera', channel: 'eng-help' }),
+        }),
+      },
+      slack: {
+        postsTo: strings.slack.postsTo({ channel: 'eng-help', count: 42 }),
+        newer: strings.slack.newerMessages({ count: 2 }),
+        edited: strings.slack.questionEdited,
+      },
+    })
+    expect(card!.question!.from).not.toContain(strings.formerMember)
+    const plain = reviewCardsModel([review()], 'payments-wiki', new Map(), members, new Map(), null, [])
+    expect(plain.cards[0]!.slack).toBeNull()
   })
 
   it('counts the answers waiting in a channel’s room, else its private ones, and leads to the first waiting', () => {
@@ -324,6 +376,7 @@ describe('reviewsInRoomModel', () => {
       members,
       new Map(),
       focus,
+      [],
     )
   const question = note('note_question000', { authorId: CY, body: 'Where is the runbook?', sentAt: 2 })
   const notes = [note('note_before', { sentAt: 1 }), question, note('note_after', { sentAt: 3 })]

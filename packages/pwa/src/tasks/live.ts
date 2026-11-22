@@ -2,7 +2,7 @@ import { Task as T } from '@homingbird/kernel'
 import type { AsRead, ConversationId } from '@homingbird/protocol'
 import { batch, later } from '@homingbird/ui'
 import type { App } from '../app.ts'
-import { channelLabel, withChannel, withoutRoom } from '../channels.ts'
+import { channelLabel, channelOfRoom, withChannel, withoutRoom } from '../channels.ts'
 import { upsertRequest } from '../draft-requests.ts'
 import { hrefFor } from '../routes.ts'
 import { signedIn } from '../state.ts'
@@ -60,6 +60,10 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         if (body.note.authorId === signedIn(state)?.member.id) launch(closeDraftNotice(body.note.id))
         announceIfFresh(app, body.note)
         launch(loadConversations)
+        break
+      case 'note.changed':
+        rememberNote(state)(body.note)
+        tellIfNotPosted(app, body.note)
         break
       case 'note.status':
         state.changes.count(body.conversationId)
@@ -190,6 +194,18 @@ const announceIfFresh = (app: App, note: AsRead.Note): void => {
   app.state.announcement.set(
     strings.incomingNote({ name: app.state.members.get().get(note.authorId)?.name ?? strings.formerMember }),
   )
+}
+
+/** A reply given up on is told to its sender and the channel's managers, who can try it again. */
+const tellIfNotPosted = (app: App, note: AsRead.Note): void => {
+  if (note.posting !== 'failed') return
+  const channel = channelOfRoom(app.state.channels.get(), note.conversationId)
+  const isSender = (note.approvedBy ?? note.authorId) === signedIn(app.state)?.member.id
+  if (!isSender && channel?.managing !== true) return
+  app.state.notice.set({
+    kind: 'error',
+    text: strings.slack.notPostedNotice({ channel: channel?.link?.name ?? '' }),
+  })
 }
 
 const reloadShownDebate = (app: App, id: string): void => {
