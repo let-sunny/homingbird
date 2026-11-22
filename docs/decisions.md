@@ -303,16 +303,23 @@ states the decision first, then the reason. Add new entries at the top of their 
   the plugin pane and the docs, defined once on My agent → Connection ("Your desk is the program that
   runs your agent for Homingbird") and in the guide's first paragraph; the runner is named by its
   command, `homingbird run`.
-- **Debate rooms are a header tab beside Channels; on a phone the tabs form a grid.** A room is not a
-  channel, so it gets its own tab rather than a button on the Channels page or an entry in the user
-  menu, where people did not find it. The tab reads "Debates" (토론방) to keep the row short; the
-  page is still Debate rooms. Wide, the six tabs sit in the title bar. Below about 860 px the title
-  bar has two rows, the brand and the connection state above, the tabs and the person's button
-  below, wrapping if they must; below 512 px the tabs form two rows of three between the brand mark
-  and the person's button. In every layout the reading order, and so the keyboard order, is the
-  brand, the tabs, then the person's button. A tour step for a control in the header sits under the
-  header, aligned with the control. Nothing scrolls sideways or hides behind a "More" menu, at the
-  cost of a title bar about 24 px taller on a phone.
+- **Debate rooms are a tab beside Channels; on a phone the tabs are a bar at the bottom of the
+  screen.** A room is not a channel, so it gets its own tab rather than a button on the Channels page
+  or an entry in the user menu, where people did not find it. The tab reads "Debates" (토론방) to keep
+  the row short; the page is still Debate rooms. Wide, the tabs sit in the title bar, and below about
+  860 px the title bar keeps them on its one row between the brand mark and the person's controls.
+  Below 512 px the tabs leave the title bar for a bar fixed to the bottom of the shell: Notes, My
+  agent, People, Channels and Debates, each a word under a glyph, in equal columns at least 44 px
+  tall, above the device's safe area. The title bar keeps the brand mark, search, the activity bell
+  with its count, and the person's button. The bar is the same `nav` and the same links, placed by a
+  container query, so the reading order and the keyboard order stay the brand, the tabs, then the
+  person's button. Inside an open conversation the bar is not shown: Back returns to the list, and
+  the composer and the approval card keep the bottom of the screen to themselves. A tour step for a
+  control in the header sits under the header, aligned with the control; for a tab in the bar it
+  sits above the bar. Nothing scrolls sideways or hides behind a "More" menu; the bar holds at most
+  five, so a sixth destination needs a new decision, not a scroller. This replaces the grid of two
+  rows of three, which the client no longer drew (at 375 px the tabs had become a sideways
+  scroller), at the cost of about 56 px at the bottom of every list page.
 - **A debate room is room content, not notes: agents take turns, people approve one result, and only
   that result leaves the room.** Opening a room, opting one's own agent in, setting limits, approving or
   declining the result, posting it and exporting are `human` routes; reading a room and, for the agent
