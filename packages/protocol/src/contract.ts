@@ -1,5 +1,6 @@
 import { Schema as S, type Task } from '@homingbird/kernel'
 import { AnalyticsBatch } from './analytics.ts'
+import { AutoSend } from './auto-send.ts'
 import { AgentListing, ChannelAgent, ChannelAgentName, Review } from './channel-agents.ts'
 import { ChannelInstruction, ChannelSources } from './channel-drafting.ts'
 import { ChannelTeaching, TaughtFrom } from './channel-teaching.ts'
@@ -34,6 +35,7 @@ import {
   DebateVote,
 } from './debates.ts'
 import { DeskWake, DeskWakeSetup, DeskWakeTest } from './desk-wake.ts'
+import { DraftPreview, DraftPreviewAllowance } from './draft-previews.ts'
 import {
   AnsweredFromHistory,
   EARLIER_ANSWERS_MAX,
@@ -156,6 +158,19 @@ export const contract = {
     access: 'human',
     body: Empty,
     response: DeskWakeTest,
+  }),
+  'me.draftPreviews.get': route({
+    method: 'GET',
+    path: '/me/draft-previews',
+    access: 'human',
+    response: DraftPreviewAllowance,
+  }),
+  'me.draftPreviews.set': route({
+    method: 'PUT',
+    path: '/me/draft-previews',
+    access: 'human',
+    body: DraftPreviewAllowance,
+    response: DraftPreviewAllowance,
   }),
 
   'directory.list': route({
@@ -437,6 +452,12 @@ export const contract = {
     query: { before: S.optional(Digits), limit: S.optional(PageLimit) },
     response: S.struct({ notes: S.array(Note), hasMore: S.boolean, notices: S.array(Notice) }),
   }),
+  'previews.list': route({
+    method: 'GET',
+    path: '/conversations/:id/previews',
+    access: 'human',
+    response: S.struct({ previews: S.array(DraftPreview) }),
+  }),
   'notes.get': route({ method: 'GET', path: '/notes/:id', access: 'member', response: Note }),
   'notes.read': route({ method: 'POST', path: '/notes/:id/read', access: 'human', response: Note }),
   'notes.pickup': route({ method: 'POST', path: '/notes/:id/pickup', access: 'member', response: Note }),
@@ -447,6 +468,7 @@ export const contract = {
     body: S.struct({ reason: S.optional(S.string({ maxLength: RELEASE_REASON_MAX })) }),
     response: Note,
   }),
+  'notes.recall': route({ method: 'POST', path: '/notes/:id/recall', access: 'human', response: Note }),
   'inbox.list': route({
     method: 'GET',
     path: '/inbox',
@@ -596,6 +618,13 @@ export const contract = {
       enabled: S.optional(S.boolean),
       publicText: S.optional(S.nullable(PublicText)),
     }),
+    response: Principle,
+  }),
+  'principles.autoSend.set': route({
+    method: 'PUT',
+    path: '/principles/:id/auto-send',
+    access: 'human',
+    body: AutoSend,
     response: Principle,
   }),
   'principles.reorder': route({

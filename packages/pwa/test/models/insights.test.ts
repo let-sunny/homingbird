@@ -238,6 +238,27 @@ describe('insightsModel', () => {
     })
   })
 
+  it('shows notes saved answers sent only while the server counts them, hidden for too few people', () => {
+    const rowsOf = (current: ReturnType<typeof organization>, minimum = 5) =>
+      figuresOf(
+        insightsModel(
+          insights({ minimumGroupSize: minimum, periods: [{ days: 7, current, previous: null }] }),
+          7,
+          false,
+        ),
+      ).table
+    const counted = rowsOf(organization({ autoSent: 4 }), 1)
+    expect(counted.rows.find((row) => row[0] === strings.insights.rows.autoSent)?.[1]).toBe('4')
+    expect(counted.footnotes).toContain(strings.insights.autoSentCounted)
+    const hidden = rowsOf(organization({ autoSent: null }))
+    expect(hidden.rows.find((row) => row[0] === strings.insights.rows.autoSent)?.[1]).toBe(
+      strings.insights.hidden,
+    )
+    expect(hidden.footnotes).toContain(strings.insights.autoSentExplained({ minimum: 5 }))
+    const off = rowsOf(organization())
+    expect(off.rows.map((row) => row[0])).not.toContain(strings.insights.rows.autoSent)
+  })
+
   it('hides draft decisions too few people made, and shows none yet where nothing was counted', () => {
     const hidden = organization({
       sentAsWritten: null,

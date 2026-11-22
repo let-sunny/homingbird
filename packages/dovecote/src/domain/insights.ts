@@ -100,7 +100,7 @@ const agentActivity = (
         n.agent_client, n.agent_model, n.agent_name, n.session_minutes, n.context_percent, ${PLACE_COLUMNS}
       FROM notes n ${PLACE_JOIN}
       WHERE n.author_id = ${memberId} AND n.agent_name IS NOT NULL AND n.debate_id IS NULL
-      AND (n.created_at >= ${since} OR n.decided_at >= ${since})`)
+      AND n.auto_principle_id IS NULL AND (n.created_at >= ${since} OR n.decided_at >= ${since})`)
     const handWritten = yield* all<DatedRow>(sql`
       SELECT n.sent_at AS at, ${PLACE_COLUMNS} FROM notes n ${PLACE_JOIN}
       WHERE n.author_id = ${memberId} AND n.agent_name IS NULL AND n.debate_id IS NULL AND n.status = 'sent'
@@ -108,6 +108,12 @@ const agentActivity = (
     const debateResults = yield* all<DatedRow>(sql`
       SELECT n.sent_at AS at, ${PLACE_COLUMNS} FROM notes n ${PLACE_JOIN}
       WHERE n.author_id = ${memberId} AND n.debate_id IS NOT NULL AND n.status = 'sent'
+      AND n.sent_at >= ${since}`)
+    const autoSent = !(yield* featureIsOn('autoSend'))
+      ? null
+      : yield* all<DatedRow>(sql`
+      SELECT n.sent_at AS at, ${PLACE_COLUMNS} FROM notes n ${PLACE_JOIN}
+      WHERE n.author_id = ${memberId} AND n.auto_principle_id IS NOT NULL AND n.status = 'sent'
       AND n.sent_at >= ${since}`)
     const skips = yield* all<SkipRow>(sql`
       SELECT n.note_id, n.conversation_id, n.created_at AS at, n.reason, ${PLACE_COLUMNS}
@@ -127,6 +133,7 @@ const agentActivity = (
       })),
       handWritten: handWritten.map(toDated),
       debateResults: debateResults.map(toDated),
+      ...(autoSent !== null && { autoSent: autoSent.map(toDated) }),
       skips: skips.map((row) => ({
         ...toDated(row),
         reason: row.reason,
@@ -154,7 +161,8 @@ const weekActivity = (memberId: MemberId, since: number): T.Task<WeekActivity, n
       AND o.sent_at >= ${since}`)
     const approved = yield* all<{ at: number }>(sql`
       SELECT n.decided_at AS at FROM notes n
-      WHERE n.approved_by = ${memberId} AND n.status = 'sent' AND n.decided_at >= ${since}`)
+      WHERE n.approved_by = ${memberId} AND n.auto_principle_id IS NULL AND n.status = 'sent'
+      AND n.decided_at >= ${since}`)
     return {
       sent: sent.map((row) => Number(row.at)),
       approvedForChannels: approved.map((row) => Number(row.at)),
@@ -179,7 +187,8 @@ const organizationActivity = (
     const drafts = yield* all<DraftRow & { id: string; author_id: string | null }>(sql`
       SELECT n.id, ${DECIDER} AS author_id, n.created_at, n.seen_at, n.decided_at, n.status, n.origin, n.agent_client, n.agent_model, ${PLACE_COLUMNS}
       FROM notes n ${PLACE_JOIN} JOIN members a ON a.id = n.author_id
-      WHERE n.agent_name IS NOT NULL AND n.debate_id IS NULL AND (n.created_at >= ${since} OR n.decided_at >= ${since})`)
+      WHERE n.agent_name IS NOT NULL AND n.debate_id IS NULL AND n.auto_principle_id IS NULL
+      AND (n.created_at >= ${since} OR n.decided_at >= ${since})`)
     const channelAgentDrafts = yield* reviewedDrafts(
       sql`(COALESCE(t.visibility, 'open') = 'open' OR EXISTS (SELECT 1 FROM participants v
         WHERE v.conversation_id = t.conversation_id AND v.member_id = ${viewerId}))`,
@@ -195,6 +204,11 @@ const organizationActivity = (
     const debateResults = yield* all<{ author_id: string; sent_at: number }>(sql`
       SELECT n.author_id, n.sent_at FROM notes n
       WHERE n.status = 'sent' AND n.debate_id IS NOT NULL AND n.sent_at >= ${since}`)
+    const autoSent = !(yield* featureIsOn('autoSend'))
+      ? null
+      : yield* all<{ author_id: string; sent_at: number }>(sql`
+      SELECT n.author_id, n.sent_at FROM notes n
+      WHERE n.status = 'sent' AND n.auto_principle_id IS NOT NULL AND n.sent_at >= ${since}`)
     const received = yield* all<ReceivedRow>(sql`
       SELECT r.member_id, n.sent_at,
         CASE WHEN EXISTS (
@@ -221,6 +235,9 @@ const organizationActivity = (
       skips: skips.map((row) => ({ ...toDated(row), memberId: row.member_id })),
       answeredFromHistory: answeredFromHistory.map((row) => ({ ...toDated(row), memberId: row.member_id })),
       debateResults: debateResults.map((row) => ({ authorId: row.author_id, sentAt: Number(row.sent_at) })),
+      ...(autoSent !== null && {
+        autoSent: autoSent.map((row) => ({ authorId: row.author_id, sentAt: Number(row.sent_at) })),
+      }),
       received: received.map((row) => ({
         recipientId: row.member_id,
         sentAt: Number(row.sent_at),

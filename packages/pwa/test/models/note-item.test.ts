@@ -45,6 +45,34 @@ describe('noteItemModel', () => {
     expect(noteItemModel(input, item(note('n2'))).approval).toBeNull()
   })
 
+  it('says a saved answer sent a note without a click, and offers its author Recall for five minutes only', () => {
+    const theirs = note('n1', { autoSent: true, origin: 'agent', agentName: 'Desk' })
+    const mine = note('n2', { authorId: ANA, autoSent: true, origin: 'agent', agentName: 'Desk', sentAt: 10 })
+    const input = threadInput({ thread: { notes: [theirs, mine], hasMore: false } })
+    expect(noteItemModel(input, item(theirs)).autoSent).toEqual({
+      text: strings.autoSend.sentByTheirs({ name: 'Ben' }),
+      recall: null,
+    })
+    expect(noteItemModel(input, item(mine)).autoSent).toEqual({
+      text: strings.autoSend.sentByYours,
+      recall: strings.autoSend.recall,
+    })
+    const later = threadInput({ thread: input.thread, now: 10 + 5 * 60_000 })
+    expect(noteItemModel(later, item(mine)).autoSent?.recall).toBeNull()
+    expect(noteItemModel(input, item(note('n3'))).autoSent).toBeNull()
+  })
+
+  it('shows its author a recalled note as recalled, with no state mark and nothing to recall', () => {
+    const recalled = note('n1', { authorId: ANA, autoSent: true, status: 'withdrawn', receipts: [] })
+    const model = noteItemModel(
+      threadInput({ thread: { notes: [recalled], hasMore: false } }),
+      item(recalled),
+    )
+    expect(model.autoSent).toEqual({ text: strings.autoSend.recalledLine, recall: null })
+    expect(model.className).toContain('is-withdrawn')
+    expect(model.meta?.mark ?? null).toBeNull()
+  })
+
   it('says a channel’s agent wrote its answer, as the agent of its channel', () => {
     const answer = note('n1', { authorId: CY, origin: 'agent', agentName: 'Desk', approvedBy: ANA })
     const room = conversation({ kind: 'group', privateQuestionOf: 'wiki' })

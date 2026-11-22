@@ -81,6 +81,7 @@ export const fakePage = (hash = '#/') => {
     coarsePointer: false,
     anchors: false,
     hint: true,
+    interest: false,
     push: false,
     clipboard: true,
   }
@@ -114,6 +115,7 @@ export const fakePage = (hash = '#/') => {
     supportsAnchors: () => state.anchors,
     supportsPush: () => state.push,
     supportsHintPopovers: () => state.hint,
+    supportsInterestInvokers: () => state.interest,
     shownNotifications: () =>
       Promise.resolve(
         [...notifications].map(([tag, shownAt]) => ({

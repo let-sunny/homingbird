@@ -16,6 +16,7 @@ import * as held from './tasks/held.ts'
 import * as mutes from './tasks/mutes.ts'
 import * as notes from './tasks/notes.ts'
 import * as people from './tasks/people.ts'
+import * as previews from './tasks/previews.ts'
 import * as teaching from './tasks/teaching.ts'
 import * as workspace from './tasks/workspace.ts'
 
@@ -46,6 +47,7 @@ export const TASKS = {
   openThread: notes.openThread,
   loadOlderNotes: notes.loadOlderNotes,
   sendNote: notes.sendNote,
+  recallNote: notes.recallNote,
   markRead: notes.markRead,
   chooseReplyTarget: notes.chooseReplyTarget,
   replyTo: notes.replyTo,
@@ -72,6 +74,7 @@ export const TASKS = {
   refreshPrinciples: () => teaching.refreshPrinciples,
   savePrinciple: teaching.savePrinciple,
   changePrinciple: teaching.changePrinciple,
+  setAutoSend: teaching.setAutoSend,
   reorderPrinciples: teaching.reorderPrinciples,
   deletePrinciple: teaching.deletePrinciple,
   markPrincipleWrong: teaching.markPrincipleWrong,
@@ -148,6 +151,9 @@ export const TASKS = {
   turnPushOn: () => turnPushOn,
   turnPushOff: () => turnPushOff,
   testPush: () => testPush,
+  loadPreviews: previews.loadPreviews,
+  loadPreviewAllowance: () => previews.loadPreviewAllowance,
+  savePreviewAllowance: previews.savePreviewAllowance,
   loadDeskWake: () => cloudDesk.loadDeskWake,
   saveDeskWake: cloudDesk.saveDeskWake,
   removeDeskWake: () => cloudDesk.removeDeskWake,

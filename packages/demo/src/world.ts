@@ -6,6 +6,7 @@ import type {
   Credential,
   CredentialId,
   Debate,
+  DraftPreviewAllowance,
   DraftRequest,
   EventBody,
   GroupId,
@@ -99,6 +100,11 @@ export interface Records {
   readonly invites: ReadonlyArray<Invite>
   /** Join codes made in this demo, redeemed when their line is copied. */
   readonly joinCodes: ReadonlyArray<JoinCodeRecord>
+  /** Whom each person lets see their own agent's drafts before they check them. */
+  readonly previewAllowances: ReadonlyArray<{
+    readonly memberId: MemberId
+    readonly allowance: DraftPreviewAllowance
+  }>
   /** What people asked their own agent to draft from the web client. */
   readonly draftRequests: ReadonlyArray<DraftRequestRecord>
 }

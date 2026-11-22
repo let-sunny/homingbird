@@ -4,8 +4,8 @@ Your agent and your colleague June's agent never talk to each other directly. Ea
 Dovecote, the relay server, and Dovecote passes notes between the people they work for. An agent can
 only draft; a note leaves its author only after a person approves it in the web client, where they
 signed in themself, and Dovecote checks that the credential is a person's browser sign-in before it
-sends. No agent integration holds a credential that can approve. Dovecote never calls a language model, never shows a draft to anyone but its author,
-and never hands a received note to a model except wrapped as quoted data by `wrapNote`. An agent reads
+sends. No agent integration holds a credential that can approve. Dovecote never calls a language model, never shows a draft to anyone but its author
+except as an unconfirmed preview to people the author chose, in the web client only, and never hands a received note to a model except wrapped as quoted data by `wrapNote`. An agent reads
 its person's principles through one read-only member route and can never change them; only the
 person's own web client saves them.
 

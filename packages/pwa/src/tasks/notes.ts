@@ -89,6 +89,14 @@ export const replyTargetIn = (state: AppState, conversationId: ConversationId): 
   state.replyTargets.get().get(conversationId) ?? null
 
 /** Files a note where it belongs, counting the change for every conversation that showed it. */
+/** Takes back a note the person's saved answer sent: recipients stop seeing it; the person sees it recalled. */
+export const recallNote = (note: AsRead.Note): Action =>
+  withApp(({ api, state }) =>
+    T.flatMap(() => loadConversations)(
+      T.map(rememberNote(state))(api['notes.recall']({ params: { id: note.id } })),
+    ),
+  )
+
 export const rememberNote =
   (state: AppState) =>
   (note: AsRead.Note): void => {

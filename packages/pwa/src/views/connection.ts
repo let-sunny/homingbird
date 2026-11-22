@@ -58,7 +58,7 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
       const report = state.agentReport.get()
       return report === null || report === 'failed' ? null : freshSessionSuggestions(report.sessions.latest)
     }),
-    region(life, [state.directory], () => renderDeskState(model())),
+    region(life, [state.directory], () => renderDeskState(model(), context)),
     h(
       'section',
       { class: 'connected-agents', 'aria-labelledby': 'connected-agents' },
@@ -255,13 +255,13 @@ const renderRecommendation = (model: ConnectionModel): HTMLElement | null =>
         h('div', {}, h('strong', {}, model.recommendation.title), h('p', {}, model.recommendation.body)),
       )
 
-const renderDeskState = (model: ConnectionModel): HTMLElement | null =>
+const renderDeskState = (model: ConnectionModel, context: ViewContext): HTMLElement | null =>
   model.presence === null
     ? null
     : h(
         'div',
         { class: 'desk-state' },
-        h('p', {}, presenceBadges(model.presence)),
+        h('p', {}, presenceBadges(model.presence, context)),
         ...model.unavailable.map((line) => h('p', { class: 'hint', role: 'status' }, line)),
       )
 

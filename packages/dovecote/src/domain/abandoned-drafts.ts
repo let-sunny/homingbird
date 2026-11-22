@@ -3,6 +3,7 @@ import type { ConversationId, MemberId } from '@homingbird/protocol'
 import { type RequestEnv, emit } from '../events/events.ts'
 import { all, run } from '../sql/database.ts'
 import { sql } from '../sql/query.ts'
+import { withdrawPreview } from './draft-previews.ts'
 import type { NoteRow } from './note-rows.ts'
 import { keepNotice } from './notices.ts'
 
@@ -16,6 +17,7 @@ export const abandonDraft = (
     yield* run(
       sql`UPDATE notes SET status = 'discarded', updated_at = ${env.clock.now()} WHERE id = ${draft.id} AND status = 'draft'`,
     )
+    yield* withdrawPreview(draft)
     if (archivedChannel !== null)
       yield* keepNotice({
         memberId: draft.author_id,

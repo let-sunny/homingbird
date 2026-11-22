@@ -17,6 +17,7 @@ import { debateHandlers } from './debate-handlers.ts'
 import { inviteHandlers } from './invite-handlers.ts'
 import { joinCodeHandlers } from './join-codes.ts'
 import { noteHandlers } from './note-handlers.ts'
+import { previewHandlers } from './preview-handlers.ts'
 import type { World } from './world.ts'
 
 /** The routes the demo answers; any other refuses with `DEMO_REFUSAL`. */
@@ -29,6 +30,7 @@ export const handlersOf = (world: World): Handlers => ({
   ...inviteHandlers(world),
   ...joinCodeHandlers(world),
   ...noteHandlers(world),
+  ...previewHandlers(world),
 })
 
 export type Handlers = { readonly [N in RouteName]?: Handler<N> }

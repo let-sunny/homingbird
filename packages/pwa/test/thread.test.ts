@@ -92,6 +92,12 @@ describe('threadItems', () => {
     expect(items.map((item) => item.key)).toEqual(['a', 'b', 'drafts:d1'])
   })
 
+  it('keeps a recalled note among the sent ones, where only its author reads it', () => {
+    const items = threadItems([note('a', { sentAt: 10 }), note('r', { status: 'withdrawn', sentAt: 5 })])
+    expect(items.map((item) => item.key)).toEqual(['r', 'a'])
+    expect(threadItems([note('x', { status: 'discarded' })])).toEqual([])
+  })
+
   it('groups drafts that answer the same note as alternatives', () => {
     const items = threadItems([
       note('q'),

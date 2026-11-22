@@ -6,7 +6,9 @@ import {
   joinCodeModel,
   localExpiry,
 } from '../models/join-code.ts'
+import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
+import { hinted } from './hint.ts'
 import { button } from './parts.ts'
 
 /**
@@ -91,6 +93,7 @@ export const joinCodeSection = (
         titleId,
         create,
         copy,
+        (control) => hinted(context, 'joinCode', strings.hints.joinCode, control),
       ),
     ),
   )
@@ -116,16 +119,19 @@ const render = (
   titleId: string,
   create: () => void,
   copy: (command: string) => void,
+  withHint: (control: HTMLElement) => Child,
 ): Child => {
   const title = h('h3', { id: titleId }, model.title)
   if (model.kind === 'offer')
     return [
       title,
       h('p', { class: 'hint' }, model.intro),
-      button(model.button, create, {
-        class: 'primary join-code-create',
-        ...(model.busy && { disabled: true }),
-      }),
+      withHint(
+        button(model.button, create, {
+          class: 'primary join-code-create',
+          ...(model.busy && { disabled: true }),
+        }),
+      ),
       model.problem !== null && h('p', { class: 'hint', role: 'alert' }, model.problem),
     ]
   if (model.kind === 'expired')

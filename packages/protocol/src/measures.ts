@@ -24,6 +24,7 @@ export const MEASURES = [
     fields: ['skipped', 'skipReasons.reason', 'skipReasons.count', 'expiredRequests'],
   },
   { key: 'ownNotes', audience: 'you', fields: ['wroteYourself', 'debateResultsSent'] },
+  { key: 'autoSent', audience: 'you', fields: ['autoSent'] },
   {
     key: 'places',
     audience: 'you',
@@ -115,6 +116,7 @@ export const MEASURES = [
     audience: 'administrators',
     fields: ['answeredFromHistory', 'places.answeredFromHistory'],
   },
+  { key: 'autoSent', audience: 'administrators', fields: ['autoSent'] },
   {
     key: 'places',
     audience: 'administrators',

@@ -29,6 +29,7 @@ export const adminModel = (info: AsRead.ServerInfo | null, section: AdminSection
   return {
     title: strings.adminTitle,
     tabs: sections.map(([name, label]) => ({
+      section: name,
       href: hrefFor({ name: 'admin', section: name }),
       label,
       current: name === section,
@@ -174,7 +175,12 @@ export const archiveModel = (channels: ReadonlyArray<AsRead.Channel>, slug: stri
 
 export interface AdminModel {
   readonly title: string
-  readonly tabs: ReadonlyArray<{ readonly href: string; readonly label: string; readonly current: boolean }>
+  readonly tabs: ReadonlyArray<{
+    readonly section: AdminSection
+    readonly href: string
+    readonly label: string
+    readonly current: boolean
+  }>
   readonly shown: AdminSection
 }
 
