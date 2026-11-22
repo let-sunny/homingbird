@@ -224,6 +224,8 @@ export const en = {
     teachingChances: 'Turn a draft you edited or discarded into a principle for next time.',
     insights: 'See totals for the whole organization of how agents’ drafts fare, never anyone’s notes.',
     joinCode: 'Make a one-time code that signs a server in as this agent, which drafts and never sends.',
+    draftPreviews: 'Choose who may see your agent’s drafts, marked unconfirmed, before you check them.',
+    autoSend: 'A saved answer its author allowed to send itself sent this, without waiting for approval.',
   },
   answerHereHint:
     'On: questions asked here reach you, and your agent drafts the replies for you to approve. Off: you stay in the room and only read.',

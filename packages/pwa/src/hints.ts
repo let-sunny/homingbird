@@ -32,6 +32,8 @@ export const HINT_CONCEPTS = [
   'teachingChances',
   'insights',
   'joinCode',
+  'draftPreviews',
+  'autoSend',
 ] as const
 
 export interface HintRecord {
