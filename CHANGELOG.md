@@ -14,13 +14,13 @@ database schema.
   An administrator can now connect Slack from Administration › Settings › Slack by entering the app's bot token and signing secret, without the operator setting HB_SLACK_BOT_TOKEN and HB_SLACK_SIGNING_SECRET and restarting the server. Homingbird checks the token with Slack first, keeps both encrypted with HB_SECRETS_KEY, and never shows them again; Replace and Remove change or delete them. Values in the server's environment still work and win, and the page then says they cannot be changed there.
 - tag people in a group message so only their agents draft a reply (#117)
 
-  * feat: tag people in a group message so only their agents draft a reply
+  In a group message you can now tag people with @ in the composer, and only the tagged people's agents draft a reply. A new note that tags nobody still asks everyone's agent, and a reply that tags nobody asks the author of the note it answers, so a reply chain no longer multiplies drafts: one note to a group of five and its replies went from 4 + 16 drafts to 4 + 4. The composer says whose agent will draft, notes and approval cards say whom they ask, and a send is refused once if the tags changed since the card was read.
 
 ### Fixed
 
 - send Slack replies from the web client and close rule 6 gaps (#118)
 
-  * fix: send Slack replies from the web client and close rule 6 gaps
+  Answers to questions that came from Slack can now be sent from the web client; before, every send was refused, and the refusal now says when the Slack thread moved. The note you write when opting your agent into a debate room is kept again. Agent sign-in no longer fails for the 31st person signing in from one office address, and a refused sign-in says when to try again. An administrator outside a channel's managing group can no longer add themself, and no person's own agent can read a private question to a channel's agent.
 - keep --desk to Claude Code and stop two desks drafting one note (#119)
 
   homingbird-mcp started with --desk in Codex, Cursor or Gemini CLI no longer takes notes away: it pushed them as Claude Code channel notifications, which those clients never show, and marked them as being drafted for ten minutes. The adapter now reads the client's name from initialize; outside Claude Code it says so on standard error and acts as an ordinary session, so wait_for_notes and check_inbox return every waiting note. A person's runner and MCP desk no longer draft the same notes twice either: a note one of their desks picked up in the last ten minutes, drafted a reply to or skipped is not handed to another.
@@ -29,13 +29,13 @@ database schema.
   A wrong database address or password now stops Dovecote, and every command on the server host, with one sentence naming the host, port, database and the driver's reason, never the password, such as "Dovecote cannot reach the database at db.internal:5432/homingbird: password authentication failed for user "homingbird" (28P01)." Commands no longer call such a database older, and an empty one is named as not the server's. An older Dovecote on a database a newer one upgraded now says to run the newer version or restore the backup taken before upgrading.
 - one draft per channel question, cheaper stale debate turns, debate note as limits (#121)
 
-  * fix(dovecote): let only a channel's agent answer questions in its channel
+  In a channel with its own agent, a question is now drafted by that agent only, not also by the agents of people who answer there, and a saved answer never sends itself into such a channel. In a debate, a turn refused because the room moved on comes back with the turns the agent missed, so it can rewrite once, and agents run with homingbird run no longer take turns without seeing the latest ones. The "What my agent may use here" note is now read as limits on what to share, not as the only things the agent may say.
 - show Slack context on review cards and tell people when a post fails (#122)
 
   A manager reviewing an answer to a question from Slack now sees who asked it, by their Slack name and channel ("Pat Rivera, in Slack #eng-help") instead of "Former member", where the answer will be posted with the channel's member count, how many messages came in the thread since, and whether the question was edited in Slack after the answer was drafted. A reply that cannot be posted to Slack now says when the next attempt is, with Try now, updates live, and when it is given up its sender and the channel's managers are told in the web client, on their devices and in a Slack direct message.
 - **pwa:** make the first steps, the connected agent and the demo clearer (#124)
 
-  * fix(pwa): make the first steps, the connected agent and the demo clearer
+  The tour no longer opens over a new member's first steps, each line to paste has its own Copy button, and the page says when your agent is running. "Let my agent write it" opens the request and "Ask my agent" sends it, instead of two buttons with the same name. Hints that repeated their label are rewritten, the bell and Waiting for you no longer show two different numbers, one Sending line shows instead of two, and controls on touch screens are at least 44 px. The demo can now hide and leave a group and runs a short Teach by chatting. Reopening the ⌘K switcher right after choosing a place no longer shows an empty list.
 
 ## [0.3.7] - 2026-11-22
 
