@@ -11,8 +11,7 @@ afterEach(async () => {
 })
 
 describe('the conversation hiding step', () => {
-  it('is the last step, the twenty-fifth, after debate briefs', () => {
-    expect(stepNumberOf(CONVERSATION_HIDING)).toBe(MIGRATIONS.length)
+  it('is the twenty-fifth step, after debate briefs', () => {
     expect(stepNumberOf(CONVERSATION_HIDING)).toBe(25)
   })
 

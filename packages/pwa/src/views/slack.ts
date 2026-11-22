@@ -2,6 +2,7 @@ import type { AsRead } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
 import { channelLabel } from '../channels.ts'
 import {
+  type AdminSlackCredentialsModel,
   type AdminSlackModel,
   type SlackCodeModel,
   type SlackPersonModel,
@@ -103,7 +104,10 @@ const channelChoice = (context: ViewContext, code: string, model: SlackCodeModel
   ]
 }
 
-/** Slack on the administrator's settings page: the workspace's state, the events address and the manifest. */
+/**
+ * Slack on the administrator's settings page: the workspace's state, the app's bot token and signing
+ * secret, the events address and the manifest.
+ */
 export const adminSlackSection = (context: ViewContext, life: Lifetime): HTMLElement => {
   const admin = signal<AsRead.AdminSlack | undefined>(undefined)
   context.actions.loadAdminSlack({ done: (read) => admin.set(read) })
@@ -112,7 +116,9 @@ export const adminSlackSection = (context: ViewContext, life: Lifetime): HTMLEle
     { class: 'appearance admin-slack' },
     h('legend', {}, strings.slack.admin.legend),
     h('p', { class: 'hint' }, strings.slack.admin.intro),
-    region(life, [admin], () => renderAdmin(adminSlackModel(admin.get()))),
+    region(life, [admin], () =>
+      renderAdmin(adminSlackModel(admin.get()), context, (read) => admin.set(read)),
+    ),
   )
 }
 
@@ -166,7 +172,11 @@ const unlinkConfirmation = (context: ViewContext, actions: PersonActions): Child
     ),
   )
 
-const renderAdmin = (model: AdminSlackModel | null): Child => {
+const renderAdmin = (
+  model: AdminSlackModel | null,
+  context: ViewContext,
+  changed: (read: AsRead.AdminSlack) => void,
+): Child => {
   if (model === null) return loading()
   const manifest = h('textarea', { readonly: true, rows: '12', class: 'slack-manifest' })
   manifest.value = model.manifest
@@ -179,7 +189,80 @@ const renderAdmin = (model: AdminSlackModel | null): Child => {
         { class: 'facts' },
         model.facts.map((fact) => [h('dt', {}, fact.term), h('dd', {}, fact.value)]),
       ),
+    credentialsPart(model.credentials, context, changed),
     field(strings.slack.admin.eventsUrl, events),
     field(strings.slack.admin.manifest, manifest),
   ]
 }
+
+/** The values are write-only: the fields start empty every time and nothing fills them from the server. */
+const credentialsPart = (
+  model: AdminSlackCredentialsModel,
+  context: ViewContext,
+  changed: (read: AsRead.AdminSlack) => void,
+): HTMLElement => {
+  const texts = strings.slack.admin.credentials
+  const note = h('p', { class: 'hint slack-credentials-note' }, model.note)
+  if (model.form === null) return h('div', { class: 'slack-credentials' }, h('h3', {}, texts.legend), note)
+  const secretInput = (name: string, pattern: string) =>
+    h('input', { name, type: 'password', required: true, autocomplete: 'off', spellcheck: 'false', pattern })
+  const botToken = secretInput('slack-bot-token', '^xoxb-[A-Za-z0-9\\-]{10,250}$')
+  const signingSecret = secretInput('slack-signing-secret', '^[0-9a-fA-F]{16,128}$')
+  return h(
+    'form',
+    {
+      class: 'form slack-credentials',
+      on: {
+        submit: (event) => {
+          event.preventDefault()
+          context.actions.saveSlackCredentials(
+            { botToken: botToken.value.trim(), signingSecret: signingSecret.value.trim() },
+            { done: changed },
+          )
+        },
+      },
+    },
+    h('h3', {}, texts.legend),
+    note,
+    field(texts.botToken, botToken, texts.botTokenHint),
+    field(texts.signingSecret, signingSecret, texts.signingSecretHint),
+    h(
+      'div',
+      { class: 'dialog-actions' },
+      model.form.canRemove &&
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'danger',
+            ...opensDialog(context, texts.removeTitle, () => removeConfirmation(context, changed)),
+          },
+          texts.remove,
+        ),
+      h('button', { type: 'submit', class: 'primary' }, model.form.submit),
+    ),
+  )
+}
+
+const removeConfirmation = (context: ViewContext, changed: (read: AsRead.AdminSlack) => void): Child =>
+  h(
+    'div',
+    { class: 'dialog-body' },
+    h('p', {}, strings.slack.admin.credentials.removeBody),
+    h(
+      'div',
+      { class: 'dialog-actions' },
+      h('button', { type: 'button', ...closesDialog }, strings.cancel),
+      button(
+        strings.slack.admin.credentials.remove,
+        () =>
+          context.actions.removeSlackCredentials({
+            done: (read) => {
+              closeDialog(context)
+              changed(read)
+            },
+          }),
+        { class: 'danger' },
+      ),
+    ),
+  )

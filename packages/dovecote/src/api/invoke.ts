@@ -107,7 +107,8 @@ const decoded = <A>(schema: S.Schema<A>, input: unknown): T.Task<A, Invalid> => 
 /**
  * Routes that open their own transactions: a long poll holds none while it waits, and the asks of a
  * debate room move each of the agent's rooms on in a transaction of its own before they are read, and a
- * test wake and a Slack link request hold none while they wait for the service they call.
+ * test wake, a Slack link request and a Slack token being checked hold none while they wait for the
+ * service they call.
  */
 const OWN_TRANSACTIONS: ReadonlyArray<RouteName> = [
   'events.poll',
@@ -115,6 +116,7 @@ const OWN_TRANSACTIONS: ReadonlyArray<RouteName> = [
   'me.deskWake.test',
   'me.slack.connect',
   'channels.slack.link',
+  'admin.slack.credentials.set',
 ]
 
 /** Runs a handler and records its route's audit event, in the same transaction, when it succeeds. */

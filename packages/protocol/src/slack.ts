@@ -13,8 +13,16 @@ export const SlackWorkspace = S.struct({
 })
 export type SlackWorkspace = S.Infer<typeof SlackWorkspace>
 
+export const SlackCredentials = S.struct({
+  source: S.tolerant(S.literal('environment', 'stored', 'none'), UNKNOWN),
+  canStore: S.boolean,
+  storedAt: S.nullable(Timestamp),
+})
+export type SlackCredentials = S.Infer<typeof SlackCredentials>
+
 export const AdminSlack = S.struct({
   workspace: S.nullable(SlackWorkspace),
+  credentials: SlackCredentials,
   eventsUrl: S.string({ maxLength: 2100 }),
   manifest: S.string({ maxLength: 8000 }),
   linkedPeople: S.int({ min: 0 }),
@@ -49,6 +57,13 @@ export const SlackCodeView = S.struct({
   ),
 })
 export type SlackCodeView = S.Infer<typeof SlackCodeView>
+
+export const SlackBotToken = S.string({ pattern: /^xoxb-[A-Za-z0-9-]{10,250}$/ })
+export const SlackSigningSecret = S.string({ pattern: /^[0-9a-fA-F]{16,128}$/ })
+
+/** Write-only: no response carries the Slack app's values back (rule 5). */
+export const SlackCredentialsInput = S.struct({ botToken: SlackBotToken, signingSecret: SlackSigningSecret })
+export type SlackCredentialsInput = S.Infer<typeof SlackCredentialsInput>
 
 export const SlackLinkCode = S.string({ pattern: /^[A-Za-z0-9_-]{20,64}$/ })
 

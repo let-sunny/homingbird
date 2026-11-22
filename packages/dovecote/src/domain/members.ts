@@ -18,6 +18,7 @@ import {
 } from '@homingbird/protocol'
 import type { AppEnv, Caller } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
+import { forgetSlackCredentialsOf } from '../slack/slack-credentials.ts'
 import { forgetSlackPerson } from '../slack/slack-people.ts'
 import { all, first, run } from '../sql/database.ts'
 import { containsIgnoringCase, insertInto, list, sql } from '../sql/query.ts'
@@ -195,6 +196,7 @@ export const chosenLocaleOf = (id: MemberId): T.Task<Locale | null, never, AppEn
 /**
  * Deactivating a member revokes their credentials, refuses a sign-in they approved and no program has
  * finished yet, takes them out of every group and deletes their cloud desk wake and Slack link at once.
+ * Deactivated or demoted, they lose the Slack app's values they gave (rule 5).
  */
 export const administerMember = (
   actor: Caller,
@@ -221,7 +223,9 @@ export const administerMember = (
       if (before.status !== 'deactivated') yield* removeFromEveryGroup(actor, id)
       yield* forgetDeskWake(actor, id)
       yield* forgetSlackPerson(id, 'deactivated', actor.member.id)
-    }
+      yield* forgetSlackCredentialsOf(actor, id, 'deactivated')
+    } else if (changes.role !== undefined && changes.role !== 'admin')
+      yield* forgetSlackCredentialsOf(actor, id, 'demoted')
     return yield* memberById(id)
   })
 

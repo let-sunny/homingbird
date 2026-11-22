@@ -2228,11 +2228,34 @@ export const en = {
     admin: {
       legend: 'Slack',
       intro:
-        'The organization’s own Slack app. Create it from the manifest below, install it to the workspace, and set HB_SLACK_BOT_TOKEN and HB_SLACK_SIGNING_SECRET on the server. Slack must reach the events address.',
+        'The organization’s own Slack app. Create it from the manifest below and install it to the workspace, then give its bot token and signing secret here, or set HB_SLACK_BOT_TOKEN and HB_SLACK_SIGNING_SECRET on the server. Slack must reach the events address.',
+      enterValues: 'Not connected: give the app’s bot token and signing secret below.',
       waiting: 'The server has the app’s token but has not reached Slack yet.',
       connected: 'Connected to the {workspace} workspace.',
+      credentials: {
+        legend: 'Bot token and signing secret',
+        botToken: 'Bot token',
+        botTokenHint: 'Starts with xoxb-. In the app’s settings under OAuth & Permissions.',
+        signingSecret: 'Signing secret',
+        signingSecretHint: 'In the app’s settings under Basic Information.',
+        kept: 'Homingbird checks the token with Slack, then keeps both encrypted. Nobody sees them again, you included.',
+        storedAt:
+          'Given here on {when}, kept encrypted. Replacing them needs both again. If you stop being an administrator, they are deleted and Slack stops.',
+        fromEnvironment:
+          'The bot token and signing secret come from the server’s environment, HB_SLACK_BOT_TOKEN and HB_SLACK_SIGNING_SECRET. They cannot be changed here.',
+        noKey:
+          'This server has no HB_SECRETS_KEY, so it cannot keep values given here. Set HB_SLACK_BOT_TOKEN and HB_SLACK_SIGNING_SECRET on the server instead.',
+        unknown:
+          'This server keeps the app’s values in a way this page does not know. Change them on the server.',
+        save: 'Connect',
+        replace: 'Replace',
+        remove: 'Remove',
+        removeTitle: 'Remove the bot token and signing secret?',
+        removeBody:
+          'Homingbird deletes both and stops working in Slack until someone gives them again. Links to people and channels stay.',
+      },
       stopped: {
-        tokenRefused: 'Stopped: Slack refused the bot token. Set a working one and restart the server.',
+        tokenRefused: 'Stopped: Slack refused the bot token. Give a working one.',
         revoked:
           'Stopped: the app was uninstalled or its token revoked. Install it again and set the new token.',
         otherWorkspace:

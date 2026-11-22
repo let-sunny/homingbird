@@ -39,7 +39,7 @@ export interface AppEnv extends HasSql, HasClock {
   readonly pushDeskUnavailable: (memberId: MemberId, kind: DeskUnavailableKind) => T.Task<void, never, AppEnv>
   readonly wakeSink: (memberId: MemberId, event: StreamEvent) => void
   readonly wakeTest: (memberId: MemberId) => T.Task<DeskWakeTest, NotFound | Conflict, AppEnv>
-  readonly slack: SlackApi | null
+  readonly slackApi: (botToken: string) => SlackApi
   readonly log: Log
   readonly requestId: string | null
   readonly client: RequestClient | null
