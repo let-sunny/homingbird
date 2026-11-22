@@ -117,7 +117,13 @@ const agentPanel = (
   const joinCodeFor = (name: string): HTMLElement | null => {
     if (!featureOn('joinCodes', state.serverInfo.get())) return null
     if (joinSection?.name !== name)
-      joinSection = { name, element: joinCodeSection(context, life, { channel: channel.slug, name }) }
+      joinSection = {
+        name,
+        element: joinCodeSection(context, life, { channel: channel.slug, name }, () => {
+          actions.loadChannelAgent(channel.slug)
+          actions.loadKnownChannels()
+        }),
+      }
     return joinSection.element
   }
   actions.loadChannelAgent(channel.slug, {

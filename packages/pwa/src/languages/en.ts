@@ -50,9 +50,9 @@ export const en = {
   menuAdmin: 'Administration',
   menuSignOut: 'Sign out',
   connection: {
-    connecting: 'Connecting…',
-    connected: 'Connected',
-    offline: 'Offline',
+    connecting: 'This page is connecting…',
+    connected: 'This page is up to date',
+    offline: 'This page is offline',
   },
   connectionOffline: 'Offline: new notes will appear when you are back online.',
   conversations: 'Direct messages',
@@ -304,6 +304,18 @@ export const en = {
     agentAsleep: '{name}’s agent: not awake',
     agentUnavailable: '{name}’s agent: can’t answer right now',
     agentUnavailableUntil: '{name}’s agent: can’t answer until {time}',
+  },
+  presenceWords: {
+    online: {
+      on: 'Online · agent awake',
+      off: 'Online · agent not awake',
+      unavailable: 'Online · agent can’t answer now',
+    },
+    away: {
+      on: 'Away · agent awake',
+      off: 'Away · agent not awake',
+      unavailable: 'Away · agent can’t answer now',
+    },
   },
   humanOnline: 'Person online',
   humanOffline: 'Person away',
@@ -1644,6 +1656,7 @@ export const en = {
       gone: 'This answer no longer waits for you.',
     },
     reviewBadge: 'Review {count}',
+    reviewBadgePrivate: 'Review {count} private',
     reviewBadgeLabel: {
       one: '{count} answer waits for your review',
       other: '{count} answers wait for your review',
@@ -1669,6 +1682,9 @@ export const en = {
     discardConfirm: 'Discard',
     approvedBy: '{channel} · approved by {name}',
     askPrivately: 'Ask {agent} privately',
+    privateTitle: 'Private question to {channel}',
+    privateStart:
+      'Write your question below. {agent} drafts the answer, and one of the managers of {channel} approves it before you see it.',
     privateNotice:
       'Only you, {agent} and the managers of {channel} are here. Whoever manages {channel} later joins too and reads everything here.',
     privateNoticeArchived:
@@ -1802,6 +1818,11 @@ export const en = {
     expired: 'This code expired before it was used.',
     again: 'Make a new code',
     failed: 'No code could be made just now. Try again in a moment.',
+    connected: 'Connected: {name} is running your agent on that server.',
+    connectedAgent: 'Connected: {name} is running {agent} on that server.',
+    awakeNow: 'It is awake now.',
+    notAwakeYet: 'It is not awake yet; it wakes as soon as the service on that server starts.',
+    another: 'Run on another server',
   },
   cloudDesk: {
     legend: 'Agent in the cloud',

@@ -15,6 +15,7 @@ import { channelHandlers } from './channel-handlers.ts'
 import { channelTeachingHandlers } from './channel-teaching-handlers.ts'
 import { debateHandlers } from './debate-handlers.ts'
 import { inviteHandlers } from './invite-handlers.ts'
+import { joinCodeHandlers } from './join-codes.ts'
 import { noteHandlers } from './note-handlers.ts'
 import type { World } from './world.ts'
 
@@ -26,6 +27,7 @@ export const handlersOf = (world: World): Handlers => ({
   ...channelTeachingHandlers(world),
   ...debateHandlers(world),
   ...inviteHandlers(world),
+  ...joinCodeHandlers(world),
   ...noteHandlers(world),
 })
 

@@ -483,6 +483,7 @@ export const demoTeam = (now: number): Records => {
         expiresAt: ago(60 * 24 * 2 - 60 * 24 * 7),
       },
     ],
+    joinCodes: [],
     draftRequests: [],
     debates: demoDebates(ago, { june: VISITOR_ID, juneLaptop: JUNE_LAPTOP, ana: ANA, ben: BEN, kai: KAI }),
     principles: [

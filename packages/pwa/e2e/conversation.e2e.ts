@@ -565,7 +565,9 @@ const scenario = async (): Promise<void> => {
     })
     await capture(ana.page, 'connection-lost')
     dovecote = await startDovecote(port, databasePath, SEEDED_CHANNELS)
-    await ana.page.waitForSelector('.connection.is-connected:has-text("Connected")', { timeout: 60_000 })
+    await ana.page.waitForSelector('.connection.is-connected:has-text("This page is up to date")', {
+      timeout: 60_000,
+    })
     await capture(ana.page, 'connection-restored')
 
     // -- Dark mode and narrow containers ---------------------------------------------------------

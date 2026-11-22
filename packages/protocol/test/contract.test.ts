@@ -144,6 +144,7 @@ describe('contract', () => {
         'device.get',
         'device.decide',
         'joinCodes.create',
+        'joinCodes.status',
         'invites.list',
         'invites.create',
         'invites.revoke',

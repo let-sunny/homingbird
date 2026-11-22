@@ -603,6 +603,19 @@
   gap: var(--hb-space-1);
 }
 
+.presence-words {
+  display: none;
+  margin-inline-end: var(--hb-space-2);
+  color: var(--hb-color-muted);
+  font-size: var(--hb-text-small);
+}
+
+@container stage (min-width: 36rem) {
+  .thread-profile .presence-words {
+    display: inline;
+  }
+}
+
 .agent-mark-dot {
   flex: none;
   inline-size: 10px;

@@ -261,6 +261,14 @@ describe('conversation titles', () => {
     )
   })
 
+  it('names a private question after the channel it asks, and after its people once that channel is gone', () => {
+    const asked = conversation({ kind: 'group', participantIds: [ana, june], privateQuestionOf: 'billing' })
+    expect(conversationTitle(asked, members, ana, 'x')).toBe(
+      strings.channelAgent.privateTitle({ channel: '#billing' }),
+    )
+    expect(conversationTitle({ ...asked, privateQuestionOf: null }, members, ana, 'x')).toBe('June')
+  })
+
   it('names people on one line: the first two, then how many more', () => {
     expect(namesInBrief(['Ana'])).toBe('Ana')
     expect(namesInBrief(['Ana', 'Kai'])).toBe('Ana, Kai')

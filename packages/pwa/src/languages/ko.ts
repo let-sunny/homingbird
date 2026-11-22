@@ -51,9 +51,9 @@ export const ko: Translation<typeof en> = {
   menuAdmin: '관리',
   menuSignOut: '로그아웃',
   connection: {
-    connecting: '연결 중…',
-    connected: '연결됨',
-    offline: '오프라인',
+    connecting: '이 페이지 연결 중…',
+    connected: '이 페이지 최신 상태',
+    offline: '이 페이지 오프라인',
   },
   connectionOffline: '오프라인: 다시 연결되면 새 노트가 보여요.',
   conversations: 'DM',
@@ -298,6 +298,18 @@ export const ko: Translation<typeof en> = {
     agentAsleep: '{name} 님의 에이전트: 쉬는 중',
     agentUnavailable: '{name} 님의 에이전트: 지금은 답할 수 없음',
     agentUnavailableUntil: '{name} 님의 에이전트: {time}까지 답할 수 없음',
+  },
+  presenceWords: {
+    online: {
+      on: '접속 중 · 에이전트 깨어 있음',
+      off: '접속 중 · 에이전트 쉬는 중',
+      unavailable: '접속 중 · 에이전트 지금은 답할 수 없음',
+    },
+    away: {
+      on: '자리 비움 · 에이전트 깨어 있음',
+      off: '자리 비움 · 에이전트 쉬는 중',
+      unavailable: '자리 비움 · 에이전트 지금은 답할 수 없음',
+    },
   },
   humanOnline: '접속 중',
   humanOffline: '자리 비움',
@@ -1567,6 +1579,7 @@ export const ko: Translation<typeof en> = {
       gone: '이 답은 더 이상 당신을 기다리지 않아요.',
     },
     reviewBadge: '검토 {count}',
+    reviewBadgePrivate: '비공개 검토 {count}',
     reviewBadgeLabel: { other: '답 {count}개가 검토를 기다려요' },
     questionFrom: '{name} 님의 질문',
     waitsInRoom:
@@ -1589,6 +1602,9 @@ export const ko: Translation<typeof en> = {
     discardConfirm: '버리기',
     approvedBy: '{channel} · {name} 님이 승인',
     askPrivately: '채널 에이전트에게 비공개로 묻기 · {agent}',
+    privateTitle: '{channel} 비공개 질문',
+    privateStart:
+      '아래에 질문을 쓰세요. 채널 에이전트 {agent}의 답은 {channel} 채널 운영자 중 한 명이 승인한 뒤에 보여요.',
     privateNotice:
       '여기에는 나, 채널 에이전트 {agent}, {channel} 채널의 운영자만 있어요. 나중에 운영자가 되는 사람도 들어와서 여기 있는 모든 내용을 읽어요.',
     privateNoticeArchived:
@@ -1713,6 +1729,11 @@ export const ko: Translation<typeof en> = {
     expired: '이 서버 연결 코드는 쓰이기 전에 만료됐어요.',
     again: '새 서버 연결 코드 만들기',
     failed: '지금은 서버 연결 코드를 만들 수 없어요. 잠시 후 다시 시도하세요.',
+    connected: '연결됐어요. 그 서버의 연결 “{name}”에서 내 에이전트가 돌아가고 있어요.',
+    connectedAgent: '연결됐어요. 그 서버의 연결 “{name}”에서 {agent} 에이전트가 돌아가고 있어요.',
+    awakeNow: '지금 깨어 있어요.',
+    notAwakeYet: '아직 깨어 있지 않아요. 그 서버의 서비스가 시작되면 바로 깨어나요.',
+    another: '다른 서버에서 돌리기',
   },
   cloudDesk: {
     legend: '클라우드 에이전트',

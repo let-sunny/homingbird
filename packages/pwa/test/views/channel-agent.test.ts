@@ -179,6 +179,7 @@ describe('the agent panel', () => {
     expect(called('createJoinCode')[0]!.args).toEqual(['payments-wiki'])
     called('createJoinCode')[0]!.then!.done!({
       code: 'hbj_secret',
+      id: 'join_1',
       serverUrl: 'https://hb.example.com',
       expiresAt: context.clock.now() + 600_000,
     })

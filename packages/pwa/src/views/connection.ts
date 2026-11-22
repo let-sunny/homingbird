@@ -53,7 +53,7 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
       ]
     }),
     region(life, [state.directory, credentials], () => renderRecommendation(model())),
-    featureOn('joinCodes', state.serverInfo.get()) && joinCodeSection(context, life, null),
+    featureOn('joinCodes', state.serverInfo.get()) && joinCodeSection(context, life, null, reload),
     region(life, [state.agentReport], () => {
       const report = state.agentReport.get()
       return report === null || report === 'failed' ? null : freshSessionSuggestions(report.sessions.latest)

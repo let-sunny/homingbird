@@ -4,6 +4,7 @@ import type {
   ConversationId,
   ConversationKind,
   Credential,
+  CredentialId,
   Debate,
   DraftRequest,
   EventBody,
@@ -96,6 +97,8 @@ export interface Records {
   readonly notices: ReadonlyArray<NoticeRecord>
   /** Invite links still waiting; nobody can redeem one in a demo that lives in a single page. */
   readonly invites: ReadonlyArray<Invite>
+  /** Join codes made in this demo, redeemed when their line is copied. */
+  readonly joinCodes: ReadonlyArray<JoinCodeRecord>
   /** What people asked their own agent to draft from the web client. */
   readonly draftRequests: ReadonlyArray<DraftRequestRecord>
 }
@@ -160,6 +163,16 @@ export interface GroupRecord {
 }
 
 /** A credential and whose it is; a channel's agent's credential belongs to the agent. */
+export interface JoinCodeRecord {
+  readonly id: string
+  readonly code: string
+  readonly createdBy: MemberId
+  /** The member the code signs in: the person, or the channel's agent it was made for. */
+  readonly memberId: MemberId
+  readonly expiresAt: number
+  readonly issued: { readonly id: CredentialId; readonly name: string } | null
+}
+
 export interface CredentialRecord {
   readonly credential: Omit<Credential, 'current'>
   readonly memberId: MemberId

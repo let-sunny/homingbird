@@ -134,6 +134,7 @@ export const TASKS = {
   renameCredential: account.renameCredential,
   revokeCredential: account.revokeCredential,
   createJoinCode: account.createJoinCode,
+  joinCodeStatus: account.joinCodeStatus,
   listInvites: () => account.listInvites,
   createInvite: account.createInvite,
   revokeInvite: account.revokeInvite,

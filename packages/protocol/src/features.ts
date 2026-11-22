@@ -88,7 +88,7 @@ export const FEATURES = {
     default: false,
     routes: ['me.deskWake.get', 'me.deskWake.set', 'me.deskWake.test'],
   },
-  joinCodes: { default: true, routes: ['joinCodes.create'] },
+  joinCodes: { default: true, routes: ['joinCodes.create', 'joinCodes.status'] },
   deskAvailability: { default: true, routes: ['me.desk.unavailable', 'me.desk.available'] },
   invites: { default: true, routes: ['invites.list', 'invites.create', 'invites.revoke'] },
   analytics: { default: false, routes: ['analytics.track'] },
