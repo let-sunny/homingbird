@@ -53,8 +53,9 @@ describe('the pass over the events Slack sent', () => {
     expect((await ana.api('POST', '/me/slack/link', { code })).json).toMatchObject({
       link: { slackName: 'Ana Silva' },
     })
+    slack.refuseNext('conversations.info', 'channel_not_found')
     await receive(mention('U0ANA', 'Link.'))
-    expect(ephemerals()[1]!.text).toContain('linked to Homingbird as Ana Silva')
+    expect(ephemerals()).toHaveLength(1)
   })
 
   it('tells a guest and someone of another workspace that only full members are answered', async () => {
@@ -67,13 +68,15 @@ describe('the pass over the events Slack sent', () => {
     expect(await storedRows(server, 'slack_codes')).toEqual([])
   })
 
-  it('drops the app’s own messages, other apps’, and a mention without the word link', async () => {
+  it('drops the app’s own messages and other apps’, and says a channel is not linked when asked there', async () => {
     await receive(mention(BOT_USER_ID, 'link'))
     await receive(mention('U0ANA', 'link', { bot_id: 'B0OTHER' }))
     await receive(mention(undefined, 'link'))
     await receive(mention('U0ANA', 'please linkify this'))
     await receive(mention('U0NOBODY', 'link'))
-    expect(ephemerals()).toEqual([])
+    expect(ephemerals().map((each) => each.text)).toEqual([
+      'This channel is not linked to Homingbird. A manager of a Homingbird channel links it by mentioning @Homingbird with the word link.',
+    ])
   })
 
   it('handles each event once, deletes its payload at once and its id a day later', async () => {

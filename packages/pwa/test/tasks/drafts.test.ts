@@ -64,6 +64,30 @@ describe('deciding on drafts', () => {
     })
   })
 
+  it('binds a reply to a question from Slack to the thread’s newest message as the card showed it', async () => {
+    const { run, sent, state } = testApp(answers)
+    const question = note('q1', {
+      origin: 'outside',
+      via: {
+        tool: 'slack',
+        askerName: 'Bob',
+        askerId: null,
+        channelName: 'billing-help',
+        edited: false,
+        deleted: false,
+        threadAt: '1700000001.000200',
+        newerMessages: 0,
+      },
+    })
+    state.threads.set(new Map([[ROOM, { notes: [question], hasMore: false }]]))
+    const reply = draft('d1', { inReplyTo: question.id })
+    await run(approveDraft(reply, null, []))
+    expect(sent[0]!.request).toEqual({
+      params: { id: 'd1' },
+      body: { expected: { body: reply.body, conversationId: ROOM, threadAt: '1700000001.000200' } },
+    })
+  })
+
   it('reads the thread again when the draft changed after the person read it, and sends nothing', async () => {
     const { run, sent } = testApp({
       ...answers,

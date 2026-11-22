@@ -44,13 +44,23 @@ export interface SlackPersonModel {
 
 /** The page a link from Slack opens: what confirming it does, or that the link no longer works. */
 export const slackCodeModel = (code: AsRead.SlackCodeView | null | undefined): SlackCodeModel => {
-  if (code === undefined) return { loading: true, question: null, refusal: null }
+  if (code === undefined) return { loading: true, question: null, refusal: null, channel: null }
+  if (code !== null && code.kind === 'channel' && code.channel !== undefined) {
+    const channel = code.channel
+    return {
+      loading: false,
+      question: strings.slack.confirmChannel({ channel: channel.name, count: channel.memberCount ?? 0 }),
+      refusal: channel.choices.length === 0 ? strings.slack.noChannelChoices : null,
+      channel: { choices: channel.choices },
+    }
+  }
   if (code === null || code.kind !== 'person')
-    return { loading: false, question: null, refusal: strings.slack.codeGone }
+    return { loading: false, question: null, refusal: strings.slack.codeGone, channel: null }
   return {
     loading: false,
     question: strings.slack.confirmPerson({ name: code.slackName, workspace: code.team }),
     refusal: null,
+    channel: null,
   }
 }
 
@@ -58,6 +68,8 @@ export interface SlackCodeModel {
   readonly loading: boolean
   readonly question: string | null
   readonly refusal: string | null
+  /** For a channel link: the channels the person may link the Slack channel to. */
+  readonly channel: { readonly choices: ReadonlyArray<string> } | null
 }
 
 /** Slack on the administrator's settings page: the workspace's state and how to set the app up. */

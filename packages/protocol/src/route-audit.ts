@@ -154,6 +154,11 @@ export const ROUTE_AUDIT = {
   'admin.groups.delete': { event: 'group.deleted', target: 'group' },
   'admin.insights': read(),
   'admin.slack.get': read(),
+  'channels.slack.link': { event: 'slack.channel.linked', target: 'channel' },
+  'channels.slack.unlink': { event: 'slack.channel.unlinked', target: 'channel' },
+  'notes.posting.retry': {
+    none: 'Trying a post again changes nothing a person decided; each post goes to the operational log.',
+  },
 } as const satisfies { readonly [N in RouteName]: AuditDecision }
 
 /** The routes that record an event, and the event each records. */

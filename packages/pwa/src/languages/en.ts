@@ -157,6 +157,7 @@ export const en = {
     agent: 'Agent',
     human_edited: 'Agent, edited by a person',
     human: 'Written by a person',
+    outside: 'Asked in an outside chat tool',
   } satisfies Record<Origin | 'unknown', string>,
   agentNames: {
     desk: 'Claude Code plugin',
@@ -167,6 +168,7 @@ export const en = {
     unknown: '{agent}',
     agent: 'Agent · {agent}',
     human_edited: 'Agent · {agent}, edited by a person',
+    outside: '{agent}',
   },
   status: {
     sent: 'Sent',
@@ -2154,6 +2156,37 @@ export const en = {
     cancel: 'Not now',
     codeGone: 'This link no longer works. Ask for a new one under My agent → Connection.',
     toConnection: 'Open My agent → Connection',
+    askedIn: '{name}, in Slack #{channel}',
+    askedInLine: 'Asked in Slack #{channel} by {name}; nobody approved it in Homingbird',
+    editedInSlack: 'Edited in Slack',
+    deletedInSlack: 'Deleted in Slack',
+    postingToSlack: 'Posting to Slack…',
+    postedToSlack: 'Posted to Slack',
+    notPostedToSlack: 'Not posted to Slack',
+    tryAgain: 'Try again',
+    postsTo: {
+      one: 'Posts to Slack #{channel} ({count} member)',
+      other: 'Posts to Slack #{channel} ({count} members)',
+    },
+    postsToUncounted: 'Posts to Slack #{channel}',
+    newerMessages: {
+      one: '{count} newer message in the Slack thread; read it in Slack before sending',
+      other: '{count} newer messages in the Slack thread; read them in Slack before sending',
+    },
+    draftDiscardedDeleted: 'A draft was discarded: the question it answered was deleted in Slack.',
+    linkedChannel:
+      'Linked to Slack #{channel}. Messages there that mention Homingbird arrive here; answers a person approves are posted there.',
+    linkStopped: 'The link to Slack #{channel} stopped: nothing arrives from it or is posted to it.',
+    unlinkChannel: 'Unlink from Slack',
+    confirmChannel: {
+      one: 'Link Slack #{channel} ({count} member) to a channel you manage?',
+      other: 'Link Slack #{channel} ({count} members) to a channel you manage?',
+    },
+    confirmChannelHint:
+      'Messages there that mention Homingbird are read by the channel’s members. Answers a person approves are read by the Slack channel’s members.',
+    chooseChannel: 'Channel',
+    noChannelChoices:
+      'You manage no channel this Slack channel can link to. A private Slack channel links only to a private channel.',
     admin: {
       legend: 'Slack',
       intro:

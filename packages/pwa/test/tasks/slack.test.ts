@@ -36,3 +36,21 @@ describe('Slack tasks', () => {
     expect(sent[3]!.request).toEqual({ body: { code: CODE } })
   })
 })
+
+describe('Slack channel tasks', () => {
+  it('links and unlinks a channel, and tries a post again', async () => {
+    const { run, routes, sent } = testApp({
+      'channels.slack.link': () => ({ slug: 'billing' }),
+      'notes.posting.retry': () => ({ id: 'note_1', conversationId: 'conv_1', posting: 'pending' }),
+    })
+    expect(await run(tasks.linkSlackChannel('billing', CODE))).toMatchObject({
+      _tag: 'Ok',
+      value: { slug: 'billing' },
+    })
+    await run(tasks.unlinkSlackChannel('billing'))
+    await run(tasks.retrySlackPost('note_1' as never))
+    expect(routes()).toEqual(['channels.slack.link', 'channels.slack.unlink', 'notes.posting.retry'])
+    expect(sent[0]!.request).toEqual({ params: { slug: 'billing' }, body: { code: CODE } })
+    expect(sent[2]!.request).toEqual({ params: { id: 'note_1' }, body: {} })
+  })
+})

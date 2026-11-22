@@ -83,16 +83,50 @@ describe('slackPersonModel', () => {
 
 describe('slackCodeModel', () => {
   it('waits, asks what confirming links, or says the link is gone', () => {
-    expect(slackCodeModel(undefined)).toEqual({ loading: true, question: null, refusal: null })
+    expect(slackCodeModel(undefined)).toEqual({ loading: true, question: null, refusal: null, channel: null })
     expect(slackCodeModel({ kind: 'person', slackName: 'Ana', team: 'Acme', expiresAt: 1 })).toEqual({
       loading: false,
       question: strings.slack.confirmPerson({ name: 'Ana', workspace: 'Acme' }),
       refusal: null,
+      channel: null,
     })
-    expect(slackCodeModel(null)).toEqual({ loading: false, question: null, refusal: strings.slack.codeGone })
+    expect(slackCodeModel(null)).toEqual({
+      loading: false,
+      question: null,
+      refusal: strings.slack.codeGone,
+      channel: null,
+    })
     expect(slackCodeModel({ kind: 'unknown', slackName: 'Ana', team: 'Acme', expiresAt: 1 }).refusal).toBe(
       strings.slack.codeGone,
     )
+  })
+})
+
+describe('slackCodeModel for a channel', () => {
+  const code = (choices: ReadonlyArray<string>, memberCount: number | null = 12) =>
+    slackCodeModel({
+      kind: 'channel',
+      slackName: 'Ana',
+      team: 'Acme',
+      expiresAt: 1,
+      channel: { name: 'billing-help', isPrivate: false, memberCount, choices },
+    })
+
+  it('asks which channel to link the Slack channel to', () => {
+    expect(code(['billing'])).toEqual({
+      loading: false,
+      question: strings.slack.confirmChannel({ channel: 'billing-help', count: 12 }),
+      refusal: null,
+      channel: { choices: ['billing'] },
+    })
+  })
+
+  it('says when the person manages no channel it may link to', () => {
+    expect(code([], null)).toMatchObject({
+      question: strings.slack.confirmChannel({ channel: 'billing-help', count: 0 }),
+      refusal: strings.slack.noChannelChoices,
+      channel: { choices: [] },
+    })
   })
 })
 

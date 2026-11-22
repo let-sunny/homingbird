@@ -110,6 +110,11 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "CREATE TABLE IF NOT EXISTS slack_people (member_id VARCHAR(64) NOT NULL, slack_user_id VARCHAR(400) NOT NULL, slack_name VARCHAR(400) NOT NULL, linked_at BIGINT NOT NULL, PRIMARY KEY (member_id), UNIQUE INDEX slack_people_slack_user_id_idx (slack_user_id))",
   "CREATE TABLE IF NOT EXISTS slack_codes (code_hash VARCHAR(400) NOT NULL, kind VARCHAR(400) NOT NULL, member_id VARCHAR(64), slack_user_id VARCHAR(400) NOT NULL, slack_name VARCHAR(400) NOT NULL, created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL, used_at BIGINT, PRIMARY KEY (code_hash), INDEX slack_codes_member_id_idx (member_id), INDEX slack_codes_expires_at_idx (expires_at))",
   "CREATE TABLE IF NOT EXISTS slack_events (event_id VARCHAR(400) NOT NULL, kind VARCHAR(400) NOT NULL, payload MEDIUMTEXT, received_at BIGINT NOT NULL, processed_at BIGINT, PRIMARY KEY (event_id), INDEX slack_events_processed_at_idx (processed_at))",
+  "CREATE TABLE IF NOT EXISTS slack_channel_links (conversation_id VARCHAR(64) NOT NULL, slack_channel_id VARCHAR(64) NOT NULL, slack_channel_name VARCHAR(400) NOT NULL, is_private BIGINT NOT NULL, member_count BIGINT, link_member_id VARCHAR(64) NOT NULL, state VARCHAR(400) NOT NULL, stopped_because VARCHAR(400), failures BIGINT NOT NULL, linked_by VARCHAR(64) NOT NULL, linked_at BIGINT NOT NULL, PRIMARY KEY (conversation_id), UNIQUE INDEX slack_channel_links_slack_channel_id_idx (slack_channel_id), INDEX slack_channel_links_link_member_id_idx (link_member_id))",
+  "CREATE TABLE IF NOT EXISTS slack_arrivals (note_id VARCHAR(64) NOT NULL, conversation_id VARCHAR(64) NOT NULL, slack_channel_id VARCHAR(64) NOT NULL, message_ts VARCHAR(64) NOT NULL, thread_ts VARCHAR(64) NOT NULL, asker_slack_id VARCHAR(64) NOT NULL, asker_name VARCHAR(400) NOT NULL, asker_member_id VARCHAR(64), asker_linked BIGINT NOT NULL, edited BIGINT NOT NULL, deleted BIGINT NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (note_id), UNIQUE INDEX slack_arrivals_slack_channel_id_message_ts_idx (slack_channel_id, message_ts), INDEX slack_arrivals_asker_slack_id_idx (asker_slack_id))",
+  "CREATE TABLE IF NOT EXISTS slack_threads (slack_channel_id VARCHAR(64) NOT NULL, thread_ts VARCHAR(64) NOT NULL, newest_ts VARCHAR(64) NOT NULL, newer_messages BIGINT NOT NULL, PRIMARY KEY (slack_channel_id, thread_ts))",
+  "CREATE TABLE IF NOT EXISTS slack_outbox (note_id VARCHAR(64) NOT NULL, slack_channel_id VARCHAR(64) NOT NULL, thread_ts VARCHAR(64) NOT NULL, text MEDIUMTEXT NOT NULL, state VARCHAR(400) NOT NULL, attempts BIGINT NOT NULL, uncertain BIGINT NOT NULL, next_at BIGINT NOT NULL, posted_ts VARCHAR(64), created_at BIGINT NOT NULL, PRIMARY KEY (note_id), INDEX slack_outbox_state_next_at_idx (state, next_at))",
+  "ALTER TABLE slack_codes ADD COLUMN slack_channel MEDIUMTEXT",
 ]
 `;
 
@@ -274,6 +279,16 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "CREATE INDEX IF NOT EXISTS slack_codes_expires_at_idx ON slack_codes (expires_at)",
   "CREATE TABLE IF NOT EXISTS slack_events (event_id VARCHAR(400) NOT NULL, kind VARCHAR(400) NOT NULL, payload TEXT, received_at BIGINT NOT NULL, processed_at BIGINT, PRIMARY KEY (event_id))",
   "CREATE INDEX IF NOT EXISTS slack_events_processed_at_idx ON slack_events (processed_at)",
+  "CREATE TABLE IF NOT EXISTS slack_channel_links (conversation_id VARCHAR(64) NOT NULL, slack_channel_id VARCHAR(64) NOT NULL, slack_channel_name VARCHAR(400) NOT NULL, is_private BIGINT NOT NULL, member_count BIGINT, link_member_id VARCHAR(64) NOT NULL, state VARCHAR(400) NOT NULL, stopped_because VARCHAR(400), failures BIGINT NOT NULL, linked_by VARCHAR(64) NOT NULL, linked_at BIGINT NOT NULL, PRIMARY KEY (conversation_id))",
+  "CREATE UNIQUE INDEX IF NOT EXISTS slack_channel_links_slack_channel_id_idx ON slack_channel_links (slack_channel_id)",
+  "CREATE INDEX IF NOT EXISTS slack_channel_links_link_member_id_idx ON slack_channel_links (link_member_id)",
+  "CREATE TABLE IF NOT EXISTS slack_arrivals (note_id VARCHAR(64) NOT NULL, conversation_id VARCHAR(64) NOT NULL, slack_channel_id VARCHAR(64) NOT NULL, message_ts VARCHAR(64) NOT NULL, thread_ts VARCHAR(64) NOT NULL, asker_slack_id VARCHAR(64) NOT NULL, asker_name VARCHAR(400) NOT NULL, asker_member_id VARCHAR(64), asker_linked BIGINT NOT NULL, edited BIGINT NOT NULL, deleted BIGINT NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (note_id))",
+  "CREATE UNIQUE INDEX IF NOT EXISTS slack_arrivals_slack_channel_id_message_ts_idx ON slack_arrivals (slack_channel_id, message_ts)",
+  "CREATE INDEX IF NOT EXISTS slack_arrivals_asker_slack_id_idx ON slack_arrivals (asker_slack_id)",
+  "CREATE TABLE IF NOT EXISTS slack_threads (slack_channel_id VARCHAR(64) NOT NULL, thread_ts VARCHAR(64) NOT NULL, newest_ts VARCHAR(64) NOT NULL, newer_messages BIGINT NOT NULL, PRIMARY KEY (slack_channel_id, thread_ts))",
+  "CREATE TABLE IF NOT EXISTS slack_outbox (note_id VARCHAR(64) NOT NULL, slack_channel_id VARCHAR(64) NOT NULL, thread_ts VARCHAR(64) NOT NULL, text TEXT NOT NULL, state VARCHAR(400) NOT NULL, attempts BIGINT NOT NULL, uncertain BIGINT NOT NULL, next_at BIGINT NOT NULL, posted_ts VARCHAR(64), created_at BIGINT NOT NULL, PRIMARY KEY (note_id))",
+  "CREATE INDEX IF NOT EXISTS slack_outbox_state_next_at_idx ON slack_outbox (state, next_at)",
+  "ALTER TABLE slack_codes ADD COLUMN slack_channel TEXT",
 ]
 `;
 
@@ -438,5 +453,15 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "CREATE INDEX IF NOT EXISTS slack_codes_expires_at_idx ON slack_codes (expires_at)",
   "CREATE TABLE IF NOT EXISTS slack_events (event_id TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT, received_at INTEGER NOT NULL, processed_at INTEGER, PRIMARY KEY (event_id))",
   "CREATE INDEX IF NOT EXISTS slack_events_processed_at_idx ON slack_events (processed_at)",
+  "CREATE TABLE IF NOT EXISTS slack_channel_links (conversation_id TEXT NOT NULL, slack_channel_id TEXT NOT NULL, slack_channel_name TEXT NOT NULL, is_private INTEGER NOT NULL, member_count INTEGER, link_member_id TEXT NOT NULL, state TEXT NOT NULL, stopped_because TEXT, failures INTEGER NOT NULL, linked_by TEXT NOT NULL, linked_at INTEGER NOT NULL, PRIMARY KEY (conversation_id))",
+  "CREATE UNIQUE INDEX IF NOT EXISTS slack_channel_links_slack_channel_id_idx ON slack_channel_links (slack_channel_id)",
+  "CREATE INDEX IF NOT EXISTS slack_channel_links_link_member_id_idx ON slack_channel_links (link_member_id)",
+  "CREATE TABLE IF NOT EXISTS slack_arrivals (note_id TEXT NOT NULL, conversation_id TEXT NOT NULL, slack_channel_id TEXT NOT NULL, message_ts TEXT NOT NULL, thread_ts TEXT NOT NULL, asker_slack_id TEXT NOT NULL, asker_name TEXT NOT NULL, asker_member_id TEXT, asker_linked INTEGER NOT NULL, edited INTEGER NOT NULL, deleted INTEGER NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (note_id))",
+  "CREATE UNIQUE INDEX IF NOT EXISTS slack_arrivals_slack_channel_id_message_ts_idx ON slack_arrivals (slack_channel_id, message_ts)",
+  "CREATE INDEX IF NOT EXISTS slack_arrivals_asker_slack_id_idx ON slack_arrivals (asker_slack_id)",
+  "CREATE TABLE IF NOT EXISTS slack_threads (slack_channel_id TEXT NOT NULL, thread_ts TEXT NOT NULL, newest_ts TEXT NOT NULL, newer_messages INTEGER NOT NULL, PRIMARY KEY (slack_channel_id, thread_ts))",
+  "CREATE TABLE IF NOT EXISTS slack_outbox (note_id TEXT NOT NULL, slack_channel_id TEXT NOT NULL, thread_ts TEXT NOT NULL, text TEXT NOT NULL, state TEXT NOT NULL, attempts INTEGER NOT NULL, uncertain INTEGER NOT NULL, next_at INTEGER NOT NULL, posted_ts TEXT, created_at INTEGER NOT NULL, PRIMARY KEY (note_id))",
+  "CREATE INDEX IF NOT EXISTS slack_outbox_state_next_at_idx ON slack_outbox (state, next_at)",
+  "ALTER TABLE slack_codes ADD COLUMN slack_channel TEXT",
 ]
 `;

@@ -81,6 +81,8 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
       case 'draft.discarded':
         forgetNote(state, body.conversationId, body.noteId)
         launch(closeDraftNotice(body.noteId))
+        if (body.because === 'slack_deleted')
+          state.notice.set({ kind: 'info', text: strings.slack.draftDiscardedDeleted })
         if (body.because === 'channel_archived' && body.channel !== undefined) {
           const channel = body.channel
           state.archiveDiscards.update((all) =>
