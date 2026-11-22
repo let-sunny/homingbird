@@ -60,7 +60,7 @@ describe('the runner in a debate room', () => {
       agent: () => ({ exitCode: 0, output: '  The rollback was fixed in May; I would ship.  ' }),
     })
     await settle(() => posted.length === 1)
-    expect(posted).toEqual([{ body: 'The rollback was fixed in May; I would ship.' }])
+    expect(posted).toEqual([{ body: 'The rollback was fixed in May; I would ship.', afterTurn: 1 }])
     const prompt = r.w.agentRuns[0]!.prompt
     expect(prompt).toContain('not winning the argument')
     expect(textOutsideWrappers(prompt)).not.toContain('9c1d')
@@ -89,7 +89,7 @@ describe('the runner in a debate room', () => {
     await r.stop()
     const prompt = r.w.agentRuns[0]!.prompt
     expect(prompt).toContain(`<${WRAPPER_TAG} id="${ROOM.id}/brief" `)
-    expect(prompt).toContain('Share facts only within your person’s note on what you may use in this room')
+    expect(prompt).toContain('marks what you must not share and any limits on what you may')
     expect(textOutsideWrappers(prompt)).not.toContain('4b2e')
   })
 
@@ -142,7 +142,10 @@ describe('the runner in a debate room', () => {
     })
     await settle(() => posted.length === 2)
     await r.stop()
-    expect(posted).toEqual([{ body: 'We agree.', model: 'gpt-6', ready: true }, { body: 'One more fact.' }])
+    expect(posted).toEqual([
+      { body: 'We agree.', afterTurn: 1, model: 'gpt-6', ready: true },
+      { body: 'One more fact.', afterTurn: 1 },
+    ])
     expect(r.w.agentRuns[0]!.prompt).toContain('one line of exactly READY: yes')
   })
 
@@ -178,7 +181,7 @@ describe('the runner in a debate room', () => {
     await settle(() => posted.length === 2)
     await r.stop()
     expect(posted).toEqual([
-      { body: 'I would ship.', model: 'claude-opus-5-5' },
+      { body: 'I would ship.', afterTurn: 1, model: 'claude-opus-5-5' },
       { ...RESULT, model: 'gpt-6' },
     ])
     expect(r.w.agentRuns[0]!.prompt).toContain('MODEL: followed by it')
@@ -513,6 +516,62 @@ describe('the runner after a room changed', () => {
     await settle(() => posted.length === 2)
     await r.stop()
     expect(r.w.problems).toEqual([expect.stringMatching(/was refused: Another agent speaks next/)])
+  })
+
+  it('asks the agent once more with the turns it missed when its turn is refused as stale, and gives up after that', async () => {
+    const missed = 'The rollback was rehearsed on Monday. 7e4a'
+    const moved: Debate = {
+      ...ROOM,
+      turns: [...ROOM.turns, { position: 2, memberId: BEN.id, agentName: 'Ben agent', body: missed, at: 3 }],
+    }
+    const stale = (after: number, last: number) =>
+      ({
+        _tag: 'Conflict',
+        message: `The room moved on: turns ${after + 1} to ${last} were taken after turn ${after}, the last you read.`,
+      }) as never
+    const posted: unknown[] = []
+    const answers = ['First try.', 'Rewritten.']
+    const r = runner({
+      stubs: {
+        'debates.waiting': once({ asks: [{ debate: ROOM, ask: 'turn' }] }, { asks: [] }),
+        'debates.get': () => moved,
+        'debates.turns.post': (request) => {
+          posted.push(request.body)
+          return posted.length === 1 ? stale(1, 2) : { ...moved, turns: [...moved.turns, moved.turns[1]!] }
+        },
+      },
+      agent: () => ({ exitCode: 0, output: answers.shift() ?? '' }),
+    })
+    await settle(() => posted.length === 2 && r.w.lines.some((line) => line.includes('Took turn 3')))
+    await r.stop()
+    expect(posted).toEqual([
+      { body: 'First try.', afterTurn: 1 },
+      { body: 'Rewritten.', afterTurn: 2 },
+    ])
+    const retry = r.w.agentRuns[1]!.prompt
+    expect(retry).toMatch(
+      /^Your turn in this room was not saved: turns 2 to 2 were taken while you wrote it\./,
+    )
+    expect(retry).toContain(`id="${ROOM.id}/turn-2"`)
+    expect(textOutsideWrappers(retry)).not.toContain('7e4a')
+
+    const again: unknown[] = []
+    const giving = runner({
+      stubs: {
+        'debates.waiting': once({ asks: [{ debate: ROOM, ask: 'turn' }] }, { asks: [] }),
+        'debates.get': () => moved,
+        'debates.turns.post': (request) => {
+          again.push(request.body)
+          return stale(again.length, again.length + 1)
+        },
+      },
+      agent: () => ({ exitCode: 0, output: 'A point.' }),
+    })
+    await settle(() => giving.w.problems.length > 0)
+    await giving.stop()
+    expect(again).toHaveLength(2)
+    expect(giving.w.agentRuns).toHaveLength(2)
+    expect(giving.w.problems).toEqual([expect.stringMatching(/was refused: The room moved on: turns 3 to 3/)])
   })
 })
 

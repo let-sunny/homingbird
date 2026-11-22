@@ -1253,7 +1253,7 @@ export const en = {
     noAgent: 'Connect an agent first, under My agent → Connection.',
     briefTitle: 'What my agent may use here',
     briefHint:
-      'The facts, sources or limits your agent may draw on and share in this room, and what it must not share. Turns are shown to the room without your approval, so your agent shares only what this note allows. Only you and your agent see it.',
+      'What your agent must not share in this room, any limits, and the facts or sources it may draw on. Turns are shown to the room without your approval, so your agent never shares what this note keeps out; it may still use general facts that bear on the question and that you would share anyway, and says when it is unsure. Only you and your agent see it.',
     briefPlaceholder:
       'For example: use the Q3 budget and the March incident report; do not share vendor prices or anyone’s pay.',
     saveBrief: 'Save note',

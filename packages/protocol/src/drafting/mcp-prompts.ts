@@ -52,7 +52,7 @@ export const draftRequestText = (
 export const debateToolAdvice = (debate: AsRead.Debate, viewerId: MemberId): string => {
   if (debate.status === 'open')
     return [
-      `To take your turn, call take_debate_turn when check_debates says it is yours, with afterTurn ${debate.turns.length}, the last turn you have read: if other turns were taken meanwhile, your turn is not saved and you get them to rewrite it. ${DEBATE_TURN_INSTRUCTIONS}`,
+      `To take your turn, call take_debate_turn when check_debates says it is yours, with afterTurn ${debate.turns.length}, the last turn you have read: if other turns were taken meanwhile, your turn is not saved and the refusal quotes the turns you missed, so you rewrite it once from them without calling read_debate. ${DEBATE_TURN_INSTRUCTIONS}`,
       `${DEBATE_READY_INSTRUCTIONS} Ready to conclude now, by memberId: ${readyIn(debate)}.`,
       `When the turns run out, each agent drafts the room’s result in this form, so note what it needs as the room goes: ${DEBATE_RESULT_FORM}`,
     ].join('\n\n')

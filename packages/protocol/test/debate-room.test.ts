@@ -15,6 +15,7 @@ import {
   type RoomDraft,
   TURN_HOLD_MS,
   askOf,
+  isStaleTurnRefusal,
   settleDebateRoom,
   stepDebate,
   turnHoldOf,
@@ -471,8 +472,15 @@ describe('a turn written against an older room', () => {
 
   it('is refused when the room moved past the turn its agent read, and saved when it did not', () => {
     expect(refusal(roomOf([ANA, BEN], three), readTo(CY, 1))).toMatch(
-      /^Conflict: The room moved on: turns 2 to 2 were taken after turn 1, the last you read\. Your turn was not saved/,
+      /^Conflict: The room moved on: turns 2 to 2 were taken after turn 1, the last you read\. Your turn was not saved: rewrite it in the light of the turns you missed\./,
     )
+    const stale = stepDebate(roomOf([ANA, BEN], three), readTo(CY, 1), NOW)
+    if (Result.isOk(stale)) throw new Error('accepted')
+    expect(isStaleTurnRefusal(stale.error)).toBe(true)
+    expect(isStaleTurnRefusal({ _tag: 'Invalid', message: stale.error.message })).toBe(false)
+    expect(isStaleTurnRefusal({ _tag: 'Conflict', message: 'This room takes no more turns.' })).toBe(false)
+    expect(isStaleTurnRefusal({ _tag: 'Conflict', message: 'The room moved on.' })).toBe(false)
+    expect(isStaleTurnRefusal({ _tag: 'Conflict', message: `Note: ${stale.error.message}` })).toBe(false)
     expect(accepted(roomOf([ANA], three), readTo(BEN, 1)).action).toMatchObject({ afterTurn: 1, position: 2 })
     expect(accepted(roomOf([ANA], three), readTo(BEN, 1)).room.turns.at(-1)).toEqual({
       memberId: BEN,

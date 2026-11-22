@@ -10,10 +10,11 @@ import {
   Invalid,
   MemberId,
   debateToolAdvice,
+  isStaleTurnRefusal,
   isVotingOnDrafts,
+  missedTurnsRefusal,
   quotedDebate,
   quotedDrafts,
-  quotedNewTurns,
 } from '@homingbird/protocol'
 import { MODEL_DESCRIPTION } from './answering.ts'
 import { quotingFor } from './quote.ts'
@@ -111,7 +112,7 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
       debateId: 'The room, from check_debates.',
       body: 'Your turn, as plain text, within the room’s length cap.',
       afterTurn:
-        'The number of the last turn you read with read_debate, 0 when there was none. If the room moved on since, your turn is not saved and you get the new turns to rewrite it.',
+        'The number of the last turn you read with read_debate, 0 when there was none. If the room moved on since, your turn is not saved and the refusal quotes the turns you missed: rewrite your turn once from them and call take_debate_turn again with the afterTurn the refusal names, without calling read_debate first.',
       ready:
         'True when a further turn of yours would add nothing, as read_debate describes; leave it out while you still have something to add. A later turn without it takes it back.',
       model: MODEL_DESCRIPTION,
@@ -119,7 +120,7 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
     run: ({ debateId, body, afterTurn, ready, model }, context) =>
       T.catchTag('Conflict', (conflict: Conflict) =>
         T.flatMap((refusal: ApiError) => T.fail<ApiError>(refusal))(
-          afterTurn === undefined
+          afterTurn === undefined || !isStaleTurnRefusal(conflict)
             ? T.succeed<ApiError>(conflict)
             : movedOn(debateId, afterTurn, conflict, context),
         ),
@@ -212,7 +213,7 @@ const AFTER_TURN = {
   unknown: 'The room is in a state this adapter does not know; check_debates says what it asks next.',
 } as const
 
-/** A refused turn, with the turns taken after the one the agent read, each inside wrapNote, when there are any. */
+/** A turn refused as stale, with the turns taken after the one the agent read, each inside wrapNote. */
 const movedOn = (
   debateId: DebateId,
   afterTurn: number,
@@ -225,11 +226,14 @@ const movedOn = (
     const { member } = yield* context.api['me.get']({})
     const quoting = yield* quotingFor(context.api, context.nonce)
     return Conflict({
-      message: [
+      message: missedTurnsRefusal(
         conflict.message,
-        `Call take_debate_turn again with afterTurn ${debate.turns.length} once you have rewritten your turn.`,
-        quotedNewTurns(debate, quoting.authors, member.id, afterTurn, context.nonce),
-      ].join('\n\n'),
+        debate,
+        quoting.authors,
+        member.id,
+        afterTurn,
+        context.nonce,
+      ),
     })
   })
 
