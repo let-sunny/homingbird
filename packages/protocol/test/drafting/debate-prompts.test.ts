@@ -3,7 +3,9 @@ import {
   DEBATE_RESULT_INSTRUCTIONS,
   DEBATE_TURN_INSTRUCTIONS,
   DEBATE_VOTE_INSTRUCTIONS,
+  READY_TRAILER,
   RUNNER_MODEL_LINE,
+  RUNNER_READY_LINE,
   debateResultPrompt,
   debateTurnPrompt,
   debateVotePrompt,
@@ -199,12 +201,20 @@ describe('the drafts put to a vote, as a model reads them', () => {
 describe('the prompts that ask an agent for a turn, a result or a vote', () => {
   it('put the instructions before the quoted room, and the drafts last unless a reader described them', () => {
     const model = RUNNER_MODEL_LINE
-    expect(debateTurnPrompt('ROOM')).toBe(`${DEBATE_TURN_INSTRUCTIONS}\n\n${model}\n\nROOM`)
+    expect(debateTurnPrompt('ROOM')).toBe(
+      `${DEBATE_TURN_INSTRUCTIONS}\n\n${RUNNER_READY_LINE}\n\n${model}\n\nROOM`,
+    )
     expect(debateResultPrompt('ROOM')).toBe(`${DEBATE_RESULT_INSTRUCTIONS}\n\n${model}\n\nROOM`)
     expect(debateVotePrompt('ROOM', 'DRAFTS')).toBe(
       `${DEBATE_VOTE_INSTRUCTIONS}\n\n${model}\n\nROOM\n\nDRAFTS`,
     )
     expect(debateVotePrompt('ROOM', null)).toBe(`${DEBATE_VOTE_INSTRUCTIONS}\n\n${model}\n\nROOM`)
+  })
+
+  it('tells an agent command to end a turn with the exact ready line only when it would add nothing', () => {
+    expect(READY_TRAILER).toBe('READY: yes')
+    expect(RUNNER_READY_LINE).toContain('one line of exactly READY: yes, before the MODEL: line')
+    expect(RUNNER_READY_LINE).toMatch(/A later turn without it takes it back/)
   })
 
   it('lets an agent command state its model on one last line, and only when it knows it', () => {

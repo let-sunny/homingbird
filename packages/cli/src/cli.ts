@@ -18,6 +18,7 @@ import { installService, serviceStatus, stopService, uninstallService } from './
 import { setup } from './commands/setup.ts'
 import { status } from './commands/status.ts'
 import { stream } from './commands/stream.ts'
+import { propose, teaching } from './commands/teaching.ts'
 import type { CliEnv } from './environment.ts'
 import type { CliFailure } from './failure.ts'
 import { type Outcome, outcome } from './outcome.ts'
@@ -102,6 +103,10 @@ const execute = (
       return pickUp(invocation.noteId)
     case 'skip':
       return skip(invocation.noteId, invocation.reason)
+    case 'teaching':
+      return teaching
+    case 'propose':
+      return propose(invocation)
     case 'stream':
       return T.as(null)(
         stream(invocation.after, (line) =>

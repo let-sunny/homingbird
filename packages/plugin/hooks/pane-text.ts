@@ -99,6 +99,7 @@ export interface PaneText {
   readonly signInUnreachable: string
   readonly tryAgain: string
   readonly characterStarted: string
+  readonly teachStarted: string
 }
 
 export type DebateWants = 'turn' | 'result' | 'vote'

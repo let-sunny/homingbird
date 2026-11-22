@@ -106,7 +106,7 @@ const tourCallout = (
     const isAnchored = target !== null && page.supportsAnchors()
     const model = tourStepModel(step, isAnchored)
     callout.classList.toggle('is-anchored', isAnchored)
-    callout.classList.toggle('is-in-header', target?.closest('.titlebar') !== null && target !== null)
+    callout.classList.toggle('is-in-header', target !== null && isInHeader(target))
     callout.dataset.placement = model.placement
     replaceChildren(callout, stepContent(model, finish, move))
     if (!callout.matches(':popover-open')) callout.showPopover?.()
@@ -119,6 +119,17 @@ const tourCallout = (
   }
   const stopKeys = document.listen('keydown', onKey)
   return { show, finish }
+}
+
+/**
+ * Whether a control is shown in the header. A tab belongs to the header, but on a phone the tabs are
+ * placed at the bottom of the screen, where the callout belongs above them, not under the header.
+ */
+const isInHeader = (target: HTMLElement): boolean => {
+  const header = target.closest('.titlebar')
+  if (header === null) return false
+  const box = target.getBoundingClientRect()
+  return box.height === 0 || box.top < header.getBoundingClientRect().bottom
 }
 
 const visibleTarget = (document: PageDocument, id: TourStepId): HTMLElement | null => {

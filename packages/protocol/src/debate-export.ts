@@ -28,6 +28,9 @@ export const debateMarkdown = (
     [
       `- ${labels.visibility}: ${labels.visibilities[debate.visibility]}`,
       `- ${labels.status}: ${labels.statuses[debate.status]}${ending}`,
+      ...(debate.concludedBecause == null
+        ? []
+        : [`- ${labels.concluded}: ${labels.conclusions[debate.concludedBecause]}`]),
       `- ${labels.created(isoOf(debate.createdAt), name(debate.createdBy))}`,
       `- ${labels.limits({
         perAgent: debate.limits.turnsPerAgent,
@@ -89,6 +92,7 @@ export const debateJson = (debate: Debate, nameOf: (id: MemberId) => string): st
       visibility: debate.visibility,
       status: debate.status,
       endedBecause: debate.endedBecause,
+      concludedBecause: debate.concludedBecause ?? null,
       createdBy: nameOf(debate.createdBy),
       createdAt: isoOf(debate.createdAt),
       closedAt: debate.closedAt === null ? null : isoOf(debate.closedAt),

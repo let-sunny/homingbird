@@ -50,6 +50,8 @@ export interface PeopleInput {
   readonly groupFilter: string
   /** Who is in the group chosen, as the server listed them; null while that list is on its way. */
   readonly groupMembers: ReadonlySet<MemberId> | null
+  /** The member a profile card's “Open in People” brought here, whose card is brought into view. */
+  readonly person?: string | undefined
 }
 
 export interface PeopleModel {
@@ -71,6 +73,8 @@ export interface FilterOption {
 
 export interface PersonCard {
   readonly memberId: MemberId
+  /** Whether this is the card a profile card's “Open in People” asked for. */
+  readonly focused: boolean
   readonly avatar: AvatarModel
   readonly name: string
   readonly relation: { readonly kind: Relation; readonly text: string } | null
@@ -147,6 +151,7 @@ const personCard = (
   const menu = actions.filter((one) => IN_MENU.has(one.kind))
   return {
     memberId: entry.member.id,
+    focused: entry.member.id === input.person,
     avatar: memberAvatarOf(entry.member, input.charactersOn, { state: personPip(entry) }),
     name: entry.member.name,
     relation: strings.relation[relation] === '' ? null : { kind: relation, text: strings.relation[relation] },

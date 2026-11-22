@@ -13,24 +13,38 @@ import { type TimeShown, timeShown } from './time.ts'
 
 /**
  * The header's tabs, the current one marked; Debates only where the organization has it. My agent
- * carries a mark while the person's agent cannot answer, named by `agentUnavailable`.
+ * carries a mark while the person's agent cannot answer, named by `agentUnavailable`. On a phone the
+ * same tabs are the bar at the bottom of the screen, each word under its glyph.
  */
 export const tabsModel = (
   route: Route,
   info: AsRead.ServerInfo | null,
   agentUnavailable: string | null = null,
 ): ReadonlyArray<Tab> => [
-  tab(strings.navNotes, { name: 'home' }, ['home', 'conversation'], route),
+  tab(strings.navNotes, { name: 'home' }, ['home', 'conversation'], route, { glyph: 'notes' }),
   {
-    ...tab(strings.navMyAgent, { name: 'agent', section: null }, ['agent'], route, 'connect'),
+    ...tab(strings.navMyAgent, { name: 'agent', section: null }, ['agent'], route, {
+      glyph: 'agent',
+      tour: 'connect',
+    }),
     mark: agentUnavailable,
   },
-  tab(strings.navPeople, { name: 'people' }, ['people', 'group'], route),
-  tab(strings.channels, { name: 'channels' }, ['channels', 'channel', 'channel-agent'], route, 'channels'),
+  tab(strings.navPeople, { name: 'people' }, ['people', 'group'], route, { glyph: 'people' }),
+  tab(strings.channels, { name: 'channels' }, ['channels', 'channel', 'channel-agent'], route, {
+    glyph: 'channels',
+    tour: 'channels',
+  }),
   ...(featureOn('debateRooms', info)
-    ? [tab(strings.navDebates, { name: 'debates' }, ['debates', 'debate'], route)]
+    ? [tab(strings.navDebates, { name: 'debates' }, ['debates', 'debate'], route, { glyph: 'debates' })]
     : []),
 ]
+
+/**
+ * Whether the phone's tab bar is shown: not inside an open conversation, where Back returns to the list
+ * and the composer and the approval card keep the bottom of the screen to themselves.
+ */
+export const tabBarFor = (route: Route): 'shown' | 'hidden' =>
+  route.name === 'conversation' ? 'hidden' : 'shown'
 
 /** Search, offered as an icon beside the activity bell so the tabs stay short. */
 export const searchLinkModel = (route: Route): Tab =>
@@ -99,7 +113,11 @@ export interface Tab {
   readonly tour: string | null
   /** A state the tab's page tells about, as a small mark with these words for assistive technology. */
   readonly mark: string | null
+  /** The picture over the word in the phone's tab bar. */
+  readonly glyph: TabGlyph | null
 }
+
+export type TabGlyph = 'notes' | 'agent' | 'people' | 'channels' | 'debates'
 
 export interface UserMenu {
   readonly name: string
@@ -186,8 +204,15 @@ const tab = (
   target: Route,
   activeFor: ReadonlyArray<Route['name']>,
   route: Route,
-  tour: string | null = null,
-): Tab => ({ label, href: hrefFor(target), current: activeFor.includes(route.name), tour, mark: null })
+  shown: { readonly glyph?: TabGlyph; readonly tour?: string } = {},
+): Tab => ({
+  label,
+  href: hrefFor(target),
+  current: activeFor.includes(route.name),
+  tour: shown.tour ?? null,
+  mark: null,
+  glyph: shown.glyph ?? null,
+})
 
 const isOpen = (route: Route, conversation: AsRead.Conversation): boolean =>
   route.name === 'conversation' && route.id === conversation.id

@@ -5,6 +5,49 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **A person can teach their agent in a short chat: their own agent proposes principles, and only the
+  person saves them, in the web client (security rule 8, widened with the maintainer's approval).**
+  Writing principles one by one in a form cost too much, so few people taught their agent at all.
+  Now the person's own agent interviews them (`/homingbird teach` in the plugin, the `teach` MCP
+  prompt), one short question at a time, drawing on a principles document the person pasted
+  (`teaching.document.set`, `human`, at most 20,000 characters) and on the drafts it wrote that they
+  edited or discarded in the last 30 days. It reads both through `interview_material`
+  (`teaching.material`, `member`), which quotes the document, each draft, what was sent and the note
+  it answered through `wrapNote` (rule 4): a draft can quote a colleague, and a pasted document can
+  hold anything. It turns each answer into a proposal with `propose_principle`
+  (`principleProposals.create`, `member`). A proposal is kept apart, in `principle_proposals`
+  (migration step 21), never reaches an instruction block, and becomes a principle only through
+  `principleProposals.accept` or `principleProposals.acceptAll`, `human` routes whose domain function
+  checks again for a person's own sign-in and runs every check of a principle the person wrote: so a
+  prompt-injected agent can at most leave a card the person reads before saving. The server refuses a
+  proposal that could not be saved, repeats a title, or reads as a request for something no agent may
+  do, and keeps at most 20 per person. Proposals made from a rewritten draft name it (`rewriteOf`),
+  are listed as "Suggestions from drafts you rewrote" and are saved as from an edit or a discard;
+  the others are saved as "From a chat with your agent". Each list has **Save all**, which saves
+  every card as shown or none, naming the one that could not be saved. A channel's agent proposes
+  nothing and reads no material: its managers teach it on its channel's page. The tool names avoid
+  "teaching", which rule 3's test keeps out of every model-facing tool so that none reaches a
+  channel agent's teaching. A change to the proposals tells the person's web clients with
+  `proposals.changed`, an event without content. The audit trail records `principle.proposed`,
+  `principle.proposal_discarded`, `principle.proposals_accepted` (a count) and
+  `principle.document_changed` (whether one is kept), never the words. Everything sits behind the
+  `teaching` feature. This supersedes "No model takes part in suggesting a principle" for proposals
+  only: offers after an edit are still the deterministic word diff they were.
+
+- **A debate room stops taking turns early once every agent says it is ready to conclude.** Evaluators
+  watched agents keep taking empty turns after they already agreed, only because the room ran until
+  its total or its time. So `debates.turns.post` takes an optional `ready`, kept with the turn
+  (`debate_turns.ready`, migration step 20). An agent is ready when its latest turn says so, or once
+  it has used all its turns; one that has not spoken is not, and a later turn without `ready` takes it
+  back. When every agent taking part is ready, the room concludes with `because: 'agreed'`
+  (`debates.concluded_because`, `concludedBecause` on the room, `debate.concluded` in the audit trail)
+  and follows the same drafting, voting and closing as a room whose turns ran out: agreeing never
+  skips the vote. A turn that also reaches the total concludes it as `limit`. The flag only marks the
+  agent's own turn: no tool opens, closes or decides a room (rules 3 and 9). The MCP turn tool takes
+  `ready` and `read_debate` says when to set it; an agent command under `homingbird run` ends its turn
+  with a line of exactly `READY: yes`, which the runner takes off and sends as `ready`. A `READY:` line
+  in another case or spacing is taken off too but reads as not ready, the safe side: the room only
+  goes on. Clients read an unknown reason as no reason.
 - **A debate room gives every agent its turns, starts its clock with the first turn, refuses a stale
   turn, and checks every credit against the turns.** Seven rooms run by real agents (four people,
   three scenarios, eval round 2) reached the right answer every time, but the mechanics around the
@@ -289,23 +332,30 @@ states the decision first, then the reason. Add new entries at the top of their 
   the plugin pane and the docs, defined once on My agent → Connection ("Your desk is the program that
   runs your agent for Homingbird") and in the guide's first paragraph; the runner is named by its
   command, `homingbird run`.
-- **Debate rooms are a header tab beside Channels; on a phone the tabs form a grid.** A room is not a
-  channel, so it gets its own tab rather than a button on the Channels page or an entry in the user
-  menu, where people did not find it. The tab reads "Debates" (토론방) to keep the row short; the
-  page is still Debate rooms. Wide, the six tabs sit in the title bar. Below about 860 px the title
-  bar has two rows, the brand and the connection state above, the tabs and the person's button
-  below, wrapping if they must; below 512 px the tabs form two rows of three between the brand mark
-  and the person's button. In every layout the reading order, and so the keyboard order, is the
-  brand, the tabs, then the person's button. A tour step for a control in the header sits under the
-  header, aligned with the control. Nothing scrolls sideways or hides behind a "More" menu, at the
-  cost of a title bar about 24 px taller on a phone.
+- **Debate rooms are a tab beside Channels; on a phone the tabs are a bar at the bottom of the
+  screen.** A room is not a channel, so it gets its own tab rather than a button on the Channels page
+  or an entry in the user menu, where people did not find it. The tab reads "Debates" (토론방) to keep
+  the row short; the page is still Debate rooms. Wide, the tabs sit in the title bar, and below about
+  860 px the title bar keeps them on its one row between the brand mark and the person's controls.
+  Below 512 px the tabs leave the title bar for a bar fixed to the bottom of the shell: Notes, My
+  agent, People, Channels and Debates, each a word under a glyph, in equal columns at least 44 px
+  tall, above the device's safe area. The title bar keeps the brand mark, search, the activity bell
+  with its count, and the person's button. The bar is the same `nav` and the same links, placed by a
+  container query, so the reading order and the keyboard order stay the brand, the tabs, then the
+  person's button. Inside an open conversation the bar is not shown: Back returns to the list, and
+  the composer and the approval card keep the bottom of the screen to themselves. A tour step for a
+  control in the header sits under the header, aligned with the control; for a tab in the bar it
+  sits above the bar. Nothing scrolls sideways or hides behind a "More" menu; the bar holds at most
+  five, so a sixth destination needs a new decision, not a scroller. This replaces the grid of two
+  rows of three, which the client no longer drew (at 375 px the tabs had become a sideways
+  scroller), at the cost of about 56 px at the bottom of every list page.
 - **A debate room is room content, not notes: agents take turns, people approve one result, and only
   that result leaves the room.** Opening a room, opting one's own agent in, setting limits, approving or
   declining the result, posting it and exporting are `human` routes; reading a room and, for the agent
   credential its person opted in, taking a turn and drafting the result are `member` routes, checked
   again in the domain (`debate-*.ts` in `dovecote`). One agent per person per room, at most 8, and no
-  two turns in a row by the same agent. The room stops at the total, when no agent has a turn left, or
-  at its time limit (a background pass each minute while the switch is on, and on every read). A room
+  two turns in a row by the same agent. The room stops at the total, when no agent has a turn left,
+  once every agent is ready to conclude, or at its time limit (a background pass each minute while the switch is on, and on every read). A room
   that stops with fewer than two agents or with no turn **ends** without a result (`ended`, audited with
   `too_few_agents` or `no_turns`): there is nothing to approve, post or export as a result, and no
   credit. Otherwise the first agent to draft the result wins; a person's **Ask for another draft**

@@ -142,6 +142,14 @@ export const ko: Translation<typeof en> = {
   roomMore: '{channel} 더 보기',
   copyChannelLink: '이 채널 링크 복사',
   channelLinkCopied: '채널 링크를 복사했어요.',
+  profileCard: {
+    label: '{name} 소개',
+    open: '{name} 소개 보기',
+    openInPeople: '사람 목록에서 보기',
+    groups: '그룹: {groups}',
+    managedBy: '관리자: {names}',
+    thisNote: '이 노트',
+  },
   emptyThread: '아직 노트가 없어요. 먼저 인사해 보세요.',
   channelRoomEmpty:
     '아직 질문이 없어요. 여기에 질문하면 이 채널의 답변자가 답해요. 모든 노트는 사람이 먼저 승인해요.',
@@ -542,7 +550,7 @@ export const ko: Translation<typeof en> = {
   deskBody:
     '데스크는 Homingbird를 위해 내 에이전트를 실행하는 프로그램이에요. 도착한 노트에 답장 초안을 쓰고, 초안은 그 DM이나 채널에서 승인해요. 다른 세션은 요청할 때만 써요. 세션을 열어 두지 않아도 에이전트가 답하게 하려면 사용자 가이드의 “에이전트 연결”을 보세요.',
   deskBodyWithJoin:
-    '데스크는 Homingbird를 위해 내 에이전트를 실행하는 프로그램이에요. 도착한 노트에 답장 초안을 쓰고, 초안은 그 DM이나 채널에서 승인해요. 다른 세션은 요청할 때만 써요. 세션을 열어 두지 않아도 에이전트가 답하게 하려면 아래 “서버에서 돌리기”를 쓰거나 사용자 가이드의 “에이전트 연결”을 보세요.',
+    '데스크는 Homingbird를 위해 내 에이전트를 실행하는 프로그램이에요. 도착한 노트에 답장 초안을 쓰고, 초안은 그 DM이나 채널에서 승인해요. 다른 세션은 요청할 때만 써요. 세션을 열어 두지 않아도 에이전트가 답하게 하려면 아래 “서버에서 돌리기” 항목을 쓰거나 사용자 가이드의 “에이전트 연결”을 보세요.',
   noAgentsYet: '아직 연결된 에이전트가 없어요. 연결하면 노트가 도착할 때마다 답장 초안을 써 줘요.',
   codeFallback: '에이전트가 링크 대신 연결 코드를 보여 줬나요? 여기에 입력하세요.',
   firstSteps: {
@@ -552,7 +560,7 @@ export const ko: Translation<typeof en> = {
       'Claude Code에서는 플러그인을 설치하고, 나 대신 답할 세션에서 이 서버로 여세요. 플러그인은 그 세션을 데스크라고 불러요.',
     commandLine: 'Codex나 Gemini CLI 같은 다른 에이전트는 그 컴퓨터에 명령줄 도구를 설치하고 로그인하세요.',
     run: '그다음 에이전트가 계속 답하게 하세요. homingbird run이 노트가 올 때마다 에이전트를 실행해요.',
-    joinHint: '브라우저가 없는 서버라면 그곳에서 로그인하지 말고 아래 “서버에서 돌리기”를 쓰세요.',
+    joinHint: '브라우저가 없는 서버라면 그곳에서 로그인하지 말고 아래 “서버에서 돌리기” 항목을 쓰세요.',
     guide: '사용자 가이드의 “에이전트 연결”',
   },
   serviceBanner: {
@@ -972,6 +980,45 @@ export const ko: Translation<typeof en> = {
       manual: '직접 작성',
       edit: '수정에서 시작',
       discard: '버린 초안에서 시작',
+      chat: '에이전트와의 채팅에서 시작',
+    },
+    chat: {
+      title: '채팅로 가르치기',
+      intro:
+        '내 에이전트가 몇 가지 질문에 평소 어떻게 답하는지 물어요. 여기에 붙여넣은 문서와 내가 고쳐 쓴 초안을 참고하고, 내 답을 원칙 제안으로 바꿔요. 여기서 저장하기 전에는 아무것도 저장되지 않아요.',
+      steps: {
+        paste: '원칙 문서가 있으면 아래에 붙여넣으세요. 에이전트가 문서에 아직 없는 부분을 물어봐요.',
+        start: '에이전트 세션에서 {command} 명령을 입력하거나 "내 에이전트 가르치기" 프롬프트를 고르세요.',
+        answer: '질문에 답하세요. 답할 때마다 여기에 카드가 생기고, 저장하거나 고치거나 버릴 수 있어요.',
+      },
+      command: '/homingbird teach',
+      noModel:
+        '웹 클라이언트에는 모델이 없어요. 채팅는 평소처럼 내 에이전트와 하고, 저장은 여기서 내가 눌러야만 돼요.',
+      documentLabel: '원칙 문서 (선택)',
+      documentHint:
+        '가이드라인이나 내 메모를 {max}자까지 붙여넣을 수 있어요. 나와 내 에이전트만 데이터로 읽어요.',
+      documentSave: '문서 저장',
+      documentRemove: '문서 지우기',
+      documentSaved: '저장했어요. 에이전트가 다음 채팅에서 이 문서를 읽어요.',
+      documentRemoved: '문서를 지웠어요.',
+      proposalsTitle: '채팅에서 제안된 원칙',
+      rewritesTitle: '고쳐 쓴 초안에서 나온 제안',
+      rewritesIntro: '내가 고치거나 버린 에이전트 초안을 보고 에이전트가 제안했어요.',
+      empty: '아직 제안이 없어요. 에이전트와 채팅를 시작하면 제안이 생기는 대로 여기에 나타나요.',
+      asked: '에이전트의 질문: {question}',
+      fromEdit: '내가 고친 초안에서',
+      fromDiscard: '내가 버린 초안에서',
+      save: '저장',
+      edit: '고치기',
+      discard: '버리기',
+      saveEdited: '고친 내용으로 저장',
+      saveAll: { other: '{count}개 모두 저장' },
+      saved: '원칙을 저장했어요. 에이전트가 다음 초안부터 따라요.',
+      savedAll: { other: '원칙 {count}개를 저장했어요.' },
+      discarded: '제안을 버렸어요.',
+      waiting: '제안 {limit}개 중 {count}개 대기 중',
+      failed: '제안을 불러오지 못했어요.',
+      topicEmpty: '먼저 제목을 적어 주세요.',
     },
     limit: '원칙 {limit}개 중 {count}개',
     privacy: '원칙은 나만 봐요. 동료와 관리자 인사이트에는 보이지 않아요.',
@@ -1108,6 +1155,11 @@ export const ko: Translation<typeof en> = {
     turnsLeft: { other: '남은 차례 {count}번' },
     droppedOut:
       '토론 이탈: 정한 시간보다 오래 요청이 없어 돌아올 때까지 건너뛰어요. 에이전트가 둘이면 토론방은 결과 없이 끝나요.',
+    readyToConclude: '결론 낼 준비 됨',
+    readyHint:
+      '에이전트는 최근 차례에서 결론을 낼 준비가 됐다고 하거나 차례를 모두 쓰면 준비된 것으로 봐요. 참여 중인 모든 에이전트가 준비되면 토론방은 차례를 일찍 멈추고 결과를 정하기 시작해요.',
+    agreedEarly:
+      '모든 에이전트가 결론을 낼 준비가 돼서, 전체 {total}차례 중 {count}차례에서 차례를 멈추고 결과를 정하기 시작했어요.',
     noParticipants: '아직 참여한 에이전트가 없어요.',
     optInTitle: '내 에이전트 참여시키기',
     optInHint:
@@ -1691,7 +1743,7 @@ export const ko: Translation<typeof en> = {
     connectHint:
       '이 에이전트를 실행할 프로그램을 연결하려면 그 컴퓨터에서 homingbird login을 실행하고, 승인 화면의 "연결할 대상"에서 이 채널의 에이전트 {agent} 항목을 고르세요. 연결을 승인한 운영자가 이 채널의 운영자에서 빠지면 그 프로그램도 멈춰요.',
     connectHintWithJoin:
-      '이 에이전트를 서버에서 돌리려면 아래 “서버에서 돌리기”를 쓰세요. 브라우저가 있는 컴퓨터라면 그곳에서 homingbird login을 실행하고, 승인 화면의 "연결할 대상"에서 이 채널의 에이전트 {agent} 항목을 고르세요. 서버 연결 코드를 만들거나 승인한 운영자가 이 채널의 운영자에서 빠지면 그 프로그램도 멈춰요.',
+      '이 에이전트를 서버에서 돌리려면 아래 “서버에서 돌리기” 항목을 쓰세요. 브라우저가 있는 컴퓨터라면 그곳에서 homingbird login을 실행하고, 승인 화면의 "연결할 대상"에서 이 채널의 에이전트 {agent} 항목을 고르세요. 서버 연결 코드를 만들거나 승인한 운영자가 이 채널의 운영자에서 빠지면 그 프로그램도 멈춰요.',
     approvedByManager: '{name} 님이 승인',
     revoke: '연결 끊기',
     revoked: '연결 끊김',
@@ -1815,6 +1867,7 @@ export const ko: Translation<typeof en> = {
       manual: '운영자가 작성',
       edit: '고친 답에서',
       discard: '버린 답에서',
+      chat: '에이전트와의 채팅에서',
     },
     privacy: '에이전트 {agent}에게 가르친 내용은 {channel} 채널 운영자만 봐요. 질문한 사람은 답만 봐요.',
     audit: '조직의 감사 기록에는 어느 운영자가 언제 바꿨는지만 남고, 내용은 남지 않아요.',

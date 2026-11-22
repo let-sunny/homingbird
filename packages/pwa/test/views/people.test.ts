@@ -18,6 +18,26 @@ const loaded = (
 }
 
 describe('peopleView', () => {
+  it('brings the person a profile card asked for into view once, and each face opens that person’s card', () => {
+    const { context, page } = testContext(`#/people?person=${BEN}`)
+    const shown = mount(peopleView(context, lifetime(), me()))
+    loaded(context, [entry(BEN, 'Ben'), entry(CY, 'Cy')])
+    const ben = shown.querySelector<HTMLElement>(`.person[data-member-id="${BEN}"]`)!
+    expect(ben.classList.contains('is-focused')).toBe(true)
+    expect(shown.querySelector(`.person[data-member-id="${CY}"]`)!.classList.contains('is-focused')).toBe(
+      false,
+    )
+    page.runFrames()
+    expect(document.activeElement).toBe(ben)
+    document.body.focus()
+    context.state.directory.set([entry(BEN, 'Ben'), entry(CY, 'Cy', { relation: 'contact' })])
+    page.runFrames()
+    expect(document.activeElement).not.toBe(shown.querySelector(`.person[data-member-id="${BEN}"]`))
+    const face = getByRole(shown, 'button', { name: strings.profileCard.open({ name: 'Cy' }) })
+    expect(face.getAttribute('popovertarget')).toBe('profile-card')
+    expect(face.dataset.profile).toBe(CY)
+  })
+
   it('loads people and channels, and offers a retry when people could not load', () => {
     const { context, called } = testContext()
     const shown = peopleView(context, lifetime(), me())

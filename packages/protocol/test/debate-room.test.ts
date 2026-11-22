@@ -19,7 +19,7 @@ import {
   stepDebate,
   turnHoldOf,
 } from '../src/debate-room.ts'
-import { isTakingPart, limitsProblem, turnsTakenBy } from '../src/debate-rules.ts'
+import { isReadyToConclude, isTakingPart, limitsProblem, turnsTakenBy } from '../src/debate-rules.ts'
 import { DebateLimits } from '../src/debates.ts'
 import { MemberId } from '../src/ids.ts'
 
@@ -102,6 +102,7 @@ describe('whose turn it is', () => {
       memberId: BEN,
       body: 'A point.',
       afterTurn: null,
+      ready: false,
       deadlineAt: null,
     })
   })
@@ -173,6 +174,132 @@ describe('whose turn it is', () => {
 
   it('stops a room by time before it takes a turn, and refuses the turn', () => {
     expect(settled(roomOf([ANA], { deadlineAt: NOW }))).toEqual([{ type: 'conclude', because: 'time' }])
+  })
+})
+
+describe('a room whose agents agree', () => {
+  const ready = (memberId: MemberId): DebateEvent => ({
+    type: 'turn',
+    memberId,
+    body: 'Agreed.',
+    ready: true,
+  })
+  const wide = { limits: { ...LIMITS, totalTurns: 12, turnsPerAgent: 4 } }
+  const three = { participants: [{ memberId: ANA }, { memberId: BEN }, { memberId: CY }] }
+  const said = (...turns: ReadonlyArray<readonly [MemberId, boolean]>) =>
+    turns.map(([memberId, isReady]) => ({ memberId, ready: isReady }))
+  const UNCREDITED: DebateResult = {
+    ...RESULT,
+    contributions: RESULT.contributions.map((contribution) => ({ ...contribution, credits: [] })),
+  }
+
+  it('stops taking turns once every agent’s latest turn says it is ready, and asks each for a draft', () => {
+    const first = accepted(roomOf([], wide), ready(ANA))
+    expect(first.action).toMatchObject({ type: 'addTurn', ready: true })
+    expect(first.after).toEqual([])
+    const move = accepted(first.room, ready(BEN))
+    expect(move.after).toEqual([{ type: 'conclude', because: 'agreed' }])
+    expect(move.room.stage).toEqual({ stage: 'drafting', concludedAt: NOW })
+    expect(askOf(move.room, ANA, NOW)).toBe('result')
+    expect(refusal(move.room, ready(ANA))).toMatch(/no more turns/)
+  })
+
+  it('takes an agent’s readiness back with a later turn that does not say it', () => {
+    const room = roomOf([], {
+      ...wide,
+      stage: { stage: 'open' },
+      turns: said([ANA, true], [BEN, false], [ANA, false]),
+    })
+    const benReady = accepted(room, ready(BEN))
+    expect(benReady.after).toEqual([])
+    expect(accepted(benReady.room, ready(ANA)).after).toEqual([{ type: 'conclude', because: 'agreed' }])
+  })
+
+  it('counts an agent that used all its turns as ready, and one that has not spoken as not', () => {
+    const anaDone = roomOf([], {
+      ...three,
+      limits: { ...LIMITS, totalTurns: 12 },
+      stage: { stage: 'open' },
+      turns: said([ANA, false], [BEN, false], [ANA, false]),
+    })
+    const cyReady = accepted(anaDone, ready(CY))
+    expect(cyReady.after).toEqual([])
+    expect(accepted(cyReady.room, ready(BEN)).after).toEqual([{ type: 'conclude', because: 'agreed' }])
+    const cySilent = roomOf([], { ...three, ...wide, stage: { stage: 'open' }, turns: said([ANA, true]) })
+    expect(accepted(cySilent, ready(BEN)).after).toEqual([])
+  })
+
+  it('leaves an agent that dropped out out of the agreement, so the room concludes when it settles', () => {
+    const cyAsleep = { participants: [{ memberId: ANA }, { memberId: BEN }, droppedOut(CY)] }
+    const room = roomOf([], {
+      ...cyAsleep,
+      ...wide,
+      stage: { stage: 'open' },
+      turns: said([ANA, true], [BEN, true]),
+    })
+    expect(settled(room)).toEqual([{ type: 'conclude', because: 'agreed' }])
+    expect(settled({ ...room, participants: three.participants })).toEqual([])
+  })
+
+  it('names the limit, not agreement, when the agreeing turn also reaches the total', () => {
+    const room = roomOf([], { stage: { stage: 'open' }, turns: said([ANA, true], [BEN, false], [ANA, true]) })
+    expect(accepted(room, ready(BEN)).after).toEqual([{ type: 'conclude', because: 'limit' }])
+  })
+
+  it('never concludes by agreement while an agent taking part dissents, and keeps the room open while one may speak', () => {
+    const turns = fc.array(fc.tuple(fc.constantFrom(ANA, BEN, CY), fc.boolean()), { maxLength: 14 })
+    const awake = fc.record({ ana: fc.boolean(), ben: fc.boolean(), cy: fc.boolean() })
+    fc.assert(
+      fc.property(turns, awake, (said, { ana, ben, cy }) => {
+        const participants = [
+          { memberId: ANA, takingPart: ana },
+          { memberId: BEN, takingPart: ben },
+          { memberId: CY, takingPart: cy },
+        ]
+        let room = roomOf([], { participants, ...wide })
+        for (const [memberId, isReady] of said) {
+          const move = stepDebate(room, { type: 'turn', memberId, body: 'A point.', ready: isReady }, NOW)
+          if (!Result.isOk(move)) continue
+          room = move.value.room
+          const takingPart = participants.filter(isTakingPart)
+          const dissents = takingPart.some((one) => !isReadyToConclude(room, one.memberId))
+          const agreed = move.value.after.some(
+            (effect) => effect.type === 'conclude' && effect.because === 'agreed',
+          )
+          if (agreed) expect(dissents).toBe(false)
+          const reopened = { ...room, stage: { stage: 'open' as const } }
+          const mayContinue =
+            takingPart.length >= 2 && takingPart.some((one) => askOf(reopened, one.memberId, NOW) === 'turn')
+          if (dissents && mayContinue) {
+            expect(move.value.after).toEqual([])
+            expect(room.stage).toEqual({ stage: 'open' })
+          }
+        }
+      }),
+    )
+  })
+
+  it('never skips the vote: an agreed room collects every agent’s draft, then puts them to a vote', () => {
+    const turns = fc.array(fc.tuple(fc.constantFrom(ANA, BEN), fc.boolean()), { maxLength: 8 })
+    fc.assert(
+      fc.property(turns, (said) => {
+        let room = roomOf([], wide)
+        for (const [memberId, isReady] of said) {
+          const move = stepDebate(room, { type: 'turn', memberId, body: 'A point.', ready: isReady }, NOW)
+          if (!Result.isOk(move)) continue
+          room = move.value.room
+          if (!move.value.after.some((effect) => effect.type === 'conclude' && effect.because === 'agreed'))
+            continue
+          expect(move.value.after).toHaveLength(1)
+          expect(room.stage).toEqual({ stage: 'drafting', concludedAt: NOW })
+          const first = accepted(room, { type: 'draft', memberId: ANA, result: UNCREDITED })
+          expect(first.after).toEqual([])
+          const second = accepted(first.room, { type: 'draft', memberId: BEN, result: UNCREDITED })
+          expect(second.after).toEqual([{ type: 'openVote', round: 0 }])
+          expect(second.room.stage.stage).toBe('voting')
+        }
+      }),
+    )
   })
 })
 
@@ -350,6 +477,7 @@ describe('a turn written against an older room', () => {
     expect(accepted(roomOf([ANA], three), readTo(BEN, 1)).room.turns.at(-1)).toEqual({
       memberId: BEN,
       afterTurn: 1,
+      ready: false,
     })
   })
 

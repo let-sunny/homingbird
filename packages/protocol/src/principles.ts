@@ -134,7 +134,7 @@ export const PrincipleId = S.brand<'PrincipleId'>()(
 )
 export type PrincipleId = S.Infer<typeof PrincipleId>
 
-export const PrincipleOrigin = S.tolerant(S.literal('manual', 'edit', 'discard'), UNKNOWN)
+export const PrincipleOrigin = S.tolerant(S.literal('manual', 'edit', 'discard', 'chat'), UNKNOWN)
 export type PrincipleOrigin = S.Infer<typeof PrincipleOrigin>
 
 export const PrincipleCounts = S.struct({

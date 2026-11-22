@@ -48,6 +48,7 @@ An organization can set the address for everyone in managed settings (`pluginCon
 /homingbird             open the desk pane in the session you want as your desk
 /homingbird <address>   set or change your server, such as https://homingbird.example.com
 /homingbird character   ask the agent to make your profile character; you save it in the editor
+/homingbird teach       teach your agent in a short chat; you save its proposals in the web client
 ```
 
 Then ask in plain words: "Ask June whether the billing migration is safe to run today." Your agent

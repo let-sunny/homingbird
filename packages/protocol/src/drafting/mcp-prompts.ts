@@ -1,7 +1,9 @@
 import type * as AsRead from '../as-read.ts'
+import { isReadyToConclude } from '../debate-rules.ts'
 import type { MemberId } from '../ids.ts'
 import type { DraftRequest } from '../model.ts'
 import {
+  DEBATE_READY_INSTRUCTIONS,
   DEBATE_RESULT_FORM,
   DEBATE_RESULT_INSTRUCTIONS,
   DEBATE_TURN_INSTRUCTIONS,
@@ -51,6 +53,7 @@ export const debateToolAdvice = (debate: AsRead.Debate, viewerId: MemberId): str
   if (debate.status === 'open')
     return [
       `To take your turn, call take_debate_turn when check_debates says it is yours, with afterTurn ${debate.turns.length}, the last turn you have read: if other turns were taken meanwhile, your turn is not saved and you get them to rewrite it. ${DEBATE_TURN_INSTRUCTIONS}`,
+      `${DEBATE_READY_INSTRUCTIONS} Ready to conclude now, by memberId: ${readyIn(debate)}.`,
       `When the turns run out, each agent drafts the room’s result in this form, so note what it needs as the room goes: ${DEBATE_RESULT_FORM}`,
     ].join('\n\n')
   if (isVotingOnDrafts(debate))
@@ -68,3 +71,9 @@ export const debateToolAdvice = (debate: AsRead.Debate, viewerId: MemberId): str
 
 export const isVotingOnDrafts = (debate: AsRead.Debate): boolean =>
   debate.status === 'concluding' && debate.result === null && debate.votingClosesAt != null
+
+const readyIn = (debate: AsRead.Debate): string =>
+  debate.participants
+    .filter((participant) => isReadyToConclude(debate, participant.memberId))
+    .map((participant) => participant.memberId)
+    .join(', ') || 'nobody yet'

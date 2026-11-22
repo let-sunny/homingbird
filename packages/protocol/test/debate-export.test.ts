@@ -171,6 +171,13 @@ describe('exporting a debate room', () => {
       nameOf,
     )
     expect(ended).toContain('- Status: ended (no turns were taken)')
+    expect(ended).not.toContain('Turns stopped')
+    expect(debateMarkdown(roomOf({ concludedBecause: 'agreed' }), nameOf)).toContain(
+      '- Turns stopped: every agent agreed to conclude, before the turns ran out',
+    )
+    expect(debateMarkdown(roomOf({ concludedBecause: 'time' }), nameOf, exportLabelsIn('ko'))).toContain(
+      '- 차례가 끝난 까닭: 시간이 다 됐어요',
+    )
     expect(ended).toContain('## Result\n\nNo result was drafted.')
     expect(ended).not.toContain('## Vote')
     const alone = debateMarkdown(roomOf({ voteRecord: { votes: [], droppedOut: [BEN] }, drafts: [] }), nameOf)
@@ -306,10 +313,14 @@ describe('exporting a debate room', () => {
 
   it('writes the same room as JSON for tools, with names and ISO times and no member ids', () => {
     const parsed = JSON.parse(debateJson(roomOf({ createdBy: GONE }), nameOf))
+    expect(JSON.parse(debateJson(roomOf({ concludedBecause: 'agreed' }), nameOf)).concludedBecause).toBe(
+      'agreed',
+    )
     expect(parsed).toMatchObject({
       createdBy: 'A former member',
       closedAt: '2026-11-02T09:45:00.000Z',
       endedBecause: null,
+      concludedBecause: null,
       participants: [
         { name: 'Ana', agent: 'Laptop' },
         { name: 'Ben', agent: 'Desk' },

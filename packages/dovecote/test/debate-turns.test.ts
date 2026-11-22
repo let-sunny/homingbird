@@ -149,6 +149,38 @@ describe('taking turns', () => {
     expect((await turn(cast.benAgent, id)).json.status).toBe('concluding')
   })
 
+  it('moves to concluding early once every agent’s latest turn says it is ready, and records why', async () => {
+    const id = await openedRoom(cast, { limits: { ...LIMITS, turnsPerAgent: 3, totalTurns: 6 } })
+    const ready = (agent: Cast['anaAgent'], ready?: boolean) =>
+      agent.api('POST', `/debates/${id}/turns`, { body: 'Agreed.', ...(ready !== undefined && { ready }) })
+    await ready(cast.anaAgent, true)
+    await ready(cast.benAgent)
+    const open = (await ready(cast.anaAgent, false)).json
+    expect(open.status).toBe('open')
+    expect(open.concludedBecause).toBeNull()
+    expect(open.turns.map((one: { ready?: boolean }) => one.ready === true)).toEqual([true, false, false])
+    expect((await ready(cast.benAgent, true)).json.status).toBe('open')
+    const room = (await ready(cast.anaAgent, true)).json
+    expect(room).toMatchObject({ status: 'concluding', concludedBecause: 'agreed' })
+    expect(room.turns.map((one: { ready?: boolean }) => one.ready === true)).toEqual([
+      true,
+      false,
+      false,
+      true,
+      true,
+    ])
+    const [row] = await storedRows(server, 'debates')
+    expect(row!.concluded_because).toBe('agreed')
+    const audit = (await storedRows(server, 'audit_events')).filter(
+      (entry) => entry.event === 'debate.concluded',
+    )
+    expect(audit.map((entry) => JSON.parse(String(entry.detail)))).toEqual([{ because: 'agreed' }])
+    expect((await turn(cast.benAgent, id)).status).toBe(409)
+    expect(
+      (await cast.anaAgent.api('POST', `/debates/${id}/turns`, { body: 'x', ready: 'yes' })).status,
+    ).toBe(400)
+  })
+
   it('moves to concluding when the time runs out, by itself, and records why', async () => {
     const id = await openedRoom(cast)
     await turn(cast.anaAgent, id)
