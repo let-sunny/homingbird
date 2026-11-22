@@ -38,6 +38,7 @@ import {
   storeChannelAsPrivate,
   storedRows,
 } from './harness.ts'
+import { fakeSlack, startSlackServer } from './slack-support.ts'
 
 let server: TestServer
 let ana: Session
@@ -746,6 +747,40 @@ describe('Rule 2: drafts are invisible to recipients', () => {
       expect((await viewer.api('GET', '/search?q=7f3a')).json.notes).toHaveLength(1)
     }
   })
+  it('2: tells a person in Slack only that a draft waits for them, never what it says, and nobody else', async () => {
+    const slack = fakeSlack([
+      { id: 'U0ANA', name: 'Ana', email: 'ana@example.com' },
+      { id: 'U0BEN', name: 'Ben', email: 'ben@example.com' },
+    ])
+    const slackServer = await startSlackServer(slack, { HB_FEATURES: 'slack=on,webPush=off' })
+    const running = T.runFork(slackServer.background, slackServer.env)
+    try {
+      const people = await Promise.all(
+        ['ana', 'ben'].map((name) => slackServer.signIn(`${name}@example.com`, name)),
+      )
+      const [asker, answerer] = people as [Session, Session]
+      for (const person of people) {
+        await person.api('POST', '/me/slack/connect', {})
+        const code = /#\/slack\/link\/([A-Za-z0-9_-]+)/.exec(slack.posted().at(-1)!.text!)![1]!
+        await person.api('POST', '/me/slack/link', { code })
+      }
+      const agent = await connectAgent(slackServer, answerer, { name: 'Ben agent' })
+      const question = (
+        await asker.api('POST', '/drafts', { to: [answerer.me.member.id], body: 'Question?' })
+      ).json
+      const sent = (await asker.api('POST', `/drafts/${question.id}/send`, { expected: asRead(question) }))
+        .json
+      slack.calls.length = 0
+      const draft = (await agent.api('POST', '/drafts', { inReplyTo: sent.id, body: SECRET_BODY })).json
+      await slackServer.settled()
+      expect(slack.posted().map((message) => message.channel)).toEqual(['DU0BEN'])
+      expect(slack.posted()[0]!.text).toContain(`?draft=${draft.id}|`)
+      expect(JSON.stringify(slack.calls)).not.toContain('7f3a')
+    } finally {
+      await running.interrupt()
+      await slackServer.close()
+    }
+  })
 })
 
 describe('Rule 3: no model-facing credential can approve, change contacts, or read credentials', () => {
@@ -942,6 +977,22 @@ describe('Rule 3: no model-facing credential can approve, change contacts, or re
       ].map((what) => `${file}: ${what}`)
     })
     expect(named).toEqual([])
+  })
+
+  it('3: lets no model-facing credential or tool connect Slack, link anyone to it, or read its token', async () => {
+    const slackRoutes = (Object.keys(contract) as RouteName[]).filter((name) => /slack/i.test(name))
+    expect(slackRoutes.length).toBeGreaterThan(0)
+    for (const name of slackRoutes) {
+      expect(humanOnlyRoutes).toContain(name)
+      expect(MCP_ROUTES).not.toContain(name)
+      expect(A2A_ROUTES).not.toContain(name)
+      const route = contract[name]
+      expect([
+        name,
+        (await anaAgent.api(route.method, pathOf(name, 'x'.repeat(43)), route.body ? {} : undefined)).status,
+      ]).toEqual([name, 403])
+    }
+    expect(JSON.stringify(toolDefinitions())).not.toMatch(/slack/i)
   })
 
   it('keeps running a channel’s agent and reviewing its answers to people, out of every tool and gateway', () => {

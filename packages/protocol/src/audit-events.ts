@@ -91,6 +91,14 @@ export const AUDIT_EVENTS = {
     host: S.string({ maxLength: 253 }),
     because: S.literal('refused', 'failures', 'credential_gone', 'unreadable'),
   }),
+  'slack.connected': event('security', 'organization', { teamId: S.string({ pattern: /^[A-Z0-9]{1,24}$/ }) }),
+  'slack.stopped': event('security', 'organization', {
+    because: S.literal('token_refused', 'revoked', 'other_workspace'),
+  }),
+  'slack.person.linked': event('security', 'member', {}),
+  'slack.person.unlinked': event('security', 'member', {
+    because: S.optional(S.literal('deactivated', 'slack_deactivated')),
+  }),
 
   'note.approved': event('full', 'note', {
     conversationId: ConversationId,

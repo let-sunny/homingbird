@@ -56,6 +56,7 @@ const routes: fc.Arbitrary<Route> = fc.oneof(
     .map((reason): Route => ({ name: 'signed-out', reason })),
   segment.map((code): Route => ({ name: 'invite', code })),
   fc.constant<Route>({ name: 'invite-refused' }),
+  segment.map((code): Route => ({ name: 'slack-link', code })),
 )
 
 describe('routes', () => {
@@ -79,6 +80,8 @@ describe('routes', () => {
     ['#/invite/hbi_abc', { name: 'invite', code: 'hbi_abc' }],
     ['#/invite', { name: 'unknown' }],
     ['#/invite-refused', { name: 'invite-refused' }],
+    ['#/slack/link/abc_DEF', { name: 'slack-link', code: 'abc_DEF' }],
+    ['#/slack/link', { name: 'unknown' }],
     ['#/device/BCDF-GHJK', { name: 'device', code: 'BCDF-GHJK' }],
     ['#/admin', { name: 'admin', section: 'settings' }],
     ['#/admin/nonsense', { name: 'admin', section: 'settings' }],

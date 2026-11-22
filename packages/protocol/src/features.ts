@@ -88,6 +88,10 @@ export const FEATURES = {
     default: false,
     routes: ['me.deskWake.get', 'me.deskWake.set', 'me.deskWake.test'],
   },
+  slack: {
+    default: false,
+    routes: ['admin.slack.get', 'me.slack.get', 'me.slack.connect', 'me.slack.link', 'slack.codes.get'],
+  },
   joinCodes: { default: true, routes: ['joinCodes.create'] },
   deskAvailability: { default: true, routes: ['me.desk.unavailable', 'me.desk.available'] },
   invites: { default: true, routes: ['invites.list', 'invites.create', 'invites.revoke'] },

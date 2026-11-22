@@ -54,6 +54,11 @@ import type {
   PrincipleOffer as PrincipleOfferSchema,
   Principle as PrincipleSchema,
 } from './principles.ts'
+import type {
+  AdminSlack as AdminSlackSchema,
+  MeSlack as MeSlackSchema,
+  SlackCodeView as SlackCodeViewSchema,
+} from './slack.ts'
 
 /** Responses as a client reads them: an enum value or an event a newer server added reads as "unknown". */
 export type Note = S.Read<typeof NoteSchema>
@@ -100,6 +105,9 @@ export type ChannelAgent = S.Read<typeof ChannelAgentSchema>
 export type Review = S.Read<typeof ReviewSchema>
 export type DeskWake = S.Read<typeof DeskWakeSchema>
 export type DeskWakeTest = S.Read<typeof DeskWakeTestSchema>
+export type AdminSlack = S.Read<typeof AdminSlackSchema>
+export type MeSlack = S.Read<typeof MeSlackSchema>
+export type SlackCodeView = S.Read<typeof SlackCodeViewSchema>
 export type DraftPreview = S.Read<typeof DraftPreviewSchema>
 export type DraftPreviewAllowance = S.Read<typeof DraftPreviewAllowanceSchema>
 export type JoinCode = S.Read<typeof JoinCodeSchema>

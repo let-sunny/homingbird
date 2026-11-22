@@ -229,8 +229,9 @@ unconfirmed and withdrawn when discarded, through a person's route only
   signed-in browser from another, and an "ask my phone" route a model could call would ring a person's
   phone at will. It waits for pilot demand; approval in the plugin was removed in 0.1.0 because a
   credential stored next to the agent cannot be protected.
-- A review request in the chat tool the team already uses: a Slack or similar notification that only
-  links to the draft's card. Approval stays in the web client; the message carries no note content.
+- **Built for Slack** (decisions, "Slack is linked by address, not synced"): a review request in the
+  chat tool the team already uses, a direct message from the app that only links to the draft's card.
+  Approval stays in the web client; the message carries no note content. Other chat tools to come.
 - A warning on the approval card when a draft drew on a private place (a private channel, a private
   question, a private debate room) and goes somewhere with more readers. A warning, not a block: the
   person approving decides. The drafting flow records which conversations it read.
@@ -594,9 +595,28 @@ Before the pilot, for an organization's security review, **Built**:
 Still to come here: signing the chain head with a key the database's writers lack, if an organization
 asks for it (see decisions).
 
-Ideas noted and not planned: structured notes validated against a registered schema, and syncing
-channels with an outside chat tool (only approved notes would leave, and anything coming in would be
-wrapped like any note).
+Ideas noted and not planned: structured notes validated against a registered schema.
+
+## Slack
+
+Linked by address, not synced (decisions). **Built:** the organization's own Slack app with a bot token
+from the environment, a person's link to their Slack user by a single-use code, and content-free review
+requests in Slack. Behind `slack`, off by default. Still to come:
+
+- **Channel links**: a Slack channel linked to a Homingbird channel by one of its managers; a mention of
+  the app there becomes a question in the channel, and an approved answer is posted in the Slack thread.
+- A question to one person: a mention of the app together with a person, as one conversation per Slack
+  thread between that person and the link.
+- A message shortcut, "Ask my Homingbird agent", on a message a person received, direct messages
+  included.
+- User tokens, so that a person's own direct messages and mentions arrive; needs its own decision first.
+- Socket Mode, for servers Slack cannot reach.
+- The bot token and signing secret entered on the admin page and stored sealed, so that disconnecting
+  needs no restart; it widens security rule 5's exception and waits for the maintainer.
+- Telling the administrators by push, besides the admin page, when Slack stops.
+- Every top-level message in a linked channel as a question, as a per-link choice; guests and users of
+  another organization; channels shared with another organization; more than one workspace.
+- Other chat tools, through the same link.
 
 ## Project site
 

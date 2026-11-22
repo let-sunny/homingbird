@@ -1689,6 +1689,46 @@ hand, so the web client now links them as well. The maintainer approved widening
   check that nothing else becomes a link, that `javascript:` and `data:` never do, and that the text
   around a link is kept as it was.
 
+## Slack is linked by address, not synced
+
+Questions start in Slack, so a team that has to open Homingbird to see them has a second inbox; the
+real-work evaluation named this its biggest wall. Homingbird meets Slack where a person addresses it,
+and only there: nothing is mirrored, and nothing leaves Homingbird that a person did not approve.
+
+- **One workspace, the organization's own app, a bot token only.** The administrator creates a Slack
+  app from the manifest Homingbird shows and gives Dovecote its bot token and signing secret as
+  `HB_SLACK_BOT_TOKEN` and `HB_SLACK_SIGNING_SECRET`. Kept in the environment, neither is stored, so
+  security rule 5 is unchanged; the cost is that disconnecting takes the operator and a restart. Storing
+  them sealed in the database, entered on the admin page, would widen rule 5's exception and waits for
+  the maintainer. The first workspace `auth.test` names is pinned; another one's token stops Slack. No
+  user token: one reads everything its person can read in Slack and acts as them, the kind of key "A
+  cloud desk is woken by a content-free call" already declined to keep. Behind `slack`, off by default.
+- **A person links their own Slack user with a single-use code.** **Connect Slack** looks up the
+  person's email in Slack and sends that user a direct message with a ten-minute link only this person
+  can confirm; a person whose emails differ mentions the app with the word `link` and gets the same
+  link in a message only they see. The email finds the user; only the confirmation in the web client,
+  signed in as the person, links them. One Slack user per person and back. Deactivating a member
+  deletes the link; Slack deactivating the user deletes it too, and never deactivates the member, since
+  Slack is not the identity provider. Guests, users of another organization, bots and apps are never
+  linked or answered.
+- **Review requests carry no content.** A linked person gets a direct message from the app when a
+  draft waits for their decision: the same moments, mutes and notification level as a push, a fixed
+  sentence and a link to the card. No note text, no names (rule 2). Approval stays in the web client
+  (rule 3). This is the roadmap's "review request in the chat tool the team already uses".
+- **Events are verified, kept briefly and handled apart.** `POST /slack/events` sits beside the
+  contract, like the OAuth endpoints: it is authenticated by Slack's signature (HMAC-SHA256 of
+  `v0:<timestamp>:<raw body>`, within five minutes of the clock service), not by a credential. An event
+  Homingbird uses is stored by Slack's event id and answered at once, so Slack's three-second limit is
+  never at risk and a retry does nothing; a pass handles it and deletes its payload. A channel message
+  that is not for Homingbird is dropped before its text is read: never stored, never logged. The app's
+  own messages and other apps' are dropped first. An uninstall, a revoked bot token or a token Slack
+  refuses stops Slack until a check succeeds.
+- **No tool exposed to a model connects, links or posts.** Every Slack route is `human` or `admin`
+  (rule 3), and the Slack Web API is called only from the server's own passes and a person's routes.
+- **Not in this release** (roadmap): channel links, in and out; a question to one person through a
+  mention; direct messages and user tokens; Socket Mode for servers Slack cannot reach; telling the
+  administrators by push when Slack stops.
+
 ## A saved answer may send itself, word for word, where its person allowed
 
 Approval is the product's bottleneck: a person who saved "Annual plans are refunded pro rata for the

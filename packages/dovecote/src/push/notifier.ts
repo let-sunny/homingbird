@@ -11,7 +11,9 @@ import {
 } from '@homingbird/protocol'
 import type { Fetch } from '../auth/identity-provider.ts'
 import { chosenLocaleOf, membersByIds } from '../domain/members.ts'
+import { featureIsOn } from '../domain/settings.ts'
 import type { AppEnv } from '../environment.ts'
+import { sendSlackReviewRequest } from '../slack/slack-review-requests.ts'
 import { makeWorkTally } from '../work-tally.ts'
 import { encryptPushPayload } from './payload-encryption.ts'
 import { type PushWindow, makePushWindow } from './push-window.ts'
@@ -65,7 +67,10 @@ export const makePushNotifier = (fetch: Fetch): PushNotifier => {
           const notice = isNewReview
             ? yield* reviewNoticeFor(memberId, event, reviewWindow)
             : yield* pushNoticeFor(memberId, event)
-          if (notice !== null) yield* T.asUnit(deliverToMember(fetch, memberId, notice))
+          if (notice !== null && (yield* featureIsOn('webPush')))
+            yield* T.asUnit(deliverToMember(fetch, memberId, notice))
+          if (notice !== null && (notice.about.kind === 'draft' || notice.about.kind === 'review'))
+            yield* sendSlackReviewRequest(memberId, notice.url)
         } finally {
           work.finished()
         }

@@ -87,13 +87,14 @@ export const featureIsOn = (name: FeatureName): T.Task<boolean, never, AppEnv> =
     return offeredFeatures(yield* readSettings, env.config)[name]
   })
 
-/** The switches, but analytics needs a destination and the cloud desk a key to seal its wakes. */
+/** The switches, but analytics needs a destination, the cloud desk a key to seal its wakes, Slack an app. */
 export const offeredFeatures = (settings: Settings, config: Config): Record<FeatureName, boolean> => {
   const switches = featureSwitches(settings.features)
   return {
     ...switches,
     analytics: switches.analytics && config.analytics.kind !== 'off',
     cloudDesk: switches.cloudDesk && config.secretsKey !== null,
+    slack: switches.slack && config.slack !== null,
   }
 }
 

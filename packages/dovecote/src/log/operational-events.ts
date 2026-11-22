@@ -79,6 +79,21 @@ export const OPERATIONAL_EVENTS = {
     memberId: S.string({ maxLength: 64 }),
     host: S.string({ maxLength: 253 }),
   }),
+  'slack.event_refused': line('warn', 'A request to the Slack events address was refused.', {
+    reason: S.literal('signature_missing', 'signature_stale', 'signature_mismatch', 'malformed'),
+  }),
+  'slack.event_received': line('debug', 'Slack sent an event.', {
+    kind: S.string({ maxLength: 40 }),
+    kept: S.boolean,
+  }),
+  'slack.call_failed': line('warn', 'A call to Slack failed.', {
+    method: S.string({ maxLength: 40 }),
+    failure: S.literal('SlackUnreachable', 'SlackRateLimited', 'SlackRefused'),
+    error: S.string({ maxLength: 60 }),
+  }),
+  'slack.review_request_sent': line('info', 'A person was told in Slack that a draft waits for them.', {
+    memberId: S.string({ maxLength: 64 }),
+  }),
   'oauth.client_metadata_refused': line('warn', 'A client metadata document was refused.', {
     reason: S.string({ maxLength: 200 }),
   }),

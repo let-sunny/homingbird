@@ -17,6 +17,7 @@ import * as mutes from './tasks/mutes.ts'
 import * as notes from './tasks/notes.ts'
 import * as people from './tasks/people.ts'
 import * as previews from './tasks/previews.ts'
+import * as slack from './tasks/slack.ts'
 import * as teaching from './tasks/teaching.ts'
 import * as workspace from './tasks/workspace.ts'
 
@@ -157,6 +158,12 @@ export const TASKS = {
   saveDeskWake: cloudDesk.saveDeskWake,
   removeDeskWake: () => cloudDesk.removeDeskWake,
   testDeskWake: () => cloudDesk.testDeskWake,
+  loadMySlack: () => slack.loadMySlack,
+  connectSlack: () => slack.connectSlack,
+  readSlackCode: slack.readSlackCode,
+  linkSlack: slack.linkSlack,
+  unlinkSlack: () => slack.unlinkSlack,
+  loadAdminSlack: () => slack.loadAdminSlack,
   loadSettings: () => admin.loadSettings,
   saveSettings: admin.saveSettings,
   listMembers: () => admin.listMembers,

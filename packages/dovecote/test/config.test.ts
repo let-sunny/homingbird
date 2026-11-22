@@ -22,6 +22,28 @@ const problemsOf = (environment: Readonly<Record<string, string | undefined>>): 
 }
 
 describe('the configuration', () => {
+  it('takes the Slack app’s bot token and signing secret together, or neither, and never repeats them', () => {
+    const app = {
+      HB_SLACK_BOT_TOKEN: 'xoxb-1234-5678-abcdefgh',
+      HB_SLACK_SIGNING_SECRET: 'abcdef0123456789abcdef',
+    }
+    expect(loaded(PRODUCTION).slack).toBeNull()
+    expect(loaded({ ...PRODUCTION, ...app }).slack).toEqual({
+      botToken: app.HB_SLACK_BOT_TOKEN,
+      signingSecret: app.HB_SLACK_SIGNING_SECRET,
+    })
+    expect(problemsOf({ ...PRODUCTION, HB_SLACK_BOT_TOKEN: app.HB_SLACK_BOT_TOKEN })).toEqual([
+      'HB_SLACK_BOT_TOKEN and HB_SLACK_SIGNING_SECRET: set both, from the same Slack app, or neither',
+    ])
+    const wrong = problemsOf({
+      ...PRODUCTION,
+      HB_SLACK_BOT_TOKEN: 'xoxp-user-token-123456',
+      HB_SLACK_SIGNING_SECRET: 'zz',
+    })
+    expect(wrong).toHaveLength(2)
+    expect(wrong.join(' ')).not.toContain('xoxp-user-token')
+  })
+
   it('fills every default a production server needs from four variables', () => {
     const config = loaded(PRODUCTION)
     expect(config).toMatchObject({

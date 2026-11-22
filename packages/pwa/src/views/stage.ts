@@ -20,6 +20,7 @@ import { measuresView } from './measures.ts'
 import { emptyWithPip } from './parts.ts'
 import { peopleView } from './people.ts'
 import { searchView } from './search.ts'
+import { slackLinkView } from './slack.ts'
 import { threadView } from './thread-view.ts'
 
 /** The page a route shows; a feature that is off, or a page the person may not see, shows as not found. */
@@ -91,6 +92,8 @@ export const stageFor = (context: ViewContext, life: Lifetime, me: AsRead.Me, cu
         strings.invites.alreadyIn,
         h('a', { class: 'button', href: '#/' }, strings.backHome),
       )
+    case 'slack-link':
+      return on('slack') ? slackLinkView(context, life, current.code) : notFound()
     case 'invite-refused':
       return emptyWithPip(
         'failed',

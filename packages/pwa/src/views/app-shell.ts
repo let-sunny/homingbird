@@ -176,5 +176,5 @@ const inTransition = (context: ViewContext, change: () => void): void => {
 }
 
 /** A group's editor counts as the administration's page, so analytics keeps one value per area. */
-const analyticsPageOf = (route: Route): Exclude<Route['name'], 'admin-group'> =>
-  route.name === 'admin-group' ? 'admin' : route.name
+const analyticsPageOf = (route: Route): Exclude<Route['name'], 'admin-group' | 'slack-link'> =>
+  route.name === 'admin-group' ? 'admin' : route.name === 'slack-link' ? 'agent' : route.name

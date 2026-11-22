@@ -45,6 +45,8 @@ export type Route =
   | { readonly name: 'signed-out'; readonly reason: string | null }
   | { readonly name: 'invite'; readonly code: string }
   | { readonly name: 'invite-refused' }
+  /** A single-use link the Homingbird app sent in Slack, confirmed here. */
+  | { readonly name: 'slack-link'; readonly code: string }
   | { readonly name: 'unknown' }
 
 export type AgentSection = 'connection' | 'teaching' | 'doing' | 'routes' | 'previews'
@@ -120,6 +122,7 @@ export const parseRoute = (hash: string): Route => {
   if (head === 'signed-out') return { name: 'signed-out', reason: parameters.get('reason') }
   if (head === 'invite' && second !== undefined) return { name: 'invite', code: second }
   if (head === 'invite-refused') return { name: 'invite-refused' }
+  if (head === 'slack' && second === 'link' && third !== undefined) return { name: 'slack-link', code: third }
   return { name: 'unknown' }
 }
 
@@ -187,6 +190,8 @@ export const hrefFor = (route: Route): string => {
       return `#/invite/${encodeURIComponent(route.code)}`
     case 'invite-refused':
       return '#/invite-refused'
+    case 'slack-link':
+      return `#/slack/link/${encodeURIComponent(route.code)}`
   }
 }
 

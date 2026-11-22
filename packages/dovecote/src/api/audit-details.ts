@@ -47,6 +47,8 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
     T.map((host: string) => () => ({ targetId: caller.member.id, detail: { host } }))(
       deskWakeHostOf(caller.member.id),
     ),
+  'me.slack.link': (_, caller) => afterwards(() => ({ targetId: caller.member.id, detail: {} })),
+  'me.slack.unlink': (_, caller) => afterwards(() => ({ targetId: caller.member.id, detail: {} })),
   'me.draftPreviews.set': (_, caller) =>
     afterwards((allowance) => ({
       targetId: caller.member.id,
