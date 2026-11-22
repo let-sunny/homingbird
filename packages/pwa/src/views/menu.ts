@@ -242,7 +242,6 @@ const place = (context: MenuContext, menu: HTMLElement, at: Rect | null, trigger
     menu.style.removeProperty('--hb-menu-y')
     return
   }
-  if (typeof menu.getBoundingClientRect !== 'function') return
   const box = menu.getBoundingClientRect()
   const root = context.document.root()
   const spot = menuPlacement({

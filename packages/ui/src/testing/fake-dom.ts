@@ -181,6 +181,25 @@ export interface FakeElement extends FakeNode {
   readonly scrollIntoView: (options?: unknown) => void
   readonly scrollTo: (options?: unknown) => void
   readonly getContext: (kind: string) => null
+  /**
+   * Where it is scrolled to and where it sits: nothing is laid out, so a test sets what it needs. Like
+   * a browser's, `scrollTop` stays between the top and the end of what overflows, so an element with
+   * nothing to scroll stays at 0.
+   */
+  scrollTop: number
+  scrollLeft: number
+  scrollHeight: number
+  clientHeight: number
+  getBoundingClientRect: () => FakeRect
+}
+
+export interface FakeRect {
+  readonly top: number
+  readonly left: number
+  readonly right: number
+  readonly bottom: number
+  readonly width: number
+  readonly height: number
 }
 
 export interface FakeStyle {
@@ -523,6 +542,7 @@ const BOOLEAN_ATTRIBUTES = ['hidden', 'disabled', 'required'] as const
 const makeElement = (owner: FakeDocument, localName: string, namespaceURI: string): FakeElement => {
   const element = baseNode(1, localName.toUpperCase(), owner) as unknown as FakeElement & Internal
   const attributes = new Map<string, string>()
+  const scrolled = { top: 0 }
   const styles = new Map<string, string>()
   const dirty = {
     value: null as string | null,
@@ -724,6 +744,17 @@ const makeElement = (owner: FakeDocument, localName: string, namespaceURI: strin
     scrollIntoView: { value: () => undefined },
     scrollTo: { value: () => undefined, writable: true },
     getContext: { value: () => null },
+    scrollTop: {
+      get: () => scrolled.top,
+      set: (top: number) => {
+        scrolled.top = Math.max(0, Math.min(top, element.scrollHeight - element.clientHeight))
+      },
+      configurable: true,
+    },
+    scrollLeft: { value: 0, writable: true, configurable: true },
+    scrollHeight: { value: 0, writable: true, configurable: true },
+    clientHeight: { value: 0, writable: true, configurable: true },
+    getBoundingClientRect: { value: () => NO_BOX, writable: true, configurable: true },
   })
   popoverState.set(element, isPopoverOpen)
   if (optionsOf.get(owner)?.popovers === false)
@@ -786,3 +817,5 @@ const dataAttribute = (key: string): string =>
 
 const datasetKey = (attribute: string): string =>
   attribute.slice('data-'.length).replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase())
+
+const NO_BOX: FakeRect = { top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 }

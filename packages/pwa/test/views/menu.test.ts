@@ -29,7 +29,8 @@ const setup = () => {
 
 describe('actionMenu', () => {
   it('opens from its ⋯ button as a named menu and puts the focus on its first item', () => {
-    const { trigger, menu, isOpen, item } = setup()
+    const { trigger, menu, isOpen, item, page } = setup()
+    page.state.anchors = true
     expect([trigger.getAttribute('aria-haspopup'), trigger.getAttribute('aria-expanded')]).toEqual([
       'menu',
       'false',
