@@ -2963,6 +2963,114 @@ button.group-member-name:focus-visible::after {
   border-block-start: var(--hb-border-divider);
 }
 
+.profile-name,
+.person-face-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.profile-name:hover {
+  text-decoration: underline;
+}
+
+.profile-card {
+  position-anchor: --profile-card;
+  inline-size: min(20rem, calc(100vi - var(--hb-space-4)));
+  max-block-size: min(32rem, calc(100dvb - var(--hb-space-6)));
+  overflow-y: auto;
+  padding: var(--hb-space-3);
+}
+
+@supports (position-area: block-end span-inline-end) {
+  .profile-card {
+    position-area: block-end span-inline-end;
+    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+  }
+}
+
+.profile-card:popover-open {
+  display: grid;
+  gap: var(--hb-space-2);
+}
+
+.profile-card p,
+.profile-card ul {
+  margin: 0;
+}
+
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--hb-space-3);
+}
+
+.profile-who {
+  display: grid;
+  margin: 0;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.profile-who small,
+.profile-roles,
+.profile-teams,
+.profile-managers,
+.profile-note {
+  color: var(--hb-color-muted);
+  font-size: var(--hb-text-small);
+}
+
+.profile-presence {
+  display: flex;
+  align-items: center;
+  gap: var(--hb-space-1);
+  font-size: var(--hb-text-small);
+}
+
+.profile-presence .presence-words {
+  display: inline;
+}
+
+.profile-roles {
+  display: grid;
+  padding: 0;
+  list-style: none;
+}
+
+.profile-about {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  font-size: var(--hb-text-small);
+  overflow-wrap: anywhere;
+}
+
+.profile-note {
+  padding-block-start: var(--hb-space-2);
+  border-block-start: var(--hb-border-divider);
+}
+
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hb-space-2);
+  padding-block-start: var(--hb-space-2);
+  border-block-start: var(--hb-border-divider);
+}
+
+.person.is-focused .person-card {
+  outline: var(--hb-focus-ring);
+  outline-offset: var(--hb-space-1);
+}
+
 
 .switch {
   display: inline-flex;

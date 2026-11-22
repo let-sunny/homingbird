@@ -16,6 +16,7 @@ const segment = fc.string({ minLength: 1, maxLength: 24 })
 const routes: fc.Arbitrary<Route> = fc.oneof(
   fc.constant<Route>({ name: 'home' }),
   fc.constant<Route>({ name: 'people' }),
+  segment.map((person): Route => ({ name: 'people', person })),
   fc
     .array(fc.stringMatching(/^mem_[a-z0-9]{1,12}$/), { maxLength: 4 })
     .map((to): Route => ({ name: 'new', to })),

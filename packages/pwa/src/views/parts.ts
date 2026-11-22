@@ -3,7 +3,7 @@ import { type Child, type Properties, h } from '@homingbird/ui'
 import { channelLabel } from '../channels.ts'
 import type { SourceShown } from '../draft-basis.ts'
 import type { TimeShown } from '../models/time.ts'
-import { presenceShown } from '../presence.ts'
+import { type PresenceMarks, presenceShown } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
@@ -114,6 +114,26 @@ export const humanDot = (presence: AsRead.Presence): HTMLElement => {
     title: person.label,
   })
 }
+
+/** The colleague and their agent as two dots, each named for assistive technology and on hover. */
+export const presenceDots = (marks: PresenceMarks): HTMLElement =>
+  h(
+    'span',
+    { class: 'presence-dots' },
+    h('span', {
+      class: `human-dot ${marks.person.isOn ? 'is-on' : 'is-off'}`,
+      role: 'img',
+      'aria-label': marks.person.label,
+      title: marks.person.label,
+    }),
+    h('span', {
+      class: `agent-mark-dot is-${marks.agent.state}`,
+      role: 'img',
+      'aria-label': marks.agent.label,
+      title: marks.agent.label,
+    }),
+    h('span', { class: 'presence-words', 'aria-hidden': 'true' }, marks.words),
+  )
 
 export const timeLabel = (shown: TimeShown): HTMLElement =>
   h('time', { datetime: shown.datetime, title: shown.title }, shown.text)

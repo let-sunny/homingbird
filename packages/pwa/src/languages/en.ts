@@ -141,6 +141,14 @@ export const en = {
   roomMore: 'More for {channel}',
   copyChannelLink: 'Copy link to this channel',
   channelLinkCopied: 'Copied the link to the channel.',
+  profileCard: {
+    label: 'About {name}',
+    open: 'About {name}',
+    openInPeople: 'Open in People',
+    groups: 'Groups: {groups}',
+    managedBy: 'Managed by {names}',
+    thisNote: 'This note',
+  },
   emptyThread: 'No notes here yet. Say hello.',
   channelRoomEmpty:
     'No questions here yet. Ask, and the people who answer in this channel reply. A person approves every note.',

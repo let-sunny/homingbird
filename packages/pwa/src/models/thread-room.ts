@@ -161,6 +161,7 @@ export const threadHeadModel = (input: ThreadInput): ThreadHead => {
     presence: entry === undefined ? null : presenceMarks(entry.presence, entry.member.name),
     people: participants,
     showsCount: conversation.kind !== 'direct',
+    profileOf: conversation.kind === 'direct' ? (others[0] ?? null) : null,
     mute,
   }
 }
@@ -203,5 +204,7 @@ export type ThreadHead =
       /** Everyone in it, listed behind its names and, outside a direct message, a count. */
       readonly people: Participants
       readonly showsCount: boolean
+      /** A direct message's colleague, whose profile card its name opens instead of the list. */
+      readonly profileOf: MemberId | null
       readonly mute: MuteToggle | null
     }

@@ -33,6 +33,7 @@ describe('participantsList', () => {
       [...rows[1]!.querySelectorAll('.participant-roles small')].map((role) => role.textContent),
     ).toEqual(['Asked this question', 'Manages #billing'])
     expect(textOf(rows[0]!)).toBe(`Ana ${strings.youMark}`)
+    expect(getByRole(rows[1]!, 'button', { name: 'Ben' }).dataset.profile).toBe(BEN)
     expect(list.querySelector('.people-later')).toBeNull()
     expect(textOf(participantsList({ ...model, note: 'Later managers read it.' }))).toContain(
       'Later managers read it.',
