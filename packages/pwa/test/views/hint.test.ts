@@ -184,4 +184,25 @@ describe('hinted', () => {
     expect(hint.isConnected).toBe(false)
     expect(JSON.parse(page.local.get(KEY)!).used).toEqual(['draft'])
   })
+
+  it('shows a touch screen the hint of a label that does nothing when pressed on a tap, and hides it on the next', () => {
+    const { context, page } = testContext()
+    page.state.coarsePointer = true
+    const label = (): [HTMLElement, HTMLElement] =>
+      hinted(context, 'agentAwake', 'No program is running their agent.', h('span', {}, 'Agent not awake'))
+    const [first, inline] = label()
+    mount(h('div', {}, first, inline))
+    const [target, hint] = label()
+    mount(h('div', {}, target, hint))
+    expect(hint.hidden).toBe(true)
+    target.click()
+    expect(hint.hidden).toBe(false)
+    expect(hint.textContent).toBe('No program is running their agent.')
+    target.click()
+    expect(hint.hidden).toBe(true)
+    const [control, quiet] = hinted(context, 'agentAwake', 'Hint.', h('button', {}, 'Open'))
+    mount(h('div', {}, control, quiet))
+    control.click()
+    expect(quiet.hidden).toBe(true)
+  })
 })

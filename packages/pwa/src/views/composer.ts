@@ -254,9 +254,14 @@ interface TagTypeahead {
 
 const TAG_OPTIONS_ID = `${TAG_PICKER_ID}-options`
 
-/** The composer's “Ask my agent”, beside Send: it opens the request below, or says why it cannot. */
+/**
+ * “Let my agent write it”, beside Send: it opens the request below, whose own button asks, or says
+ * why the agent cannot be asked. The panel's own line to open it is then left out.
+ */
 export const askToggle = (ask: HTMLDetailsElement): AskToggle => {
   ask.id = ASK_PANEL_ID
+  const summary = ask.querySelector('summary')
+  if (summary !== null) summary.hidden = true
   const toggle = h(
     'button',
     {
@@ -264,6 +269,7 @@ export const askToggle = (ask: HTMLDetailsElement): AskToggle => {
       class: 'ask-agent-toggle',
       'aria-controls': ASK_PANEL_ID,
       'aria-expanded': 'false',
+      title: strings.letAgentWriteHint,
       on: {
         click: () => {
           ask.open = !ask.open
@@ -271,7 +277,7 @@ export const askToggle = (ask: HTMLDetailsElement): AskToggle => {
         },
       },
     },
-    strings.askAgent,
+    strings.letAgentWrite,
   )
   ask.addEventListener('toggle', () => toggle.setAttribute('aria-expanded', String(ask.open)))
   return { toggle, reason: h('span', { id: ASK_REASON_ID, class: 'visually-hidden' }) }
@@ -281,7 +287,7 @@ export const reflectAskReason = (parts: AskToggle, reason: string | null): void 
   parts.toggle.disabled = reason !== null
   parts.reason.textContent = reason ?? ''
   if (reason === null) {
-    parts.toggle.removeAttribute('title')
+    parts.toggle.title = strings.letAgentWriteHint
     parts.toggle.removeAttribute('aria-describedby')
   } else {
     parts.toggle.title = reason

@@ -18,7 +18,12 @@ describe('presenceShown', () => {
 
   it('keeps narrow rows to the person’s dot, labelled for screen readers, and the agent only when online', () => {
     const away = presenceShown({ humanOnline: false, agentOnline: false }, false)
-    expect(away.person).toEqual({ isOn: false, label: strings.humanOffline, words: null })
+    expect(away.person).toEqual({
+      isOn: false,
+      label: strings.humanOffline,
+      title: strings.theirPresence.awayHint,
+      words: null,
+    })
     expect(away.agent.words).toBeNull()
     expect(presenceShown({ humanOnline: false, agentOnline: true }, false).agent.words).toBe(
       strings.agentOnline,
@@ -34,6 +39,33 @@ describe('presenceShown', () => {
         expect(shown.person.label).toBe(shown.person.words)
       }),
     )
+  })
+})
+
+describe('what each presence means', () => {
+  it('says what a colleague’s state means, never just its own label again', () => {
+    const away = presenceShown({ humanOnline: false, agentOnline: false }, true)
+    expect(away.agent.title).toBe(strings.agentOfflineHint)
+    expect(away.agent.title).not.toBe(away.agent.words)
+    expect(presenceShown({ humanOnline: true, agentOnline: true }, true).person.title).toBe(
+      strings.theirPresence.onlineHint,
+    )
+  })
+
+  it('names the person and their own agent on their own Connection', () => {
+    const awake = presenceShown({ humanOnline: true, agentOnline: true }, true, 'mine')
+    expect([awake.person.words, awake.agent.words]).toEqual(['You: online', 'Your agent: awake'])
+    expect([awake.person.title, awake.agent.title]).toEqual([
+      strings.selfPresence.onlineHint,
+      strings.selfPresence.agentOnlineHint,
+    ])
+    const asleep = presenceShown({ humanOnline: false, agentOnline: false }, false, 'mine')
+    expect([asleep.person.label, asleep.agent.words, asleep.agent.title]).toEqual([
+      strings.selfPresence.away,
+      strings.selfPresence.agentOffline,
+      strings.selfPresence.agentOfflineHint,
+    ])
+    expect(asleep.person.title).toBe(strings.selfPresence.awayHint)
   })
 })
 

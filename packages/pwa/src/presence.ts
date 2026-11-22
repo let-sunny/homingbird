@@ -2,15 +2,40 @@ import type { AsRead } from '@homingbird/protocol'
 import { formats, strings } from './strings.ts'
 
 export interface PresenceShown {
-  readonly person: { readonly isOn: boolean; readonly label: string; readonly words: string | null }
+  readonly person: {
+    readonly isOn: boolean
+    readonly label: string
+    readonly title: string
+    readonly words: string | null
+  }
   readonly agent: { readonly isOn: boolean; readonly title: string; readonly words: string | null }
 }
 
-export const presenceShown = (presence: AsRead.Presence, inWords: boolean): PresenceShown => {
-  const personLabel = presence.humanOnline ? strings.humanOnline : strings.humanOffline
+/**
+ * A presence in words and with what each state means. `whose` is `mine` on the person's own Connection,
+ * which names them and their agent, and `theirs` for a colleague.
+ */
+export const presenceShown = (
+  presence: AsRead.Presence,
+  inWords: boolean,
+  whose: 'theirs' | 'mine' = 'theirs',
+): PresenceShown => {
+  const words = whose === 'mine' ? strings.selfPresence : strings.theirPresence
+  const personLabel = presence.humanOnline
+    ? whose === 'mine'
+      ? strings.selfPresence.online
+      : strings.humanOnline
+    : whose === 'mine'
+      ? strings.selfPresence.away
+      : strings.humanOffline
   return {
-    person: { isOn: presence.humanOnline, label: personLabel, words: inWords ? personLabel : null },
-    agent: agentShown(presence, inWords),
+    person: {
+      isOn: presence.humanOnline,
+      label: personLabel,
+      title: presence.humanOnline ? words.onlineHint : words.awayHint,
+      words: inWords ? personLabel : null,
+    },
+    agent: agentShown(presence, inWords, whose),
   }
 }
 
@@ -71,7 +96,11 @@ export const unavailableOf = (
 ): NonNullable<AsRead.Presence['agentUnavailable']> | null =>
   presence?.agentOnline === true ? (presence.agentUnavailable ?? null) : null
 
-const agentShown = (presence: AsRead.Presence, inWords: boolean): PresenceShown['agent'] => {
+const agentShown = (
+  presence: AsRead.Presence,
+  inWords: boolean,
+  whose: 'theirs' | 'mine',
+): PresenceShown['agent'] => {
   const unavailable = unavailableOf(presence)
   if (unavailable !== null) {
     const words =
@@ -80,9 +109,17 @@ const agentShown = (presence: AsRead.Presence, inWords: boolean): PresenceShown[
         : strings.agentUnavailableUntil({ time: timeOf(unavailable.until) })
     return { isOn: false, title: strings.agentUnavailableHint, words }
   }
+  if (whose === 'mine')
+    return {
+      isOn: presence.agentOnline,
+      title: presence.agentOnline
+        ? strings.selfPresence.agentOnlineHint
+        : strings.selfPresence.agentOfflineHint,
+      words: presence.agentOnline ? strings.selfPresence.agentOnline : strings.selfPresence.agentOffline,
+    }
   return {
     isOn: presence.agentOnline,
-    title: presence.agentOnline ? strings.agentOnlineHint : strings.agentOffline,
+    title: presence.agentOnline ? strings.agentOnlineHint : strings.agentOfflineHint,
     words: presence.agentOnline ? strings.agentOnline : inWords ? strings.agentOffline : null,
   }
 }

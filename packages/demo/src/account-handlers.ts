@@ -11,6 +11,8 @@ import {
   type PlaceName,
   type Principle,
   type PrincipleId,
+  type PrincipleKind,
+  type PrincipleProposal,
   type RoutePoint,
 } from '@homingbird/protocol'
 import { type Handlers, found } from './handlers.ts'
@@ -41,6 +43,8 @@ export const DEMO_FEATURES: ReadonlyArray<FeatureName> = [
   'deskAvailability',
   'autoSend',
   'draftPreviews',
+  'hideConversations',
+  'leaveGroups',
 ]
 
 /** The server, the visitor's own account and agent, the directory, and what the visitor taught. */
@@ -132,25 +136,11 @@ export const accountHandlers = (world: World): Handlers => {
       })),
     'principles.create': ({ body }) =>
       T.sync(() => {
-        const now = world.clock.now()
-        const created: Principle = {
-          id: world.nextId('prin') as PrincipleId,
-          kind: body.kind === 'answer' ? 'answer' : 'rule',
-          topic: body.topic,
-          rule: body.rule,
-          source: body.source ?? null,
-          place: body.place,
-          enabled: true,
+        const created = addPrinciple(world, {
+          ...body,
           origin: 'manual',
-          position: world.records().principles.length,
-          createdAt: now,
-          updatedAt: now,
-          lastAppliedAt: null,
           publicText: body.publicText ?? null,
-          counts: null,
-          autoSend: { enabled: false, places: [] },
-        }
-        world.update((records) => ({ ...records, principles: [...records.principles, created] }))
+        })
         if (body.offerId !== undefined) closeOffer(world, body.offerId)
         return created
       }),
@@ -197,7 +187,38 @@ export const accountHandlers = (world: World): Handlers => {
           principle.counts === null ? null : { ...principle.counts, missed: principle.counts.missed + 1 },
       })),
     'principleProposals.list': () =>
-      T.succeed({ document: null, proposals: [], limit: PROPOSALS_PER_PERSON }),
+      T.sync(() => ({
+        document: world.records().teachingDocument,
+        proposals: [...world.records().proposals],
+        limit: PROPOSALS_PER_PERSON,
+      })),
+    'teaching.document.set': ({ body }) =>
+      T.sync(() => {
+        world.update((records) => ({ ...records, teachingDocument: body.document }))
+        return {}
+      }),
+    'principleProposals.accept': ({ params, body }, viewerId) =>
+      T.map((proposal: PrincipleProposal) => {
+        const saved = addPrinciple(world, { ...proposal, ...body, origin: 'chat', publicText: null })
+        forgetProposals(world, viewerId, [proposal.id])
+        return saved
+      })(proposalOf(world, params.id)),
+    'principleProposals.acceptAll': ({ body }, viewerId) =>
+      T.sync(() => {
+        const chosen = world.records().proposals.filter((proposal) => body.ids.includes(proposal.id))
+        for (const proposal of chosen) addPrinciple(world, { ...proposal, origin: 'chat', publicText: null })
+        forgetProposals(
+          world,
+          viewerId,
+          chosen.map((proposal) => proposal.id),
+        )
+        return taughtOf(world.records())
+      }),
+    'principleProposals.discard': ({ params }, viewerId) =>
+      T.map((proposal: PrincipleProposal) => {
+        forgetProposals(world, viewerId, [proposal.id])
+        return {}
+      })(proposalOf(world, params.id)),
     'principles.offers.dismiss': ({ params }) =>
       T.sync(() => {
         closeOffer(world, params.id)
@@ -212,6 +233,54 @@ export const accountHandlers = (world: World): Handlers => {
 }
 
 const TEN_MINUTES = 10 * 60_000
+
+/** Saves a principle as Dovecote does: enabled, last in the list, not yet applied. */
+const addPrinciple = (world: World, fields: NewPrinciple): Principle => {
+  const now = world.clock.now()
+  const created: Principle = {
+    id: world.nextId('prin') as PrincipleId,
+    kind: fields.kind === 'answer' ? 'answer' : 'rule',
+    topic: fields.topic,
+    rule: fields.rule,
+    source: fields.source ?? null,
+    place: fields.place ?? null,
+    enabled: true,
+    origin: fields.origin,
+    position: world.records().principles.length,
+    createdAt: now,
+    updatedAt: now,
+    lastAppliedAt: null,
+    publicText: fields.publicText,
+    counts: null,
+    autoSend: { enabled: false, places: [] },
+  }
+  world.update((records) => ({ ...records, principles: [...records.principles, created] }))
+  return created
+}
+
+interface NewPrinciple {
+  readonly kind?: PrincipleKind | undefined
+  readonly topic: string
+  readonly rule: string
+  readonly source?: string | null | undefined
+  readonly place?: PlaceName | undefined
+  readonly origin: Principle['origin']
+  readonly publicText: string | null
+}
+
+const proposalOf = (world: World, id: string) =>
+  found(
+    world.records().proposals.find((proposal) => proposal.id === id),
+    'No such proposal.',
+  )
+
+const forgetProposals = (world: World, viewerId: MemberId, ids: ReadonlyArray<string>): void => {
+  world.update((records) => ({
+    ...records,
+    proposals: records.proposals.filter((proposal) => !ids.includes(proposal.id)),
+  }))
+  world.emit([viewerId], { type: 'proposals.changed' })
+}
 
 const memberOf = (records: Records, id: MemberId) => found(memberById(records, id), 'No such member.')
 

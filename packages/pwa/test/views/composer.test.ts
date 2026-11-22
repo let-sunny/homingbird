@@ -203,6 +203,8 @@ describe('composer', () => {
     mount(shown)
     const toggle = shown.querySelector<HTMLButtonElement>('.composer-row .ask-agent-toggle')!
     const ask = shown.querySelector<HTMLDetailsElement>('.ask-agent')!
+    expect(toggle.textContent).toBe(strings.letAgentWrite)
+    expect(ask.querySelector('.ask-agent-row button')!.textContent).toBe(strings.askAgent)
     toggle.click()
     expect([ask.open, toggle.getAttribute('aria-expanded')]).toEqual([true, 'true'])
     expect(context.document.focused()?.getAttribute('name')).toBe('instruction')
@@ -227,9 +229,9 @@ describe('composer', () => {
       strings.deskUnavailableReason.failed,
     )
     update({})
-    expect([toggle.disabled, toggle.hasAttribute('title'), toggle.hasAttribute('aria-describedby')]).toEqual([
+    expect([toggle.disabled, toggle.title, toggle.hasAttribute('aria-describedby')]).toEqual([
       false,
-      false,
+      strings.letAgentWriteHint,
       false,
     ])
     const off = testContext()

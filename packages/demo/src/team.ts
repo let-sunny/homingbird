@@ -11,6 +11,7 @@ import {
   type NoteSource,
   type Principle,
   type PrincipleId,
+  type ProposalId,
   type Receipt,
 } from '@homingbird/protocol'
 import { demoDebates } from './debate-rooms.ts'
@@ -506,6 +507,33 @@ export const demoTeam = (now: number): Records => {
         createdAt: ago(60 * 20),
       },
     ],
+    proposals: [
+      {
+        id: 'prop_demochat00001' as ProposalId,
+        kind: 'rule',
+        topic: 'Refund questions',
+        rule: 'Point to the refund policy page and never promise a date for the money to arrive.',
+        source: null,
+        place: null,
+        question: 'When a customer asks when their refund arrives, what should I say?',
+        origin: 'chat',
+        rewriteOf: null,
+        createdAt: ago(60 * 2),
+      },
+      {
+        id: 'prop_demochat00002' as ProposalId,
+        kind: 'answer',
+        topic: 'Invoice runs',
+        rule: 'Invoices go out every night at midnight UTC; anything finalized before then is in that run.',
+        source: null,
+        place: 'billing',
+        question: 'When do invoices go out, and what makes the cut?',
+        origin: 'chat',
+        rewriteOf: null,
+        createdAt: ago(60 * 2 - 1),
+      },
+    ],
+    teachingDocument: null,
     invites: [
       {
         id: 'inv_demoinvite1',

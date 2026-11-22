@@ -157,12 +157,44 @@ describe('the visitor’s agent', () => {
     ).toEqual({})
   })
 
-  it('shows no proposals: a teaching chat needs a real agent', async () => {
+  it('shows the two principles its scripted teaching chat proposed, and keeps the pasted document', async () => {
     const { api } = demoApi()
-    expect(await succeeded(api['principleProposals.list']({}))).toEqual({
-      document: null,
-      proposals: [],
-      limit: 20,
+    const interview = await succeeded(api['principleProposals.list']({}))
+    expect(interview.document).toBeNull()
+    expect(interview.limit).toBe(20)
+    expect(interview.proposals.map((proposal) => [proposal.topic, proposal.kind, proposal.origin])).toEqual([
+      ['Refund questions', 'rule', 'chat'],
+      ['Invoice runs', 'answer', 'chat'],
+    ])
+    expect(interview.proposals.every((proposal) => proposal.question !== null)).toBe(true)
+    expect(
+      await succeeded(api['teaching.document.set']({ body: { document: 'Our refund policy' } })),
+    ).toEqual({})
+    expect((await succeeded(api['principleProposals.list']({}))).document).toBe('Our refund policy')
+  })
+
+  it('saves a proposal as the visitor changed it, saves the rest at once, or discards one', async () => {
+    const { api, world, viewerId } = demoApi()
+    const [refunds, invoices] = (await succeeded(api['principleProposals.list']({}))).proposals
+    const saved = await succeeded(
+      api['principleProposals.accept']({ params: { id: refunds!.id }, body: { topic: 'Refunds' } }),
+    )
+    expect(saved).toMatchObject({ topic: 'Refunds', rule: refunds!.rule, origin: 'chat', place: null })
+    expect((await succeeded(api['principleProposals.list']({}))).proposals).toEqual([invoices])
+    expect(world.eventsAfter(viewerId, 0).map((event) => event.body.type)).toContain('proposals.changed')
+    const all = await succeeded(api['principleProposals.acceptAll']({ body: { ids: [invoices!.id] } }))
+    expect(all.principles.at(-1)).toMatchObject({ topic: 'Invoice runs', kind: 'answer', place: 'billing' })
+    expect((await succeeded(api['principleProposals.list']({}))).proposals).toEqual([])
+    const fresh = demoApi()
+    const [first] = (await succeeded(fresh.api['principleProposals.list']({}))).proposals
+    expect(await succeeded(fresh.api['principleProposals.discard']({ params: { id: first!.id } }))).toEqual(
+      {},
+    )
+    expect((await succeeded(fresh.api['principleProposals.list']({}))).proposals).toHaveLength(1)
+    expect(
+      await refused(fresh.api['principleProposals.discard']({ params: { id: first!.id } })),
+    ).toMatchObject({
+      _tag: 'NotFound',
     })
   })
 

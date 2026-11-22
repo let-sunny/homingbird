@@ -210,7 +210,7 @@ describe('sidebarModel', () => {
       preview: 'Hello there',
       time: timeShown(9, 10),
       unread: { count: 2, label: strings.unread({ count: 2 }) },
-      drafts: { text: '✎1', label: strings.draftsWaiting({ count: 1 }) },
+      drafts: { text: '✎1', label: strings.draftsWaiting({ count: 1 }), word: 'draft' },
       typed: { text: '✎', label: strings.unsentText },
     })
     expect(row!.face).toMatchObject({

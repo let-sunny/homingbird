@@ -2,9 +2,10 @@ import type { AsRead } from '@homingbird/protocol'
 import { strings } from './strings.ts'
 
 /**
- * The name a note shows for the agent that wrote it. The Claude Code desk and the runner are named for
- * what they are, from the program they reported; both sign in as "Homingbird CLI on <host>", so their
- * connection names alone look the same. Any other agent keeps its connection's name.
+ * Where the agent that wrote a note runs, in words that follow "Your agent": in Claude Code, on the
+ * computer the runner runs on, or on the connection any other agent signed in as. The Claude Code desk
+ * and the runner both sign in as "Homingbird CLI on <host>", so they are told apart by the program they
+ * reported.
  */
 export const agentNameOf = (note: Pick<AsRead.Note, 'agentName' | 'agentClient'>): string | null => {
   const kind = agentKindOf(note.agentClient ?? null)
@@ -13,7 +14,7 @@ export const agentNameOf = (note: Pick<AsRead.Note, 'agentName' | 'agentClient'>
     const host = hostIn(note.agentName)
     return host === null ? strings.agentNames.runnerUnnamed : strings.agentNames.runner({ host })
   }
-  return note.agentName
+  return note.agentName === null ? null : strings.agentNames.connection({ name: note.agentName })
 }
 
 export type AgentKind = 'desk' | 'runner' | 'other'

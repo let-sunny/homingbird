@@ -43,7 +43,10 @@ describe('draftsItemModel', () => {
     expect(model.cards[0]).toEqual({
       draft: one,
       focused: false,
-      origin: { className: 'origin is-agent', text: strings.originNamed.agent({ agent: 'Laptop' }) },
+      origin: {
+        className: 'origin is-agent',
+        text: strings.originNamed.agent({ agent: strings.agentNames.connection({ name: 'Laptop' }) }),
+      },
       body: 'body of d1',
       basis: null,
       room: null,
@@ -139,6 +142,10 @@ describe('draftsItemModel', () => {
       strings.originNamed.agent({ agent: strings.agentNames.runner({ host: 'ben-mac' }) }),
     )
     expect(cards[0]!.origin.text).not.toContain('ben-mac')
+    expect(cards.map((card) => card.origin.text)).toEqual([
+      'Your agent, in Claude Code',
+      'Your agent, on ben-mac',
+    ])
   })
 
   it('offers a choice between alternatives, and discards the others when one of a new note’s is sent', () => {

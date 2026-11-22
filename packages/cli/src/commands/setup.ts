@@ -93,4 +93,4 @@ const usage = (message: string): CliFailure => CliFailure({ message, exitCode: E
 
 // The computer's host name stays out of the default: the credential's name travels with every draft
 // the agent writes. A person names the device with --name or renames it in the web client.
-const DEFAULT_SERVER_NAME = 'Homingbird on a server'
+const DEFAULT_SERVER_NAME = 'Server'

@@ -149,7 +149,7 @@ const titleBar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElem
             role: 'status',
             title: shown.description,
             'aria-label': shown.description,
-            data: { noticeable: String(shown.noticeable), whenShort: shown.whenShort },
+            data: { noticeable: String(shown.noticeable), shown: shown.shown },
           },
           h('span', { class: 'connection-mark', 'aria-hidden': 'true' }),
           h('span', { class: 'connection-label', 'aria-hidden': 'true' }, shown.label),
@@ -523,7 +523,17 @@ const conversationRow = (context: ViewContext, row: ConversationRow): HTMLElemen
         row.unread !== null &&
           h('span', { class: 'count unread', 'aria-label': row.unread.label }, row.unread.count),
         row.drafts !== null &&
-          h('span', { class: 'count drafts', 'aria-label': row.drafts.label }, row.drafts.text),
+          h(
+            'span',
+            {
+              class: 'count drafts',
+              'aria-label': row.drafts.label,
+              title: row.drafts.label,
+              data: { tour: 'waiting-draft' },
+            },
+            row.drafts.text,
+            h('span', { class: 'count-word', 'aria-hidden': 'true' }, row.drafts.word),
+          ),
         row.review !== null &&
           h('span', { class: 'count drafts reviews', 'aria-label': row.review.label }, row.review.text),
       ),

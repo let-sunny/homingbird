@@ -168,6 +168,9 @@ read from HOMINGBIRD_SERVER). Without one, the command uses the only server you 
 --credentials-file <path> (also read from HOMINGBIRD_CREDENTIALS_FILE) reads the credential from that
 file only, and never writes to it.`
 
+/** The line under a wrong command line's one sentence, in place of the whole usage. */
+export const USAGE_HINT = 'Run homingbird help for all commands and options.'
+
 interface Tokens {
   readonly rest: ReadonlyArray<string>
   readonly values: ReadonlyMap<string, string>
@@ -219,8 +222,9 @@ export const RUN_TIMEOUT_DEFAULT_SECONDS = 300
 
 const LOG_LEVELS: ReadonlyArray<LogLevel> = ['error', 'warn', 'info', 'debug']
 
+/** A wrong command line gets the one sentence that says what is wrong, and where the rest is. */
 const usage = (message: string): Result.Err<CliFailure> =>
-  Result.err(CliFailure({ message: `${message}\n\n${USAGE}`, exitCode: EXIT.usage }))
+  Result.err(CliFailure({ message: `${message}\n${USAGE_HINT}`, exitCode: EXIT.usage }))
 
 const tokenize = (
   argv: ReadonlyArray<string>,

@@ -10,6 +10,7 @@ describe('signInModel', () => {
       brandingName: 'Homingbird',
       signInWith: 'Google',
       hash: '#/people',
+      origin: 'https://hb.example.com',
     })
     expect(model).toEqual({
       title: strings.welcome,
@@ -32,6 +33,7 @@ describe('signInModel', () => {
       brandingName: 'Acme',
       signInWith: null,
       hash: '',
+      origin: 'https://hb.example.com',
     })
     expect(model.title).toBe(strings.signedOutTitle)
     expect(model.pip).toBe('failed')
@@ -47,11 +49,12 @@ describe('signInModel', () => {
       brandingName: 'Acme',
       signInWith: 'Google',
       hash: '#/invite/hbi_secret',
+      origin: 'https://hb.example.com',
     })
     expect(model).toMatchObject({
       title: strings.invites.invitedTitle,
       pip: 'sign-in',
-      tagline: strings.invites.invitedBody({ name: 'Acme' }),
+      tagline: strings.invites.invitedBody({ name: 'Acme', address: 'hb.example.com' }),
       refusal: null,
       signIn: {
         kind: 'invite',
@@ -69,8 +72,21 @@ describe('signInModel', () => {
       brandingName: 'Acme',
       signInWith: 'Google',
       hash: '',
+      origin: 'https://hb.example.com',
     })
     expect(model.title).toBe(strings.signedOutTitle)
     expect(model.signIn.kind).toBe('link')
+  })
+
+  it('names the server by its address when the organization gave it no name', () => {
+    const model = signInModel({
+      refusal: null,
+      invite: 'hbi_secret',
+      brandingName: 'Homingbird',
+      signInWith: 'Google',
+      hash: '#/invite/hbi_secret',
+      origin: 'http://localhost:8080',
+    })
+    expect(model.tagline).toBe(strings.invites.invitedBodyAt({ address: 'localhost:8080' }))
   })
 })

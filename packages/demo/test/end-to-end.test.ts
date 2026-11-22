@@ -108,7 +108,7 @@ describe('the demo', () => {
     fire.click(getByRole(card, 'button', { name: 'Approve and send' }))
     await settle()
     expect(noteStarting(world, 'Annual plans are refunded').status).toBe('draft')
-    fire.click(getByRole(root, 'button', { name: 'Done' }))
+    fire.click(getByRole(root, 'button', { name: 'Send now' }))
     await settle()
     expect(app.state.reviews.get().map((review) => review.note.body)).not.toContain(
       noteStarting(world, 'Annual plans are refunded').body,
@@ -211,7 +211,8 @@ describe('what the demo does beyond notes', () => {
     await open('#/agent/connection')
     const main = root.querySelector('main') as HTMLElement
     expect(main.textContent).toContain(`homingbird login --server ${DEMO_SERVER_ADDRESS}`)
-    fire.click(getByRole(main, 'button', { name: 'Run on a server' }))
+    expect(main.querySelector('.join-code')?.textContent).toContain('Your agent is running.')
+    fire.click(getByRole(main, 'button', { name: 'Run on another server' }))
     await settle()
     expect(main.textContent).toContain(`homingbird setup --server ${DEMO_SERVER_ADDRESS} --join hbj_`)
     fire.click(getByRole(main, 'button', { name: 'Copy' }))

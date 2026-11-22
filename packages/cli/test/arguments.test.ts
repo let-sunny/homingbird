@@ -1,7 +1,7 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import { agentCommand, defaultReader, presetNamed, presetReader } from '../src/agent-presets.ts'
-import { type Invocation, USAGE, parseArguments } from '../src/arguments.ts'
+import { type Invocation, USAGE, USAGE_HINT, parseArguments } from '../src/arguments.ts'
 import { EXIT } from '../src/failure.ts'
 
 const CLAUDE_AGENT = agentCommand('claude', 'linux')
@@ -407,10 +407,12 @@ describe('parseArguments', () => {
     [['propose', '--topic', 'Refunds'], /needs --topic/],
     [['stream', '--after', 'soon'], /--after needs a sequence number/],
     [['stream', '--after', '-1'], /--after needs a sequence number/],
-  ])('refuses %j with a usage error', (argv, message) => {
+  ])('refuses %j with one sentence and where the usage is', (argv, message) => {
     const failure = refusal(...argv)
     expect(failure.message).toMatch(message)
-    expect(failure.message).toContain(USAGE)
+    expect(failure.message).not.toContain(USAGE)
+    expect(failure.message.split('\n')).toHaveLength(2)
+    expect(failure.message).toMatch(new RegExp(`\\n${USAGE_HINT}$`))
     expect(failure.exitCode).toBe(EXIT.usage)
   })
 

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { isJoinedAgentAwake, joinCodeModel, joinCommand, localExpiry } from '../../src/models/join-code.ts'
-import { strings } from '../../src/strings.ts'
-import { ANA, BEN, channel, entry } from '../support/fixtures.ts'
+import {
+  isJoinedAgentAwake,
+  joinCodeModel,
+  joinCommand,
+  localExpiry,
+  runningAgentOf,
+} from '../../src/models/join-code.ts'
+import { formats, strings } from '../../src/strings.ts'
+import { ANA, BEN, channel, credential, entry } from '../support/fixtures.ts'
 
 const NOW = 1_000_000
 const code = {
@@ -19,6 +25,7 @@ describe('joinCodeModel', () => {
       title: strings.joinCode.title,
       intro: strings.joinCode.intro,
       button: strings.joinCode.create,
+      primary: true,
       busy: false,
       problem: null,
     })
@@ -124,5 +131,48 @@ describe('isJoinedAgentAwake', () => {
     expect(isJoinedAgentAwake({ ...input, channel: 'billing' })).toBe(true)
     expect(isJoinedAgentAwake({ ...input, channel: 'ops' })).toBe(false)
     expect(isJoinedAgentAwake({ ...input, channel: 'nowhere' })).toBe(false)
+  })
+})
+
+describe('runningAgentOf', () => {
+  it('names the connection that runs the person’s awake agent, the one used last, and says so in the offer', () => {
+    const credentials = [
+      credential('cred_web', { kind: 'human', lastUsedAt: 90 }),
+      credential('cred_old', { name: 'Old laptop', lastUsedAt: 80, revokedAt: 81 }),
+      credential('cred_desk', { name: 'Desk', lastUsedAt: 10 }),
+      credential('cred_server', { name: 'Server', lastUsedAt: 50 }),
+      credential('cred_never', { name: 'Never used' }),
+    ]
+    const running = runningAgentOf(credentials, true)
+    expect(running).toEqual({ name: 'Server', lastUsedAt: 50 })
+    expect(runningAgentOf(credentials, false)).toBeNull()
+    expect(
+      runningAgentOf(
+        [credential('cred_new', { name: 'New' }), credential('cred_used', { name: 'Used', lastUsedAt: 5 })],
+        true,
+      ),
+    ).toEqual({ name: 'Used', lastUsedAt: 5 })
+    expect(runningAgentOf(null, true)).toBeNull()
+    expect(runningAgentOf([credential('cred_web', { kind: 'human' })], true)).toBeNull()
+    expect(joinCodeModel({ state: { kind: 'idle' }, now: NOW, agent: null, running })).toMatchObject({
+      intro: strings.joinCode.running({ name: 'Server', time: formats.full.format(new Date(50)) }),
+      button: strings.joinCode.another,
+      primary: false,
+    })
+    expect(
+      joinCodeModel({
+        state: { kind: 'idle' },
+        now: NOW,
+        agent: null,
+        running: { name: 'X', lastUsedAt: null },
+      }),
+    ).toMatchObject({ intro: strings.joinCode.running({ name: 'X', time: strings.credentialNeverUsed }) })
+    expect(joinCodeModel({ state: { kind: 'creating' }, now: NOW, agent: null, running })).toMatchObject({
+      button: strings.joinCode.creating,
+    })
+    expect(joinCodeModel({ state: { kind: 'idle' }, now: NOW, agent: 'Wiki', running })).toMatchObject({
+      intro: strings.joinCode.introAgent({ agent: 'Wiki' }),
+      primary: true,
+    })
   })
 })

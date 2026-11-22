@@ -59,6 +59,18 @@
   font: 600 var(--hb-text-small) var(--hb-font-mono);
 }
 
+/* Up to date is no news: the state stays readable to assistive technology only. */
+.connection[data-shown="hidden"] {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .connection-mark {
   inline-size: 0.625rem;
   block-size: 0.625rem;
@@ -1073,10 +1085,6 @@ a.quote:hover {
 
 .ask-agent-toggle {
   white-space: nowrap;
-}
-
-.composer .ask-agent > summary {
-  display: none;
 }
 
 .composer .ask-agent-row {
@@ -2275,23 +2283,12 @@ a.quote:hover {
     display: none;
   }
 
-  .connection[data-when-short="label"] .connection-label {
+  .connection[data-shown="label"] .connection-label {
     display: inline;
     white-space: nowrap;
   }
 
-  .connection[data-when-short="hidden"] {
-    position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
-    padding: 0;
-    border: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .titlebar:has(.connection[data-when-short="label"]) .tab {
+  .titlebar:has(.connection[data-shown="label"]) .tab {
     padding-inline: var(--hb-space-1);
   }
 }
@@ -2859,6 +2856,14 @@ button.group-member-name:focus-visible::after {
 }
 
 /* On a touch screen the hint shows once on its own line under the control, never over it. */
+.hint-inline[hidden] {
+  display: none;
+}
+
+.has-tap-hint {
+  cursor: help;
+}
+
 .hint-inline {
   display: flex;
   flex-basis: 100%;
@@ -4112,8 +4117,28 @@ button:disabled {
     max-block-size: min(30rem, 70dvh);
   }
 
-  .tour.is-anchored[data-placement="beside"] {
-    position-area: inline-end span-block-end;
+  /* The list's step sits under the list, in its own column, so it hides none of the conversation beside it. */
+  .tour.is-anchored[data-placement="after"] {
+    position-area: block-end span-inline-end;
+    inline-size: calc(anchor-size(--hb-tour-target width) - 2 * var(--hb-space-4));
+    min-inline-size: min(16rem, 100vi - 2 * var(--hb-space-4));
+    position-try-fallbacks: --hb-tour-list-foot;
+  }
+
+  /* Where there is no room under the list: along the bottom of the screen, still in the list's column. */
+  @position-try --hb-tour-list-foot {
+    position-area: none;
+    inset-block: auto var(--hb-space-4);
+    inset-inline: anchor(--hb-tour-target start) anchor(--hb-tour-target end);
+    inline-size: auto;
+    min-inline-size: 0;
+    margin: 0 var(--hb-space-4);
+  }
+
+  /* The draft's step sits before the card it explains, over the list, never over the draft. */
+  .tour.is-anchored[data-placement="before"] {
+    position-area: inline-start span-block-end;
+    position-try-fallbacks: --hb-tour-below, --hb-tour-on-screen;
   }
 
   .titlebar {
@@ -4233,12 +4258,21 @@ button:disabled {
   font-size: var(--hb-text-small);
 }
 
-.start-step > pre {
-  padding: var(--hb-space-2);
-  border: var(--hb-border);
-  background: var(--hb-color-sunken);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+.command-lines {
+  display: grid;
+  gap: var(--hb-space-2);
+  margin: 0;
+  padding-inline-start: var(--hb-space-6);
+  list-style: decimal;
+}
+
+.command-lines > li::marker {
+  font-weight: 600;
+}
+
+.command-lines pre,
+.first-steps .command-lines pre {
+  margin: 0;
 }
 
 .start-step > .start-step-links {
@@ -4375,7 +4409,8 @@ textarea:disabled {
   inline-size: 100%;
 }
 
-.join-command {
+.join-command,
+.command-line {
   display: flex;
   flex-wrap: wrap;
   align-items: start;
@@ -4383,11 +4418,13 @@ textarea:disabled {
   inline-size: 100%;
 }
 
-.join-command code {
+.join-command code,
+.command-line code {
   overflow-wrap: anywhere;
 }
 
-.join-command pre {
+.join-command pre,
+.command-line pre {
   flex: 1 1 20rem;
   min-inline-size: 0;
   margin: 0;
@@ -5352,6 +5389,24 @@ textarea:disabled {
 
 .state-glyph {
   display: inline-block;
+}
+
+/* A touch screen has no hover to explain a mark, so the mark carries its word. */
+.state-word,
+.count-word {
+  display: none;
+}
+
+@media (hover: none) {
+  .state-word {
+    display: inline;
+    font-family: var(--hb-font-body);
+  }
+
+  .count-word {
+    display: inline;
+    margin-inline-start: var(--hb-space-1);
+  }
 }
 
 .state-mark.is-read .state-glyph,
@@ -6685,6 +6740,41 @@ textarea:disabled {
   /* A touch keyboard sends with its own key; the hint about Enter and Shift+Enter does not apply. */
   .composer-hint {
     display: none;
+  }
+
+  /* Small controls that sit inside menus, rows and forms grow to a fingertip themselves. */
+  .people-picker-box input,
+  .people-picker-chip .icon,
+  .channel-chip,
+  .group-chip {
+    min-block-size: var(--hb-target-size);
+  }
+
+  .people-picker-chip .icon,
+  .hint-close,
+  .answering-help {
+    display: inline-grid;
+    place-items: center;
+    min-inline-size: var(--hb-target-size);
+    min-block-size: var(--hb-target-size);
+  }
+
+  .channel-chip,
+  .group-chip {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .choice {
+    align-items: center;
+    min-block-size: var(--hb-target-size);
+  }
+
+  .choice > input[type="checkbox"],
+  .choice > input[type="radio"] {
+    flex: none;
+    inline-size: var(--hb-control-size-touch);
+    block-size: var(--hb-control-size-touch);
   }
 }
 

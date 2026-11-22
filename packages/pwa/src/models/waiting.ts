@@ -67,13 +67,16 @@ export const unreadCount = (conversations: ReadonlyArray<AsRead.Conversation>): 
     .filter((room) => !isArchived(room) && !isMuted(room))
     .reduce((sum, room) => sum + room.unreadCount, 0)
 
-/** The list's filter: on, only the conversations that wait for the person are shown. */
+/**
+ * The list's filter: on, only the conversations that wait for the person are shown. It counts
+ * places in words, so that it never reads as the bell's count of the things that wait.
+ */
 export const waitingFilterModel = (pressed: boolean, waiting: Waiting): WaitingFilter => {
   const count = waiting.conversationIds.size
   return {
     text: strings.waiting.filter,
     label: count === 0 ? strings.waiting.filterNone : strings.waiting.filterLabel({ count }),
-    count: count === 0 ? null : String(count),
+    count: count === 0 ? null : strings.waiting.filterCount({ count }),
     pressed,
   }
 }

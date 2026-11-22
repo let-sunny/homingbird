@@ -30,20 +30,23 @@ export const firstStepsModel = (input: FirstStepsInput): FirstStepsModel | null 
     title: connected ? words.anotherTitle : words.title,
     folded: connected,
     steps: [
-      { text: words.plugin, command: claudeCodeCommands(input.origin) },
+      { text: words.plugin, commands: claudeCodeLines(input.origin) },
       {
         text: words.commandLine,
-        command: `npm install -g @homingbird/cli\nhomingbird login --server ${input.origin}`,
+        commands: ['npm install -g @homingbird/cli', `homingbird login --server ${input.origin}`],
       },
-      { text: words.run, command: 'homingbird run --agent "codex exec"' },
+      { text: words.run, commands: ['homingbird run --agent "codex exec"'] },
     ],
     joinHint: input.joinCodes ? words.joinHint : null,
     guide: { href: GUIDE_CONNECT_URL, label: words.guide },
   }
 }
 
-/** The two lines that install the Claude Code plugin and open it on this server. */
-export const claudeCodeCommands = (origin: string): string => `${PLUGIN_INSTALL}\n/homingbird ${origin}`
+/** The two lines, pasted one after the other, that install the Claude Code plugin and open it on this server. */
+export const claudeCodeLines = (origin: string): ReadonlyArray<string> => [
+  PLUGIN_INSTALL,
+  `/homingbird ${origin}`,
+]
 
 /** The channels where the person's agent answers, as colleagues see them. */
 export const helpedChannels = (
@@ -73,7 +76,7 @@ export interface FirstStepsModel {
   readonly title: string
   /** Shown folded once an agent is connected, for a second computer or a colleague's question. */
   readonly folded: boolean
-  readonly steps: ReadonlyArray<{ readonly text: string; readonly command: string }>
+  readonly steps: ReadonlyArray<{ readonly text: string; readonly commands: ReadonlyArray<string> }>
   /** Where join codes are offered, the way to set up a server without a browser. */
   readonly joinHint: string | null
   readonly guide: { readonly href: string; readonly label: string }
@@ -93,7 +96,8 @@ export interface CredentialRow {
   readonly credential: AsRead.Credential
   readonly revoked: boolean
   readonly kind: string
-  readonly client: string
+  /** The program it signed in with, unless that is its name already, as a join code's connection is. */
+  readonly client: string | null
   readonly marks: ReadonlyArray<{
     readonly text: string
     readonly style: 'is-current' | 'is-you' | 'is-revoked'
@@ -107,7 +111,7 @@ const credentialRow = (credential: AsRead.Credential): CredentialRow => ({
   credential,
   revoked: credential.revokedAt !== null,
   kind: strings.credentialKind[credential.kind],
-  client: clientLabel(credential.client),
+  client: credential.client === credential.name ? null : clientLabel(credential.client),
   marks: [
     ...(credential.current
       ? [

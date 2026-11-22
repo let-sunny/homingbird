@@ -42,6 +42,11 @@ export const showApp = (
     shownHref = href
     launch(track('page_viewed', { page: analyticsPageOf(state.route.get()) }))
   }
+  const offerTour = (): void =>
+    context.tour.startOnFirstVisit(
+      state.route.get().name,
+      !state.conversationsLoaded.get() || state.conversations.get().length === 0,
+    )
   const draw = (): void => {
     appLife.end()
     const me = state.session.get()
@@ -64,10 +69,13 @@ export const showApp = (
       state.route.subscribe(() => {
         if (arrivedToConnect(state.route.get()) === focused) drawStage(me)
         else draw()
-        if (!focused) page.nextFrame(() => context.tour.startOnFirstVisit(state.route.get().name))
+        if (!focused) page.nextFrame(offerTour)
       }),
     )
-    if (!focused) page.nextFrame(() => context.tour.startOnFirstVisit(state.route.get().name))
+    if (!focused) {
+      appLife.add(state.conversationsLoaded.subscribe(() => page.nextFrame(offerTour)))
+      page.nextFrame(offerTour)
+    }
     replaceChildren(
       root,
       focused ? stage : shell(context, appLife, me, stage),

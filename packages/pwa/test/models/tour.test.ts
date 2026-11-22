@@ -3,11 +3,11 @@ import { tourStepModel } from '../../src/models/tour.ts'
 import { strings } from '../../src/strings.ts'
 
 describe('tourStepModel', () => {
-  it('starts with the notes, beside the list, and offers no way back', () => {
+  it('starts with the notes, under the list in its own column, and offers no way back', () => {
     const model = tourStepModel(0, true)
     expect(model).toMatchObject({
       id: 'notes',
-      placement: 'beside',
+      placement: 'after',
       progress: strings.tour.progress({ step: 1, total: 6 }),
       title: strings.tour.notesTitle,
       lookFor: null,
@@ -17,10 +17,11 @@ describe('tourStepModel', () => {
     })
   })
 
-  it('shows the approval card second, and names the bell when it cannot point at a draft', () => {
+  it('shows the approval card second, beside it rather than over it, and names the bell when it cannot point at a draft', () => {
     const model = tourStepModel(1, false)
     expect(model).toMatchObject({
       id: 'approval',
+      placement: 'before',
       title: strings.tour.approvalTitle,
       body: strings.tour.approvalBody,
       lookFor: strings.tour.lookFor({ place: strings.tour.activityPlace }),

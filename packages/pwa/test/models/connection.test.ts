@@ -1,7 +1,7 @@
 import type { AsRead } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import {
-  claudeCodeCommands,
+  claudeCodeLines,
   connectionModel,
   firstStepsModel,
   helpedChannels,
@@ -34,6 +34,8 @@ describe('connectionModel', () => {
     expect(old!.facts[0]!.value).toBe(strings.credentialNeverUsed)
     expect(old!.revokeBody).toBe(strings.revokeBody({ name: 'cred_old' }))
     expect(web!.client).toBe(strings.clients.web)
+    const server = credential('cred_server', { name: 'Server', client: 'Server' })
+    expect(connectionModel({ ...base, credentials: [server] }).credentials!.rows[0]!.client).toBeNull()
     expect(connectionModel({ ...base, credentials: [credential('cred_agent')] }).credentials!.noAgents).toBe(
       false,
     )
@@ -137,12 +139,15 @@ describe('firstStepsModel', () => {
       strings.firstSteps.run,
     ])
     expect(steps.folded).toBe(false)
-    expect(steps.steps[0]!.command).toBe(claudeCodeCommands('https://hb.example.com'))
-    expect(steps.steps[0]!.command.split('\n')).toEqual([
+    expect(steps.steps[0]!.commands).toEqual(claudeCodeLines('https://hb.example.com'))
+    expect(steps.steps[0]!.commands).toEqual([
       '/plugin install homingbird --marketplace let-sunny/homingbird',
       '/homingbird https://hb.example.com',
     ])
-    expect(steps.steps[1]!.command).toContain('homingbird login --server https://hb.example.com')
+    expect(steps.steps[1]!.commands).toEqual([
+      'npm install -g @homingbird/cli',
+      'homingbird login --server https://hb.example.com',
+    ])
     expect(steps.joinHint).toBe(strings.firstSteps.joinHint)
     expect(steps.guide.href).toMatch(/^https:\/\/.*guide\.md#connect-an-agent$/)
     expect(

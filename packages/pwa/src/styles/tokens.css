@@ -128,6 +128,8 @@
   --hb-space-4: 1rem;
   --hb-space-6: 1.5rem;
   --hb-target-size: 2.75rem;
+  /* A checkbox or radio a finger can hit without zooming. */
+  --hb-control-size-touch: 1.5rem;
   --hb-tab-bar-size: 3.25rem;
 
   --hb-duration-fast: 120ms;

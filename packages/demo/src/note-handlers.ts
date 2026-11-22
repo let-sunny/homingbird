@@ -46,6 +46,28 @@ export const noteHandlers = (world: World): Handlers => ({
     }),
   'conversations.mute': ({ params }, viewerId) => muting(world, viewerId, params.id, true),
   'conversations.unmute': ({ params }, viewerId) => muting(world, viewerId, params.id, false),
+  'conversations.hide': ({ params }, viewerId) => hiding(world, viewerId, params.id, true),
+  'conversations.unhide': ({ params }, viewerId) => hiding(world, viewerId, params.id, false),
+  'conversations.leave': ({ params }, viewerId) =>
+    T.gen(function* () {
+      const room = yield* roomOf(world.records(), viewerId, params.id)
+      if (room.kind !== 'group' || room.privateQuestionOf !== undefined)
+        return yield* T.fail(Forbidden({ message: ONLY_GROUPS_LEFT }))
+      world.update((records) => ({
+        ...records,
+        conversations: records.conversations.map((each) =>
+          each.id === room.id
+            ? { ...each, participantIds: each.participantIds.filter((id) => id !== viewerId) }
+            : each,
+        ),
+      }))
+      world.emit(room.participantIds, {
+        type: 'conversation.left',
+        conversationId: room.id,
+        memberId: viewerId,
+      })
+      return {}
+    }),
   'conversations.notes': ({ params, query }, viewerId) =>
     T.map(() => {
       const before = query.before === undefined ? null : Number(query.before)
@@ -269,6 +291,22 @@ const muting = (world: World, viewerId: MemberId, id: string, muted: boolean) =>
     }))
     return conversationAsSeen(world.records(), viewerId, changed)
   })(roomOf(world.records(), viewerId, id))
+
+const hiding = (world: World, viewerId: MemberId, id: string, hidden: boolean) =>
+  T.map((room: ConversationRecord) => {
+    const others = (room.hiddenBy ?? []).filter((each) => each.memberId !== viewerId)
+    const changed = {
+      ...room,
+      hiddenBy: hidden ? [...others, { memberId: viewerId, at: world.clock.now() }] : others,
+    }
+    world.update((records) => ({
+      ...records,
+      conversations: records.conversations.map((each) => (each.id === room.id ? changed : each)),
+    }))
+    return conversationAsSeen(world.records(), viewerId, changed)
+  })(roomOf(world.records(), viewerId, id))
+
+const ONLY_GROUPS_LEFT = 'Only a group message can be left.'
 
 const RECALL_REFUSED = 'Only a note your saved answer sent can be recalled, in the first five minutes.'
 
