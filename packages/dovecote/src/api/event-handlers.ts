@@ -1,5 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import { POLL_WAIT_MAX_SECONDS } from '@homingbird/protocol'
+import { readableEvents } from '../domain/private-question-readers.ts'
 import { featureIsOn } from '../domain/settings.ts'
 import { type RequestEnv, waitForEvents } from '../events/events.ts'
 import { removeOwnPushSubscription, savePushSubscription } from '../push/subscriptions.ts'
@@ -9,11 +10,14 @@ import type { Handlers } from './handlers.ts'
 /** How events reach a person: polling, presence, and push subscriptions. */
 export const eventHandlers = {
   'events.poll': ({ query }, caller) =>
-    waitForEvents(
-      caller.member.id,
-      Number(query.after ?? '0'),
-      Math.min(Number(query.wait ?? '0'), POLL_WAIT_MAX_SECONDS) * 1000,
-    ),
+    T.gen(function* () {
+      const page = yield* waitForEvents(
+        caller.member.id,
+        Number(query.after ?? '0'),
+        Math.min(Number(query.wait ?? '0'), POLL_WAIT_MAX_SECONDS) * 1000,
+      )
+      return { events: yield* readableEvents(caller, page.events), cursor: page.cursor }
+    }),
   'presence.visibility': ({ body }, caller) =>
     T.map((env: RequestEnv) => {
       env.hub.reportVisibility(caller.member.id, `${caller.credential.id}:${body.page}`, body.visible)

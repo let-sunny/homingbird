@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { Task as T } from '@homingbird/kernel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { LIMITS } from '../src/http/rate-limiter.ts'
 import { run } from '../src/sql/database.ts'
 import { sql } from '../src/sql/query.ts'
 import { type Session, type TestServer, startTestServer } from './harness.ts'
@@ -122,10 +123,29 @@ describe('device authorization', () => {
     expect((await poll('unknown-code')).json.error).toBe('expired_token')
   })
 
-  it('limits how fast one address can start device flows', async () => {
-    for (let attempt = 0; attempt < 30; attempt++) expect((await start()).status).toBe(200)
-    expect((await start()).status).toBe(429)
-    await server.clock.advance(3_600_000)
+  it('lets a whole office behind one address start agent sign-ins, up to a ceiling that says when to retry', async () => {
+    for (let attempt = 0; attempt < LIMITS.deviceStart.max; attempt++)
+      expect((await start()).status).toBe(200)
+    await server.clock.advance(600_000)
+    const refused = await start()
+    expect(refused.status).toBe(429)
+    expect(refused.headers['retry-after']).toBe('3000')
+    expect(refused.json).toEqual({
+      error: 'slow_down',
+      error_description: 'Too many requests from this network. Try again in 50 min.',
+    })
+    await server.clock.advance(3_000_000)
     expect((await start()).status).toBe(200)
+  })
+
+  it('limits how many agent sign-ins one person decides in an hour, whatever address they use', async () => {
+    for (let attempt = 0; attempt < LIMITS.deviceApproval.max; attempt++) {
+      const started = (await start()).json
+      expect((await ana.api('POST', `/device/${started.user_code}`, { approve: false })).status).toBe(200)
+    }
+    const started = (await start()).json
+    expect((await ana.api('POST', `/device/${started.user_code}`, { approve: true })).status).toBe(429)
+    const ben = await server.signIn('ben@example.com', 'Ben')
+    expect((await ben.api('POST', `/device/${started.user_code}`, { approve: true })).status).toBe(200)
   })
 })

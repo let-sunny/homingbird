@@ -49,11 +49,11 @@ const everyChange = async (session: Session, id: GroupId) => [
 ]
 
 describe('who may change a group', () => {
-  it('lets the managers of an open channel change its group, and nobody else but an administrator', async () => {
+  it('lets the managers of an open channel change its group, and an administrator outside it only take people out', async () => {
     const open = await channelGroup('billing', 'open')
     expect(await everyChange(ben, open)).toEqual([true, true])
     expect(await everyChange(cy, open)).toEqual([false, false])
-    expect(await everyChange(ana, open)).toEqual([true, true])
+    expect(await everyChange(ana, open)).toEqual([false, true])
   })
 
   it('lets an administrator outside a private channel’s group only take people out of it', async () => {
@@ -65,7 +65,7 @@ describe('who may change a group', () => {
       _tag: 'Err',
       error: {
         _tag: 'Forbidden',
-        message: 'This group manages a private channel: only its members can add people to it.',
+        message: 'Only the managers of this channel can add people to its managers.',
       },
     })
     expect(await running(requireMayChangeGroup(as(cy), group.value, 'remove'))).toMatchObject({

@@ -40,6 +40,13 @@ export const withDraftRead = (
   draft: AsRead.Note,
 ): ReadonlyMap<NoteId, DraftAsShown> => new Map(read).set(draft.id, asRead(draft))
 
+/**
+ * What a send binds to: the text and room the person read and, for a reply to a question from Slack, how
+ * far its thread had got in the question they read, so that newer messages there stop the send once.
+ */
+export const asShown = (read: DraftAsShown, answered: AsRead.Note | null): DraftAsShown =>
+  answered?.via === undefined ? read : { ...read, threadAt: answered.via.threadAt }
+
 export const asRead = (draft: AsRead.Note): DraftAsShown => ({
   body: draft.body,
   conversationId: draft.conversationId,

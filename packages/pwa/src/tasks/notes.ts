@@ -3,6 +3,7 @@ import type { AsRead, ConversationId, NoteId } from '@homingbird/protocol'
 import { batch, isSameData } from '@homingbird/ui'
 import { type Action, type App, withApp } from '../app.ts'
 import { keepComposerTexts, withComposerText } from '../composer-texts.ts'
+import { asShown } from '../drafts-read.ts'
 import { type MISSING, orMissing } from '../missing.ts'
 import { type AppState, signedIn } from '../state.ts'
 import { isUnreadBy, withNoteFiled, withoutNote } from '../thread.ts'
@@ -87,6 +88,15 @@ export const keepComposerText = (conversationId: ConversationId, text: string): 
 /** The note a new note answers: only the one the person chose with a note's Reply button. */
 export const replyTargetIn = (state: AppState, conversationId: ConversationId): NoteId | null =>
   state.replyTargets.get().get(conversationId) ?? null
+
+/** A note as one of the threads on the page shows it, or null when none of them holds it. */
+export const shownNote = (state: AppState, id: NoteId): AsRead.Note | null => {
+  for (const thread of state.threads.get().values()) {
+    const note = thread.notes.find((candidate) => candidate.id === id)
+    if (note !== undefined) return note
+  }
+  return null
+}
 
 /** Files a note where it belongs, counting the change for every conversation that showed it. */
 /** Takes back a note the person's saved answer sent: recipients stop seeing it; the person sees it recalled. */
@@ -179,7 +189,9 @@ const deliverNote = (conversationId: ConversationId, body: string): Action =>
     })
     const sent = yield* api['drafts.send']({
       params: { id: draft.id },
-      body: { expected: { body, conversationId } },
+      body: {
+        expected: asShown({ body, conversationId }, inReplyTo === null ? null : shownNote(state, inReplyTo)),
+      },
     })
     batch(() => {
       rememberNote(state)(sent)

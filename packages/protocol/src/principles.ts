@@ -283,11 +283,16 @@ const CONDITION = /\b(when|if|unless|whether|while|until)\b/i
 const VAGUE =
   /^(be|keep it|sound|stay)\b|\b(concise|polite|nice|friendly|helpful|clear|better|careful|professional)\b\.?$/i
 
+const DETERMINER = '(?:(?:the|this|that|my|your|our|every|each|all|any|their) )?'
+const SENT_THINGS = String.raw`(?:drafts?|notes?|repl(?:y|ies)|answers?|responses?)`
+/** "A manager approves every answer" describes the rule; only an approval the agent would do is a hint. */
+const NOT_SOMEONE_ELSE = String.raw`(?<!\b(?:managers?|people|humans?|person|someone|they|who|colleagues?) (?:(?:will|must|should|can|may|then|always|to) )?)`
+
 const FORBIDDEN_HINT = new RegExp(
   [
-    String.raw`\bapprove (?:the |this |my |your |every |all )?(?:drafts?|notes?|repl(?:y|ies)|it|them)\b`,
+    String.raw`${NOT_SOMEONE_ELSE}\bapprove (?:and send )?(?:it|them|${DETERMINER}(?:\w+ ){0,2}${SENT_THINGS})\b`,
     String.raw`\bauto-?send`,
-    String.raw`\bsend (?:it|this|them|the (?:draft|note|reply)|drafts|notes|replies) (?:yourself|automatically|without)`,
+    String.raw`\bsend (?:it|this|them|${DETERMINER}(?:\w+ ){0,2}${SENT_THINGS}) (?:yourself|automatically|on your own|without|for me)`,
     String.raw`\bdiscard (?:the |this |my |a |any )?(?:drafts?|notes?|repl(?:y|ies))\b`,
     String.raw`\b(?:add|remove|change|accept|edit|delete) (?:a |the |my )?contacts?\b`,
     String.raw`\b(?:block|unblock) (?:them|people|someone|members?|colleagues?|senders?)\b`,

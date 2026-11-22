@@ -1,7 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
 import type { ApiError, AsRead, CredentialId, NoteId } from '@homingbird/protocol'
 import { type Action, type App, withApp } from '../app.ts'
-import { withDraftRead } from '../drafts-read.ts'
+import { asRead, asShown, withDraftRead } from '../drafts-read.ts'
 import { featureOn } from '../features.ts'
 import { hrefFor } from '../routes.ts'
 import type { AppState, HeldWords } from '../state.ts'
@@ -39,10 +39,10 @@ export const loadDecidedAnswer = (id: NoteId): Action<AsRead.Note | null> =>
 export const sendReview = (review: AsRead.Review, editedBody: string | null): Action =>
   T.gen(function* () {
     const { api, state } = yield* T.ask<App>()
-    const expected = state.reviewsRead.get().get(review.note.id) ?? {
-      body: review.note.body,
-      conversationId: review.note.conversationId,
-    }
+    const expected = asShown(
+      state.reviewsRead.get().get(review.note.id) ?? asRead(review.note),
+      review.question,
+    )
     yield* T.tapError((error: ApiError) => (error._tag === 'Conflict' ? loadReviews : T.unit))(
       api['drafts.send']({
         params: { id: review.note.id },

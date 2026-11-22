@@ -9,6 +9,17 @@ import { CY, conversation, draft, everything, member, note, serverInfo } from '.
 
 const AGENT = 'mem_agent0000000' as MemberId
 
+const SLACK_VIA = {
+  tool: 'slack' as const,
+  askerName: 'Pat Rivera',
+  askerId: null,
+  channelName: 'eng-help',
+  edited: false,
+  deleted: false,
+  threadAt: '1763900300.000100',
+  newerMessages: 0,
+}
+
 const review = (fields: Partial<AsRead.Review> = {}): AsRead.Review => ({
   note: draft('note_answer00000', { authorId: AGENT, inReplyTo: 'note_question000' as NoteId }),
   question: note('note_question000', { authorId: CY }),
@@ -63,6 +74,25 @@ describe('the channel agent tasks', () => {
       },
     ])
     expect(state.reviews.get()).toEqual([])
+  })
+
+  it('send an answer to a question from Slack bound to that thread as the review showed it', async () => {
+    const { run, state, sent } = testApp({ 'reviews.list': () => ({ reviews: [] }) })
+    state.serverInfo.set(everything())
+    const question = note('note_question000', { authorId: CY, origin: 'outside', via: SLACK_VIA })
+    const fromSlack = review({ question })
+    state.reviews.set([fromSlack])
+    await run(tasks.sendReview(fromSlack, null))
+    expect(sent.find((one) => one.route === 'drafts.send')!.request).toEqual({
+      params: { id: fromSlack.note.id },
+      body: {
+        expected: {
+          body: fromSlack.note.body,
+          conversationId: fromSlack.note.conversationId,
+          threadAt: SLACK_VIA.threadAt,
+        },
+      },
+    })
   })
 
   it('read the answers again when a send is refused because the agent changed it', async () => {

@@ -45,7 +45,7 @@ export const createDebate = (wish: DebateWish): Action<AsRead.Debate> =>
   )
 
 /** Opts the person's agent in, with their note on what it may use here when they wrote one. */
-export const optInAgent = (id: DebateId, agentId: CredentialId, brief = ''): Action =>
+export const optInAgent = (id: DebateId, agentId: CredentialId, brief: string): Action =>
   withApp(({ api, state }) =>
     shown(
       state,

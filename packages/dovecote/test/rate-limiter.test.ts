@@ -29,6 +29,23 @@ describe('the rate limiter', () => {
     expect(limiter.allow('old 1', limit)).toBe(true)
   })
 
+  it('says how long a refused key waits until its window ends', () => {
+    let now = 0
+    const limiter = makeRateLimiter(() => now)
+    const limit = { max: 1, windowMs: 1_000 }
+    expect(limiter.waitMs('a', limit)).toBe(0)
+    limiter.allow('a', limit)
+    now = 400
+    expect(limiter.waitMs('a', limit)).toBe(600)
+    now = 1_500
+    expect(limiter.waitMs('a', limit)).toBe(0)
+  })
+
+  it('lets a few hundred people behind one office address start agent sign-ins in an hour', () => {
+    expect(LIMITS.deviceStart).toEqual({ max: 600, windowMs: 3_600_000 })
+    expect(LIMITS.deviceApproval).toEqual({ max: 20, windowMs: 3_600_000 })
+  })
+
   it('holds a person to a sign-in limit and an agent to a drafting limit per minute', () => {
     expect(LIMITS.signIn.windowMs).toBe(60_000)
     expect(LIMITS.drafting).toEqual({ max: 120, windowMs: 60_000 })

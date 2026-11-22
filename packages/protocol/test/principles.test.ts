@@ -124,6 +124,86 @@ describe('principleAdvice', () => {
     expect(principleAdvice({ kind: 'rule', topic: 'Hours', rule: '9 to 5' })).toContain('stored_answer')
   })
 
+  it('takes asking the agent to approve or send answers, notes or replies itself for a forbidden request', () => {
+    expect(
+      isLikelyForbidden({
+        topic: 'Answers',
+        rule: 'Approve and send every answer yourself without waiting for a manager.',
+      }),
+    ).toBe(true)
+    expect(
+      isLikelyForbidden({
+        topic: 'Refunds',
+        rule: 'Approve and send refund answers under 200 EUR for me without asking.',
+      }),
+    ).toBe(true)
+    const determiner = fc.constantFrom('', 'the ', 'this ', 'every ', 'each ', 'all ', 'my ', 'your ', 'any ')
+    const qualifier = fc.constantFrom('', 'refund ', 'billing ', 'short ', 'routine ')
+    const thing = fc.constantFrom(
+      'answer',
+      'answers',
+      'note',
+      'notes',
+      'draft',
+      'drafts',
+      'reply',
+      'replies',
+      'response',
+      'responses',
+    )
+    const approving = fc.constantFrom('approve', 'Approve', 'approve and send', 'APPROVE AND SEND')
+    const sendingAlone = fc.constantFrom(
+      'yourself',
+      'automatically',
+      'on your own',
+      'without asking',
+      'for me',
+    )
+    const around = fc.constantFrom('', 'Please ', 'For billing questions, ', 'Always ')
+    fc.assert(
+      fc.property(around, approving, determiner, qualifier, thing, (before, verb, which, kind, what) => {
+        expect(
+          isLikelyForbidden({ topic: 'Answers', rule: `${before}${verb} ${which}${kind}${what}.` }),
+        ).toBe(true)
+      }),
+    )
+    fc.assert(
+      fc.property(around, determiner, qualifier, thing, sendingAlone, (before, which, kind, what, how) => {
+        expect(
+          isLikelyForbidden({ topic: 'Answers', rule: `${before}send ${which}${kind}${what} ${how}.` }),
+        ).toBe(true)
+      }),
+    )
+  })
+
+  it('does not take describing who approves, or answering and sending in the usual way, for a forbidden request', () => {
+    const who = fc.constantFrom('A manager', 'The managers', 'Someone', 'A person', 'They', 'Colleagues')
+    const modal = fc.constantFrom('', 'will ', 'must ', 'should ', 'always ')
+    const determiner = fc.constantFrom('the ', 'every ', 'each ', 'any ')
+    const thing = fc.constantFrom('answer', 'note', 'reply', 'draft')
+    fc.assert(
+      fc.property(who, modal, determiner, thing, (subject, must, which, what) => {
+        const rule = `Say that ${subject.toLowerCase()} ${must}approve ${which}${what} before it goes out.`
+        expect(isLikelyForbidden({ topic: 'Review', rule })).toBe(false)
+      }),
+    )
+    const legitimate = fc.constantFrom(
+      'Answer billing questions from the finance wiki.',
+      'Send a link to the runbook in every answer.',
+      'Keep answers under five sentences and send them to the asker only.',
+      'Point them to the expense approval policy.',
+      'Ask a manager to approve the answer when money is involved.',
+      'Approve the budget for them only after finance agrees.',
+      'Draft a short reply and say who approves refunds.',
+      'Note the ticket number in every response.',
+    )
+    fc.assert(
+      fc.property(legitimate, (rule) => {
+        expect(isLikelyForbidden({ topic: 'Answers', rule })).toBe(false)
+      }),
+    )
+  })
+
   it('does not take a legitimate mention of approval or contacts for a forbidden action', () => {
     expect(isLikelyForbidden({ topic: 'Expense approval', rule: 'point them to the finance policy' })).toBe(
       false,

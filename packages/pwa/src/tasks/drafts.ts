@@ -3,11 +3,11 @@ import type { ApiError, AsRead, DraftAsShown, DraftRequest, NoteId } from '@homi
 import { track } from '../analytics.ts'
 import { type Action, type App, withApp } from '../app.ts'
 import { type AgentAsk, requestBody, upsertRequest } from '../draft-requests.ts'
-import { asRead, withDraftRead } from '../drafts-read.ts'
+import { asRead, asShown, withDraftRead } from '../drafts-read.ts'
 import { hrefFor } from '../routes.ts'
 import type { AppState, HeldWords } from '../state.ts'
 import { holdDecision } from './held.ts'
-import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
+import { forgetNote, forgetRelease, loadThread, rememberNote, shownNote } from './notes.ts'
 import { refreshAgentReport, refreshPrinciples } from './teaching.ts'
 import { loadConversations } from './workspace.ts'
 
@@ -23,7 +23,7 @@ export const approveDraft = (
 ): Action =>
   T.gen(function* () {
     const { api, state } = yield* T.ask<App>()
-    const expected = withThreadShown(asRead(draft), state, draft)
+    const expected = yield* withThreadShown(asRead(draft), draft)
     rememberNote(state)(
       yield* T.tapError((error: ApiError) => (error._tag === 'Conflict' ? rereadDraft(draft) : T.unit))(
         api['drafts.send']({
@@ -138,11 +138,16 @@ const rereadDraft = (draft: AsRead.Note): Action =>
     }),
   )
 
-/** A reply to a question from Slack also says how far the Slack thread had got when its card was read. */
-const withThreadShown = (expected: DraftAsShown, state: AppState, draft: AsRead.Note): DraftAsShown => {
-  const answered = state.threads
-    .get()
-    .get(draft.conversationId)
-    ?.notes.find((note) => note.id === draft.inReplyTo)
-  return answered?.via === undefined ? expected : { ...expected, threadAt: answered.via.threadAt }
-}
+/**
+ * A reply to a question from Slack also says how far the Slack thread had got: as the page shows the
+ * question, or as the server has it when the card was read where the question is not loaded.
+ */
+const withThreadShown = (expected: DraftAsShown, draft: AsRead.Note): Action<DraftAsShown> =>
+  T.gen(function* () {
+    if (draft.inReplyTo === null) return expected
+    const { api, state } = yield* T.ask<App>()
+    const shown = shownNote(state, draft.inReplyTo)
+    if (shown !== null) return asShown(expected, shown)
+    const read = yield* T.result(api['notes.get']({ params: { id: draft.inReplyTo } }))
+    return asShown(expected, read._tag === 'Ok' ? read.value : null)
+  })

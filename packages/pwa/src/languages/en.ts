@@ -555,6 +555,8 @@ export const en = {
     roomArchived: 'This room is archived. You can read it, but no new notes can be written.',
     draftHandled: 'This draft was already sent or discarded.',
     draftChanged: 'This draft changed after you read it, so it was not sent. Read it again.',
+    slackThreadMoved:
+      'The Slack thread has newer messages since you read this, so it was not sent. Read them in Slack, then send again.',
     nameTaken: 'That name is not available.',
     lastManager: 'A channel with members keeps a manager. Add another manager first.',
     managerStays:

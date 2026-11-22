@@ -76,6 +76,11 @@ const ROUTE_LIMITS: Partial<
     key: (caller) => `draft:${caller.credential.id}`,
     message: 'Too many drafts in a short time. Try again in a minute.',
   },
+  'device.decide': {
+    limit: LIMITS.deviceApproval,
+    key: (caller) => `device-approval:${caller.member.id}`,
+    message: 'Too many agent sign-ins decided in an hour. Try again later.',
+  },
   'me.deskWake.test': {
     limit: LIMITS.wakeTest,
     key: (caller) => `wake-test:${caller.member.id}`,

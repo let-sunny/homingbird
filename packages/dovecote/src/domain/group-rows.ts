@@ -26,8 +26,9 @@ export type GroupChange = 'add' | 'remove'
 
 /**
  * Who may change a group. A team: administrators only. A channel's group: its members, and for a private
- * channel only while they are in its room; an administrator, for an open channel, or only to take people
- * out of a private channel's group.
+ * channel only while they are in its room. An administrator outside the group may take people out of it,
+ * and add people only to an open channel that has no manager and no private question, as a channel
+ * `HB_CHANNELS` made has: a manager reads the channel's private questions, earlier ones too (rule 6).
  */
 export const requireMayChangeGroup = (
   viewer: Viewer,
@@ -40,7 +41,7 @@ export const requireMayChangeGroup = (
       Forbidden({
         message:
           viewer.role === 'admin'
-            ? 'This group manages a private channel: only its members can add people to it.'
+            ? 'Only the managers of this channel can add people to its managers.'
             : group.kind === 'team'
               ? 'Only an administrator can change a team.'
               : 'Only the managers of a channel, or an administrator, can change who manages it.',
@@ -57,11 +58,18 @@ export const mayChangeGroup = (
     const channel = yield* channelOfGroup(group)
     if (channel === null) return viewer.role === 'admin'
     const isPrivate = visibilityOf(channel) === 'private'
-    const isInGroup = (yield* groupMembersOf(group.id)).includes(viewer.id)
+    const managers = yield* groupMembersOf(group.id)
     const isInRoom = !isPrivate || (yield* isMemberOf(channel.conversation_id, viewer.id))
-    if (isInGroup && isInRoom) return true
-    return viewer.role === 'admin' && (change === 'remove' || !isPrivate)
+    if (managers.includes(viewer.id) && isInRoom) return true
+    if (viewer.role !== 'admin') return false
+    if (change === 'remove') return true
+    return !isPrivate && managers.length === 0 && !(yield* hasPrivateQuestions(channel))
   })
+
+const hasPrivateQuestions = (channel: ChannelRow): T.Task<boolean, never, AppEnv> =>
+  T.map((row: unknown) => row !== null)(
+    first(sql`SELECT id FROM conversations WHERE channel_id = ${channel.conversation_id} LIMIT 1`),
+  )
 
 /** A channel the viewer can see, read again once its group's row lock is held: group first, then channel. */
 export const lockedChannel = (viewer: Viewer, slug: string): T.Task<ChannelRow, NotFound, AppEnv> =>
