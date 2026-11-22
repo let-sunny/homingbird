@@ -633,6 +633,7 @@ export const en = {
       invites: 'Invite links',
       analytics: 'Anonymous product analytics',
       autoSend: 'Saved answers that send themselves',
+      draftPreviews: 'Early previews of agents’ drafts',
     },
     whenOff: {
       channels: 'Off: people can no longer create channels; existing channels stay.',
@@ -665,6 +666,8 @@ export const en = {
         'Off: no saved answer sends itself; every draft waits for its person’s approval. On: a person may switch a saved answer to send itself, but only its exact text, only where they allow it.',
       analytics:
         'Off: no usage counts leave this server. On, and only where the server operator set a destination: anonymous counts such as pages viewed, never content, names or email addresses.',
+      draftPreviews:
+        'Off: nobody sees a colleague’s agent’s draft before its person checks it. On: each person chooses who may, under My agent; nobody is chosen until they do.',
     },
   },
   todo: {
@@ -704,6 +707,7 @@ export const en = {
       teaching: 'Teaching',
       doing: 'How it is doing',
       routes: 'Route map',
+      previews: 'Early previews',
     },
     tabsLabel: 'My agent sections',
     sectionHints: {
@@ -714,6 +718,7 @@ export const en = {
         'These numbers are about your agent’s drafts, not about you: where they already go out as you would write them, and where they still need you.',
       routes:
         'Where your agent already answers like you: each place it drafts, and how far your principles carry it there.',
+      previews: 'Who may read your agent’s drafts before you check them.',
     },
     verdict: {
       unknown: 'This version cannot describe these figures yet',
@@ -1801,6 +1806,28 @@ export const en = {
     expired: 'This code expired before it was used.',
     again: 'Make a new code',
     failed: 'No code could be made just now. Try again in a moment.',
+  },
+  draftPreviews: {
+    intro:
+      'Let chosen colleagues see your agent’s drafts before you check them, so they need not wait for you. They see each one marked as unconfirmed, cannot reply to it or quote it, and it disappears when you discard it. Drafts you write yourself and channel agents’ answers are never shown.',
+    people: 'People',
+    peopleHint: 'They see your agent’s drafts in direct and group messages with you.',
+    channels: 'Channels',
+    channelsHint: 'Everyone in the channel’s room sees your agent’s drafts there.',
+    noPeople: 'There is nobody else here yet.',
+    noChannels: 'Join a channel to choose it here.',
+    nobody: 'Nobody sees your agent’s drafts before you check them.',
+    somebody: 'Shown early to {people} people and in {channels} channels.',
+    save: 'Save',
+    saved: 'Saved.',
+    cardTitle: 'Unconfirmed draft from {name}’s agent',
+    cardNote: '{name} has not checked it yet. It may still change or be withdrawn.',
+    withdrawn: '{name} withdrew this draft',
+    withdrawnNote: 'It was never sent.',
+    ownNotice: '{names} can see your agent’s draft here before you check it.',
+    ownNoticeRoom: 'Everyone in this room can see your agent’s draft before you check it.',
+    confirmed: '{name} checked and sent the draft you saw early.',
+    confirmedEdited: '{name} changed the draft you saw early before sending it.',
   },
   cloudDesk: {
     legend: 'Cloud desk',

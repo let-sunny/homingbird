@@ -26,6 +26,7 @@ import { sendIfSavedAnswer } from './auto-send.ts'
 import { channelAgentOf, channelOfAgentRoom, managersOf } from './channel-rows.ts'
 import { channelRoomFor } from './channels.ts'
 import { directConversationWith, participatedConversation, requireMayMessageIn } from './conversations.ts'
+import { announcePreview } from './draft-previews.ts'
 import { storedSources } from './draft-sources.ts'
 import type { NoteRow } from './note-rows.ts'
 import { announceStatus, noteById } from './note-status.ts'
@@ -103,6 +104,7 @@ export const createDraft = (caller: Caller, target: DraftTarget): T.Task<Note, N
     if (sent !== null) return sent
     const draft = yield* noteById(row.id, authorId)
     yield* emit([authorId], { type: 'draft.saved', note: draft })
+    yield* announcePreview(row)
     if (row.in_reply_to !== null) yield* announceStatus(row.in_reply_to)
     if (!isPerson(caller.member))
       yield* announceReview(yield* reviewersOf(row), row.id, { isNewAnswer: true })
@@ -136,6 +138,8 @@ export const updateDraft = (
     if (sent !== null) return sent
     const updated = yield* noteById(id, caller.member.id)
     yield* emit([caller.member.id], { type: 'draft.saved', note: updated })
+    yield* announcePreview({ ...draft, conversation_id: conversationId })
+    if (conversationId !== draft.conversation_id) yield* announcePreview(draft)
     if (!isPerson(caller.member)) yield* announceReview(yield* reviewersOf(draft), id)
     return updated
   })

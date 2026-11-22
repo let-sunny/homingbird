@@ -99,6 +99,8 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "CREATE TABLE IF NOT EXISTS principle_auto_send_places (principle_id VARCHAR(64) NOT NULL, conversation_id VARCHAR(64) NOT NULL, PRIMARY KEY (principle_id, conversation_id))",
   "ALTER TABLE notes ADD COLUMN auto_principle_id VARCHAR(64)",
   "ALTER TABLE notes ADD COLUMN withdrawn_at BIGINT",
+  "CREATE TABLE IF NOT EXISTS draft_preview_allowances (member_id VARCHAR(64) NOT NULL, kind VARCHAR(400) NOT NULL, target_id VARCHAR(64) NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (member_id, kind, target_id), INDEX draft_preview_allowances_kind_target_id_idx (kind, target_id))",
+  "ALTER TABLE notes ADD COLUMN preview_withdrawn_at BIGINT",
 ]
 `;
 
@@ -246,6 +248,9 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "CREATE TABLE IF NOT EXISTS principle_auto_send_places (principle_id VARCHAR(64) NOT NULL, conversation_id VARCHAR(64) NOT NULL, PRIMARY KEY (principle_id, conversation_id))",
   "ALTER TABLE notes ADD COLUMN auto_principle_id VARCHAR(64)",
   "ALTER TABLE notes ADD COLUMN withdrawn_at BIGINT",
+  "CREATE TABLE IF NOT EXISTS draft_preview_allowances (member_id VARCHAR(64) NOT NULL, kind VARCHAR(400) NOT NULL, target_id VARCHAR(64) NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (member_id, kind, target_id))",
+  "CREATE INDEX IF NOT EXISTS draft_preview_allowances_kind_target_id_idx ON draft_preview_allowances (kind, target_id)",
+  "ALTER TABLE notes ADD COLUMN preview_withdrawn_at BIGINT",
 ]
 `;
 
@@ -393,5 +398,8 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "CREATE TABLE IF NOT EXISTS principle_auto_send_places (principle_id TEXT NOT NULL, conversation_id TEXT NOT NULL, PRIMARY KEY (principle_id, conversation_id))",
   "ALTER TABLE notes ADD COLUMN auto_principle_id TEXT",
   "ALTER TABLE notes ADD COLUMN withdrawn_at INTEGER",
+  "CREATE TABLE IF NOT EXISTS draft_preview_allowances (member_id TEXT NOT NULL, kind TEXT NOT NULL, target_id TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (member_id, kind, target_id))",
+  "CREATE INDEX IF NOT EXISTS draft_preview_allowances_kind_target_id_idx ON draft_preview_allowances (kind, target_id)",
+  "ALTER TABLE notes ADD COLUMN preview_withdrawn_at INTEGER",
 ]
 `;

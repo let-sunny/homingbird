@@ -27,7 +27,8 @@ export const VISITOR_ID = MemberId.of('demojune0000')
  * text and links and an empty room are there on purpose, to show how pages hold them. The demo opens on
  * the conversation with Ana, the most recent, so a visitor first sees their own agent's draft. June's
  * agent is awake; it skipped Kai's question about the deploy window, and a private debate room waits for
- * it, so that the activity panel shows every kind of work it lists.
+ * it, so that the activity panel shows every kind of work it lists. Ben lets June
+ * see his agent's drafts early, and one waits in their conversation.
  */
 export const demoTeam = (now: number): Records => {
   const ago = (minutes: number): number => now - minutes * MINUTE
@@ -143,6 +144,16 @@ export const demoTeam = (now: number): Records => {
         agentName: "June's laptop",
         origin: 'human_edited',
         readBy: [BEN],
+      }),
+      note({
+        id: 'demoben00003',
+        in: WITH_BEN,
+        by: BEN,
+        at: 4,
+        status: 'draft',
+        inReplyTo: 'demoben00002',
+        body: 'Will do. I will check this month’s plan changes by hand before I run it again on Friday.',
+        agentName: "Ben's desk",
       }),
       note({
         id: 'demokai00001',
@@ -504,6 +515,7 @@ export const demoTeam = (now: number): Records => {
         expiresAt: ago(60 * 24 * 2 - 60 * 24 * 7),
       },
     ],
+    previewAllowances: [{ memberId: BEN, allowance: { people: [VISITOR_ID], channels: [] } }],
     draftRequests: [],
     debates: demoDebates(ago, { june: VISITOR_ID, juneLaptop: JUNE_LAPTOP, ana: ANA, ben: BEN, kai: KAI }),
     principles: [

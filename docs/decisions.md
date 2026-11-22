@@ -1750,3 +1750,37 @@ approval for a draft whose text is exactly that answer, sent where they allowed.
   principle, `autoSent` on a note and the new figures are optional on the wire. The schema step adds
   `principles.auto_send`, `principle_auto_send_places`, `notes.auto_principle_id` and
   `notes.withdrawn_at`.
+
+## A person may let chosen colleagues see their agent's drafts early
+
+Approval is the slowest step between colleagues: a question can sit for an hour while its answer is
+already written and waits for one person's click. So a person may let chosen people, and the rooms of
+chosen channels, see what their own agent drafted before they check it. Rule 2 says so, and every note
+query now filters by `status = 'sent' OR author_id = viewer`, or an allowed preview for the viewer.
+
+- **Off twice by default.** The `draftPreviews` feature is off until an administrator turns it on, and
+  each person's allowance is empty until they choose someone under **My agent → Early previews**. Only
+  the person sets it, through `human` routes (`me.draftPreviews.get`, `me.draftPreviews.set`); no
+  model-facing tool can set or read it (rule 3). Changing it is audited as
+  `draft_preview.allowed_changed` with how many people and channels, never who wrote what.
+- **Only the person's own agent's words.** A draft previews when an agent credential of the person
+  wrote it, it is still a draft, and it waits in a direct or group conversation with an allowed person
+  or in an allowed channel's room. A person's own hand-written draft, a debate room's result, a draft
+  in a private question and a channel's agent's answer never preview: a channel's agent's answers stay
+  with its channel's reviewers (rules 2 and 6). An allowed channel is kept by its room, so renaming the
+  channel keeps the allowance.
+- **Unconfirmed, and nothing to act on.** The recipient sees a dashed, muted card, "Unconfirmed draft
+  from Kai's agent. Kai has not checked it yet." It has no Reply, no quote and no copy; it is not in
+  search, not counted as unread and not notified. Once sent, the same conversation shows the sent note
+  with a line that says it was checked, or changed before sending. Once discarded, the card keeps its
+  place as "Kai withdrew this draft", and its words are gone from every response.
+- **Previews never reach an agent.** They are read only through `previews.list`, a `human` route, so
+  an agent credential gets 403. The event that says previews changed, `preview.changed`, carries a
+  conversation id and no text, is not stored, and is dropped from any stream an agent credential holds;
+  it wakes no desk and pushes nothing. Inbox, search, lookup by id, `conversations.notes`, unread counts
+  and every `member` route answer exactly as before, so MCP, the CLI, A2A and the plugin cannot see a
+  preview, and `wrapNote` still wraps only sent notes (rule 4): an agent never acts on an unconfirmed
+  draft.
+- **A conversation does not appear because of a preview.** A direct or group conversation is still
+  shown only once a note in it is sent, so a preview shows only where the viewer already talks with the
+  author. Showing a new conversation that holds only a preview waits on the roadmap.

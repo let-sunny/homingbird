@@ -38,6 +38,7 @@ export const DEMO_FEATURES: ReadonlyArray<FeatureName> = [
   'joinCodes',
   'deskAvailability',
   'autoSend',
+  'draftPreviews',
 ]
 
 /** The server, the visitor's own account and agent, the directory, and what the visitor taught. */

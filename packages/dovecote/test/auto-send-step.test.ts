@@ -11,8 +11,8 @@ afterEach(async () => {
 })
 
 describe('the automatic sending step', () => {
-  it('is the last step, after channel teaching', () => {
-    expect(stepNumberOf(AUTO_SEND)).toBe(MIGRATIONS.length)
+  it('is the seventeenth step, after channel teaching', () => {
+    expect(stepNumberOf(AUTO_SEND)).toBe(17)
   })
 
   it('leaves every saved answer switched off and every note sent by a person, keeping their rows', async () => {

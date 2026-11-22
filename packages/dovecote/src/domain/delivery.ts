@@ -6,6 +6,7 @@ import { equalsExactly, insertInto, sql } from '../sql/query.ts'
 import { abandonDraft } from './abandoned-drafts.ts'
 import { answerersOf } from './channel-rows.ts'
 import { participantsOf } from './conversations.ts'
+import { announcePreview } from './draft-previews.ts'
 import type { NoteFailure } from './drafts.ts'
 import type { NoteRow } from './note-rows.ts'
 import { announceStatus, noteById } from './note-status.ts'
@@ -43,6 +44,7 @@ export const deliverDraft = (
     yield* run(sql`UPDATE conversations SET last_activity_at = ${now} WHERE id = ${draft.conversation_id}`)
     if (draft.in_reply_to !== null) yield* settleReply(authorId, draft.in_reply_to, now)
     yield* emit(participants, { type: 'note.sent', note: yield* noteById(id, null) })
+    yield* announcePreview(draft)
     if (draft.in_reply_to !== null) yield* announceStatus(draft.in_reply_to)
   })
 

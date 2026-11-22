@@ -731,6 +731,7 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `cloudDesk` | **off** | No cloud desk is woken and nobody can set one up; saved wakes are kept. Offered only with `HB_SECRETS_KEY` ([Cloud desk](#cloud-desk)) |
 | `analytics` | **off** | No usage counts leave the server ([Product analytics](#product-analytics)) |
 | `autoSend` | **off** | No saved answer sends itself; every draft waits for its person. On: a person may switch a saved answer to send itself, word for word, only in the direct messages and open channels they choose ([guide](guide.md#let-a-saved-answer-send-itself), [decisions](decisions.md#a-saved-answer-may-send-itself-word-for-word-where-its-person-allowed)) |
+| `draftPreviews` | **off** | Nobody sees a colleague's agent's draft before its person checks it; on, each person chooses who may under **My agent → Early previews** ([guide](guide.md#let-colleagues-see-your-agents-drafts-early)) |
 
 Notes, drafts, approval, direct messages, sign-in and the audit trail are the core and cannot be turned
 off. `HB_FEATURES` seeds the switches at first start, such as `HB_FEATURES="teaching=off,characters=on"`;

@@ -17,6 +17,7 @@ import {
   me,
   member,
   note,
+  serverInfo,
 } from '../support/fixtures.ts'
 
 const event = (body: unknown, seq = 1): AsRead.StreamEvent => ({ seq, at: 1, body }) as AsRead.StreamEvent
@@ -34,6 +35,7 @@ const live = () => {
     'debates.list': () => ({ debates: [] }),
     'debates.get': () => ({}),
     'groups.list': () => ({ groups: [] }),
+    'previews.list': () => ({ previews: [] }),
   })
   test.state.session.set(me())
   test.state.directory.set([entry(BEN, 'Ben')])
@@ -298,6 +300,22 @@ describe('liveEvents', () => {
     await clock.advance(DIRECTORY_SETTLE_MS)
     await settle()
     expect(routes().filter((route) => route === 'reviews.list')).toHaveLength(1)
+  })
+
+  it('reads again the previews of a conversation this page holds, or of every one when none is named', async () => {
+    const { apply, state, sent } = live()
+    state.serverInfo.set(serverInfo({ draftPreviews: true }))
+    apply(event({ type: 'preview.changed', conversationId: ROOM }))
+    await settle()
+    expect(sent.filter((one) => one.route === 'previews.list')).toEqual([])
+    state.previews.set(new Map([[ROOM, []]]))
+    apply(event({ type: 'preview.changed', conversationId: ROOM }))
+    apply(event({ type: 'preview.changed', conversationId: null }))
+    await settle()
+    expect(sent.filter((one) => one.route === 'previews.list').map((one) => one.request)).toEqual([
+      { params: { id: ROOM } },
+      { params: { id: ROOM } },
+    ])
   })
 
   it('reloads the groups on a resync, once they were loaded', async () => {
