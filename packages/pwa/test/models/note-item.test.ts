@@ -467,6 +467,12 @@ describe('noteItemModel', () => {
     ])
   })
 
+  it('offers no “Ask my agent to draft a reply” on a note in a private question', () => {
+    const asked = conversation({ kind: 'group', participantIds: [ANA, BEN], privateQuestionOf: 'billing' })
+    const model = noteItemModel(threadInput({ conversations: [asked] }), item(note('q')))
+    expect(model.menu.items.map((one) => one.kind)).toEqual(['reply', 'copy', 'copy-link'])
+  })
+
   it('says why the person’s agent cannot be asked while their desk runs but it cannot answer', () => {
     const theirs = note('n1')
     const unavailable = entry(ANA, 'Ana', {

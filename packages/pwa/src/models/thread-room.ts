@@ -59,6 +59,13 @@ export const roomOf = (
 ): AsRead.Conversation | undefined =>
   input.conversations.find((candidate) => candidate.id === input.conversationId)
 
+/**
+ * Whether the person may ask their own agent for a draft here: never in a private question, which a
+ * person's agent cannot read (rule 6).
+ */
+export const mayAskOwnAgentIn = (input: Pick<ThreadInput, 'conversations' | 'conversationId'>): boolean =>
+  roomOf(input)?.privateQuestionOf === undefined
+
 export const nameIn = (input: Pick<ThreadInput, 'members'>, memberId: MemberId): string =>
   input.members.get(memberId)?.name ?? strings.formerMember
 

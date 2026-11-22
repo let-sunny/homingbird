@@ -4,6 +4,7 @@ import {
   channelAskedIn,
   isFocusedDraftOpen,
   isOn,
+  mayAskOwnAgentIn,
   mayMessageIn,
   nameIn,
   noteIn,
@@ -31,6 +32,16 @@ import {
 import { threadInput } from '../support/thread.ts'
 
 describe('reading the conversation', () => {
+  it('lets the person ask their own agent anywhere but in a private question', () => {
+    expect(mayAskOwnAgentIn(threadInput({ conversations: [conversation()] }))).toBe(true)
+    expect(mayAskOwnAgentIn(threadInput({ conversations: [] }))).toBe(true)
+    const asked = conversation({ kind: 'group', privateQuestionOf: 'billing' })
+    expect(mayAskOwnAgentIn(threadInput({ conversations: [asked] }))).toBe(false)
+    expect(mayAskOwnAgentIn(threadInput({ conversations: [{ ...asked, privateQuestionOf: null }] }))).toBe(
+      false,
+    )
+  })
+
   it('finds its notes, a note by id, its room, names and features', () => {
     const first = note('n1')
     const input = threadInput({ thread: { notes: [first], hasMore: false } })

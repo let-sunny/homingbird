@@ -1,5 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import {
+  Conflict,
   type ConversationId,
   type EventBody,
   NotFound,
@@ -52,6 +53,12 @@ export const requireReadableTarget = (
     if (answered !== null) yield* requireReadableRoom(caller, answered.conversation_id)
   })
 
+export const requireRoomForOwnAgent = (conversationId: ConversationId): T.Task<void, Conflict, AppEnv> =>
+  T.gen(function* () {
+    if ((yield* privateQuestionsAmong([conversationId])).size > 0)
+      return yield* T.fail(Conflict({ message: PRIVATE_QUESTION_NO_AGENT }))
+  })
+
 export const readableEvents = (
   caller: Caller,
   events: ReadonlyArray<StreamEvent>,
@@ -75,3 +82,6 @@ const roomOfEvent = (body: EventBody): ConversationId | null => {
   if ('conversationId' in body && typeof body.conversationId === 'string') return body.conversationId
   return null
 }
+
+const PRIVATE_QUESTION_NO_AGENT =
+  'Your own agent cannot read a private question, so it cannot draft here. Write the reply yourself.'

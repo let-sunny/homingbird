@@ -7,6 +7,7 @@ import {
   readsPrivateQuestions,
   requireReadableRoom,
   requireReadableTarget,
+  requireRoomForOwnAgent,
 } from '../src/domain/private-question-readers.ts'
 import type { Caller } from '../src/environment.ts'
 import { run } from '../src/sql/database.ts'
@@ -102,6 +103,14 @@ describe('who reads private questions', () => {
     ).toMatchObject({
       _tag: 'Ok',
     })
+  })
+
+  it('refuses a person’s agent a draft request in a private question, and takes it anywhere else', async () => {
+    expect(await running(requireRoomForOwnAgent(question))).toMatchObject({
+      _tag: 'Err',
+      error: { _tag: 'Conflict', message: expect.stringContaining('cannot read a private question') },
+    })
+    expect(await running(requireRoomForOwnAgent(lobby))).toMatchObject({ _tag: 'Ok' })
   })
 
   it('drops an agent’s events about a private question, whichever way the event names its room', async () => {

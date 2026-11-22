@@ -24,7 +24,16 @@ import { agentAuthorshipLine, approvalLine } from './channel-agent.ts'
 import { asksLine } from './composer-tags.ts'
 import { confirmedPreviewLine } from './draft-previews.ts'
 import { type TeachSeed, teachSeedOf } from './teaching.ts'
-import { type ThreadInput, channelAskedIn, isOn, nameIn, noteIn, notesOf, roomOf } from './thread-room.ts'
+import {
+  type ThreadInput,
+  channelAskedIn,
+  isOn,
+  mayAskOwnAgentIn,
+  nameIn,
+  noteIn,
+  notesOf,
+  roomOf,
+} from './thread-room.ts'
 import { type TimeShown, noteTimeShown } from './time.ts'
 
 /** One sent note: who wrote it and how, what it answers, how far it got, and what the person may do. */
@@ -136,7 +145,7 @@ export const noteItemModel = (
     menu: {
       id: `note-menu-${note.id}`,
       label: strings.noteMore,
-      items: menuItems(input, { reply: !archived, askAgent: !mine && !archived }),
+      items: menuItems(input, { reply: !archived, askAgent: !mine && !archived && mayAskOwnAgentIn(input) }),
       fixed: mine ? strings.noteFixed : null,
     },
   }

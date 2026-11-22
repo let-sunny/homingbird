@@ -8,13 +8,21 @@ import { strings } from '../strings.ts'
 import { excerpt, isArchived, otherParticipants } from '../thread.ts'
 import { agentAskReach } from './agent-ask.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
-import { type ThreadInput, channelAskedIn, isOn, mayMessageIn, noteIn, roomOf } from './thread-room.ts'
+import {
+  type ThreadInput,
+  channelAskedIn,
+  isOn,
+  mayAskOwnAgentIn,
+  mayMessageIn,
+  noteIn,
+  roomOf,
+} from './thread-room.ts'
 
 /** Where the person writes: sending, what they asked their agent for, what they answer, and whether they may. */
 export const composerModel = (input: ThreadInput): ComposerModel => {
   if (isArchived(roomOf(input))) return { kind: 'archived', notice: strings.archivedRoomNotice }
   const charactersOn = isOn(input, 'characters')
-  const draftRequestsOn = isOn(input, 'draftRequests')
+  const draftRequestsOn = isOn(input, 'draftRequests') && mayAskOwnAgentIn(input)
   const waiting = draftRequestsOn ? waitingRequests(input.draftRequests, input.conversationId, input.now) : []
   const mine = input.directory.find((entry) => entry.member.id === input.me.member.id)
   const target = noteIn(input, input.replyTarget)

@@ -2438,6 +2438,17 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
       for (const target of [{ conversationId: room }, { inReplyTo: question.id }])
         expect((await personal.api('POST', '/drafts', { ...target, body: 'Let me answer' })).status).toBe(404)
     }
+    for (const [person, target] of [
+      [dee, { conversationId: room }],
+      [ben, { inReplyTo: question.id }],
+    ] as const) {
+      const refused = await person.api('POST', '/draft-requests', target)
+      expect([refused.status, refused.json.error.message]).toEqual([
+        409,
+        'Your own agent cannot read a private question, so it cannot draft here. Write the reply yourself.',
+      ])
+    }
+    expect((await ben.api('GET', '/draft-requests')).json.requests).toEqual([])
   })
 
   it('lets a channel’s agent into no room but its channel’s and its private questions', async () => {
