@@ -66,6 +66,19 @@ describe('dovecote members verify-left', () => {
       })
   })
 
+  it('says it could not check HB_ADMIN_EMAILS where it is not set, without failing for it', async () => {
+    server = await startTestServer()
+    const root = await server.signIn('root@example.com')
+    const ben = await server.signIn('ben@example.com')
+    await root.api('PATCH', `/admin/members/${ben.me.member.id}`, { status: 'deactivated' })
+    const checked = await command('verify-left', 'ben@example.com')
+    expect(checked.code).toBe(0)
+    expect(checked.lines.slice(-2)).toEqual([
+      '  skip  Not named in HB_ADMIN_EMAILS: not checked, because HB_ADMIN_EMAILS is not set here; set it as the server has it',
+      'Every check that ran passes; 1 could not run.',
+    ])
+  })
+
   it('refuses a database of another version without changing it', async () => {
     server = await startTestServer()
     await T.runPromise(run(sql`DELETE FROM schema_versions WHERE version > 1`), server.env)

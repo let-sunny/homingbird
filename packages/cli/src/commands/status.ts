@@ -2,13 +2,14 @@ import { Task as T } from '@homingbird/kernel'
 import { credentialFor, readCredential, storedServers } from '../credentials.ts'
 import { deskPausePath, deskStateText, isDeskPaused } from '../desk-pause.ts'
 import type { CliEnv } from '../environment.ts'
-import type { CliFailure } from '../failure.ts'
+import { type CliFailure, EXIT } from '../failure.ts'
 import { type Outcome, outcome } from '../outcome.ts'
 import { apiFor, calling, requireReadable } from '../session.ts'
 
 /**
  * Who this device is signed in as: on the server named, on the only one, on each of several, or with
- * the credentials file given.
+ * the credentials file given. Exits 3 when it is signed in nowhere, as when the server refuses the
+ * credential, so a device check can rely on the exit code alone.
  */
 export const status: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
   const env = yield* T.ask<CliEnv>()
@@ -20,6 +21,7 @@ export const status: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
     return outcome(
       { signedIn: false, ...(env.server !== null && { server: env.server }), servers },
       env.server === null ? 'Not signed in.' : `Not signed in to ${env.server}.`,
+      EXIT.signedOut,
     )
   const api = apiFor(env, agent)
   yield* requireReadable(api)

@@ -77,6 +77,22 @@ describe('the configuration', () => {
     ])
   })
 
+  it('needs only the database for an operator command, and still checks what it is given', () => {
+    const command = loadConfig({ HB_DATABASE_URL: 'postgres://hb@db.internal/homingbird' }, 'command')
+    expect(command).toMatchObject({
+      _tag: 'Ok',
+      value: { databaseUrl: 'postgres://hb@db.internal/homingbird', adminEmails: [] },
+    })
+    expect(loadConfig({ HB_ADMIN_EMAILS: 'Root@example.com' }, 'command')).toMatchObject({
+      _tag: 'Ok',
+      value: { adminEmails: ['root@example.com'], identity: { devLogin: false } },
+    })
+    expect(loadConfig({ HB_NOTE_RETENTION_DAYS: '3' }, 'command')).toMatchObject({ _tag: 'Err' })
+    expect(loadConfig({ HB_DATABASE_URL: 'postgres://hb@db.internal/homingbird' })).toMatchObject({
+      _tag: 'Err',
+    })
+  })
+
   it('allows the development login only on a loopback address', () => {
     expect(problemsOf({ HB_PUBLIC_URL: 'https://homingbird.example.com', HB_DEV_LOGIN: '1' })).toContain(
       'HB_DEV_LOGIN: only allowed when HB_PUBLIC_URL is a loopback address',

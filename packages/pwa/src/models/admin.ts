@@ -327,8 +327,12 @@ const memberRow = (
 }
 
 const memberActions = (member: AsRead.Member, charactersOn: boolean): AdminMemberRow['actions'] => [
-  ...(member.role === 'admin' ? [memberAction('make-member', strings.makeMember)] : []),
-  ...(member.role === 'member' ? [memberAction('make-admin', strings.makeAdmin)] : []),
+  ...(member.status === 'active' && member.role === 'admin'
+    ? [memberAction('make-member', strings.makeMember)]
+    : []),
+  ...(member.status === 'active' && member.role === 'member'
+    ? [memberAction('make-admin', strings.makeAdmin)]
+    : []),
   ...(member.status === 'active' ? [memberAction('deactivate', strings.deactivate, 'danger')] : []),
   ...(member.status === 'deactivated' ? [memberAction('reactivate', strings.reactivate)] : []),
   ...(member.character != null && charactersOn

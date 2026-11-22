@@ -1,6 +1,5 @@
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { DatabaseSync } from 'node:sqlite'
 import { Task as T, makeMutex } from '@homingbird/kernel'
 import type { Connection, Database, Row } from './database.ts'
 import type { Query } from './query.ts'
@@ -8,6 +7,9 @@ import type { Query } from './query.ts'
 /** One connection, used by one statement or transaction at a time, so no transaction sees another's work. */
 export const openSqlite = (path: string): Database => {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true })
+  // Loaded when opened, not imported: the bundle hoists every import, and loading `node:sqlite` prints
+  // Node's experimental warning even for a server on PostgreSQL or MySQL.
+  const { DatabaseSync } = process.getBuiltinModule('node:sqlite')
   const db = new DatabaseSync(path)
   db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;')
 

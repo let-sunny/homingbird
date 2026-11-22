@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { FEATURES, FEATURE_NAMES, FEATURE_OFF_MESSAGE } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
@@ -111,6 +113,18 @@ describe('feature switches', () => {
       expect((await probes[name]!(ana)).status).toBe(200)
     },
   )
+
+  it('are each described in the deployment guide’s table, with the default the program has, and no other', () => {
+    const guide = readFileSync(join(import.meta.dirname, '..', '..', '..', 'docs', 'deployment.md'), 'utf8')
+    const section = guide.slice(guide.indexOf('\n## Features\n'), guide.indexOf('\n## Web push\n'))
+    const rows = [...section.matchAll(/^\| `([A-Za-z]+)` \| (\*\*off\*\*|on) \|/gm)].map(
+      (row) => [row[1], row[2] === 'on'] as const,
+    )
+    expect(Object.fromEntries(rows)).toEqual(
+      Object.fromEntries(FEATURE_NAMES.map((name) => [name, FEATURES[name].default])),
+    )
+    expect(rows).toHaveLength(FEATURE_NAMES.length)
+  })
 
   it('names a route for every switch that has one; analytics, which also needs a destination, has its own tests', () => {
     for (const name of FEATURE_NAMES)

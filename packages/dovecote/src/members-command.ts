@@ -29,9 +29,16 @@ export const runMembersCommand = (
     }
     const checks = offboardingChecks(facts)
     write(`Offboarding checks for ${facts.email} (${facts.id}):`)
-    for (const check of checks) write(`  ${check.passed ? 'pass' : 'FAIL'}  ${check.text}`)
-    const failed = checks.filter((check) => !check.passed).length
-    write(failed === 0 ? 'Every check passes.' : `${failed} of ${checks.length} checks fail.`)
+    for (const check of checks) write(`  ${markOf(check.passed)}  ${check.text}`)
+    const failed = checks.filter((check) => check.passed === false).length
+    const unchecked = checks.filter((check) => check.passed === null).length
+    write(
+      failed > 0
+        ? `${failed} of ${checks.length} checks fail.`
+        : unchecked > 0
+          ? `Every check that ran passes; ${unchecked} could not run.`
+          : 'Every check passes.',
+    )
     return failed === 0 ? 0 : 1
   })
 
@@ -66,17 +73,23 @@ export const offboardingChecks = (facts: LeaverFacts): ReadonlyArray<Offboarding
     text: `No Slack account linked${found(facts.slackLinks, 'is linked', 'are linked')}`,
   },
   {
-    passed: !facts.namedAdministrator,
-    text: facts.namedAdministrator
-      ? 'Not named in HB_ADMIN_EMAILS: remove them from it and restart Dovecote'
-      : 'Not named in HB_ADMIN_EMAILS',
+    passed: facts.namedAdministrator === null ? null : !facts.namedAdministrator,
+    text:
+      facts.namedAdministrator === null
+        ? 'Not named in HB_ADMIN_EMAILS: not checked, because HB_ADMIN_EMAILS is not set here; set it as the server has it'
+        : facts.namedAdministrator
+          ? 'Not named in HB_ADMIN_EMAILS: remove them from it and restart Dovecote'
+          : 'Not named in HB_ADMIN_EMAILS',
   },
 ]
 
 export interface OffboardingCheck {
-  readonly passed: boolean
+  /** Null for a check that could not run where the command ran. */
+  readonly passed: boolean | null
   readonly text: string
 }
+
+const markOf = (passed: boolean | null): string => (passed === null ? 'skip' : passed ? 'pass' : 'FAIL')
 
 const found = (count: number, one: string, other: string): string =>
   count === 0 ? '' : `: ${count} ${count === 1 ? one : other}`

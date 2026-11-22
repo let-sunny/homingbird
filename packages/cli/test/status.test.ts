@@ -48,11 +48,11 @@ describe('status', () => {
     expect(everythingPrinted(w)).not.toContain(AGENT_TOKEN)
   })
 
-  it('says not signed in without calling the server', async () => {
+  it('says not signed in without calling the server, and exits 3 as for a refused credential', async () => {
     const w = world({ signedIn: 'none' })
-    expect(await w.run('status')).toBe(0)
+    expect(await w.run('status')).toBe(EXIT.signedOut)
     expect(w.lines).toEqual(['Not signed in.'])
-    await w.run('status', '--json')
+    expect(await w.run('status', '--json')).toBe(EXIT.signedOut)
     expect(w.json()).toEqual({ signedIn: false, servers: [] })
     expect(w.calls).toEqual([])
   })

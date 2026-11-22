@@ -191,11 +191,7 @@ describe('adminMembersModel', () => {
       actions: [],
       role: { text: strings.memberRole.admin, className: 'kind is-admin' },
     })
-    expect(rows[1]!.actions.map((action) => action.kind)).toEqual([
-      'make-member',
-      'reactivate',
-      'reset-character',
-    ])
+    expect(rows[1]!.actions.map((action) => action.kind)).toEqual(['reactivate', 'reset-character'])
     expect(rows[2]!.actions).toEqual([
       { kind: 'make-admin', label: strings.makeAdmin, danger: false },
       { kind: 'deactivate', label: strings.deactivate, danger: true },
@@ -205,6 +201,22 @@ describe('adminMembersModel', () => {
         input({ members: [member(BEN, 'Ben', { character: { id: 'owl' } as never })], charactersOn: false }),
       )!.rows[0]!.actions.map((action) => action.kind),
     ).toEqual(['make-admin', 'deactivate'])
+  })
+
+  it('offers no role change to a deactivated member, admin or not, until they are reactivated', () => {
+    const { rows } = adminMembersModel(
+      input({
+        members: [
+          member(ANA, 'Ana', { role: 'admin' }),
+          member(BEN, 'Ben', { status: 'deactivated' }),
+          member(CY, 'Cy', { role: 'admin', status: 'deactivated' }),
+        ],
+      }),
+    )!
+    expect(rows.slice(1).map((row) => row.actions.map((action) => action.kind))).toEqual([
+      ['reactivate'],
+      ['reactivate'],
+    ])
   })
 
   it('says when each member was last active, in full on hover, and never for one who never connected', () => {
