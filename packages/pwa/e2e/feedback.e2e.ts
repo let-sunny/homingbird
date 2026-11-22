@@ -82,7 +82,7 @@ const scenario = async (): Promise<void> => {
     // -- 11c, home: nothing exists yet, so every entry offers a way forward ----------------------
     await ben.page.goto(`${base}/#/`)
     await ben.page.waitForSelector('.stage .starting-points a:has-text("Ask a channel")')
-    await ben.page.waitForSelector('.stage .starting-points a:has-text("Connect your agent")')
+    await ben.page.waitForSelector('.stage .starting-points a:has-text("Another agent, or a server")')
     await ben.page.waitForSelector('.sidebar .empty:has-text("You are in no channel yet")')
     await inThemes(ben.page, 'home-with-nothing-yet-offers-starting-points')
     await ben.page.setViewportSize(NARROW)

@@ -59,6 +59,20 @@ describe('debateView', () => {
     expect(called('optInAgent')).toHaveLength(1)
   })
 
+  it('leads the opt-in with what the person decides and keeps the advice for whoever runs the agent folded', () => {
+    const { context } = testContext()
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
+    context.state.agentCredentials.set([credential('cred_desk')])
+    context.state.shownDebate.set(debate())
+    const section = shown.querySelector('.debate-opt-in')!
+    expect(section.querySelector('.hint')?.textContent).toBe(strings.debates.optInHint)
+    expect(strings.debates.optInHint).not.toContain('--split')
+    const advice = section.querySelector('details.debate-opt-in-advice')!
+    expect(advice.hasAttribute('open')).toBe(false)
+    expect(textOf(advice.querySelector('summary')!)).toBe(strings.debates.optInAdviceTitle)
+    expect(textOf(advice)).toContain('--split')
+  })
+
   it('shows the agents, their turns, and who dropped out', () => {
     const { context } = testContext()
     const shown = debateView(context, lifetime(), me(), 'debate_1', null)

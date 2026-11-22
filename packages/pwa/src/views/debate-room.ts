@@ -384,6 +384,12 @@ const optInSection = (
     'debate-opt-in',
     h('p', { class: 'hint' }, strings.debates.optInHint),
     h(
+      'details',
+      { class: 'debate-opt-in-advice' },
+      h('summary', {}, strings.debates.optInAdviceTitle),
+      h('p', { class: 'hint' }, strings.debates.optInAdvice),
+    ),
+    h(
       'form',
       {
         class: 'debate-opt-in-form',

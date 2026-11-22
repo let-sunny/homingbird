@@ -3685,18 +3685,53 @@ button:disabled {
   text-align: center;
 }
 
-.starting-points ul {
+.starting-points ol {
   display: grid;
-  gap: var(--hb-space-3);
-  inline-size: min(30rem, 100%);
+  gap: var(--hb-space-4);
+  inline-size: min(34rem, 100%);
+  margin: 0;
+  padding-inline-start: var(--hb-space-6);
+  list-style: decimal;
+  text-align: start;
 }
 
-.starting-points li {
-  display: grid;
-  justify-items: center;
-  gap: var(--hb-space-1);
+.start-step::marker {
+  font-weight: 600;
+}
+
+.start-step > strong {
+  display: block;
+}
+
+.start-step > * + * {
+  margin-block-start: var(--hb-space-1);
+}
+
+.start-step > p {
   color: var(--hb-color-muted);
   font-size: var(--hb-text-small);
+}
+
+.start-step > pre {
+  padding: var(--hb-space-2);
+  border: var(--hb-border);
+  background: var(--hb-color-sunken);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.start-step > .start-step-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hb-space-2);
+}
+
+.start-step-done {
+  margin-inline-start: var(--hb-space-2);
+  padding: 0 var(--hb-space-1);
+  border: var(--hb-border);
+  font-size: var(--hb-text-small);
+  font-weight: 400;
 }
 
 .no-conversations {
@@ -3722,7 +3757,7 @@ button:disabled {
   }
 }
 
-.starting-points .button {
+.starting-points .button:not(.primary) {
   color: var(--hb-color-text);
 }
 
@@ -3775,6 +3810,11 @@ textarea:disabled {
 .first-steps {
   display: grid;
   gap: var(--hb-space-2);
+}
+
+.first-steps.is-folded > summary {
+  cursor: pointer;
+  font-weight: 600;
 }
 
 .first-steps ol {
@@ -5481,7 +5521,8 @@ textarea:disabled {
 }
 
 .debate-change-limits > summary,
-.debate-default-limits > summary {
+.debate-default-limits > summary,
+.debate-opt-in-advice > summary {
   cursor: pointer;
   font-weight: 600;
 }

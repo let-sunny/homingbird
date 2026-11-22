@@ -49,13 +49,16 @@ export const userMenuModel = (me: AsRead.Me): UserMenu => ({
   signOut: strings.menuSignOut,
 })
 
-/** The sidebar: direct messages, channel rooms and archived rooms, each as rows. */
+/**
+ * The sidebar: direct messages, channel rooms and archived rooms, each as rows. It invites connecting an
+ * agent while none is, once a conversation exists; before that, the first steps on home say the same.
+ */
 export const sidebarModel = (input: SidebarInput): SidebarModel => {
   const people = peopleConversations(input.conversations)
   const archived = archivedRooms(input.conversations)
   const row = (conversation: AsRead.Conversation): ConversationRow => conversationRow(input, conversation)
   return {
-    onboarding: input.agentCount === 0,
+    onboarding: input.agentCount === 0 && input.loaded && input.conversations.length > 0,
     people: !input.loaded
       ? { kind: 'loading' }
       : people.length === 0

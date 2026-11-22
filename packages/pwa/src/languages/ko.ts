@@ -493,7 +493,9 @@ export const ko: Translation<typeof en> = {
   codeFallback: '에이전트가 링크 대신 연결 코드를 보여 줬나요? 여기에 입력하세요.',
   firstSteps: {
     title: '첫 에이전트 연결하기',
-    plugin: 'Claude Code에서는 플러그인을 설치하고, 나 대신 답할 세션에서 /homingbird를 입력하세요.',
+    anotherTitle: '다른 에이전트 연결하기',
+    plugin:
+      'Claude Code에서는 플러그인을 설치하고, 나 대신 답할 세션에서 이 서버로 여세요. 플러그인은 그 세션을 데스크라고 불러요.',
     commandLine: 'Codex나 Gemini CLI 같은 다른 에이전트는 그 컴퓨터에 명령줄 도구를 설치하고 로그인하세요.',
     run: '그다음 에이전트가 계속 답하게 하세요. homingbird run이 노트가 올 때마다 에이전트를 실행해요.',
     joinHint: '브라우저가 없는 서버라면 그곳에서 로그인하지 말고 아래 “서버에서 돌리기”를 쓰세요.',
@@ -606,7 +608,7 @@ export const ko: Translation<typeof en> = {
       noteDetails: '노트를 쓴 모델과 프로그램',
       debateRooms: '토론방',
       channelAgents: '채널 에이전트',
-      cloudDesk: '클라우드 데스크: 클라우드 서비스에서 에이전트 깨우기 (실험 기능)',
+      cloudDesk: '클라우드 에이전트: 클라우드 서비스에서 에이전트 깨우기 (실험 기능)',
       joinCodes: '서버 연결 코드 (서버에서 에이전트 돌리기)',
       deskAvailability: '에이전트가 답할 수 없을 때 알리기',
       invites: '초대 링크',
@@ -630,7 +632,7 @@ export const ko: Translation<typeof en> = {
       channelAgents:
         '끄면: 채널 에이전트가 답하지 않고 그 에이전트를 실행하는 프로그램의 연결도 거절돼요. 지워지는 건 없고, 다시 켜면 돌아와요.',
       cloudDesk:
-        '끄면: 클라우드 데스크를 깨우지 않고 아무도 설정할 수 없어요. 저장된 설정은 남아요. 서버에 HB_SECRETS_KEY도 있어야 해요.',
+        '끄면: 클라우드 에이전트를 깨우지 않고 아무도 설정할 수 없어요. 저장된 설정은 남아요. 서버에 HB_SECRETS_KEY도 있어야 해요.',
       joinCodes:
         '끄면: 아무도 서버 연결 코드를 만들 수 없고, 이미 만든 서버 연결 코드도 거절돼요. 서버는 homingbird login으로 로그인해요.',
       deskAvailability:
@@ -999,7 +1001,10 @@ export const ko: Translation<typeof en> = {
     noParticipants: '아직 참여한 에이전트가 없어요.',
     optInTitle: '내 에이전트 참여시키기',
     optInHint:
-      '에이전트는 이 토론방에서만 차례를 가져요. 각 차례는 내 승인 없이 쓴 그대로 토론방에 보이고, 결과는 에이전트들이 투표로 정해요. 결과는 나나 차례를 가진 다른 사람이 게시할 때만 밖으로 나가요. 다른 차례는 인용된 데이터로 읽고, 아무것도 보내지 않아요. 실행 도구 없이 돌리고, homingbird run에 --split을 붙여 읽는 에이전트와 쓰는 에이전트를 나눠 주세요.',
+      '에이전트는 이 토론방에서만, 내 승인 없이 말해요. 각 차례는 쓴 그대로 보여요. 결과는 에이전트들이 투표로 정하고, 나나 차례를 가진 다른 사람이 승인해서 게시할 때만 토론방 밖으로 나가요.',
+    optInAdviceTitle: '에이전트를 실행하는 사람을 위한 안내',
+    optInAdvice:
+      '에이전트는 다른 차례를 인용된 데이터로 읽고, 아무것도 보내지 않아요. 실행 도구 없이 돌리고, homingbird run에 --split을 붙여 읽는 에이전트와 쓰는 에이전트를 나눠 주세요.',
     chooseAgent: '에이전트',
     optIn: '참여시키기',
     noAgent: '먼저 내 에이전트 → 연결에서 에이전트를 연결하세요.',
@@ -1201,15 +1206,22 @@ export const ko: Translation<typeof en> = {
       '하루 중 잠깐이라도 그룹에 속해 있던 날(UTC 기준)은 모두 그 그룹에 세요. 두 그룹에 속한 사람은 두 그룹 모두에 세요.',
   },
   start: {
-    title: '여기서 시작해 보세요',
     askChannel: '채널에 질문하기',
-    askChannelHint: '누가 답할지 모르겠다면 채널에서 답하는 사람들에게 물어보세요.',
     findPerson: '사람 찾기',
-    findPersonHint: '동료에게 노트를 쓰면 동료의 에이전트가 답장 초안을 써요.',
-    connect: '에이전트 연결',
-    connectHint:
-      '에이전트 세션을 열어 두거나 계속 켜져 있는 컴퓨터에서 homingbird run을 실행하면 답장 초안을 써 줘요.',
     tour: '둘러보기',
+    firstTitle: '첫 노트까지 세 단계',
+    connectStep: '에이전트 연결',
+    connectStepHint:
+      'Claude Code에서 나 대신 답할 세션에 이 두 줄을 붙여 넣으세요. 에이전트가 답장 초안을 쓰고, 내가 승인하기 전에는 아무것도 보내지 않아요.',
+    otherAgents: '다른 에이전트나 서버에서',
+    connectedStep: '에이전트가 연결됐어요',
+    connectedStepHint: '나에게 노트가 오면 에이전트가 답장 초안을 써요.',
+    writeStep: '동료에게 쓰거나 채널에 질문하기',
+    writeStepHint: '동료의 에이전트가 답을 쓰고, 동료가 승인해야 나에게 와요.',
+    approveStep: '내 에이전트의 첫 초안 승인하기',
+    approveStepHint:
+      '동료가 나에게 노트를 쓰면 에이전트의 초안이 그 DM과 종 모양 버튼에서 기다려요. 승인하고 보내거나, 고치거나, 버리세요. 그 전에는 아무것도 나가지 않아요.',
+    done: '완료',
   },
   character: {
     title: '내 캐릭터',
@@ -1660,7 +1672,7 @@ export const ko: Translation<typeof en> = {
     failed: '지금은 서버 연결 코드를 만들 수 없어요. 잠시 후 다시 시도하세요.',
   },
   cloudDesk: {
-    legend: '클라우드 데스크',
+    legend: '클라우드 에이전트',
     intro:
       '내 컴퓨터 대신 클라우드 에이전트 서비스에서 내 에이전트를 실행해요. 할 일이 있는데 내 에이전트를 실행하는 프로그램이 없으면 Homingbird가 내가 준 주소를 불러요. 이 요청에는 노트가 담기지 않고 할 일이 있다는 사실만 담겨요. 깨어난 세션은 Homingbird 커넥터로 모든 내용을 읽어요.',
     service: '서비스',
@@ -1685,7 +1697,7 @@ export const ko: Translation<typeof en> = {
     test: '시험 삼아 깨우기',
     testHint: '서비스에서 실제 세션이 시작돼요.',
     remove: '삭제',
-    removeTitle: '클라우드 데스크를 삭제할까요?',
+    removeTitle: '클라우드에서 에이전트 깨우기를 그만둘까요?',
     removeBody: 'Homingbird가 깨우기 주소와 토큰을 지우고 그곳의 에이전트를 더 깨우지 않아요.',
     prompt: '깨어난 세션에 줄 프롬프트',
     promptHint:

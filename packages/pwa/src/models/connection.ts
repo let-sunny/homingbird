@@ -10,21 +10,27 @@ export const connectionModel = (input: ConnectionInput): ConnectionModel => {
   return {
     presence,
     unavailable: deskUnavailableReason(presence),
-    recommendation: presence?.agentOnline === true ? null : recommendationOf(input.joinCodes),
+    recommendation:
+      presence?.agentOnline === true || !hasConnectedAgent(input.credentials)
+        ? null
+        : recommendationOf(input.joinCodes),
     ...credentialsAndChannels(input),
   }
 }
 
-/** With no agent connected yet: how to connect the first one, step by step, and where the guide says more. */
+/**
+ * How to connect an agent, step by step, and where the guide says more: open while none is connected,
+ * folded as "another agent" once one is.
+ */
 export const firstStepsModel = (input: FirstStepsInput): FirstStepsModel | null => {
   if (input.credentials === null) return null
-  if (input.credentials.some((credential) => credential.kind === 'agent' && credential.revokedAt === null))
-    return null
+  const connected = hasConnectedAgent(input.credentials)
   const words = strings.firstSteps
   return {
-    title: words.title,
+    title: connected ? words.anotherTitle : words.title,
+    folded: connected,
     steps: [
-      { text: words.plugin, command: PLUGIN_INSTALL },
+      { text: words.plugin, command: claudeCodeCommands(input.origin) },
       {
         text: words.commandLine,
         command: `npm install -g @homingbird/cli\nhomingbird login --server ${input.origin}`,
@@ -35,6 +41,9 @@ export const firstStepsModel = (input: FirstStepsInput): FirstStepsModel | null 
     guide: { href: GUIDE_CONNECT_URL, label: words.guide },
   }
 }
+
+/** The two lines that install the Claude Code plugin and open it on this server. */
+export const claudeCodeCommands = (origin: string): string => `${PLUGIN_INSTALL}\n/homingbird ${origin}`
 
 /** The channels where the person's agent answers, as colleagues see them. */
 export const helpedChannels = (
@@ -62,6 +71,8 @@ export interface FirstStepsInput {
 
 export interface FirstStepsModel {
   readonly title: string
+  /** Shown folded once an agent is connected, for a second computer or a colleague's question. */
+  readonly folded: boolean
   readonly steps: ReadonlyArray<{ readonly text: string; readonly command: string }>
   /** Where join codes are offered, the way to set up a server without a browser. */
   readonly joinHint: string | null
@@ -72,7 +83,7 @@ export interface ConnectionModel {
   readonly presence: AsRead.Presence | null
   /** Why the person's running desk cannot answer, and when it tries again; empty while it can. */
   readonly unavailable: ReadonlyArray<string>
-  /** How to keep a desk awake, shown until one is. */
+  /** How to keep a connected agent awake, shown until it is; the first steps cover a person with none. */
   readonly recommendation: { readonly title: string; readonly body: string } | null
   readonly credentials: { readonly noAgents: boolean; readonly rows: ReadonlyArray<CredentialRow> } | null
   readonly helped: ReadonlyArray<string>
@@ -126,13 +137,14 @@ const credentialsAndChannels = (input: ConnectionInput) => ({
     input.credentials === null
       ? null
       : {
-          noAgents: !input.credentials.some(
-            (credential) => credential.kind === 'agent' && credential.revokedAt === null,
-          ),
+          noAgents: !hasConnectedAgent(input.credentials),
           rows: input.credentials.map(credentialRow),
         },
   helped: helpedChannels(input),
 })
+
+const hasConnectedAgent = (credentials: ReadonlyArray<AsRead.Credential> | null): boolean =>
+  credentials?.some((credential) => credential.kind === 'agent' && credential.revokedAt === null) === true
 
 const recommendationOf = (joinCodes: boolean): ConnectionModel['recommendation'] => ({
   title: strings.deskTitle,

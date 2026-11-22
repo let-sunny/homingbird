@@ -503,8 +503,9 @@ export const en = {
   codeFallback: 'Did your agent show you a connection code instead of a link? Enter it here.',
   firstSteps: {
     title: 'Connect your first agent',
+    anotherTitle: 'Connect another agent',
     plugin:
-      'In Claude Code, install the plugin, then type /homingbird in the session that should answer for you.',
+      'In Claude Code, install the plugin, then open it on this server in the session that should answer for you. The plugin calls that session your desk.',
     commandLine:
       'With another agent, such as Codex or Gemini CLI, install the command line and sign it in on its computer.',
     run: 'Then keep your agent answering: homingbird run starts it for each note that arrives.',
@@ -627,7 +628,7 @@ export const en = {
       noteDetails: 'Who wrote a note: model and program',
       debateRooms: 'Debate rooms',
       channelAgents: 'Channel agents',
-      cloudDesk: 'Cloud desk: wake your agent in a cloud service (experimental)',
+      cloudDesk: 'Agent in the cloud: wake your agent in a cloud service (experimental)',
       joinCodes: 'Join codes for running an agent on a server',
       deskAvailability: 'Showing when an agent can’t answer',
       invites: 'Invite links',
@@ -653,7 +654,7 @@ export const en = {
       channelAgents:
         'Off: channels’ agents stop answering and the programs that run them are refused; nothing is deleted, and turning it on again brings them back.',
       cloudDesk:
-        'Off: no cloud desk is woken and nobody can set one up; saved wakes are kept. It also needs HB_SECRETS_KEY on the server.',
+        'Off: no agent in the cloud is woken and nobody can set one up; saved wakes are kept. It also needs HB_SECRETS_KEY on the server.',
       joinCodes:
         'Off: nobody can make a join code and codes already made are refused; people sign in servers with homingbird login instead.',
       deskAvailability:
@@ -1038,7 +1039,10 @@ export const en = {
     noParticipants: 'No agent has been opted in yet.',
     optInTitle: 'Opt my agent in',
     optInHint:
-      'Your agent takes turns in this room only. Each turn appears in the room as written, without your approval, and the agents settle the result by vote; it leaves only if you or another person whose agent took a turn posts it. It reads the other turns as quoted data and sends nothing. Run it without action tools, and homingbird run with --split, so that a separate reader reads the turns.',
+      'Your agent speaks in this room without your approval, and only here: each turn appears as it wrote it. The agents settle the result by vote, and the result leaves the room only when you or another person whose agent took a turn posts it, after approving it.',
+    optInAdviceTitle: 'Advice for whoever runs your agent',
+    optInAdvice:
+      'Your agent reads the other turns as quoted data and sends nothing. Run it without action tools, and run homingbird run with --split, so that a separate reader reads the turns.',
     chooseAgent: 'Agent',
     optIn: 'Opt in',
     noAgent: 'Connect an agent first, under My agent → Connection.',
@@ -1264,14 +1268,22 @@ export const en = {
       'A person counts for a group on each whole day, in UTC, they were in it for any part of. People in two groups count in both.',
   },
   start: {
-    title: 'Where to start',
     askChannel: 'Ask a channel',
-    askChannelHint: 'Do not know who can answer? Ask the people who answer in a channel.',
     findPerson: 'Find a person',
-    findPersonHint: 'Write to a colleague; their agent drafts the reply.',
-    connect: 'Connect your agent',
-    connectHint: 'An open agent session, or homingbird run on a computer that stays on, drafts your replies.',
     tour: 'Take the tour',
+    firstTitle: 'Your first note, in three steps',
+    connectStep: 'Connect your agent',
+    connectStepHint:
+      'In Claude Code, paste these two lines into the session that should answer for you. It drafts your replies; nothing is sent until you approve.',
+    otherAgents: 'Another agent, or a server',
+    connectedStep: 'Your agent is connected',
+    connectedStepHint: 'It drafts a reply when a note arrives for you.',
+    writeStep: 'Write to a colleague, or ask a channel',
+    writeStepHint: 'Their agent drafts the answer, and they approve it before it reaches you.',
+    approveStep: 'Approve your agent’s first draft',
+    approveStepHint:
+      'When a colleague writes to you, your agent’s draft waits in that direct message and under the bell. Approve and send it, edit it, or discard it; nothing leaves before.',
+    done: 'Done',
   },
   character: {
     title: 'My character',
@@ -1747,7 +1759,7 @@ export const en = {
     failed: 'No code could be made just now. Try again in a moment.',
   },
   cloudDesk: {
-    legend: 'Cloud desk',
+    legend: 'Agent in the cloud',
     intro:
       'Your agent, run by a cloud agent service instead of on your computer. When work waits and nothing of yours runs your agent, Homingbird calls an address you give it. The call carries no note, only that work waits; the woken session reads everything through the Homingbird connector.',
     service: 'Service',
@@ -1772,7 +1784,7 @@ export const en = {
     test: 'Send a test wake',
     testHint: 'Starts a real session at the service.',
     remove: 'Remove',
-    removeTitle: 'Remove the cloud desk?',
+    removeTitle: 'Stop waking your agent in the cloud?',
     removeBody: 'Homingbird deletes the wake address and its token, and stops waking your agent there.',
     prompt: 'Prompt for the woken session',
     promptHint:
