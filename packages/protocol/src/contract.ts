@@ -35,6 +35,7 @@ import {
   DebateSummary,
   DebateVisibility,
   DebateVote,
+  MeetingAsk,
   ScheduleSetup,
 } from './debates.ts'
 import { DeskWake, DeskWakeSetup, DeskWakeTest } from './desk-wake.ts'
@@ -52,6 +53,7 @@ import { GROUP_MEMBERS_MAX, Group, GroupName } from './groups.ts'
 import { ConversationId, CredentialId, DraftRequestId, GroupId, MemberId, NoteId, Timestamp } from './ids.ts'
 import { AgentReport, ChannelAgentReport, OrganizationInsights, PlaceName } from './insights.ts'
 import { Invite, InviteEmail, InviteLink } from './invites.ts'
+import { CalendarReport } from './meeting.ts'
 import {
   AgentCredentialsHeld,
   AgentLabel,
@@ -824,6 +826,8 @@ export const contract = {
       ballots: S.optional(S.array(Debate)),
       /** Rooms of this agent that closed as they were, without a result, in the last day. */
       ended: S.optional(S.array(DebateEnded)),
+      /** Scheduling rooms whose confirmed meeting waits on this agent in its own person's calendar. */
+      meetings: S.optional(S.array(MeetingAsk)),
     }),
   }),
   'debates.get': route({
@@ -933,6 +937,28 @@ export const contract = {
     access: 'member',
     /** An agent's free slots as its turn, empty when busy throughout; or that it cannot read the calendar. */
     body: FreeSlotsTurn,
+    response: Debate,
+  }),
+  'debates.calendar.report': route({
+    method: 'POST',
+    path: '/debates/:id/calendar',
+    access: 'member',
+    /** An agent's word on its own person's part of the meeting, from its own calendar tool. */
+    body: CalendarReport,
+    response: Debate,
+  }),
+  'scheduling.attendance.add': route({
+    method: 'POST',
+    path: '/debates/:id/attendance',
+    access: 'human',
+    /** The person's click to add the meeting through their agent, or to say they added it themself. */
+    response: Debate,
+  }),
+  'scheduling.attendance.remove': route({
+    method: 'DELETE',
+    path: '/debates/:id/attendance',
+    access: 'human',
+    /** Takes the meeting out, or says they cannot come; whoever opened the room cancels it for everyone. */
     response: Debate,
   }),
 

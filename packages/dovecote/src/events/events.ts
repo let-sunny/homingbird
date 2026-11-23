@@ -7,6 +7,7 @@ import {
   isForPeopleOnly,
 } from '@homingbird/protocol'
 import type { AuditCopy } from '../domain/audit.ts'
+import type { MeetingNotice } from '../domain/meeting-rows.ts'
 import { featureIsOn } from '../domain/settings.ts'
 import type { AppEnv } from '../environment.ts'
 import { all, first, inTransaction, run } from '../sql/database.ts'
@@ -21,19 +22,30 @@ export interface Delivery {
   readonly isNewReview?: boolean
 }
 
+/** A notice about a scheduling room's meeting, sent to the person's devices only, never to a stream. */
+export interface MeetingDelivery {
+  readonly memberId: MemberId
+  readonly meeting: MeetingNotice
+}
+
 export interface RequestEnv extends AppEnv {
-  readonly outbox: Delivery[]
+  readonly outbox: Array<Delivery | MeetingDelivery>
   readonly audited: AuditCopy[]
 }
 
 export const transact = <A, E>(task: T.Task<A, E, RequestEnv>): T.Task<A, E, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
-    const outbox: Delivery[] = []
+    const outbox: Array<Delivery | MeetingDelivery> = []
     const audited: AuditCopy[] = []
     const value = yield* T.provide({ outbox, audited })(inTransaction(task)) as T.Task<A, E, AppEnv>
     const pushes = outbox.length > 0 && ((yield* featureIsOn('webPush')) || (yield* featureIsOn('slack')))
+    const meetingPushes = outbox.some((delivery) => 'meeting' in delivery) && (yield* featureIsOn('webPush'))
     for (const delivery of outbox) {
+      if ('meeting' in delivery) {
+        if (meetingPushes) env.meetingPushSink(delivery.memberId, delivery.meeting)
+        continue
+      }
       if (delivery.memberId === EVERYONE) {
         env.hub.broadcast(delivery.event)
         continue

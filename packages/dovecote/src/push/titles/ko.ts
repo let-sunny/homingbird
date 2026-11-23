@@ -16,4 +16,25 @@ export const ko: PushTitles = {
     signed_out: '로그인이 풀렸어요. 데스크가 실행되는 컴퓨터에서 다시 로그인하세요.',
     failed: '명령이 계속 실패하고 있어요. 내 에이전트 → 연결에서 이유를 확인하세요.',
   },
+  meeting: {
+    colleague: '동료',
+    waits: (room) => `${room} · 시간을 찾았어요`,
+    waitsBody: {
+      send: '열어서 초대장을 보내세요.',
+      add: '열어서 회의를 캘린더에 넣으세요.',
+    },
+    added: (room) => `${room} · 캘린더에 들어갔어요`,
+    addedBody: '에이전트가 회의를 넣었어요. 열어서 뺄 수 있어요.',
+    cancelled: (room) => `${room} · 취소됐어요`,
+    cancelledBody: '방을 연 사람이 회의를 뺐어요.',
+    busy: (room, person) => `${room} · ${person}님은 그 시간에 일정이 있어요`,
+    busyBody: '그 시간에 캘린더가 차 있어요. 열어서 다른 시간을 찾으세요.',
+    left: (room, person) => `${room} · ${person}님이 빠졌어요`,
+    leftBody: {
+      took_out: '회의를 뺐어요. 열어서 다시 잡으세요.',
+      declined: '참석할 수 없대요. 열어서 다시 잡으세요.',
+    },
+    removeByHand: (room) => `${room} · 직접 빼 주세요`,
+    removeByHandBody: '에이전트가 캘린더에서 회의를 빼지 못했어요.',
+  },
 }

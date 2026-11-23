@@ -83,6 +83,7 @@ export const buildRuntime = (parts: RuntimeParts): Runtime => {
     pushSink: push.consider,
     pushTest: (memberId) => sendTestPush(fetch, memberId),
     pushDeskUnavailable: (memberId, kind) => T.asUnit(sendDeskUnavailablePush(fetch, memberId, kind)),
+    meetingPushSink: push.considerMeeting,
     wakeSink: waker.consider,
     wakeTest: waker.test,
     slackApi: (botToken) => makeSlackApi(fetch, botToken),

@@ -76,7 +76,14 @@ export const FEATURES = {
   },
   schedulingRooms: {
     default: false,
-    routes: ['scheduling.create', 'scheduling.slots.set', 'debates.slots.post'],
+    routes: [
+      'scheduling.create',
+      'scheduling.slots.set',
+      'debates.slots.post',
+      'debates.calendar.report',
+      'scheduling.attendance.add',
+      'scheduling.attendance.remove',
+    ],
   },
   channelAgents: {
     default: false,
