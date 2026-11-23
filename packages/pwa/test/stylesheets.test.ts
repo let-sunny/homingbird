@@ -4,7 +4,9 @@ import { describe, expect, it } from 'vitest'
 
 const STYLES = join(import.meta.dirname, '..', 'src', 'styles')
 
-const COMPONENT_SHEETS = readdirSync(STYLES).filter((name) => name.endsWith('.css') && name !== 'tokens.css')
+const COMPONENT_SHEETS = readdirSync(STYLES).filter(
+  (name) => name.endsWith('.css') && name !== 'tokens.css' && name !== 'fonts.css',
+)
 
 interface Declaration {
   readonly sheet: string
@@ -34,6 +36,15 @@ const offenders = (accepts: (declaration: Declaration) => boolean): string[] =>
 describe('component stylesheets', () => {
   it('finds the stylesheets to check', () => {
     expect(COMPONENT_SHEETS).toEqual(expect.arrayContaining(['components.css', 'base.css', 'layout.css']))
+  })
+
+  it('set the text in Pretendard, self-hosted and swapped in', () => {
+    const fonts = readFileSync(join(STYLES, 'fonts.css'), 'utf8')
+    const tokens = readFileSync(join(STYLES, 'tokens.css'), 'utf8')
+    expect(fonts).not.toMatch(/https?:/)
+    expect(fonts.match(/font-display: swap/g)?.length).toBe(fonts.match(/@font-face/g)?.length)
+    expect(tokens).toMatch(/--hb-font-body: "Pretendard Variable"/)
+    expect(tokens).not.toMatch(/Inter|Bricolage/)
   })
 
   it('write no colour outside tokens.css', () => {
