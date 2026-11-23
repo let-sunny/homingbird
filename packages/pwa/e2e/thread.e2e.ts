@@ -232,6 +232,39 @@ const scenario = async (): Promise<void> => {
     await capture(phone.page, 'author-details-on-tap-narrow')
     await phone.page.keyboard.press('Escape')
     await phone.page.waitForSelector(CARD, { state: 'detached' })
+
+    // -- Chatting on a phone: the page stays the size of the screen, and nothing opens below the composer ----
+    const gaps: number[] = []
+    for (let sent = 1; sent <= 10; sent++) {
+      const before = await phone.page.locator('.notes > .note').count()
+      await phone.page.locator('.composer textarea').tap()
+      await phone.page.fill('.composer textarea', `Phone note ${sent} about the refunds.`)
+      await phone.page.locator('.composer .send').tap()
+      await phone.page.waitForFunction(
+        (count: number) => (globalThis as any).document.querySelectorAll('.notes > .note').length > count,
+        before,
+      )
+      await phone.page.waitForTimeout(400)
+      const page = await phone.page.evaluate(() => {
+        const { document, innerHeight } = globalThis as any
+        const notes = [...document.querySelectorAll('.notes > .note')]
+        const composer = document.querySelector('.composer-host').getBoundingClientRect()
+        const thread = document.querySelector('.thread-scroll')
+        return {
+          full: thread.scrollHeight > thread.clientHeight + 100,
+          scrolled: document.scrollingElement.scrollTop,
+          height: document.scrollingElement.scrollHeight,
+          screen: innerHeight,
+          gap: Math.round(composer.top - notes.at(-1).getBoundingClientRect().bottom),
+        }
+      })
+      assert.equal(page.scrolled, 0, `the page scrolled after note ${sent}`)
+      assert.equal(page.height, page.screen, `the page grew past the screen after note ${sent}`)
+      if (page.full) gaps.push(page.gap)
+    }
+    assert.ok(gaps.length >= 5, `the thread filled the screen only for ${gaps.length} notes`)
+    assert.ok(Math.max(...gaps) - Math.min(...gaps) <= 2, `the space below the last note changed: ${gaps}`)
+    await capture(phone.page, 'ten-notes-sent-narrow-touch')
     await phone.context.close()
 
     // -- Korean -------------------------------------------------------------------------------------------------
