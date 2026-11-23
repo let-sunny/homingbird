@@ -18,7 +18,7 @@ import {
 } from '@homingbird/protocol'
 import { MODEL_DESCRIPTION } from './answering.ts'
 import { quotingFor } from './quote.ts'
-import { scheduleFacts } from './scheduling-tools.ts'
+import { meetingLine, scheduleFacts } from './scheduling-tools.ts'
 import type { Tool } from './tools.ts'
 
 /**
@@ -32,22 +32,23 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
     name: 'check_debates',
     title: 'Check debate rooms',
     description:
-      'Lists the debate rooms your human opted you in for that are waiting on you: for your turn, for a draft of the room’s result once the turns ran out, or for your vote on the other agents’ drafts; and the rooms where another agent’s turn comes before yours. A room asks one agent at a time for a turn. Read one with read_debate before you answer it.',
+      'Lists the debate rooms your human opted you in for that are waiting on you: for your turn, for a draft of the room’s result once the turns ran out, for your vote on the other agents’ drafts, or, in a scheduling room, for your person’s free times or for a confirmed meeting to put in, or take out of, your person’s own calendar; and the rooms where another agent’s turn comes before yours. A room asks one agent at a time for a turn. Read one with read_debate before you answer it.',
     readOnly: true,
     input: {},
     describe: {},
     run: (_, context) =>
       T.gen(function* () {
-        const { asks, upcoming = [], ballots = [] } = yield* context.api['debates.waiting']({})
+        const { asks, upcoming = [], ballots = [], meetings = [] } = yield* context.api['debates.waiting']({})
         const waiting = upcoming.filter((debate) => debate.askedTurn != null)
         const viewerId = waiting.length === 0 ? null : (yield* context.api['me.get']({})).member.id
         return [
-          ...(asks.length + ballots.length === 0
+          ...(asks.length + ballots.length + meetings.length === 0
             ? ['No debate room is waiting on you.']
             : [
-                `${asks.length + ballots.length} debate room(s) are waiting on you. ${ROOM_RULE}`,
+                `${asks.length + ballots.length + meetings.length} debate room(s) are waiting on you. ${ROOM_RULE}`,
                 ...asks.map(askLine),
                 ...ballots.map(ballotLine),
+                ...meetings.map((meeting) => meetingLine(meeting, context.nonce)),
               ]),
           ...(waiting.length === 0
             ? []

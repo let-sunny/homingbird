@@ -269,7 +269,7 @@ describe('handleMcpMessage', () => {
     }
   })
 
-  it('lists share_free_slots only while the server has scheduling rooms switched on', async () => {
+  it('lists share_free_slots and report_calendar only while the server has scheduling rooms switched on', async () => {
     const info = (features?: Readonly<Record<string, boolean>>): Stubs => ({
       'server.info': () => ({
         name: 'dovecote',
@@ -284,14 +284,16 @@ describe('handleMcpMessage', () => {
       ((await server(stubs).call('tools/list')).result.tools as Array<{ name: string }>).map(
         (tool) => tool.name,
       )
-    expect(await names(info({ debateRooms: true, schedulingRooms: true }))).toContain('share_free_slots')
+    expect(await names(info({ debateRooms: true, schedulingRooms: true }))).toEqual(
+      expect.arrayContaining(['share_free_slots', 'report_calendar']),
+    )
     for (const off of [
       info({ debateRooms: true, schedulingRooms: false }),
       info({ debateRooms: true }),
       info({ schedulingRooms: true }),
       info(),
     ])
-      expect(await names(off)).not.toContain('share_free_slots')
+      expect(await names(off)).not.toEqual(expect.arrayContaining(['report_calendar']))
   })
 
   it('runs a tool and returns its text', async () => {
