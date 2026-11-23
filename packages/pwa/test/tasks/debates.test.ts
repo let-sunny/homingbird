@@ -31,6 +31,26 @@ describe('debate room tasks', () => {
     ])
   })
 
+  it('gives free times, adds a meeting and takes it out, showing the room each time', async () => {
+    const { run, sent, state } = testApp({
+      'scheduling.slots.set': () => debate({ question: 'Slots' }),
+      'scheduling.attendance.add': () => debate({ question: 'Added' }),
+      'scheduling.attendance.remove': () => debate({ question: 'Removed' }),
+    })
+    const slots = [{ startsAt: 1, endsAt: 2 }]
+    await run(tasks.setMyFreeTimes(ID, slots))
+    expect((state.shownDebate.get() as ReturnType<typeof debate>).question).toBe('Slots')
+    await run(tasks.addMeeting(ID))
+    expect((state.shownDebate.get() as ReturnType<typeof debate>).question).toBe('Added')
+    await run(tasks.removeMeeting(ID))
+    expect((state.shownDebate.get() as ReturnType<typeof debate>).question).toBe('Removed')
+    expect(sent.map((one) => [one.route, one.request])).toEqual([
+      ['scheduling.slots.set', { params: { id: ID }, body: { slots } }],
+      ['scheduling.attendance.add', { params: { id: ID } }],
+      ['scheduling.attendance.remove', { params: { id: ID } }],
+    ])
+  })
+
   it('shows a room, or shows it as missing when the person may not see it', async () => {
     const shown = testApp({ 'debates.get': () => debate() })
     await shown.run(tasks.loadDebate(ID))

@@ -6,8 +6,14 @@ import { page, privateMarkOf } from './parts.ts'
 import { profileName } from './profile-card.ts'
 import { renderScheduleResult } from './schedule-result.ts'
 
-/** A scheduling room: who has answered, the deadline, and the time the room settled on. */
-export const renderSchedulingRoom = (model: SchedulingRoomModel): HTMLElement => {
+/**
+ * A scheduling room: who has answered, the deadline, and the time the room settled on. The cards that act on
+ * the room (picking free times, adding the meeting) come after it, drawn by the caller.
+ */
+export const renderSchedulingRoom = (
+  model: SchedulingRoomModel,
+  cards: ReadonlyArray<HTMLElement | null> = [],
+): HTMLElement => {
   if (model.kind === 'unsupported')
     return page(strings.scheduling.kind, h('p', { class: 'hint' }, model.text))
   return page(
@@ -45,5 +51,6 @@ export const renderSchedulingRoom = (model: SchedulingRoomModel): HTMLElement =>
         ? renderScheduleResult(model.result.body)
         : h('p', { class: 'hint' }, model.result.text),
     ),
+    cards,
   )
 }

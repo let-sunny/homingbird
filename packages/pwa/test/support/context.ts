@@ -1,7 +1,7 @@
 import { makeTestClock } from '@homingbird/kernel'
 import type { Unsubscribe } from '@homingbird/ui'
 import type { Actions } from '../../src/actions.ts'
-import type { InView, InViewWatch, Page, PageEvent } from '../../src/browser-page.ts'
+import type { DownloadedFile, InView, InViewWatch, Page, PageEvent } from '../../src/browser-page.ts'
 import { browserDocument } from '../../src/page-document.ts'
 import { createState } from '../../src/state.ts'
 import type { ViewContext } from '../../src/views/context.ts'
@@ -71,7 +71,7 @@ export const fakePage = (hash = '#/') => {
     disconnected: boolean
   }> = []
   const visited: string[] = []
-  const downloads: Array<{ readonly filename: string }> = []
+  const downloads: Array<DownloadedFile> = []
   const copied: string[] = []
   const notifications = new Map<string, number | null>()
   const outside: { title: string; badge: number | 'unread' | null } = { title: '', badge: null }
