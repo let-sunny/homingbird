@@ -15,7 +15,7 @@ a yellow envelope.
 | `assets/pip/pip-sheet@1x.png`, `pip-sheet@8x.png`, `pip-sheet.json` | Sprite sheet and frame map |
 | `assets/characters/<id>/<id>-sheet@1x.png`, `@8x.png`, `characters.json` | The 24 built-in profile characters |
 | `assets/characters/gif/<id>.gif` | The README's character animations |
-| `assets/fonts/` | Inter and Bricolage Grotesque, Open Font License |
+| `assets/fonts/` | Pretendard Variable, Open Font License |
 
 `pip-sheet.json` lists 22 states with what each is for. Use the ones your UI needs.
 
@@ -27,7 +27,7 @@ intended change to the art also replaces those files.
 ## Logo
 
 Pip followed by lowercase `homingbird` in Bricolage Grotesque ExtraBold with `-0.02em` letter
-spacing. Interface text is set in Inter.
+spacing. Interface text is set in Pretendard, in Korean and English.
 
 ## Colour
 

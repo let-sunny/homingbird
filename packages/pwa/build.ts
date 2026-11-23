@@ -14,7 +14,8 @@ const assets = join(repository, 'assets')
 const shared = { bundle: true, minify: true, sourcemap: true, target: 'es2022', logLevel: 'warning' } as const
 
 await rm(output, { recursive: true, force: true })
-for (const directory of ['icons', 'fonts', 'pip']) await mkdir(join(output, directory), { recursive: true })
+for (const directory of ['icons', 'fonts/pretendard', 'pip'])
+  await mkdir(join(output, directory), { recursive: true })
 
 const pipSheet = JSON.parse(await readFile(join(assets, 'pip', 'pip-sheet.json'), 'utf8')) as PipSheet
 const turnSheet = JSON.parse(await readFile(join(assets, 'pip', 'pip-turn.json'), 'utf8')) as TurnSheet
@@ -29,11 +30,6 @@ const brandFiles: ReadonlyArray<readonly [string, string]> = [
   ['brand/favicon.ico', 'favicon.ico'],
   ['pip/pip-sheet@1x.png', 'pip/pip-sheet.png'],
   ['pip/pip-turn@1x.png', 'pip/pip-turn.png'],
-  ['fonts/inter-latin-wght-normal.woff2', 'fonts/inter-latin-wght-normal.woff2'],
-  ['fonts/inter-latin-ext-wght-normal.woff2', 'fonts/inter-latin-ext-wght-normal.woff2'],
-  ['fonts/bricolage-grotesque-latin-wght-normal.woff2', 'fonts/bricolage-grotesque-latin-wght-normal.woff2'],
-  ['fonts/Inter-LICENSE.txt', 'fonts/Inter-LICENSE.txt'],
-  ['fonts/BricolageGrotesque-LICENSE.txt', 'fonts/BricolageGrotesque-LICENSE.txt'],
 ]
 
 await Promise.all([
@@ -61,6 +57,7 @@ await Promise.all([
     pipStylesheet(pipSheet, '/pip/pip-sheet.png') + turnStylesheet(turnSheet, '/pip/pip-turn.png'),
   ),
   ...brandFiles.map(([from, to]) => cp(join(assets, from), join(output, to))),
+  cp(join(assets, 'fonts', 'pretendard'), join(output, 'fonts', 'pretendard'), { recursive: true }),
   cp(join(here, 'public'), output, { recursive: true }),
   writeFile(join(output, 'index.html'), await readFile(join(source, 'index.html'), 'utf8')),
 ])

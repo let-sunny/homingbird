@@ -710,7 +710,7 @@ states the decision first, then the reason. Add new entries at the top of their 
   and `assets/characters` come from one TypeScript package, which also renders characters at run
   time in the web client and the plugin and validates them in Dovecote. Keeping the generator in the
   repository means a changed pixel changes everywhere, and golden tests catch accidental changes.
-  `assets/fonts` holds Inter and Bricolage Grotesque under the Open Font License.
+  `assets/fonts/pretendard` holds Pretendard under the Open Font License.
 - **The README shows the characters as GIFs that are checked in.** `assets/characters/gif` holds one
   `<id>.gif` per built-in character, waving at 6×, about 50 KB together. GitHub cannot scale pixel art with nearest-neighbour sampling, so the files are made
   at their final size, and a README can only show files that are in the repository. They come from the
@@ -2578,3 +2578,21 @@ tool can read, set or widen it (rules 3 and 9), since knowing its scope would he
   own time zone. A room outside the scope waits on their card as before. Changing it is audited as
   `scheduling.delegation_changed` with the names of the parts that changed, never their values.
 - **Gone with the person.** Deactivating a member deletes their delegation.
+
+## Typeface
+
+- **Pretendard Variable sets every screen, in Korean and English.** One typeface for both languages
+  means a screen reads the same whichever one a person uses, and Korean no longer falls back to
+  whatever the device has. `--hb-font-body` and `--hb-font-display` are the same stack: Pretendard
+  first, then the system fonts. The three weights of the hierarchy (400, 600, 800) come from the
+  variable font. Inter and Bricolage Grotesque are gone from the web client, the demo and the
+  project site.
+- **Self-hosted, in the dynamic subsets Pretendard ships.** The 92 woff2 files and the unicode-range
+  rules come unchanged from the `pretendard` 1.3.9 package, under `assets/fonts/pretendard` with its
+  Open Font License text; they are an asset, not a dependency. No CDN, so a self-hoster's page makes
+  no request to a third party. `font-display: swap` shows text at once and swaps the font in.
+- **Cost, measured on `pnpm build:demo`, first visit, cold cache.** The notes screen fetches 195 KB
+  of fonts in English (7 files) and 343 KB in Korean (13 files), against 90 KB before (2 files), so
+  +105 KB and +253 KB. A conversation fetches no more; the debates list adds one file of 28 KB.
+  Browsers keep the files, so a later visit costs nothing. A screen that uses other characters
+  fetches only the pieces for them.
