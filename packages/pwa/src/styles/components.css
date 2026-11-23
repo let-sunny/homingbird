@@ -7029,6 +7029,27 @@ textarea:disabled {
   }
 }
 
+.scheduling-settings,
+.scheduling-limits,
+.scheduling-limit-details {
+  display: grid;
+  gap: var(--hb-space-3);
+  min-inline-size: 0;
+}
+
+.scheduling-agent,
+.scheduling-hours,
+.scheduling-retry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hb-space-2);
+}
+
+.scheduling-limit-details {
+  padding-inline-start: var(--hb-space-4);
+}
+
 .scheduling-new:empty {
   display: none;
 }

@@ -29,6 +29,7 @@ import { participantsCount, participantsList } from './participants.ts'
 import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
 import { profileName } from './profile-card.ts'
 import { schedulingAttendanceCard } from './scheduling-attendance.ts'
+import { schedulingRetryCard } from './scheduling-retry.ts'
 import { renderSchedulingRoom } from './scheduling-room.ts'
 import { schedulingSlotsCard } from './scheduling-slots.ts'
 
@@ -78,6 +79,7 @@ export const debateView = (
             ? [
                 schedulingSlotsCard(context, drawn, { ...person, picked: pickedHours }),
                 schedulingAttendanceCard(context, { ...person, members: state.members.get() }),
+                schedulingRetryCard(context, person),
               ]
             : [],
         )

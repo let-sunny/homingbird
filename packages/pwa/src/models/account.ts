@@ -18,6 +18,7 @@ export const profileModel = (input: ProfileInput): ProfileModel => ({
   languages: languageChoicesFor(input.me),
   showsCharacter: input.charactersOn,
   showsGroups: input.groupsOn,
+  showsScheduling: input.schedulingOn,
   notifications: input.webPushOn ? (input.pushAvailable ? 'available' : 'unavailable') : null,
 })
 
@@ -88,6 +89,7 @@ export interface ProfileInput {
   readonly appearance: Appearance
   readonly charactersOn: boolean
   readonly groupsOn: boolean
+  readonly schedulingOn: boolean
   readonly webPushOn: boolean
   readonly pushAvailable: boolean
 }
@@ -104,6 +106,7 @@ export interface ProfileModel {
   readonly languages: ReadonlyArray<LanguageOption>
   readonly showsCharacter: boolean
   readonly showsGroups: boolean
+  readonly showsScheduling: boolean
   readonly notifications: 'available' | 'unavailable' | null
 }
 

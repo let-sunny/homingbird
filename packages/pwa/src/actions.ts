@@ -18,6 +18,7 @@ import * as mutes from './tasks/mutes.ts'
 import * as notes from './tasks/notes.ts'
 import * as people from './tasks/people.ts'
 import * as previews from './tasks/previews.ts'
+import * as scheduling from './tasks/scheduling.ts'
 import * as slack from './tasks/slack.ts'
 import * as interview from './tasks/teaching-interview.ts'
 import * as teaching from './tasks/teaching.ts'
@@ -196,6 +197,9 @@ export const TASKS = {
   setMyFreeTimes: debates.setMyFreeTimes,
   addMeeting: debates.addMeeting,
   removeMeeting: debates.removeMeeting,
+  retrySchedulingRoom: scheduling.retrySchedulingRoom,
+  loadSchedulingDelegation: () => scheduling.loadSchedulingDelegation,
+  saveSchedulingDelegation: scheduling.saveSchedulingDelegation,
   optInAgent: debates.optInAgent,
   setBrief: debates.setBrief,
   changeLimits: debates.changeLimits,

@@ -103,6 +103,7 @@ export const fakePage = (hash = '#/') => {
     linkTo: (href) => `http://localhost/${href}`,
     fetch: () => Promise.reject(new Error('no network in unit tests')),
     languages: () => ['en-GB'],
+    timeZone: () => 'Asia/Seoul',
     isApple: () => state.apple,
     showWaiting: (title, badge) => {
       outside.title = title

@@ -16,6 +16,7 @@ export const browserPage = (window: BrowserWindow): Page => {
     linkTo: (href) => new URL(href, location.href).href,
     fetch: (url, init) => window.fetch(url, init),
     languages: () => window.navigator?.languages ?? [],
+    timeZone: () => new Intl.DateTimeFormat().resolvedOptions().timeZone,
     isApple: () => /Mac|iPhone|iPad/.test(window.navigator?.userAgent ?? ''),
     showWaiting: (title, badge) => {
       document.title = title
@@ -120,6 +121,8 @@ export interface Page {
   readonly linkTo: (href: string) => string
   readonly fetch: Fetch
   readonly languages: () => ReadonlyArray<string>
+  /** The browser's own IANA time zone, such as Asia/Seoul. */
+  readonly timeZone: () => string
   /** Whether the keyboard has a Command key, so that shortcuts are written ⌘K rather than Ctrl+K. */
   readonly isApple: () => boolean
   /** Sets the tab's title and the app badge: a count, a mark without a number, or none. */
