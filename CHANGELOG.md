@@ -5,6 +5,17 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.3.10] - 2026-11-23
+
+### Fixed
+
+- **pwa:** keep the page from growing below a long thread on phones (#130)
+
+  On a phone, every note sent made the page a little taller than the screen, so the browser scrolled the whole page and a growing blank area opened below the composer. The page now stays exactly the size of the screen however long a conversation gets.
+- **pwa:** start a message or a channel from the section that lists it (#131)
+
+  The New button in the head of Direct messages opened a menu that also made channels and debate rooms, so a channel was started from the DM section. Direct messages now has New message, which opens the new-message screen at once, and Channels has New channel beside Browse channels, which opens the same form as the Channels page and is hidden where channels are off. Debate rooms are started from the Debates page.
+
 ## [0.3.9] - 2026-11-22
 
 ### Added
@@ -698,6 +709,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.3.10]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.10
 [0.3.9]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.9
 [0.3.8]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.8
 [0.3.7]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.7
