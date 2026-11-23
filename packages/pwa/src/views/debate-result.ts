@@ -15,7 +15,7 @@ export const resultSection = (result: ResultModel): HTMLElement => {
   return section(
     strings.debates.resultTitle,
     'debate-result',
-    h('p', { class: 'hint' }, result.draftedBy),
+    result.draftedBy !== null && h('p', { class: 'hint' }, result.draftedBy),
     ...renderResultBody(result.body, { contributions: false }),
   )
 }

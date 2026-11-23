@@ -1,4 +1,4 @@
-import { type AsRead, type MemberId, UNKNOWN, creditKindOf, creditTurnOf } from '@homingbird/protocol'
+import { type AsRead, type MemberId, creditKindOf, creditTurnOf, isDebateResult } from '@homingbird/protocol'
 import { isFillerTurn, positionMoveOf } from '../debate-turns.ts'
 import { formats, listOf, strings } from '../strings.ts'
 import { excerpt } from '../thread.ts'
@@ -21,7 +21,7 @@ export const creditModel = (
   people: Required<RoomPeople>,
 ): CreditModel | null => {
   const result = debate.result?.result ?? null
-  if (result === null || result.kind === UNKNOWN) return null
+  if (result === null || !isDebateResult(result)) return null
   const { nameOf, viewerId, cite } = people
   const contributed = result.contributions.map((contribution) => contribution.memberId)
   const proposersOnly = result.nextSteps
@@ -98,7 +98,7 @@ export const creditedChanges = (debate: {
   readonly result: AsRead.Debate['result']
 }): ReadonlyArray<number> | null => {
   const result = debate.result?.result ?? null
-  if (result === null || result.kind === UNKNOWN) return null
+  if (result === null || !isDebateResult(result)) return null
   const credits = result.contributions.flatMap((contribution) => contribution.credits)
   if (credits.every((credit) => creditTurnOf(credit) === null)) return null
   return credits.flatMap((credit) => {

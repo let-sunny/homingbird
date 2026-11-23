@@ -650,7 +650,7 @@ describe('debateRoomModel', () => {
 
   it('shows a result without a conclusion as its points of disagreement, and a vote record with no vote', () => {
     const disagreement = {
-      kind: 'disagreement' as const,
+      kind: 'no_conclusion' as const,
       summary: 'Split.',
       points: [{ point: 'Risk', category: 'information' as const, explanation: 'Weighed differently.' }],
       nextSteps: [],

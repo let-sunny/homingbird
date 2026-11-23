@@ -2,6 +2,7 @@ import { Schema as S } from '@homingbird/kernel'
 import { AUTO_SEND_PLACES_MAX } from './auto-send.ts'
 import { TaughtFrom } from './channel-teaching.ts'
 import { CLIENT_KIND } from './client-kinds.ts'
+import { UNKNOWN } from './compatibility.ts'
 import { DebateExportFormat, DebateLimits, DebateVisibility } from './debates.ts'
 import { GROUP_MEMBERS_MAX } from './groups.ts'
 import { ConversationId, CredentialId, GroupId, MemberId, NoteId } from './ids.ts'
@@ -222,6 +223,12 @@ export const AUDIT_EVENTS = {
   'debate.exported': event('full', 'debate', { format: DebateExportFormat }),
   'debate.concluded': event('full', 'debate', { because: reasonCode() }),
   'debate.ended': event('full', 'debate', { because: reasonCode() }),
+  'debate.settled': event('full', 'debate', {
+    outcome: S.tolerant(S.literal('slot', 'no_slot'), UNKNOWN),
+    answered: S.int({ min: 0 }),
+    unanswered: S.int({ min: 0 }),
+    droppedOut: S.array(MemberId, { maxItems: 100 }),
+  }),
   'debate.closed': event('full', 'debate', {
     round: S.int({ min: 0 }),
     draftedBy: MemberId,

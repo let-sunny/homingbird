@@ -3,9 +3,12 @@ import { DEBATE_PARTICIPANTS_MAX, UNKNOWN_RESULT } from './debate-result.ts'
 import { MemberId, Timestamp } from './ids.ts'
 
 /** The earliest time every required person who answered is free, or the closest; who did not is named. */
-export const ScheduleResult = S.openVariants(
-  'kind',
-  {
+export const ScheduleResult = S.openVariants('kind', scheduleResultCases(), UNKNOWN_RESULT)
+export type ScheduleResult = S.Infer<typeof ScheduleResult>
+
+/** The cases of a schedule result, for a result type that holds them beside another room's. */
+export function scheduleResultCases() {
+  return {
     slot: {
       startsAt: Timestamp,
       endsAt: Timestamp,
@@ -23,7 +26,5 @@ export const ScheduleResult = S.openVariants(
       ),
       unanswered: S.array(MemberId, { maxItems: DEBATE_PARTICIPANTS_MAX }),
     },
-  },
-  UNKNOWN_RESULT,
-)
-export type ScheduleResult = S.Infer<typeof ScheduleResult>
+  }
+}

@@ -74,7 +74,7 @@ export type ChangedMind = S.Infer<typeof ChangedMind>
 const contributions = S.array(Contribution, { maxItems: DEBATE_PARTICIPANTS_MAX })
 const nextSteps = S.array(NextStep, { maxItems: 8 })
 
-const conclusionFields = {
+export const conclusionFields = {
   conclusion: S.string({ minLength: 1, maxLength: RESULT_TEXT_MAX.conclusion }),
   reasons: S.array(S.string({ minLength: 1, maxLength: RESULT_TEXT_MAX.reason }), {
     minItems: 1,
@@ -90,7 +90,7 @@ const conclusionFields = {
   points: S.optional(S.array(DisagreementPoint, { maxItems: 12 })),
 }
 
-const noConclusionFields = {
+export const noConclusionFields = {
   summary: S.string({ minLength: 1, maxLength: RESULT_TEXT_MAX.conclusion }),
   points: S.array(DisagreementPoint, { minItems: 1, maxItems: 12 }),
   contributions,

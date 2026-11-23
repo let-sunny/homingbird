@@ -767,6 +767,7 @@ export const en = {
       insights: 'Insights for administrators',
       noteDetails: 'Who wrote a note: model and program',
       debateRooms: 'Debate rooms',
+      schedulingRooms: 'Scheduling rooms: find a time that suits everyone',
       channelAgents: 'Channel agents',
       cloudDesk: 'Agent in the cloud: wake your agent in a cloud service (experimental)',
       slack: 'Slack: tell people in Slack when a draft waits for them',
@@ -797,6 +798,8 @@ export const en = {
       insights: 'Off: administrators see no organization-wide numbers.',
       noteDetails: 'Off: notes no longer show the model and program that wrote them.',
       debateRooms: 'Off: debate rooms are hidden and their agents take no turns; existing rooms stay.',
+      schedulingRooms:
+        'Off: scheduling rooms cannot be opened and agents share no free times; existing rooms stay.',
       channelAgents:
         'Off: channels’ agents stop answering and the programs that run them are refused; nothing is deleted, and turning it on again brings them back.',
       cloudDesk:

@@ -4,6 +4,7 @@ import { DEBATE_GRACE_MINUTES } from './debate-grace.ts'
 import { DEBATE_PARTICIPANTS_MAX, DebateResult } from './debate-result.ts'
 import { CredentialId, DebateId, MemberId, Timestamp } from './ids.ts'
 import { AgentLabel } from './model.ts'
+import { RoomResult } from './room-result.ts'
 
 export const DEBATE_QUESTION_MAX = 500
 export const DebateQuestion = S.string({ minLength: 1, maxLength: DEBATE_QUESTION_MAX })
@@ -12,6 +13,18 @@ export const DebateVisibility = S.tolerant(S.literal('open', 'private'), UNKNOWN
 export type DebateVisibility = S.Infer<typeof DebateVisibility>
 
 /** Closed has the result the agents settled; ended has none: too few agents came, none spoke or they left. */
+export const RoomType = S.tolerant(S.literal('debate', 'scheduling'), UNKNOWN)
+export type RoomType = S.Infer<typeof RoomType>
+
+export const RoomScheduleDetails = S.struct({
+  minutes: S.int({ min: 15, max: 480 }),
+  window: S.struct({ startsAt: Timestamp, endsAt: Timestamp }),
+  attendees: S.array(S.struct({ memberId: MemberId, required: S.boolean }), {
+    maxItems: DEBATE_PARTICIPANTS_MAX,
+  }),
+})
+export type RoomScheduleDetails = S.Infer<typeof RoomScheduleDetails>
+
 export const DebateStatus = S.tolerant(S.literal('open', 'concluding', 'closed', 'ended'), UNKNOWN)
 export type DebateStatus = S.Infer<typeof DebateStatus>
 
@@ -121,6 +134,8 @@ export type DebateResultDraft = S.Infer<typeof DebateResultDraft>
 
 export const Debate = S.struct({
   id: DebateId,
+  type: S.optional(RoomType),
+  schedule: S.optional(S.nullable(RoomScheduleDetails)),
   question: S.string({ maxLength: DEBATE_QUESTION_MAX }),
   visibility: DebateVisibility,
   status: DebateStatus,
@@ -136,7 +151,8 @@ export const Debate = S.struct({
   participants: S.array(DebateParticipant, { maxItems: DEBATE_PARTICIPANTS_MAX }),
   turns: S.array(DebateTurn),
   askedTurn: S.optional(S.nullable(DebateAskedTurn)),
-  result: S.nullable(S.struct({ result: DebateResult, draftedBy: MemberId, draftedAt: Timestamp })),
+  /** `draftedBy` is null for a result the room computed itself. */
+  result: S.nullable(S.struct({ result: RoomResult, draftedBy: S.nullable(MemberId), draftedAt: Timestamp })),
   resultRound: S.int({ min: 0 }),
   drafts: S.optional(S.array(DebateResultDraft, { maxItems: DEBATE_PARTICIPANTS_MAX })),
   draftsCloseAt: S.optional(S.nullable(Timestamp)),
@@ -150,6 +166,7 @@ export type Debate = S.Infer<typeof Debate>
 
 export const DebateSummary = S.struct({
   id: DebateId,
+  type: S.optional(RoomType),
   question: S.string({ maxLength: DEBATE_QUESTION_MAX }),
   visibility: DebateVisibility,
   status: DebateStatus,
