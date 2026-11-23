@@ -9,10 +9,14 @@ const awake = { humanOnline: false, agentOnline: true }
 
 describe('debateListModel', () => {
   it('waits for the rooms and says when there are none', () => {
-    expect(debateListModel({ debates: [], loaded: false, directory: [], now: 0 })).toEqual({
+    expect(
+      debateListModel({ debates: [], loaded: false, directory: [], now: 0, schedulingOn: false }),
+    ).toEqual({
       kind: 'loading',
     })
-    expect(debateListModel({ debates: [], loaded: true, directory: [], now: 0 })).toEqual({
+    expect(
+      debateListModel({ debates: [], loaded: true, directory: [], now: 0, schedulingOn: false }),
+    ).toEqual({
       kind: 'empty',
       text: strings.debates.empty,
     })
@@ -24,6 +28,7 @@ describe('debateListModel', () => {
       loaded: true,
       directory: [],
       now: 10,
+      schedulingOn: false,
     })
     expect(model).toEqual({
       kind: 'rooms',
@@ -33,6 +38,7 @@ describe('debateListModel', () => {
           className: 'debate-card is-gathering',
           href: '#/debate/debate_000000000000',
           question: 'Ship on Friday?',
+          kind: null,
           stage: strings.debates.stage.gathering,
           isPrivate: true,
           counts: [
@@ -48,7 +54,7 @@ describe('debateListModel', () => {
   it('says agents are debating only while an agent taking part is awake to take a turn', () => {
     const room = summary({ participantIds: [ANA, BEN], turnCount: 3 })
     const stageWith = (directory: ReturnType<typeof entry>[]) => {
-      const model = debateListModel({ debates: [room], loaded: true, directory, now: 0 })
+      const model = debateListModel({ debates: [room], loaded: true, directory, now: 0, schedulingOn: false })
       return model.kind === 'rooms' ? [model.rooms[0]!.stage, model.rooms[0]!.className] : []
     }
     expect(stageWith([entry(BEN, 'Ben', { presence: awake })])).toEqual([
@@ -63,6 +69,40 @@ describe('debateListModel', () => {
       strings.debates.stage['waiting-for-agent'],
       'debate-card is-waiting-for-agent',
     ])
+  })
+})
+
+describe('debateListModel with scheduling rooms', () => {
+  const meeting = summary({ type: 'scheduling', status: 'open', participantIds: [ANA, BEN], turnCount: 1 })
+  const listed = (status: 'open' | 'closed' | 'ended' | 'unknown', schedulingOn = true) => {
+    const model = debateListModel({
+      debates: [{ ...meeting, status }],
+      loaded: true,
+      directory: [],
+      now: 0,
+      schedulingOn,
+    })
+    return model.kind === 'rooms' ? model.rooms[0]! : model
+  }
+
+  it('shows a scheduling room as one, in its own stages and without turn counts', () => {
+    expect(listed('open')).toMatchObject({
+      className: 'debate-card is-collecting',
+      kind: strings.scheduling.kind,
+      stage: strings.scheduling.stage.collecting,
+      counts: [],
+    })
+    expect(
+      (['closed', 'ended', 'unknown'] as const).map((status) => (listed(status) as { stage: string }).stage),
+    ).toEqual([
+      strings.scheduling.stage.settled,
+      strings.scheduling.stage.ended,
+      strings.scheduling.stage.unknown,
+    ])
+  })
+
+  it('leaves scheduling rooms out while the feature is off', () => {
+    expect(listed('open', false)).toEqual({ kind: 'empty', text: strings.debates.empty })
   })
 })
 

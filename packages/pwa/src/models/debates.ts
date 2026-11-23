@@ -9,34 +9,52 @@ import {
 } from '../debates.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
+import { schedulingStageOf } from './scheduling-room.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
 /** Debate rooms: loading, none yet, or the rooms that want something first, then the newest. */
 export const debateListModel = (input: DebateListInput): DebateListModel => {
   if (!input.loaded) return { kind: 'loading' }
-  if (input.debates.length === 0) return { kind: 'empty', text: strings.debates.empty }
+  const shown = input.debates.filter((summary) => input.schedulingOn || summary.type !== 'scheduling')
+  if (shown.length === 0) return { kind: 'empty', text: strings.debates.empty }
   const awake = new Set(
     input.directory.filter((entry) => entry.presence.agentOnline).map((entry) => entry.member.id as string),
   )
   return {
     kind: 'rooms',
-    rooms: listedDebates(input.debates).map((summary) => {
-      const stage = listedStage(summary, (memberId) => awake.has(memberId))
+    rooms: listedDebates(shown).map((summary) => {
+      const scheduling = summary.type === 'scheduling'
+      const stage = stageShown(summary, awake)
       return {
         id: summary.id,
-        className: `debate-card is-${stage}`,
+        className: `debate-card is-${stage.name}`,
         href: hrefFor({ name: 'debate', id: summary.id, tab: null }),
         question: summary.question,
-        stage: strings.debates.stage[stage],
+        kind: scheduling ? strings.scheduling.kind : null,
+        stage: stage.text,
         isPrivate: summary.visibility === 'private',
-        counts: [
-          strings.debates.agentCount({ count: summary.participantIds.length }),
-          strings.debates.turnProgress({ count: summary.turnCount, total: summary.totalTurns }),
-        ],
+        counts: scheduling
+          ? []
+          : [
+              strings.debates.agentCount({ count: summary.participantIds.length }),
+              strings.debates.turnProgress({ count: summary.turnCount, total: summary.totalTurns }),
+            ],
         time: timeShown(summary.createdAt, input.now),
       }
     }),
   }
+}
+
+const stageShown = (
+  summary: AsRead.DebateSummary,
+  awake: ReadonlySet<string>,
+): { readonly name: string; readonly text: string } => {
+  if (summary.type === 'scheduling') {
+    const name = schedulingStageOf(summary.status)
+    return { name, text: strings.scheduling.stage[name] }
+  }
+  const name = listedStage(summary, (memberId) => awake.has(memberId))
+  return { name, text: strings.debates.stage[name] }
 }
 
 /**
@@ -74,6 +92,8 @@ export interface DebateListInput {
   readonly loaded: boolean
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
   readonly now: number
+  /** Whether scheduling rooms are on; when off, the list leaves them out. */
+  readonly schedulingOn: boolean
 }
 
 export type DebateListModel =
@@ -86,6 +106,8 @@ export interface DebateCard {
   readonly className: string
   readonly href: string
   readonly question: string
+  /** "Scheduling" for a scheduling room; null for a debate. */
+  readonly kind: string | null
   readonly stage: string
   readonly isPrivate: boolean
   readonly counts: ReadonlyArray<string>

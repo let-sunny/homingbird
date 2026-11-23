@@ -10,6 +10,7 @@ import type {
   DebateVisibility,
   Locale,
   MemberId,
+  ScheduleSetup,
 } from '@homingbird/protocol'
 import { track } from '../analytics.ts'
 import { type Action, withApp } from '../app.ts'
@@ -43,6 +44,10 @@ export const createDebate = (wish: DebateWish): Action<AsRead.Debate> =>
       T.flatMap(() => loadDebates)(track('debate_opened', { visibility: wish.visibility })),
     )(api['debates.create']({ body: wish })),
   )
+
+/** Opens a scheduling room for the setup the person typed; the list is read again so the room shows in it. */
+export const createSchedulingRoom = (setup: ScheduleSetup): Action<AsRead.Debate> =>
+  withApp(({ api }) => T.tap((_: AsRead.Debate) => loadDebates)(api['scheduling.create']({ body: setup })))
 
 /** Opts the person's agent in, with their note on what it may use here when they wrote one. */
 export const optInAgent = (id: DebateId, agentId: CredentialId, brief: string): Action =>

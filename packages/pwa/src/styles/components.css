@@ -7028,3 +7028,48 @@ textarea:disabled {
     inset-block-end: calc(anchor(--hb-tab-bar top, var(--hb-space-2)) + var(--hb-space-2));
   }
 }
+
+.scheduling-new:empty {
+  display: none;
+}
+
+.debate-kind {
+  font-size: var(--hb-text-small);
+}
+
+.scheduling-form,
+.scheduling-days {
+  display: grid;
+  gap: var(--hb-space-3);
+  min-inline-size: 0;
+}
+
+.scheduling-days {
+  border: 0;
+  padding: 0;
+}
+
+.scheduling-optional-list,
+.scheduling-attendee-list {
+  display: grid;
+  gap: var(--hb-space-2);
+  list-style: none;
+  padding: 0;
+}
+
+.scheduling-attendee-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--hb-space-2);
+  overflow-wrap: anywhere;
+}
+
+.scheduling-attendee-list li:not(.is-answered) span {
+  color: var(--hb-color-muted);
+}
+
+.schedule-time {
+  font-size: var(--hb-text-title);
+  font-weight: 600;
+}

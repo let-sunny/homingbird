@@ -8,6 +8,7 @@ import {
 } from '@homingbird/protocol'
 import { type DebateStage, type VoteRecordLine, draftsOf, voteRecordLines } from '../debates.ts'
 import { formats, strings } from '../strings.ts'
+import { type ScheduleResultBody, scheduleResultBody } from './schedule-result.ts'
 
 /**
  * The room's result as it stands: waiting while drafts are collected and voted on, or settled. The
@@ -63,6 +64,7 @@ export const resultModel = (debate: AsRead.Debate, stage: ResultStage, people: R
 export const resultBody = (result: AsRead.RoomResult, people: RoomPeople): ResultBody => {
   const { nameOf, viewerId } = people
   const cite = people.cite ?? asPlainText
+  if (result.kind === 'slot' || result.kind === 'no_slot') return scheduleResultBody(result, people)
   if (!isDebateResult(result)) return { kind: 'unknown', text: strings.debates.unknownResult }
   const conclusion = result.kind === 'conclusion'
   return {
@@ -200,6 +202,7 @@ export interface VoteLine {
 
 export type ResultBody =
   | { readonly kind: 'unknown'; readonly text: string }
+  | ScheduleResultBody
   | {
       readonly kind: 'known'
       readonly heading: string

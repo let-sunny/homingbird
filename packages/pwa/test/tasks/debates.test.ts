@@ -13,6 +13,24 @@ describe('debate room tasks', () => {
     expect(state.debatesLoaded.get()).toBe(true)
   })
 
+  it('opens a scheduling room and reloads the list', async () => {
+    const { run, sent } = testApp({
+      'scheduling.create': () => debate(),
+      'debates.list': () => ({ debates: [] }),
+    })
+    const setup = {
+      title: 'Planning sync',
+      minutes: 30,
+      window: { startsAt: 1, endsAt: 86_400_000 },
+      attendees: [{ memberId: 'mem_ben' as never, required: true }],
+    }
+    await run(tasks.createSchedulingRoom(setup))
+    expect(sent.map((one) => [one.route, one.request])).toEqual([
+      ['scheduling.create', { body: setup }],
+      ['debates.list', {}],
+    ])
+  })
+
   it('shows a room, or shows it as missing when the person may not see it', async () => {
     const shown = testApp({ 'debates.get': () => debate() })
     await shown.run(tasks.loadDebate(ID))
