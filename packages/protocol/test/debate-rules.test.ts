@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { Contribution, DebateResult } from '../src/debate-result.ts'
 import {
+  agentsLeftEnding,
   creditsOf,
+  debateEndingOf,
+  isDownToOneAgent,
   isReadyToConclude,
   isTakingPart,
   limitsFor,
@@ -44,6 +47,33 @@ describe('an agent in a room', () => {
     expect(isReadyToConclude({ turns, limits }, BEN)).toBe(true)
     expect(isReadyToConclude({ turns, limits }, CY)).toBe(false)
     expect(isReadyToConclude({ turns, limits: { turnsPerAgent: 2 } }, ANA)).toBe(true)
+  })
+})
+
+describe('a room that stops taking turns', () => {
+  const two = [{}, {}]
+  const gone = [{}, { takingPart: false }]
+  const spoken = [{ memberId: ANA }]
+
+  it('ends without two agents, without a turn, or with fewer than two left taking part', () => {
+    expect(debateEndingOf({ participants: [{}], turns: spoken })).toBe('too_few_agents')
+    expect(debateEndingOf({ participants: two, turns: [] })).toBe('no_turns')
+    expect(debateEndingOf({ participants: gone, turns: spoken })).toBe('one_agent_left')
+    expect(debateEndingOf({ participants: two, turns: spoken })).toBeNull()
+  })
+
+  it('is down to one agent only once it started with two and fewer than two still take part', () => {
+    expect(isDownToOneAgent({ participants: gone, turns: spoken })).toBe(true)
+    expect(isDownToOneAgent({ participants: gone, turns: [] })).toBe(false)
+    expect(isDownToOneAgent({ participants: [{ takingPart: false }], turns: spoken })).toBe(false)
+    expect(isDownToOneAgent({ participants: two, turns: spoken })).toBe(false)
+  })
+
+  it('says whether one agent or none was left', () => {
+    expect(agentsLeftEnding({ participants: gone })).toBe('one_agent_left')
+    expect(agentsLeftEnding({ participants: [{ takingPart: false }, { takingPart: false }] })).toBe(
+      'no_agent_left',
+    )
   })
 })
 

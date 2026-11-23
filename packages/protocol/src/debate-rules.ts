@@ -1,5 +1,12 @@
 import { type DebateCredit, type DebateResult, creditKindOf, creditTurnOf } from './debate-result.ts'
-import type { DebateLimits, DebateLimitsWish, DebateParticipant, DebateTurn } from './debates.ts'
+import type {
+  DebateEnding,
+  DebateEndingDetail,
+  DebateLimits,
+  DebateLimitsWish,
+  DebateParticipant,
+  DebateTurn,
+} from './debates.ts'
 import type { MemberId } from './ids.ts'
 
 /** Taking part unless the server said the agent dropped out: past its grace, or its account deactivated. */
@@ -28,6 +35,20 @@ export const turnProblem = (body: string, limits: Pick<DebateLimits, 'turnCharac
     return `A turn in this room holds at most ${limits.turnCharacters} characters; this one has ${body.length}, ${body.length - limits.turnCharacters} over.`
   return null
 }
+
+/** Why a room that stops taking turns ends without a result, or null when it goes on to one. */
+export const debateEndingOf = (room: EndingRoom): DebateEnding | null => {
+  if (room.participants.length < 2) return 'too_few_agents'
+  if (room.turns.length === 0) return 'no_turns'
+  return isDownToOneAgent(room) ? agentsLeftEnding(room) : null
+}
+
+/** A started debate with fewer than two agents left taking part closes as it is: no draft or vote follows. */
+export const isDownToOneAgent = (room: EndingRoom): boolean =>
+  room.participants.length >= 2 && room.turns.length > 0 && room.participants.filter(isTakingPart).length < 2
+
+export const agentsLeftEnding = (room: Pick<EndingRoom, 'participants'>): DebateEndingDetail =>
+  room.participants.some(isTakingPart) ? 'one_agent_left' : 'no_agent_left'
 
 /** Without a total, the total is the turns per agent times the agents, within what a room takes. */
 export const limitsFor = (wish: DebateLimitsWish, agents: number): DebateLimits => {
@@ -99,6 +120,11 @@ export const creditsOf = (
     (one, index) =>
       credits.findIndex((other) => other.memberId === one.memberId && other.credit === one.credit) === index,
   )
+}
+
+interface EndingRoom {
+  readonly participants: ReadonlyArray<Pick<DebateParticipant, 'takingPart'>>
+  readonly turns: ReadonlyArray<unknown>
 }
 
 const TOTAL_TURNS_MIN = 2
