@@ -30,7 +30,7 @@ export const schedulingSlotsModel = (input: SchedulingSlotsInput): SchedulingSlo
   const slots = slotsFromCells(picked)
   return {
     title: strings.scheduling.pickTitle,
-    hint: strings.scheduling.pickHint({ zone: zoneShown(timeZone ?? browserZone()) }),
+    hint: strings.scheduling.pickHint({ zone: zoneShown(timeZone) }),
     workingHint:
       hasNonWorking && !showsAll
         ? strings.scheduling.pickWorkingHint({
@@ -74,7 +74,7 @@ export interface SchedulingSlotsInput {
   /** Every hour of the day rather than the working hours only. */
   readonly showAllHours?: boolean
   /** An IANA time zone for tests; the browser's own when absent. */
-  readonly timeZone?: string
+  readonly timeZone: string
 }
 
 export interface SchedulingSlotsModel {
@@ -157,29 +157,27 @@ const groupedByDay = <T>(cells: ReadonlyArray<T>, dayOf: (cell: T) => string): A
   return [...days]
 }
 
-const dayFormat = (timeZone: string | undefined): Intl.DateTimeFormat =>
+const dayFormat = (timeZone: string): Intl.DateTimeFormat =>
   new Intl.DateTimeFormat(locale, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
-    ...(timeZone !== undefined && { timeZone }),
+    timeZone,
   })
 
-const timeFormat = (timeZone: string | undefined): Intl.DateTimeFormat =>
+const timeFormat = (timeZone: string): Intl.DateTimeFormat =>
   new Intl.DateTimeFormat(locale, {
     hour: 'numeric',
     minute: '2-digit',
-    ...(timeZone !== undefined && { timeZone }),
+    timeZone,
   })
 
-const hourFormat = (timeZone: string | undefined): Intl.DateTimeFormat =>
+const hourFormat = (timeZone: string): Intl.DateTimeFormat =>
   new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
     hourCycle: 'h23',
-    ...(timeZone !== undefined && { timeZone }),
+    timeZone,
   })
 
 const hourLabel = (hour: number): string =>
   new Intl.DateTimeFormat(locale, { hour: 'numeric', timeZone: 'UTC' }).format(Date.UTC(2000, 0, 1, hour))
-
-const browserZone = (): string => new Intl.DateTimeFormat(locale).resolvedOptions().timeZone

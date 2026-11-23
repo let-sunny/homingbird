@@ -68,6 +68,7 @@ export const debateView = (
           viewerId: me.member.id,
           enabled,
           members: state.members.get(),
+          timeZone: context.page.timeZone(),
         })
         const agents = state.agentCredentials.get()
         const person = { debate: current, viewerId: me.member.id, hasAgent: agents.length > 0 }

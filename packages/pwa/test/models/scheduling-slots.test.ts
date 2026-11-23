@@ -119,6 +119,7 @@ describe('schedulingSlotsModel', () => {
       schedulingSlotsModel({
         debate: room(),
         viewerId: 'mem_zed000000000' as never,
+        timeZone: 'Asia/Seoul',
         now: START,
       }),
     ).toBeNull()

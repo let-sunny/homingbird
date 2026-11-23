@@ -63,7 +63,7 @@ export interface SchedulingRoomInput {
   readonly enabled: boolean
   readonly members: ReadonlyMap<MemberId, AsRead.Member>
   /** An IANA time zone for tests; the browser's own when absent. */
-  readonly timeZone?: string
+  readonly timeZone: string
 }
 
 export type SchedulingRoomModel =
@@ -121,7 +121,7 @@ const hasAnswered = (attendee: { readonly answer?: string | undefined }): boolea
 const resultOf = (
   debate: AsRead.Debate,
   people: { readonly nameOf: (id: MemberId) => string; readonly viewerId: MemberId },
-  timeZone: string | undefined,
+  timeZone: string,
 ): SchedulingResult => {
   const settled = debate.result?.result
   if (settled === undefined) {
@@ -134,15 +134,15 @@ const resultOf = (
   return { kind: 'unknown', text: strings.debates.unknownResult }
 }
 
-const windowShown = (startsAt: number, endsAt: number, timeZone: string | undefined): string =>
+const windowShown = (startsAt: number, endsAt: number, timeZone: string): string =>
   new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
-    ...(timeZone !== undefined && { timeZone }),
+    timeZone,
   }).formatRange(new Date(startsAt), new Date(endsAt - 1))
 
-const fullTime = (timestamp: number, timeZone: string | undefined): string =>
+const fullTime = (timestamp: number, timeZone: string): string =>
   new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',
-    ...(timeZone !== undefined && { timeZone }),
+    timeZone,
   }).format(new Date(timestamp))

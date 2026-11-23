@@ -24,6 +24,7 @@ export const schedulingSlotsCard = (
       debate,
       viewerId: input.viewerId,
       now: context.clock.now(),
+      timeZone: context.page.timeZone(),
       showAllHours: showsAll.get(),
       ...(chosen !== null && { chosen }),
     })

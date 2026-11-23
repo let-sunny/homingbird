@@ -92,6 +92,12 @@ describe('schedulingRoomModel', () => {
       { memberId: BEN, required: true, answer: 'by_agent', attendance: 'declined' },
       { memberId: CY, required: false, answer: 'by_person', attendance: 'not_invited' },
       { memberId: 'mem_dee000000000', required: false, answer: 'waiting', attendance: UNKNOWN },
+      {
+        memberId: 'mem_eve000000000',
+        required: false,
+        answer: 'waiting',
+        attendance: 'from_a_later_version',
+      },
     ] as never
     const settled = { ...base, schedule: { ...base.schedule!, attendees } }
     expect(room(schedulingRoomModel(input(settled))).attendees.map((one) => one.part)).toEqual([
@@ -99,9 +105,10 @@ describe('schedulingRoomModel', () => {
       strings.scheduling.partOf.declined,
       strings.scheduling.partOf.not_invited,
       strings.scheduling.partOf.unknown,
+      strings.scheduling.partOf.unknown,
     ])
     const seenByBen = room(schedulingRoomModel(input(settled, { viewerId: BEN })))
-    expect(seenByBen.attendees.map((one) => one.part)).toEqual([null, null, null, null])
+    expect(seenByBen.attendees.map((one) => one.part)).toEqual([null, null, null, null, null])
   })
 
   it('reads an attendee without an answer, or with one it does not know, as not yet answered', () => {
