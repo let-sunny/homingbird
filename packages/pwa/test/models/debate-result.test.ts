@@ -32,6 +32,22 @@ describe('resultModel', () => {
     })
   })
 
+  it('names no drafter for a result the room computed itself', () => {
+    const settled = resultModel(
+      debate({
+        status: 'closed',
+        result: { result: { kind: 'unknown' } as never, draftedBy: null, draftedAt: 1 },
+      }),
+      'closed',
+      someone,
+    )
+    expect(settled).toMatchObject({
+      kind: 'settled',
+      draftedBy: null,
+      body: { kind: 'unknown', text: strings.debates.unknownResult },
+    })
+  })
+
   it('says what the room waits for in each phase, and nothing about the turns once it is closed', () => {
     const textIn = (stage: 'awaiting-result' | 'voting' | 'closed', fields: Parameters<typeof debate>[0]) =>
       resultModel(debate(fields), stage, someone)
