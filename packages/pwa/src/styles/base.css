@@ -26,7 +26,14 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * An absolutely positioned element is clipped only by the boxes between it and its containing block.
+ * #app is positioned so that its clip holds them: otherwise text kept for screen readers is placed
+ * against the page itself, a long thread makes the document taller than the screen, and a phone
+ * scrolls the whole page away from the composer.
+ */
 #app {
+  position: relative;
   block-size: 100dvh;
   overflow: clip;
 }

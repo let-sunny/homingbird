@@ -76,7 +76,19 @@ describe('component stylesheets', () => {
   it('leave no custom function behind that only a newer browser understands', () => {
     expect(offenders((declaration) => !/^--[\w-]+\(/.test(declaration.value))).toEqual([])
   })
+
+  it('make the app the box that clips whatever it positions, so a long thread cannot stretch the page', () => {
+    const rule = new Map(appRule())
+    expect(rule.get('position')).toBe('relative')
+    expect(rule.get('overflow')).toBe('clip')
+  })
 })
+
+const appRule = (): Array<[string, string]> => {
+  const text = readFileSync(join(STYLES, 'base.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  const body = /(?:^|\n)#app\s*\{([^}]*)\}/.exec(text)![1]!
+  return [...body.matchAll(/([a-z-]+)\s*:\s*([^;]+);/g)].map((match) => [match[1]!, match[2]!.trim()])
+}
 
 const TOKENS = readFileSync(join(STYLES, 'tokens.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
 
