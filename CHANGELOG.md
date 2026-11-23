@@ -5,6 +5,47 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.6.0] - 2026-11-23
+
+### Added
+
+- **demo:** try scheduling a meeting and a short debate in the live demo (#159)
+
+  The live demo now lets you try the two newest ways agents work together, with nothing leaving your browser. Open a scheduling room from Debates with the demo colleagues: their agents answer with free times only, you pick your own, and the room settles at the earliest time everyone is free. Add the meeting, take it out or download the .ics file, and change what your agent may do about meetings under Your agent and meetings.
+- **cli:** let the desk schedule meetings with the agent's own calendar (#161)
+
+  With everyone's desk running, opening a scheduling room is now all anyone does. `homingbird run` wakes your agent for the room the way it does for a debate turn: the agent reads your calendar with its own calendar tool (for `claude -p`, the MCP servers you set up in Claude Code), shares your free times within your working hours, and once the room settles, the opener's agent sends one invitation with a meeting link and everyone else's agent accepts it. An agent without a calendar tool, or one that answers in any other form, leaves it to you in the web client as before.
+- **dovecote:** limit a scheduling room to chosen weekdays and hours (#163)
+
+  When you open a meeting room you can now tick the weekdays it may fall on and give the hours of the day it must lie within, by your own clock. Everyone's agent is told, the room only offers and settles a time inside them, and people see them in their own time zone. Leave them empty and any time still counts. The room shows the limits and the card where you tick your free hours hides the rest.
+- **sprites:** turn every bird in fake 3D (#165)
+
+  Pip now turns in fake 3D on the sign-in page, while the app loads, in a page's main empty state and in the header when your organization set no logo of its own. Your own character turns the same way in the character editor's preview, on your profile card and while your workspace loads. With reduced motion every bird faces you and holds still.
+- **pwa:** set every screen in Pretendard (#166)
+
+  Every screen, in Korean and English, now uses one typeface, Pretendard, served from your own Homingbird server rather than a font service. Korean no longer falls back to whatever font each device has, so text looks the same on every computer and phone. The first visit downloads a little more (about 100 KB in English, 250 KB in Korean); after that the fonts come from the browser's cache.
+- **pwa:** call debate rooms flocks (#167)
+
+  Debate rooms are now called flocks everywhere you read them: the web client (tab, pages, buttons, notices and hints, in English and Korean 플록), push notices, the demo, the guide and the tool descriptions your agent reads. A flock is several people's agents gathering toward one result, and it covers finding a meeting time as well as debates, which is why "debate room" no longer fit. The kinds keep their names (Debate, Schedule a meeting).
+
+### Fixed
+
+- **pwa:** list a room that found no time as such, enlarge small controls (#157)
+
+  The Debates list called a scheduling room "Settled" even when its agents found no common time, though the room itself said so. The list now says "No time found" for such a room. Rooms also carry what they settled, so older clients simply keep reading the status.
+- **pwa:** give every button and control one of a few standard sizes (#160)
+
+  Buttons, fields, tabs, menu items and chips had drifted apart: the same kind of control was 31, 36, 42 or 44 pixels tall depending on the screen, and a text field next to a button never lined up. Every control now takes one of three heights (small, medium, large) from tokens.css, so a field and a button in the same row match and the approval buttons stay the largest.
+- **pwa:** keep Pip as the logo and give each person their own bird (#162)
+
+  Before, a member who had not chosen a character was drawn as the pigeon, which is Pip, so the title bar showed the same bird twice: the logo on the left and your own avatar on the right.
+- **pwa:** let each screen lead with one thing (#164)
+
+  Each screen now leads with one thing, so you can see at a glance what to look at first. Titles, body text and small print have clearly different sizes and weights, sections are spaced apart, orange marks only the main action, and repeated cards are separated by lines instead of shadows. A draft waiting for you is the first thing in its conversation, a flock shows whose turn it is before its settings, and a settled meeting shows its time at the top.
+- **pwa:** show only the chosen flock's form and tidy the flock screens (#169)
+
+  Choosing "Schedule a meeting" in the New flock form now shows only the meeting form, with one button to open it. A meeting is never set sooner than half an hour after the flock opens, the scheduling kind has one name everywhere, the flock list's introduction is one line, and on narrow phones the send button stays on screen even with a long recipient name.
+
 ## [0.5.0] - 2026-11-23
 
 ### Fixed
@@ -770,6 +811,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.6.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.6.0
 [0.5.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.5.0
 [0.4.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.4.0
 [0.3.10]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.10
