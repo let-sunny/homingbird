@@ -94,13 +94,14 @@ button,
   align-items: center;
   justify-content: center;
   gap: var(--hb-space-2);
-  padding: var(--hb-space-1) var(--hb-space-3);
+  min-block-size: var(--hb-control-height-medium);
+  padding: var(--hb-space-1) var(--hb-control-padding-inline);
   border: var(--hb-border);
   border-radius: var(--hb-radius);
   background: var(--hb-color-surface);
   box-shadow: var(--hb-shadow-pressed);
   font-weight: 600;
-  font-size: var(--hb-text-small);
+  font-size: var(--hb-control-text);
   text-decoration: none;
   cursor: pointer;
   transition:
@@ -131,7 +132,25 @@ button.danger {
   color: var(--hb-color-danger-text);
 }
 
+/* These size themselves, or take their taps through an invisible layer around them. */
+.switch,
+.answering-help,
+.hint-close,
+.author-button,
+.todo-switch,
+.todo-move,
+.todo-more,
+.todo-public,
+.tabs-scroll,
+.user-button,
+.skip-link,
+.people-title,
+.profile-name {
+  min-block-size: 0;
+}
+
 button.link {
+  min-block-size: 0;
   padding: 0;
   border: 0;
   background: none;
@@ -141,7 +160,8 @@ button.link {
 }
 
 button.icon {
-  padding: 0 var(--hb-space-2);
+  min-block-size: var(--hb-control-height-small);
+  padding: 0 var(--hb-control-padding-inline-small);
   border: 0;
   background: none;
   box-shadow: none;
@@ -155,6 +175,23 @@ select {
   border: var(--hb-border);
   border-radius: var(--hb-radius);
   background: var(--hb-color-surface);
+  font-size: var(--hb-control-text-field);
+}
+
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"]),
+select:not([multiple], [size]) {
+  min-block-size: var(--hb-control-height-medium);
+  padding-block: var(--hb-space-1);
+}
+
+/* The smallest controls: they sit inside a row, a menu or a line of text. */
+.menu-trigger,
+.note-reply,
+.mute-toggle,
+.channel-chip,
+.group-chip {
+  min-block-size: var(--hb-control-height-small);
+  padding-inline: var(--hb-control-padding-inline-small);
 }
 
 /* The native chevron sits against the border; drawn in currentColor, it keeps the text's padding. */
