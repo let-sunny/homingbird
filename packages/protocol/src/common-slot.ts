@@ -1,4 +1,5 @@
 import type { MemberId } from './ids.ts'
+import { type ScheduleLimits, allowedStretches, isAllowed } from './schedule-limits.ts'
 
 /** The earliest UTC quarter hour from which everyone is free for the meeting in its window, or null. */
 export const earliestCommonSlot = (
@@ -49,6 +50,7 @@ export interface TimeSpan {
 export interface Meeting {
   readonly minutes: number
   readonly window: TimeSpan
+  readonly limits?: ScheduleLimits
 }
 
 const mergedWithin = (spans: ReadonlyArray<TimeSpan>, window: TimeSpan): ReadonlyArray<TimeSpan> => {
@@ -67,14 +69,19 @@ const mergedWithin = (spans: ReadonlyArray<TimeSpan>, window: TimeSpan): Readonl
   return merged
 }
 
-/** The earliest fitting start is always the window's or a free span's start, up to a quarter hour. */
+/** The earliest fitting start is the window's, a free span's or an allowed stretch's start, to a quarter hour. */
 const candidatesOf = (meeting: Meeting, free: ReadonlyArray<ReadonlyArray<TimeSpan>>): TimeSpan[] => {
   const length = meeting.minutes * 60_000
-  const starts = [meeting.window.startsAt, ...free.flatMap((spans) => spans.map((span) => span.startsAt))]
+  const stretches = allowedStretches(meeting.window, meeting.limits ?? {})
+  const starts = [
+    meeting.window.startsAt,
+    ...stretches.map((stretch) => stretch.startsAt),
+    ...free.flatMap((spans) => spans.map((span) => span.startsAt)),
+  ]
   return [...new Set(starts.map(quarterHourFrom))]
     .sort((a, b) => a - b)
     .map((startsAt) => ({ startsAt, endsAt: startsAt + length }))
-    .filter((span) => span.endsAt <= meeting.window.endsAt)
+    .filter((span) => span.endsAt <= meeting.window.endsAt && isAllowed(stretches, span))
 }
 
 const quarterHourFrom = (at: number): number => Math.ceil(at / QUARTER_HOUR_MS) * QUARTER_HOUR_MS

@@ -207,3 +207,21 @@ describe('whether a scheduling room has its answers', () => {
     expect(scheduleEndingOf(unscheduled())).toBe('no_turns')
   })
 })
+
+describe('the time a scheduling room with limits settles on', () => {
+  const limited = (limits: Partial<RoomSchedule>): DebateRoom =>
+    roomOf({
+      schedule: { ...SCHEDULE, window: span(at(0), at(24)), ...limits },
+      turns: [answered(ANA, [span(at(0), at(24))]), answered(BEN, [span(at(0), at(24))])],
+    })
+
+  it('is the earliest time inside the chosen hours, in the zone of whoever opened the room', () => {
+    const room = limited({ hours: { from: 600, to: 900 }, timeZone: 'UTC' })
+    expect(scheduleOf(room, at(0))?.result).toMatchObject({ kind: 'slot', ...span(at(10), at(11)) })
+  })
+
+  it('has no slot when the chosen weekday is not in the window, and no closest one either', () => {
+    const room = limited({ weekdays: [1, 2, 3, 4, 5, 6, 7].filter((day) => day !== 1), timeZone: 'UTC' })
+    expect(scheduleOf(room, at(0))?.result).toMatchObject({ kind: 'no_slot', closest: null })
+  })
+})

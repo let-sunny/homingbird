@@ -7,6 +7,7 @@ import { CredentialId, DebateId, MemberId, Timestamp } from './ids.ts'
 import { MEETING_NOTICES_SHOWN_MAX, MeetingAttendance, MeetingInvite, MeetingNoticeShown } from './meeting.ts'
 import { AgentLabel } from './model.ts'
 import { RoomResult } from './room-result.ts'
+import { scheduleLimitFields } from './schedule-limits.ts'
 
 export const DEBATE_QUESTION_MAX = 500
 export const DebateQuestion = S.string({ minLength: 1, maxLength: DEBATE_QUESTION_MAX })
@@ -24,13 +25,13 @@ export type AttendeeAnswer = S.Infer<typeof AttendeeAnswer>
 export const RoomScheduleDetails = S.struct({
   minutes: S.int({ min: 15, max: 480 }),
   window: S.struct({ startsAt: Timestamp, endsAt: Timestamp }),
+  ...scheduleLimitFields,
   attendees: S.array(
     S.struct({
       memberId: MemberId,
       required: S.boolean,
       answer: S.optional(AttendeeAnswer),
       attendance: S.optional(MeetingAttendance),
-      /** When their part of the meeting last moved, so a client can tell an agent that never picked it up. */
       attendanceSince: S.optional(Timestamp),
     }),
     { maxItems: DEBATE_PARTICIPANTS_MAX },
@@ -57,6 +58,7 @@ export const ScheduleSetup = S.struct({
   title: DebateQuestion,
   minutes: S.int({ min: 15, max: 480 }),
   window: S.struct({ startsAt: Timestamp, endsAt: Timestamp }),
+  ...scheduleLimitFields,
   attendees: S.array(S.struct({ memberId: MemberId, required: S.boolean }), {
     minItems: 1,
     maxItems: DEBATE_PARTICIPANTS_MAX - 1,

@@ -232,6 +232,21 @@ describe('the scheduling tool', () => {
     expect(textOutsideWrappers(text)).not.toContain('ben@example.com')
   })
 
+  it('tells the agent the days and hours a limited room allows, and nothing for a room without them', async () => {
+    const limited = meetingOf({
+      schedule: {
+        ...meetingOf().schedule!,
+        weekdays: [1, 2],
+        hours: { from: 600, to: 900 },
+        timeZone: 'Asia/Seoul',
+      },
+    })
+    const shown = await call('read_debate', { debateId: DEBATE_ID }, { 'debates.get': () => limited })
+    expect(shown.text).toContain('on Monday, Tuesday, from 10:00 to 15:00, by the clock in Asia/Seoul')
+    const plain = await call('read_debate', { debateId: DEBATE_ID }, { 'debates.get': () => meetingOf() })
+    expect(plain.text).not.toContain('The meeting must lie')
+  })
+
   it('lists every kind of meeting ask, and says to skip one it does not know', async () => {
     const asks = ['send_invite', 'accept_invite', 'decline_invite', 'cancel_invite', 'unknown'] as const
     const { text } = await call(

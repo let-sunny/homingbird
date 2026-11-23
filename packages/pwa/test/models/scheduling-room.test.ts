@@ -136,6 +136,21 @@ describe('schedulingRoomModel', () => {
     expect(model.result).toEqual({ kind: 'waiting', text: strings.scheduling.waitingForResult })
   })
 
+  it('shows the days and hours the room is limited to on the viewer’s clock', () => {
+    const base = meeting()
+    const limited = (schedule: object) => ({ ...base, schedule: { ...base.schedule!, ...schedule } })
+    const lines = (debateRoom: SchedulingRoomInput['debate'], timeZone = ZONE) =>
+      plainSpaces(room(schedulingRoomModel(input(debateRoom, { timeZone }))).summary.slice(2))
+    expect(lines(base)).toEqual([])
+    const both = limited({ weekdays: [3, 1], hours: { from: 600, to: 900 }, timeZone: ZONE })
+    expect(lines(both)).toEqual(['Only on Mon & Wed, from 10:00 AM to 3:00 PM.'])
+    expect(lines(both, 'America/New_York')).toEqual(['Only on Tue & Sun, from 8:00 PM to 1:00 AM.'])
+    expect(lines(limited({ weekdays: [5], timeZone: ZONE }))).toEqual(['Only on Fri.'])
+    expect(lines(limited({ hours: { from: 540, to: 600 }, timeZone: 'UTC' }))).toEqual([
+      'Only from 6:00 PM to 7:00 PM.',
+    ])
+  })
+
   it('shows the chosen time once the room settled, and no deadline', () => {
     const slot = {
       kind: 'slot',

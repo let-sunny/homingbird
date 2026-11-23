@@ -16,6 +16,8 @@ import {
   type ScheduleSetup,
   type TimeSpan,
   answersWithinMinutes,
+  isMeetingPossible,
+  scheduleLimitsProblem,
   turnHoldOf,
   windowAheadOf,
 } from '@homingbird/protocol'
@@ -37,7 +39,13 @@ import {
 import { moveDebate, settleDebateRow } from './debate-settling.ts'
 import { activeMembersAmong, requireMayInvite } from './debates.ts'
 import { joinByDelegation } from './delegated-joins.ts'
-import { keepAgentSlots, keepChosenSlots } from './scheduling-rows.ts'
+import {
+  type LimitRow,
+  keepAgentSlots,
+  keepChosenSlots,
+  limitColumnsOf,
+  limitsOf,
+} from './scheduling-rows.ts'
 import { featureIsOn } from './settings.ts'
 
 /**
@@ -105,6 +113,7 @@ export const openSchedulingRoom = (
         minutes: setup.minutes,
         window_starts_at: setup.window.startsAt,
         window_ends_at: setup.window.endsAt,
+        ...limitColumnsOf(setup),
       }),
     )
     for (const [order, attendee] of attendees.entries()) {
@@ -141,8 +150,11 @@ export const retrySchedulingRoom = (
       return yield* T.fail(Forbidden({ message: 'Only the person who opened this room can open it again.' }))
     if (row.status === 'open' || row.status === 'concluding')
       return yield* T.fail(Conflict({ message: 'This room still takes answers.' }))
-    const asked = (yield* first<{ minutes: number; window_starts_at: number; window_ends_at: number }>(
-      sql`SELECT minutes, window_starts_at, window_ends_at FROM scheduling_rooms WHERE debate_id = ${id}`,
+    const asked = (yield* first<
+      { minutes: number; window_starts_at: number; window_ends_at: number } & LimitRow
+    >(
+      sql`SELECT minutes, window_starts_at, window_ends_at, weekdays, hours_from, hours_to, time_zone
+        FROM scheduling_rooms WHERE debate_id = ${id}`,
     ))!
     const attendees = yield* all<{ member_id: MemberId; required: number }>(sql`
       SELECT a.member_id, a.required FROM scheduling_attendees a
@@ -157,6 +169,7 @@ export const retrySchedulingRoom = (
         startsAt: Number(asked.window_starts_at),
         endsAt: Number(asked.window_ends_at),
       },
+      ...limitsOf(asked),
       attendees: attendees.map((attendee) => ({
         memberId: attendee.member_id,
         required: Number(attendee.required) === 1,
@@ -328,10 +341,14 @@ const setupProblem = (setup: ScheduleSetup, now: number): string | null => {
   if (length > SCHEDULE_WINDOW_MAX_DAYS * DAY_MS)
     return `The window to find a time in spans at most ${SCHEDULE_WINDOW_MAX_DAYS} days.`
   if (length < minutes * 60_000) return 'The window to find a time in is shorter than the meeting.'
+  const limited = scheduleLimitsProblem(setup)
+  if (limited !== null) return limited
   const ahead = windowAheadOf(window, now)
-  return ahead.endsAt - ahead.startsAt < minutes * 60_000
-    ? 'Too little of the window to find a time in is still ahead for the meeting.'
-    : null
+  if (ahead.endsAt - ahead.startsAt < minutes * 60_000)
+    return 'Too little of the window to find a time in is still ahead for the meeting.'
+  return isMeetingPossible(ahead, minutes, setup)
+    ? null
+    : 'No time in the window that is still ahead fits the meeting inside the chosen days and hours.'
 }
 
 const DAY_MS = 24 * 60 * 60_000

@@ -48,6 +48,30 @@ const model = (
     ...(extra.chosen !== undefined && { chosen: extra.chosen }),
   })
 
+describe('schedulingSlotsModel in a room with limits', () => {
+  it('hides every hour outside the days and hours, and says so', () => {
+    const limited = room({}, {
+      weekdays: [5],
+      hours: { from: 600, to: 720 },
+      timeZone: 'Asia/Seoul',
+    } as never)
+    const shown = model(limited)!
+    expect(shown.days.map((day) => day.day)).toEqual(['Fri, Nov 20'])
+    expect(plainSpaces(shown.days[0]!.cells.map((cell) => cell.label))).toEqual(['10:00 AM', '11:00 AM'])
+    expect(shown.limitsHint).toBe(strings.scheduling.pickLimitsHint)
+    expect(shown.slots).toEqual([])
+  })
+
+  it('says nothing of limits in a room without any', () => {
+    expect(model(room())!.limitsHint).toBeNull()
+  })
+
+  it('has nothing to pick when no hour is allowed', () => {
+    const none = room({}, { weekdays: [1], timeZone: 'Asia/Seoul' } as never)
+    expect(model(none)!.emptyText).toBe(strings.scheduling.pickNoTimes)
+  })
+})
+
 describe('schedulingSlotsModel', () => {
   it('lists the window hour by hour in the viewer time zone, one group for each day', () => {
     const shown = model(room())!

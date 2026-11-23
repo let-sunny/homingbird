@@ -7,6 +7,8 @@ import type {
   MemberId,
   RoomSchedule,
   RoomScheduleDetails,
+  ScheduleLimits,
+  ScheduleSetup,
   TimeSpan,
 } from '@homingbird/protocol'
 import type { AppEnv } from '../environment.ts'
@@ -24,7 +26,8 @@ export const scheduleOf = (
 ): T.Task<ScheduleFacts, never, AppEnv> =>
   T.gen(function* () {
     const asked = (yield* first<SchedulingRoomRow>(
-      sql`SELECT minutes, window_starts_at, window_ends_at, invite_uid, meeting_url, invite_state
+      sql`SELECT minutes, window_starts_at, window_ends_at, weekdays, hours_from, hours_to, time_zone,
+        invite_uid, meeting_url, invite_state
         FROM scheduling_rooms WHERE debate_id = ${id}`,
     ))!
     const attendees = yield* all<AttendeeRow>(sql`
@@ -52,6 +55,7 @@ export const scheduleOf = (
     })
     const window = { startsAt: Number(asked.window_starts_at), endsAt: Number(asked.window_ends_at) }
     const minutes = Number(asked.minutes)
+    const limits = limitsOf(asked)
     const listed = attendees.map((attendee) => ({
       memberId: attendee.member_id,
       required: Number(attendee.required) === 1,
@@ -60,6 +64,7 @@ export const scheduleOf = (
       details: {
         minutes,
         window,
+        ...limits,
         attendees: attendees.map((attendee, at) => ({
           ...listed[at]!,
           answer: answerOf(attendee),
@@ -73,6 +78,7 @@ export const scheduleOf = (
       room: {
         minutes,
         window,
+        ...limits,
         attendees: listed,
         chosenByPeople: answered.filter((one) =>
           attendees.some(
@@ -88,6 +94,28 @@ export const scheduleOf = (
       agentSlotsOf: (memberId) => slotsOf(memberId, false),
     }
   })
+
+/** The columns that keep a room's limits on weekdays and hours; none for a room without them. */
+export const limitColumnsOf = (setup: ScheduleSetup) => ({
+  ...(setup.weekdays !== undefined && { weekdays: [...setup.weekdays].sort().join(',') }),
+  ...(setup.hours !== undefined && { hours_from: setup.hours.from, hours_to: setup.hours.to }),
+  ...(setup.timeZone !== undefined && { time_zone: setup.timeZone }),
+})
+
+/** The limits a stored room has: only the ones it was opened with. */
+export const limitsOf = (row: LimitRow): ScheduleLimits => ({
+  ...(row.weekdays !== null && { weekdays: row.weekdays.split(',').map(Number) }),
+  ...(row.hours_from !== null &&
+    row.hours_to !== null && { hours: { from: Number(row.hours_from), to: Number(row.hours_to) } }),
+  ...(row.time_zone !== null && { timeZone: row.time_zone }),
+})
+
+export interface LimitRow {
+  readonly weekdays: string | null
+  readonly hours_from: number | null
+  readonly hours_to: number | null
+  readonly time_zone: string | null
+}
 
 /** Keeps the free slots of an agent's turn for its person, in place of any its earlier turn gave. */
 export const keepAgentSlots = (
@@ -157,7 +185,7 @@ const inviteOf = (room: SchedulingRoomRow): MeetingInvite | null =>
     ? { uid: room.invite_uid, meetingUrl: room.meeting_url }
     : null
 
-interface SchedulingRoomRow {
+interface SchedulingRoomRow extends LimitRow {
   readonly minutes: number
   readonly window_starts_at: number
   readonly window_ends_at: number

@@ -19,7 +19,13 @@ export const schedulingForm = (context: ViewContext, life: Lifetime, me: AsRead.
   const optional = signal<ReadonlySet<MemberId>>(new Set())
   const nameOf = (id: MemberId): string => state.members.get().get(id)?.name ?? strings.formerMember
   const model = () =>
-    schedulingFormModel({ now: context.clock.now(), chosen: chosen.get(), optional: optional.get(), nameOf })
+    schedulingFormModel({
+      now: context.clock.now(),
+      chosen: chosen.get(),
+      optional: optional.get(),
+      nameOf,
+      timeZone: context.page.timeZone(),
+    })
   const start = model()
   const title = h('input', {
     type: 'text',
@@ -37,6 +43,11 @@ export const schedulingForm = (context: ViewContext, life: Lifetime, me: AsRead.
   )
   const earliest = h('input', { type: 'date', name: 'earliestDay', required: true, value: start.earliestDay })
   const latest = h('input', { type: 'date', name: 'latestDay', required: true, value: start.latestDay })
+  const weekdays = start.weekdays.map((day) =>
+    h('input', { type: 'checkbox', name: 'weekday', value: String(day.value) }),
+  )
+  const hoursFrom = h('input', { type: 'time', name: 'hoursFrom', step: '900' })
+  const hoursTo = h('input', { type: 'time', name: 'hoursTo', step: '900' })
   const picker = peoplePicker(life, {
     id: 'scheduling-attendees',
     label: strings.scheduling.attendees,
@@ -59,6 +70,10 @@ export const schedulingForm = (context: ViewContext, life: Lifetime, me: AsRead.
               minutes: length.value,
               earliestDay: earliest.value,
               latestDay: latest.value,
+              weekdays: weekdays.filter((box) => box.checked).map((box) => Number(box.value)),
+              hoursFrom: hoursFrom.value,
+              hoursTo: hoursTo.value,
+              timeZone: context.page.timeZone(),
               chosen: chosen.get(),
               optional: optional.get(),
             },
@@ -120,6 +135,24 @@ export const schedulingForm = (context: ViewContext, life: Lifetime, me: AsRead.
       field(strings.scheduling.earliestDay, earliest),
       field(strings.scheduling.latestDay, latest),
       h('small', { class: 'hint' }, start.windowHint),
+    ),
+    h(
+      'fieldset',
+      { class: 'scheduling-limits' },
+      h('legend', {}, strings.scheduling.limitsLegend),
+      h(
+        'div',
+        { class: 'scheduling-weekdays', role: 'group', 'aria-label': strings.scheduling.weekdaysLabel },
+        start.weekdays.map((day, at) => h('label', {}, weekdays[at]!, h('span', {}, day.label))),
+      ),
+      h('small', { class: 'hint' }, strings.scheduling.weekdaysHint),
+      h(
+        'div',
+        { class: 'scheduling-hours', role: 'group', 'aria-label': strings.scheduling.hoursLabel },
+        field(strings.scheduling.hoursFrom, hoursFrom),
+        field(strings.scheduling.hoursTo, hoursTo),
+      ),
+      h('small', { class: 'hint' }, start.hoursHint),
     ),
     h(
       'div',

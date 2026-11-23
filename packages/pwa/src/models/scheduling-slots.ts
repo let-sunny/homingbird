@@ -1,4 +1,11 @@
-import { type AsRead, FREE_SLOTS_MAX, type MemberId } from '@homingbird/protocol'
+import {
+  type AsRead,
+  FREE_SLOTS_MAX,
+  type MemberId,
+  allowedStretches,
+  hasNoLimits,
+  isAllowed,
+} from '@homingbird/protocol'
 import { locale, strings } from '../strings.ts'
 import { zoneShown } from './schedule-result.ts'
 
@@ -15,7 +22,8 @@ export const schedulingSlotsModel = (input: SchedulingSlotsInput): SchedulingSlo
   const isAnsweredByAgent = debate.participants.some((participant) => participant.memberId === viewerId)
   if (attendee === undefined || (isAnsweredByAgent && !ANSWERED.has(attendee.answer ?? 'waiting')))
     return null
-  const cells = freeTimeCells(schedule.window, input.now)
+  const stretches = allowedStretches(schedule.window, schedule)
+  const cells = freeTimeCells(schedule.window, input.now).filter((cell) => isAllowed(stretches, cell))
   const dayLabel = dayFormat(timeZone)
   const timeLabel = timeFormat(timeZone)
   const hourOf = hourFormat(timeZone)
@@ -32,6 +40,7 @@ export const schedulingSlotsModel = (input: SchedulingSlotsInput): SchedulingSlo
   return {
     title: strings.scheduling.pickTitle,
     hint: strings.scheduling.pickHint({ zone: zoneShown(timeZone) }),
+    limitsHint: hasNoLimits(schedule) ? null : strings.scheduling.pickLimitsHint,
     workingHint:
       hasNonWorking && !showsAll
         ? strings.scheduling.pickWorkingHint({
@@ -86,6 +95,8 @@ export interface SchedulingSlotsInput {
 export interface SchedulingSlotsModel {
   readonly title: string
   readonly hint: string
+  /** Says that the meeting is limited to some days or hours and only those are shown; null without limits. */
+  readonly limitsHint: string | null
   /** Says that only working hours are shown, when hours are hidden. */
   readonly workingHint: string | null
   /** The button that shows all hours or the working hours only, and what showing asks for; null when every hour is working time. */
