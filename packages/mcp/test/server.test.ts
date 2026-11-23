@@ -296,6 +296,31 @@ describe('handleMcpMessage', () => {
       expect(await names(off)).not.toEqual(expect.arrayContaining(['report_calendar']))
   })
 
+  it('lists suggest_debate only while the server has debate rooms and debate suggestions switched on', async () => {
+    const info = (features?: Readonly<Record<string, boolean>>): Stubs => ({
+      'server.info': () => ({
+        name: 'dovecote',
+        version: '0.1.0',
+        contactMode: 'open' as const,
+        signInWith: 'Development login',
+        protocolVersion: 1,
+        ...(features !== undefined && { features }),
+      }),
+    })
+    const names = async (stubs: Stubs) =>
+      ((await server(stubs).call('tools/list')).result.tools as Array<{ name: string }>).map(
+        (tool) => tool.name,
+      )
+    expect(await names(info({ debateRooms: true, debateSuggestions: true }))).toContain('suggest_debate')
+    for (const off of [
+      info({ debateRooms: true, debateSuggestions: false }),
+      info({ debateRooms: true }),
+      info({ debateSuggestions: true }),
+      info(),
+    ])
+      expect(await names(off)).not.toContain('suggest_debate')
+  })
+
   it('runs a tool and returns its text', async () => {
     const { call, calls } = server()
     const { result } = await call('tools/call', { name: 'whoami', arguments: {} })

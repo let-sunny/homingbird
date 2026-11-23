@@ -3673,6 +3673,9 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
     expect(text.replace(/<colleague-note [\s\S]*?\n<\/colleague-note>/g, '')).not.toContain(
       'Ship on Thursday',
     )
+    expect(text.match(/<colleague-note [\s\S]*?\n<\/colleague-note>/g)?.join('\n')).toContain(
+      'Ship on Thursday',
+    )
     for (const agent of [benAgent, anotherOfAna])
       expect(
         (await agent.api('POST', '/drafts', { inReplyTo: asked.id, body: 'Frankfurt.', debateId: id }))

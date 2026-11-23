@@ -18,6 +18,7 @@ import {
   isStateless,
 } from './revisions.ts'
 import { SCHEDULING_TOOL_NAMES } from './scheduling-tools.ts'
+import { SUGGESTION_TOOL_NAMES } from './suggestion-tools.ts'
 import { APPROVAL_RULE, type ToolContext, type ToolResult, callTool, toolDefinitions } from './tools.ts'
 import type { AnnouncedRequests } from './triggers.ts'
 
@@ -133,13 +134,14 @@ const METHODS: Readonly<Record<string, Method>> = {
           (tool) =>
             (offered.debates || !DEBATE_TOOL_NAMES.includes(String(tool.name))) &&
             (offered.scheduling || !SCHEDULING_TOOL_NAMES.includes(String(tool.name))) &&
+            (offered.suggestions || !SUGGESTION_TOOL_NAMES.includes(String(tool.name))) &&
             !(context.withheldTools ?? []).includes(String(tool.name)),
         ),
       ],
     }))(
       (context.local?.blockedBecause() ?? null) === null
         ? offeredTools(context.api)
-        : T.succeed({ debates: true, scheduling: true }),
+        : T.succeed({ debates: true, scheduling: true, suggestions: true }),
     ),
   'tools/call': (params, context) => {
     const local = context.local?.tools.find((each) => each.name === params.name)
@@ -160,6 +162,7 @@ const METHODS: Readonly<Record<string, Method>> = {
 interface OfferedTools {
   readonly debates: boolean
   readonly scheduling: boolean
+  readonly suggestions: boolean
 }
 
 /**
@@ -168,10 +171,11 @@ interface OfferedTools {
  */
 const offeredTools = (api: Api): T.Task<OfferedTools> =>
   T.fold(
-    (): OfferedTools => ({ debates: true, scheduling: true }),
+    (): OfferedTools => ({ debates: true, scheduling: true, suggestions: true }),
     (info: { readonly features?: Readonly<Record<string, boolean>> }): OfferedTools => ({
       debates: isFeatureOffered(info, 'debateRooms'),
       scheduling: isFeatureOffered(info, 'debateRooms') && isFeatureOffered(info, 'schedulingRooms'),
+      suggestions: isFeatureOffered(info, 'debateRooms') && isFeatureOffered(info, 'debateSuggestions'),
     }),
   )(api['server.info']({}))
 

@@ -123,7 +123,7 @@ describe('the debate texts in full', () => {
       'an open room without turns or participants',
       () =>
         quotedDebate(
-          roomOf({ status: 'open', turns: [], participants: [], voteRecord: null } as never),
+          roomOf({ status: 'open', turns: [], participants: [], result: null, voteRecord: null } as never),
           PEOPLE,
           ANA,
           sequential(),
