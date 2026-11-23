@@ -11,6 +11,7 @@ import {
   DebateId,
   type DebateLimits,
   type DebateLimitsWish,
+  type DebateOutcome,
   type DebateSummary,
   type DebateVisibility,
   Forbidden,
@@ -134,6 +135,7 @@ export const listDebates = (viewer: Viewer): T.Task<DebateSummary[], never, Requ
       turnCount: Number(row.turn_count),
       totalTurns: Number(row.total_turns),
       resultDrafted: row.result !== null,
+      ...outcomeOf(row.result),
       joined: Boolean(Number(row.joined)),
       ...(row.suggestion_id != null && { fromSuggestion: true }),
     }))
@@ -309,6 +311,13 @@ export const requireMayInvite = (
 export type DebateAsks = Omit<Required<ResponseOf<Contract['debates.waiting']>>, 'answers'>
 
 const LISTED_ROOMS = 100
+
+const OUTCOMES: ReadonlyArray<DebateOutcome> = ['slot', 'no_slot', 'conclusion', 'no_conclusion']
+
+const outcomeOf = (stored: string | null): { outcome?: DebateOutcome } => {
+  const kind = stored === null ? undefined : (JSON.parse(stored) as { kind?: unknown }).kind
+  return OUTCOMES.find((outcome) => outcome === kind) ? { outcome: kind as DebateOutcome } : {}
+}
 
 const writeBrief = (id: DebateId, memberId: MemberId, brief: string): T.Task<void, never, RequestEnv> =>
   T.gen(function* () {

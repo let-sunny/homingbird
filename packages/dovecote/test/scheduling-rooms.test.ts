@@ -183,6 +183,8 @@ describe('collecting free times from agents', () => {
     expect(settled.json.result.result).toMatchObject({ kind: 'no_slot' })
     const audited = (await storedRows(server, 'audit_events')).find((row) => row.event === 'debate.settled')
     expect(JSON.parse(String(audited!.detail))).toMatchObject({ outcome: 'no_slot', answered: 2 })
+    const listed = await cast.ana.api('GET', '/debates')
+    expect(listed.json.debates).toMatchObject([{ id: room.id, status: 'closed', outcome: 'no_slot' }])
   })
 
   it('refuses slots outside the window, keeping the agent’s place and storing nothing of them', async () => {

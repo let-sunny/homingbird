@@ -131,3 +131,18 @@ describe('debate room schemas', () => {
     expect(ScheduleSetup.decode({ ...setup, title: '' })).toMatchObject({ _tag: 'Err' })
   })
 })
+
+describe("a room summary's outcome", () => {
+  const listed = arbitrary(DebateSummary)
+
+  it('is optional and reads an outcome it does not know as unknown', () => {
+    const summary = fc.sample(listed, 1)[0]!
+    const { outcome: _omitted, ...without } = summary as typeof summary & { outcome?: unknown }
+    expect(DebateSummary.decode(JSON.parse(JSON.stringify(without)))._tag).toBe('Ok')
+    for (const outcome of ['slot', 'no_slot', 'conclusion', 'no_conclusion'])
+      expect(DebateSummary.decode({ ...without, outcome })._tag).toBe('Ok')
+    expect(DebateSummary.read({ ...without, outcome: 'from_the_future' })).toMatchObject({
+      value: { outcome: 'unknown' },
+    })
+  })
+})
