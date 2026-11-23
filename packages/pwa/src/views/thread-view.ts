@@ -26,7 +26,7 @@ import {
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { replyTargetIn } from '../tasks/notes.ts'
-import { type ThreadItem, threadItems } from '../thread.ts'
+import { type ThreadItem, hasDraftWaiting, threadItems } from '../thread.ts'
 import { reviewCard } from './channel-agent.ts'
 import { composer } from './composer.ts'
 import type { ViewContext } from './context.ts'
@@ -283,6 +283,7 @@ export const threadView = (
     focusedDraft === null &&
     focusedReview === null &&
     focusedNote === null &&
+    !hasDraftWaiting(state.conversations.get().find((conversation) => conversation.id === id)) &&
     !context.page.isCoarsePointer()
   )
     state.composerFocus.set(id)

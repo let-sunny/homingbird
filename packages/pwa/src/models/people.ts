@@ -203,7 +203,7 @@ const actionsFor = (
   if (relation === 'blocked') return [action('unblock', strings.unblock)]
   const contacts = mode === 'contacts'
   return [
-    ...(entry.canMessage ? [action('message', strings.message, 'primary')] : []),
+    ...(entry.canMessage ? [action('message', strings.message)] : []),
     ...(contacts && relation === 'none'
       ? [action('request', strings.addContact, null, strings.addContactHint({ name: entry.member.name }))]
       : []),

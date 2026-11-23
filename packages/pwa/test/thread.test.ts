@@ -21,6 +21,7 @@ import {
   draftDestination,
   excerpt,
   groupWith,
+  hasDraftWaiting,
   isArchived,
   isMuted,
   isUnreadBy,
@@ -344,6 +345,12 @@ describe('conversation titles', () => {
     expect(isArchived(archived)).toBe(true)
     expect(isArchived(conversation({}))).toBe(false)
     expect(isArchived(undefined)).toBe(false)
+  })
+
+  it('says a draft waits only in a conversation that holds one', () => {
+    expect(hasDraftWaiting(conversation({ draftCount: 1 }))).toBe(true)
+    expect(hasDraftWaiting(conversation({ draftCount: 0 }))).toBe(false)
+    expect(hasDraftWaiting(undefined)).toBe(false)
   })
 
   it('counts a conversation as muted only when the server says so', () => {

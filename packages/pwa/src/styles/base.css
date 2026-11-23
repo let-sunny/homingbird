@@ -62,14 +62,32 @@ ol {
 
 legend {
   padding-inline: var(--hb-space-2);
-  font-weight: 700;
-  font-size: var(--hb-text-small);
+  font-weight: var(--hb-weight-label);
+  font-size: var(--hb-text-label);
 }
 
 h1,
 h2 {
-  font: 800 var(--hb-text-title) / 1.2 var(--hb-font-display);
+  font: var(--hb-weight-heading) var(--hb-text-heading) / 1.2 var(--hb-font-display);
   letter-spacing: var(--hb-tracking-display);
+}
+
+h1 {
+  font-size: var(--hb-text-page);
+}
+
+@container app (max-width: 32rem) {
+  h1 {
+    font-size: var(--hb-text-page-compact);
+  }
+}
+
+h3,
+h4,
+strong,
+b,
+th {
+  font-weight: var(--hb-weight-label);
 }
 
 a {
@@ -100,7 +118,7 @@ button,
   border-radius: var(--hb-radius);
   background: var(--hb-color-surface);
   box-shadow: var(--hb-shadow-pressed);
-  font-weight: 600;
+  font-weight: var(--hb-weight-label);
   font-size: var(--hb-control-text);
   text-decoration: none;
   cursor: pointer;
@@ -230,12 +248,12 @@ tr {
 code,
 pre {
   font-family: var(--hb-font-mono);
-  font-size: var(--hb-text-small);
+  font-size: var(--hb-text-meta);
 }
 
 small {
   color: var(--hb-color-muted);
-  font-size: var(--hb-text-small);
+  font-size: var(--hb-text-meta);
 }
 
 .visually-hidden {
@@ -258,7 +276,7 @@ small {
 }
 
 .wordmark {
-  font: 800 1.25rem / 1 var(--hb-font-display);
+  font: var(--hb-weight-heading) var(--hb-text-wordmark) / 1 var(--hb-font-display);
   letter-spacing: var(--hb-tracking-display);
 }
 

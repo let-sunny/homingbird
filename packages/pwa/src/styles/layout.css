@@ -105,7 +105,7 @@
   border: var(--hb-border);
   background: var(--hb-color-action);
   color: var(--hb-color-on-action);
-  font: 700 var(--hb-text-small) var(--hb-font-mono);
+  font: var(--hb-weight-label) var(--hb-text-label) var(--hb-font-body);
 }
 
 .newer-below[hidden] {
@@ -128,19 +128,24 @@
   display: flex;
   align-items: center;
   gap: var(--hb-space-3);
-  margin-block-end: var(--hb-space-4);
+  margin-block-end: var(--hb-gap-group);
 }
 
 .page-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--hb-space-4);
+  gap: var(--hb-gap-group);
+}
+
+/* A headed section starts well clear of what came before it, so its heading belongs to what follows. */
+.page-body > section:has(> h2:first-child):not(:first-child) {
+  margin-block-start: var(--hb-gap-group);
 }
 
 .people {
   display: grid;
-  gap: var(--hb-space-4);
-  grid-template-columns: repeat(auto-fill, minmax(min(20rem, 100%), 1fr));
+  grid-template-columns: minmax(0, 1fr);
+  border-block-start: var(--hb-border-divider);
 }
 
 .sign-in {

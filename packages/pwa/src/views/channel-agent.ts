@@ -464,7 +464,6 @@ export const reviewCard = (
       ...(card.focused && { 'aria-current': 'true' }),
     },
     card.heading !== null && h('p', { class: 'review-heading hint' }, card.heading),
-    h('p', { class: 'review-why hint' }, card.why),
     card.privately !== null && h('span', { class: 'review-private' }, card.privately),
     card.question !== null &&
       h(
@@ -490,6 +489,7 @@ export const reviewCard = (
       ),
     card.keptEdit !== null && h('p', { class: 'kept-edit hint', role: 'note' }, card.keptEdit),
     reviewActions(context, card, decides),
+    h('p', { class: 'review-why hint' }, card.why),
   )
 
 /** A channel's agent's state as a dot and its words, as a person's agent is shown. */
