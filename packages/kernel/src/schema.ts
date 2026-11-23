@@ -16,7 +16,11 @@ export type Ast =
   | { readonly type: 'literal'; readonly values: ReadonlyArray<Literal> }
   | { readonly type: 'array'; readonly items: Ast; readonly minItems?: number; readonly maxItems?: number }
   | { readonly type: 'record'; readonly values: Ast }
-  | { readonly type: 'struct'; readonly fields: Readonly<Record<string, FieldAst>> }
+  | {
+      readonly type: 'struct'
+      readonly fields: Readonly<Record<string, FieldAst>>
+      readonly closed?: true
+    }
   | { readonly type: 'union'; readonly members: ReadonlyArray<Ast> }
   | { readonly type: 'refined'; readonly inner: Ast; readonly name: string }
   | { readonly type: 'tolerant'; readonly inner: Ast; readonly fallback: unknown }
@@ -249,6 +253,24 @@ export const struct = <F extends Fields>(fields: F): StructSchema<F> => {
   return { ...schema, fields }
 }
 
+/**
+ * A struct that, when decoding, refuses a key it does not name instead of dropping it; reading still
+ * drops one, as a newer server may send more.
+ */
+export const closed = <F extends Fields>(schema: StructSchema<F>): StructSchema<F> => {
+  const known = Object.keys(schema.fields)
+  const ast = { ...(schema.ast as Extract<Ast, { readonly type: 'struct' }>), closed: true as const }
+  const made = make<InferFields<F>, ReadFields<F>>(ast, (input, path, mode) => {
+    const unknown =
+      mode === 'decode' && isPlainObject(input)
+        ? Object.keys(input).filter((key) => input[key] !== undefined && !known.includes(key))
+        : []
+    if (unknown.length === 0) return visit(schema, input, path, mode)
+    return err(unknown.map((key) => ({ path: [...path, key], message: 'is not a field here' })))
+  })
+  return { ...made, fields: schema.fields }
+}
+
 export const union = <const M extends ReadonlyArray<Schema<any, any>>>(
   ...members: M
 ): Schema<Infer<M[number]>, Read<M[number]>> =>
@@ -371,6 +393,7 @@ export const toJsonSchema = (ast: Ast): JsonSchema => {
         required: Object.entries(ast.fields)
           .filter(([, f]) => !f.optional)
           .map(([k]) => k),
+        ...(ast.closed === true && { additionalProperties: false }),
       }
     case 'union':
       return { anyOf: ast.members.map(toJsonSchema) }

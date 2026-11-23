@@ -6,6 +6,7 @@ import {
   type DebateEvent,
   type DebateRoom,
   type RoomDraft,
+  askOf,
   askedTurnOf,
   settleDebateRoom,
   stepDebate,
@@ -13,7 +14,8 @@ import {
 } from '../src/debate-room.ts'
 import { isReadyToConclude, limitsProblem, turnProblem } from '../src/debate-rules.ts'
 import { MemberId } from '../src/ids.ts'
-import { DEBATE_RULES, type RoomRules } from '../src/room-rules.ts'
+import { DEBATE_RULES, type RoomRules, SCHEDULING_RULES } from '../src/room-rules.ts'
+import type { RoomSchedule } from '../src/scheduling-rules.ts'
 
 const ANA = MemberId.of('ana000000000')
 const BEN = MemberId.of('ben000000000')
@@ -215,6 +217,139 @@ describe('a room stepped by other rules', () => {
         { type: 'end', because: 'no_result', during: 'result' },
       ],
     })
+  })
+})
+
+describe('a room stepped by the scheduling rules', () => {
+  const HOUR = 60 * 60_000
+  const START = 9 * HOUR
+  const SCHEDULE: RoomSchedule = {
+    minutes: 60,
+    window: { startsAt: START, endsAt: START + 8 * HOUR },
+    attendees: [
+      { memberId: ANA, required: true },
+      { memberId: BEN, required: true },
+      { memberId: CY, required: false },
+    ],
+    chosenByPeople: [],
+  }
+  const scheduling = (overrides: Partial<DebateRoom> = {}): DebateRoom =>
+    roomOf({
+      limits: {
+        turnsPerAgent: 1,
+        totalTurns: 2,
+        minutes: 120,
+        turnCharacters: 200,
+        totalFollowsAgents: true,
+      },
+      deadlineAt: 120 * 60_000,
+      participants: [{ memberId: ANA }],
+      schedule: SCHEDULE,
+      ...overrides,
+    })
+  const free = (from: number, hours: number) => [
+    { startsAt: START + from * HOUR, endsAt: START + (from + hours) * HOUR },
+  ]
+  const slotsTurn = (
+    memberId: MemberId,
+    slots: ReadonlyArray<{ startsAt: number; endsAt: number }>,
+    body = '',
+  ) => ({
+    type: 'turn' as const,
+    memberId,
+    body,
+    slots,
+  })
+
+  it('make a room that computes its result, and asks a lone agent for its turn', () => {
+    expect(SCHEDULING_RULES.kind).toBe('scheduling')
+    expect(SCHEDULING_RULES.settlement.by).toBe('computed')
+    expect(DEBATE_RULES.agentsToStart).toBe(2)
+    expect(SCHEDULING_RULES.agentsToStart).toBe(1)
+    expect(askOf(scheduling(), ANA, NOW, SCHEDULING_RULES)).toBe('turn')
+    expect(askOf(scheduling(), ANA, NOW)).toBeNull()
+    expect(askedTurnOf(scheduling(), NOW, SCHEDULING_RULES)?.memberId).toBe(ANA)
+  })
+
+  it('keep a turn’s free slots on the room and in what it stores, and nothing for a debate turn', () => {
+    const debate = accepted(roomOf(), turn(ANA), DEBATE_RULES)
+    expect(debate.room.turns).toStrictEqual([{ memberId: ANA, afterTurn: null, ready: false }])
+    expect(Object.keys(debate.action)).not.toContain('slots')
+    const move = accepted(scheduling(), slotsTurn(ANA, free(1, 2), 'Mornings.'), SCHEDULING_RULES)
+    expect(move.action).toMatchObject({ type: 'addTurn', body: 'Mornings.', slots: free(1, 2) })
+    expect(move.room.turns).toEqual([{ memberId: ANA, afterTurn: null, ready: false, slots: free(1, 2) }])
+    expect(move.after).toEqual([])
+  })
+
+  it('wait for a required person who has not answered even when no agent has a turn left', () => {
+    const move = accepted(scheduling(), slotsTurn(ANA, free(1, 2)), SCHEDULING_RULES)
+    expect(move.room.stage).toEqual({ stage: 'open' })
+    const chosen = { ...SCHEDULE, chosenByPeople: [{ memberId: BEN, slots: free(1.5, 3) }] }
+    const settled = settleDebateRoom({ ...move.room, schedule: chosen }, NOW + 1, SCHEDULING_RULES)
+    const result = {
+      kind: 'slot',
+      startsAt: START + 1.5 * HOUR,
+      endsAt: START + 2.5 * HOUR,
+      optionalFree: [],
+      optionalBusy: [],
+      unanswered: [CY],
+    }
+    expect(settled.effects).toEqual([
+      { type: 'conclude', because: 'limit' },
+      {
+        type: 'closeComputed',
+        round: 0,
+        chosen: { draftedBy: null, draftedAt: NOW + 1, result },
+        droppedOut: [],
+      },
+    ])
+    expect(settled.room.stage).toEqual({
+      stage: 'closed',
+      result: { draftedBy: null, draftedAt: NOW + 1, result },
+    })
+  })
+
+  it('close as soon as every required person answered, with no agent at all', () => {
+    const chosen = {
+      ...SCHEDULE,
+      chosenByPeople: [
+        { memberId: ANA, slots: free(0, 8) },
+        { memberId: BEN, slots: free(4, 1) },
+      ],
+    }
+    const settled = settleDebateRoom(
+      scheduling({ participants: [], schedule: chosen }),
+      NOW,
+      SCHEDULING_RULES,
+    )
+    expect(settled.room.stage).toMatchObject({
+      stage: 'closed',
+      result: { result: { startsAt: START + 4 * HOUR } },
+    })
+  })
+
+  it('leave out whoever did not answer by the deadline, and end with no turns when no required person did', () => {
+    const room = accepted(scheduling(), slotsTurn(ANA, free(2, 1)), SCHEDULING_RULES).room
+    const late = settleDebateRoom(room, room.deadlineAt, SCHEDULING_RULES)
+    expect(late.effects[0]).toEqual({ type: 'conclude', because: 'time' })
+    expect(late.room.stage).toMatchObject({ result: { result: { kind: 'slot', unanswered: [BEN, CY] } } })
+    const silent = settleDebateRoom(scheduling(), scheduling().deadlineAt, SCHEDULING_RULES)
+    expect(silent.effects).toEqual([{ type: 'end', because: 'no_turns', during: 'turns' }])
+  })
+
+  it('keep the place of a turn refused for its slots, even one with no note', () => {
+    const outside = slotsTurn(ANA, free(-1, 2))
+    const move = stepDebate(scheduling(), outside, NOW, SCHEDULING_RULES)
+    expect(Result.isOk(move) ? null : move.error).toMatchObject({
+      _tag: 'Invalid',
+      message: expect.stringMatching(/^Every free slot lies inside .* Your place in the room is kept until /),
+    })
+    expect(turnHoldOf(scheduling(), outside, NOW, SCHEDULING_RULES)).toEqual({
+      memberId: ANA,
+      turnsTaken: 0,
+      until: NOW + 2 * 60_000,
+    })
+    expect(turnHoldOf(scheduling(), slotsTurn(ANA, free(1, 1)), NOW, SCHEDULING_RULES)).toBeNull()
   })
 })
 
