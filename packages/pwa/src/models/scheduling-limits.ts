@@ -33,7 +33,7 @@ export const limitsSummary = (
   if (days !== null && from !== null && to !== null)
     return strings.scheduling.limitsSummary.both({ days, from, to })
   if (days !== null) return strings.scheduling.limitsSummary.days({ days })
-  return from !== null && to !== null ? strings.scheduling.limitsSummary.hours({ from, to }) : null
+  return strings.scheduling.limitsSummary.hours({ from: from!, to: to! })
 }
 
 const DAY_MS = 86_400_000
