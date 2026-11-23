@@ -1,12 +1,15 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { birdTurnSheet } from '../bird-3d.ts'
+import { BIRD_SLICES } from '../bird-slices.ts'
 import { iconPixels, iconSvg, markPixels, markSvg } from '../brand-art.ts'
 import type { CharacterSpec } from '../character-spec.ts'
 import { statesFor } from '../dress.ts'
 import type { Frame } from '../grid.ts'
 import { PRESETS } from '../presets.ts'
-import { type Palette, renderFrame, renderSheet, sheetLayout } from '../render.ts'
+import { type Palette, type Pixels, blank, renderFrame, renderSheet, sheetLayout } from '../render.ts'
 import { STATES, STATE_PURPOSE, type StateName } from '../states.ts'
+import { TURN_DIRECTIONS, TURN_DIRECTION_MS } from '../turn.ts'
 import { encodeGif } from './gif.ts'
 import { encodeIco } from './ico.ts'
 import { encodePng } from './png.ts'
@@ -45,6 +48,17 @@ export const buildPip = (directory: string): void => {
     join(directory, 'pip-sheet.json'),
     `${JSON.stringify({ cell: { w: 16, h: 17 }, states }, null, 2)}\n`,
   )
+  buildPipTurn(directory)
+}
+
+/** Pip turning in 16 directions, facing the viewer first, at 1× for the web client and 4× to look at. */
+export const buildPipTurn = (directory: string): void => {
+  const sheet = birdTurnSheet({ palette: {}, marks: [] })
+  writeFileSync(join(directory, 'pip-turn@1x.png'), encodePng(sheet))
+  writeFileSync(join(directory, 'pip-turn@4x.png'), encodePng(scaled(sheet, 4)))
+  const { width, height } = BIRD_SLICES.cell
+  const about = { cell: { w: width, h: height }, directions: TURN_DIRECTIONS, ms: TURN_DIRECTION_MS }
+  writeFileSync(join(directory, 'pip-turn.json'), `${JSON.stringify(about, null, 2)}\n`)
 }
 
 /** Character sheets and the index; `buildCharacterGifs` writes the README's animations. */
@@ -99,6 +113,16 @@ const writeSet = (
   if (!withGifs) return
   for (const [name, frames] of Object.entries(states))
     writeFileSync(join(directory, `${prefix}-${name}.gif`), gifOf(frames, 8, palette))
+}
+
+const scaled = (image: Pixels, by: number): Pixels => {
+  const large = blank(image.width * by, image.height * by)
+  for (let y = 0; y < large.height; y++)
+    for (let x = 0; x < large.width; x++) {
+      const from = (Math.floor(y / by) * image.width + Math.floor(x / by)) * 4
+      large.data.set(image.data.subarray(from, from + 4), (y * large.width + x) * 4)
+    }
+  return large
 }
 
 const EACH_STATE: StateName = 'waving'

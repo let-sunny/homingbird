@@ -223,7 +223,7 @@ export const threadView = (
       if (top.kind === 'loading') return loading()
       if (top.kind === 'older')
         return button(top.label, () => actions.loadOlderNotes(id), { class: 'load-older' })
-      return top.kind === 'empty' && emptyWithPip('waving', top.text)
+      return top.kind === 'empty' && emptyWithPip(top.text)
     }),
     region(life, [settledLine], () => {
       const settled = settledLine.get()
@@ -335,7 +335,6 @@ const renderDivider = (divider: ThreadDivider): HTMLElement =>
 
 const missingConversation = (): HTMLElement =>
   emptyWithPip(
-    'failed',
     strings.conversationMissing,
     h('a', { class: 'button', href: hrefFor({ name: 'home' }) }, strings.backHome),
   )

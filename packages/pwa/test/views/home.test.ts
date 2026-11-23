@@ -14,6 +14,7 @@ describe('homeView', () => {
     const { context, tour, page } = testContext()
     const shown = homeView(context, lifetime())
     expect(shown.textContent).toBe(strings.loading)
+    expect(shown.querySelector('.turning-bird:not(.is-pip)')).not.toBeNull()
     context.state.conversationsLoaded.set(true)
     expect(getByRole(shown, 'heading', { name: strings.start.firstTitle })).toBeTruthy()
     const lines = [...shown.querySelectorAll('.start-step pre')].map(textOf)
