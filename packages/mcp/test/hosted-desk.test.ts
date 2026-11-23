@@ -330,12 +330,12 @@ describe('a desk run inside the MCP server', () => {
     ] as const) {
       runs.length = 0
       const desk = instance({ launcher, arguments: args, environment })
-      await sendFromBen('Is the migration safe? SPLIT-MARKER-7f3a')
+      await sendFromBen('Is the migration safe? zq-leak-split-7f3a')
       if (!(await desk.said('status')).startsWith('Signed in')) await desk.signIn()
       await running.until(() => runs.length === 2)
       expect(runs.map((run) => run.command)).toEqual(['reader', AGENT])
-      expect(runs[0]!.prompt).toContain('SPLIT-MARKER-7f3a')
-      expect(runs[1]!.prompt).not.toContain('SPLIT-MARKER-7f3a')
+      expect(runs[0]!.prompt).toContain('zq-leak-split-7f3a')
+      expect(runs[1]!.prompt).not.toContain('zq-leak-split-7f3a')
       await running.until(async () => (await draftsOfAna()).length > 0)
       expect((await draftsOfAna()).at(-1).basis).toBe('Drafted from the extracted question (split mode)')
       await running.owner.api('POST', `/drafts/${(await draftsOfAna()).at(-1).id}/discard`, {})
