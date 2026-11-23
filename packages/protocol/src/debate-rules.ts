@@ -43,6 +43,16 @@ export const debateEndingOf = (room: EndingRoom): DebateEnding | null => {
   return isDownToOneAgent(room) ? agentsLeftEnding(room) : null
 }
 
+/** At its total, down to one agent, or once started with no agent taking part that may speak again. */
+export const hasDebateRunOut = (room: RunningRoom): boolean =>
+  room.turns.length >= room.limits.totalTurns ||
+  isDownToOneAgent(room) ||
+  (room.participants.length >= 2 &&
+    room.turns.length > 0 &&
+    !room.participants.some(
+      (participant) => isTakingPart(participant) && hasTurnLeft(room, participant.memberId),
+    ))
+
 /** A started debate with fewer than two agents left taking part closes as it is: no draft or vote follows. */
 export const isDownToOneAgent = (room: EndingRoom): boolean =>
   room.participants.length >= 2 && room.turns.length > 0 && room.participants.filter(isTakingPart).length < 2
@@ -126,6 +136,17 @@ interface EndingRoom {
   readonly participants: ReadonlyArray<Pick<DebateParticipant, 'takingPart'>>
   readonly turns: ReadonlyArray<unknown>
 }
+
+interface RunningRoom {
+  readonly participants: ReadonlyArray<Pick<DebateParticipant, 'memberId' | 'takingPart'>>
+  readonly turns: ReadonlyArray<Pick<DebateTurn, 'memberId'>>
+  readonly limits: Pick<DebateLimits, 'turnsPerAgent' | 'totalTurns'>
+}
+
+const hasTurnLeft = (room: RunningRoom, memberId: MemberId): boolean =>
+  room.turns.length < room.limits.totalTurns &&
+  turnsTakenBy(room, memberId) < room.limits.turnsPerAgent &&
+  room.turns.at(-1)?.memberId !== memberId
 
 const TOTAL_TURNS_MIN = 2
 

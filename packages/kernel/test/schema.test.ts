@@ -120,6 +120,28 @@ describe('composites', () => {
     expect(Object.keys(User.fields)).toEqual(['id', 'name', 'age', 'tags', 'score'])
   })
 
+  it('closed struct refuses every key it does not name when decoding, and drops them when reading', () => {
+    const Slot = S.closed(S.struct({ startsAt: S.int(), note: S.optional(S.string()) }))
+    expect(Slot.decode({ startsAt: 1, note: undefined, other: undefined })).toStrictEqual(ok({ startsAt: 1 }))
+    expect(issuesOf(Slot, { startsAt: 1, title: 'Dentist', place: 'Clinic' })).toEqual([
+      'title|is not a field here',
+      'place|is not a field here',
+    ])
+    expect(issuesOf(S.struct({ slot: Slot }), { slot: { startsAt: 'x', title: 'Dentist' } })).toEqual([
+      'slot.title|is not a field here',
+    ])
+    expect(Slot.read({ startsAt: 1, title: 'Dentist' })).toStrictEqual(ok({ startsAt: 1 }))
+    expect(issuesOf(Slot, 'no')).toEqual(['|expected object, got string'])
+    expect(Object.keys(Slot.fields)).toEqual(['startsAt', 'note'])
+    expect(S.toJsonSchema(Slot.ast)).toStrictEqual({
+      type: 'object',
+      properties: { startsAt: { type: 'integer' }, note: { type: 'string' } },
+      required: ['startsAt'],
+      additionalProperties: false,
+    })
+    expect(S.toJsonSchema(S.struct({}).ast)).toStrictEqual({ type: 'object', properties: {}, required: [] })
+  })
+
   it('struct ignores inherited properties', () => {
     const inherited = Object.create({ name: 'inherited' })
     expect(issuesOf(S.struct({ name: S.string() }), inherited)).toEqual(['name|is required'])
