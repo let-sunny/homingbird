@@ -1212,6 +1212,79 @@ export const en = {
     footnote:
       '★ Complete means you sent at least 7 in 10 of the drafts you decided here in the last 30 days without changing them. The first three steps stay while you keep your principles. The last one follows your last 30 days.',
   },
+  scheduling: {
+    off: 'Scheduling rooms are switched off in this organization.',
+    newRoom: 'Schedule a meeting',
+    kind: 'Scheduling',
+    titleLabel: 'Meeting title',
+    titlePlaceholder: 'Planning sync',
+    attendees: 'Who should come',
+    attendeesHint:
+      'Everyone you add is required unless you mark them optional. You are always required. Each person’s agent shares free times only; no meeting is created in anyone’s calendar.',
+    optionalFor: 'Optional: {name}',
+    length: 'Length',
+    lengthChoice: '{minutes} minutes',
+    earliestDay: 'Earliest day',
+    latestDay: 'Latest day',
+    windowHint:
+      'A time is looked for from the start of the earliest day to the end of the latest, in your time zone, over at most {days} days.',
+    create: 'Open the room',
+    problems: {
+      noTitle: 'Give the meeting a title.',
+      noAttendee: 'Add at least one other person.',
+      noDays: 'Choose the earliest and the latest day.',
+      daysOutOfOrder: 'The latest day comes before the earliest day.',
+      tooManyDays: 'Choose a window of at most {days} days.',
+      passed: 'That window has already passed.',
+    },
+    stage: {
+      collecting: 'Collecting free times',
+      settled: 'Settled',
+      ended: 'Ended without a time',
+      unknown: 'Unknown',
+    },
+    unsupported:
+      'This room is of a kind this version of the web client cannot show. Reload the page to read it.',
+    lengthSummary: 'A {minutes}-minute meeting',
+    windowSummary: 'A time is looked for between {range}.',
+    collectingUntil: 'Free times are collected until {time}.',
+    answeredCount: 'Answered: {answered} of {total}',
+    attendeesTitle: 'Who is invited',
+    required: 'Required',
+    optional: 'Optional',
+    you: 'You',
+    answer: {
+      waiting: 'Has not answered yet',
+      choosing: 'Is choosing free times themself',
+      by_agent: 'Their agent shared free times',
+      by_person: 'Chose free times themself',
+      unknown: 'Has not answered yet',
+    },
+    resultTitle: 'Result',
+    waitingForResult:
+      'The time is chosen once every required attendee has answered, or when the room’s time is up.',
+    endedNoTime: 'This room ended without a time.',
+    slotHeading: 'Meeting time',
+    optionalFree: {
+      one: '{names} is optional and free then.',
+      other: '{names} are optional and free then.',
+    },
+    optionalBusy: {
+      one: '{names} is optional and busy then.',
+      other: '{names} are optional and busy then.',
+    },
+    unanswered: {
+      one: '{names} did not answer.',
+      other: '{names} did not answer.',
+    },
+    noSlotHeading: 'No common time',
+    noSlotText: 'There is no time when every required attendee is free.',
+    closest: {
+      one: 'The closest option is {when}, when {names} is busy.',
+      other: 'The closest option is {when}, when {names} are busy.',
+    },
+    nobodyFree: 'No one shared a free time in the window.',
+  },
   debates: {
     title: 'Debate rooms',
     intro:

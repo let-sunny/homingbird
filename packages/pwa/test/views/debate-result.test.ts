@@ -151,3 +151,18 @@ describe('the result of a room', () => {
     expect(settled.querySelector('.debate-contributions')).toBeNull()
   })
 })
+
+describe('a scheduling result in a result body', () => {
+  it('shows its heading and lines', () => {
+    const shown = renderResultBody(
+      {
+        kind: 'schedule',
+        outcome: 'slot',
+        heading: 'Meeting time',
+        lines: ['Friday', 'Ben did not answer.'],
+      },
+      { contributions: false },
+    )
+    expect(shown).toHaveLength(3)
+  })
+})

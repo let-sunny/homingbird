@@ -1,6 +1,7 @@
 import { type Child, h, linkedText } from '@homingbird/ui'
 import type { CitedText, CreditBadge, ResultBody, ResultModel, ResultPoint } from '../models/debate-result.ts'
 import { strings } from '../strings.ts'
+import { renderScheduleResult } from './schedule-result.ts'
 
 /** The room's result: waiting with its deadlines, or settled with who drafted it and its words. */
 export const resultSection = (result: ResultModel): HTMLElement => {
@@ -66,6 +67,7 @@ export const renderVoteRecord = (
 /** A result's words, as headed lists; a settled result's contributions are shown with the room's stats. */
 export const renderResultBody = (body: ResultBody, shows: { readonly contributions: boolean }): Child[] => {
   if (body.kind === 'unknown') return [h('p', { class: 'hint' }, body.text)]
+  if (body.kind === 'schedule') return renderScheduleResult(body)
   return [
     h('h3', {}, body.heading),
     h('p', { class: 'debate-conclusion' }, citedText(body.summary)),

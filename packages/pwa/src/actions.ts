@@ -192,6 +192,7 @@ export const TASKS = {
   loadDebates: () => debates.loadDebates,
   loadDebate: debates.loadDebate,
   createDebate: debates.createDebate,
+  createSchedulingRoom: debates.createSchedulingRoom,
   optInAgent: debates.optInAgent,
   setBrief: debates.setBrief,
   changeLimits: debates.changeLimits,

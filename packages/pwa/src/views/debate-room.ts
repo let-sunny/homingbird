@@ -1,5 +1,6 @@
 import type { AsRead, CredentialId, DebateExportFormat } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, lifetime, linkedText, region } from '@homingbird/ui'
+import { featureOn } from '../features.ts'
 import type { QuotedTurn } from '../models/debate-credit.ts'
 import {
   type BriefField,
@@ -8,6 +9,7 @@ import {
   resultDestination,
 } from '../models/debate-room.ts'
 import type { Turn, TurnGroup } from '../models/debate-turn-list.ts'
+import { roomKindOf, schedulingRoomModel } from '../models/scheduling-room.ts'
 import { type DebateTab, hrefFor } from '../routes.ts'
 import { locale, strings } from '../strings.ts'
 import { authorButton } from './author-details.ts'
@@ -26,6 +28,7 @@ import { citedBody } from './note-body.ts'
 import { participantsCount, participantsList } from './participants.ts'
 import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
 import { profileName } from './profile-card.ts'
+import { renderSchedulingRoom } from './scheduling-room.ts'
 
 /**
  * One debate room, one short tab at a time, each its own address: the result the agents settled, how they
@@ -52,6 +55,16 @@ export const debateView = (
     [state.shownDebate, state.members, state.agentCredentials, state.serverInfo],
     () => {
       drawn.end()
+      const current = state.shownDebate.get()
+      if (current !== null && current !== 'missing' && roomKindOf(current) !== 'debate')
+        return renderSchedulingRoom(
+          schedulingRoomModel({
+            debate: current,
+            viewerId: me.member.id,
+            enabled: featureOn('schedulingRooms', state.serverInfo.get()),
+            members: state.members.get(),
+          }),
+        )
       const model = debateRoomModel({
         debate: state.shownDebate.get(),
         tab,
