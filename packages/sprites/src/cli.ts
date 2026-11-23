@@ -1,3 +1,4 @@
+import { carveBird } from './bird-3d.ts'
 import type { CharacterSpec } from './character-spec.ts'
 import { statesFor } from './dress.ts'
 import { composeCharacter } from './editor.ts'
@@ -7,7 +8,9 @@ import { randomCharacter } from './random-character.ts'
 import { blank, paste, renderFrame } from './render.ts'
 import type { Pixels } from './render.ts'
 import { validateCharacter } from './rules.ts'
+import { encodeSlices, slicesModule } from './slices.ts'
 import { STATE_NAMES, STATE_PURPOSE, type StateName } from './states.ts'
+import { turnCellOf } from './turn.ts'
 
 /**
  * The `homingbird-sprites` command. `check` and `preview` never save anything: they let a person or an
@@ -19,6 +22,12 @@ export const runCli = (args: ReadonlyArray<string>, io: CliIo): number => {
   if (command === 'build' && first !== undefined) {
     io.buildAssets(first)
     io.out(`wrote assets to ${first}`)
+    return 0
+  }
+  if (command === 'slices' && first !== undefined) {
+    const body = carveBird()
+    io.writeFile(first, new TextEncoder().encode(slicesModule(encodeSlices(body, turnCellOf(body)))))
+    io.out(`wrote ${first}`)
     return 0
   }
   if (command === 'check' && first !== undefined) {
@@ -106,6 +115,7 @@ const reportProblems = (problems: ReadonlyArray<string>, io: CliIo): number => {
 
 const USAGE = `usage:
   homingbird-sprites build <dir>
+  homingbird-sprites slices <out.ts>
   homingbird-sprites check <spec.json | ->
   homingbird-sprites preview <spec.json | -> <out.png> [--scale N]
   homingbird-sprites gif <spec.json | -> <state> <out.gif>

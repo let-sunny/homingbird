@@ -88,7 +88,7 @@ describe('the parts of every page', () => {
     getByRole(loadFailed(retry), 'button', { name: strings.tryAgain }).click()
     expect(retry).toHaveBeenCalled()
     expect(getByText(empty('Nothing', 'x'), 'Nothing')).toBeTruthy()
-    expect(emptyWithPip('waving', 'Hello').querySelector('.pip')).not.toBeNull()
+    expect(emptyWithPip('Hello').querySelector('.turning-bird.is-pip')).not.toBeNull()
   })
 
   it('shows channel chips, counts, marks and a disabled control with its reason', () => {

@@ -8,7 +8,8 @@
   "bin": { "homingbird-sprites": "./bin/homingbird-sprites.ts" },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "assets": "node bin/homingbird-sprites.ts build ../../assets"
+    "assets": "node bin/homingbird-sprites.ts build ../../assets",
+    "slices": "node bin/homingbird-sprites.ts slices src/bird-slices.ts && biome format --write src/bird-slices.ts"
   },
   "dependencies": { "@homingbird/kernel": "workspace:*" }
 }

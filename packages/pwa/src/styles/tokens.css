@@ -169,6 +169,8 @@
   --hb-duration-slow: 280ms;
   --hb-duration-blink: 1.2s;
   --hb-duration-hint-delay: 500ms;
+  /* One whole turn of a bird: 16 directions at 140 ms, as in assets/pip/pip-turn.json. */
+  --hb-duration-bird-turn: 2240ms;
   --hb-ease-pixel: steps(4, end);
   --hb-scanlines: off;
 

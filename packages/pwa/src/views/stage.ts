@@ -91,18 +91,13 @@ export const stageFor = (context: ViewContext, life: Lifetime, me: AsRead.Me, cu
       return me.member.role === 'admin' ? adminView(context, life, me, 'groups', current.id) : notFound()
     case 'invite':
       return emptyWithPip(
-        'sign-in',
         strings.invites.alreadyIn,
         h('a', { class: 'button', href: '#/' }, strings.backHome),
       )
     case 'slack-link':
       return on('slack') ? slackLinkView(context, life, current.code) : notFound()
     case 'invite-refused':
-      return emptyWithPip(
-        'failed',
-        strings.invites.refused,
-        h('a', { class: 'button', href: '#/' }, strings.backHome),
-      )
+      return emptyWithPip(strings.invites.refused, h('a', { class: 'button', href: '#/' }, strings.backHome))
     case 'signed-out':
     case 'unknown':
       return notFound()
@@ -111,4 +106,4 @@ export const stageFor = (context: ViewContext, life: Lifetime, me: AsRead.Me, cu
 
 /** The page for an address that leads nowhere the person may go. */
 const notFound = (): HTMLElement =>
-  emptyWithPip('failed', strings.notFound, h('a', { class: 'button', href: '#/' }, strings.backHome))
+  emptyWithPip(strings.notFound, h('a', { class: 'button', href: '#/' }, strings.backHome))

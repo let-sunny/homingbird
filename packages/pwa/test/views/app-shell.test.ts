@@ -20,6 +20,7 @@ describe('showApp', () => {
   it('waits for the session, then offers to sign in', () => {
     const { context, root } = start()
     expect(textOf(root)).toBe(strings.loading)
+    expect(root.querySelector('.turning-bird.is-pip')).not.toBeNull()
     context.state.session.set(null)
     expect(getByRole(root, 'link', { name: /Sign in/ })).toBeTruthy()
   })
