@@ -37,6 +37,8 @@ export const DEMO_FEATURES: ReadonlyArray<FeatureName> = [
   'noteDetails',
   'channelAgents',
   'debateRooms',
+  'schedulingRooms',
+  'debateSuggestions',
   'insights',
   'invites',
   'joinCodes',
