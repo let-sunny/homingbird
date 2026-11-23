@@ -6,14 +6,14 @@ import { debate } from '../support/fixtures.ts'
 
 const ID = 'debate_000000000000' as never
 
-describe('debate room tasks', () => {
-  it('loads the list of rooms and marks it loaded', async () => {
+describe('flock tasks', () => {
+  it('loads the list of flocks and marks it loaded', async () => {
     const { run, state } = testApp({ 'debates.list': () => ({ debates: [] }) })
     await run(tasks.loadDebates)
     expect(state.debatesLoaded.get()).toBe(true)
   })
 
-  it('opens a scheduling room and reloads the list', async () => {
+  it('opens a scheduling flock and reloads the list', async () => {
     const { run, sent } = testApp({
       'scheduling.create': () => debate(),
       'debates.list': () => ({ debates: [] }),
@@ -31,7 +31,7 @@ describe('debate room tasks', () => {
     ])
   })
 
-  it('gives free times, adds a meeting and takes it out, showing the room each time', async () => {
+  it('gives free times, adds a meeting and takes it out, showing the flock each time', async () => {
     const { run, sent, state } = testApp({
       'scheduling.slots.set': () => debate({ question: 'Slots' }),
       'scheduling.attendance.add': () => debate({ question: 'Added' }),
@@ -51,16 +51,16 @@ describe('debate room tasks', () => {
     ])
   })
 
-  it('shows a room, or shows it as missing when the person may not see it', async () => {
+  it('shows a flock, or shows it as missing when the person may not see it', async () => {
     const shown = testApp({ 'debates.get': () => debate() })
     await shown.run(tasks.loadDebate(ID))
     expect(shown.state.shownDebate.get()).toEqual(debate())
-    const missing = testApp({ 'debates.get': () => fail({ _tag: 'NotFound', message: 'No such room.' }) })
+    const missing = testApp({ 'debates.get': () => fail({ _tag: 'NotFound', message: 'No such flock.' }) })
     await missing.run(tasks.loadDebate(ID))
     expect(missing.state.shownDebate.get()).toBe('missing')
   })
 
-  it('opens a room and reloads the list, opts an agent in, changes limits, posts and exports', async () => {
+  it('opens a flock and reloads the list, opts an agent in, changes limits, posts and exports', async () => {
     const { run, sent, state } = testApp({
       'debates.create': () => debate(),
       'debates.list': () => ({ debates: [] }),

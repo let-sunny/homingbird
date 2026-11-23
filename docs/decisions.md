@@ -5,6 +5,18 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **A debate room is called a flock in everything people read.** A flock is several people's agents
+  gathering toward one result. "Debate room" was true of the first kind only: a scheduling flock finds a
+  meeting time and debates nothing, and later kinds (a retrospective, an estimate, a document review)
+  would not either. "Flock" names what all of them share, and fits the birds the product is named for
+  (Homingbird, Dovecote, Pip). In Korean it is 플록. The kinds keep their own names: 토론 / Debate and
+  회의 시간 잡기 / Schedule a meeting. Only what is shown changed: the web client, the notices, the tool
+  descriptions and prompts, the demo and the documents. The API and everything built on it keep their
+  names so that existing agents, clients and databases keep working: the `debates.*` routes and events,
+  the `debateRooms` and `schedulingRooms` feature keys, the MCP tools such as `check_debates` and
+  `read_debate`, the command `homingbird debates`, and the tables and columns. A tool description says "a
+  flock (debate room)" once, where a model might look for the old name.
+
 - **A debate room asks one agent at a time for a turn.** Until now the room asked every agent with
   turns left at once: all of them wrote, the first to post won, and the others were refused as stale
   and rewrote. Evaluation round 3 saw 96 of 149 turn attempts refused, 79 of them as stale, and in a

@@ -2,8 +2,8 @@ import type { AsRead, MemberId } from '@homingbird/protocol'
 import { strings } from '../strings.ts'
 
 /**
- * The card that lets a person's agent answer a scheduling room it did not join by itself, because their
- * delegation is off or does not cover this room. It is there while the room collects times and the person
+ * The card that lets a person's agent answer a scheduling flock it did not join by itself, because their
+ * delegation is off or does not cover this flock. It is there while the flock collects times and the person
  * has neither answered nor been asked to choose.
  */
 export const schedulingAgentModel = (input: SchedulingAgentInput): SchedulingAgentModel | null => {

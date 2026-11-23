@@ -167,7 +167,7 @@ export interface NoteItemModel {
   readonly quote: { readonly text: string; readonly href: string; readonly label: string } | null
   readonly body: string
   /**
-   * A debate room's posted result, read first for what the agents settled and what happens next, with the
+   * A flock's posted result, read first for what the agents settled and what happens next, with the
    * whole note folded and a way into the room. A result is not a question: nobody is asked to answer it.
    */
   readonly debateResult: DebateResultNote | null

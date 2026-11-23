@@ -16,7 +16,7 @@ import {
 } from '../src/debates.ts'
 import { ANA, roomOf } from './debate-fixtures.ts'
 
-describe('debate room schemas', () => {
+describe('flock schemas', () => {
   it.each([
     ['Debate', Debate],
     ['DebateSummary', DebateSummary],
@@ -45,7 +45,7 @@ describe('debate room schemas', () => {
     }
   })
 
-  it('reads a room from before types as a debate, and a type it does not know as unknown', () => {
+  it('reads a flock from before types as a debate, and a type it does not know as unknown', () => {
     const stored = JSON.parse(JSON.stringify(roomOf()))
     expect(Debate.decode(stored)).toMatchObject({ _tag: 'Ok', value: { id: stored.id } })
     expect(Debate.read(stored)).toMatchObject({ _tag: 'Ok', value: { id: stored.id } })
@@ -54,7 +54,7 @@ describe('debate room schemas', () => {
     expect(Debate.decode({ ...stored, type: 'poll' })).toMatchObject({ _tag: 'Err' })
   })
 
-  it('decodes the result of a debate as before, and one the room computed with no drafter', () => {
+  it('decodes the result of a debate as before, and one the flock computed with no drafter', () => {
     const stored = JSON.parse(JSON.stringify(roomOf()))
     const slot = { kind: 'slot', startsAt: 1, endsAt: 2, optionalFree: [], optionalBusy: [], unanswered: [] }
     expect(Debate.decode(stored)).toMatchObject({ value: { result: { draftedBy: ANA } } })
@@ -68,7 +68,7 @@ describe('debate room schemas', () => {
     expect(Debate.read(later)).toMatchObject({ value: { result: { result: { kind: 'unknown' } } } })
   })
 
-  it('says what a scheduling room asks, within the lengths a person may choose', () => {
+  it('says what a scheduling flock asks, within the lengths a person may choose', () => {
     const asked = {
       minutes: 30,
       window: { startsAt: 1, endsAt: 2 },
@@ -101,7 +101,7 @@ describe('debate room schemas', () => {
     })
   })
 
-  it('asks an agent for free slots in a scheduling room, and an old client reads that ask as unknown', () => {
+  it('asks an agent for free slots in a scheduling flock, and an old client reads that ask as unknown', () => {
     const debate = JSON.parse(JSON.stringify(roomOf()))
     expect(DebateAsk.decode({ debate, ask: 'slots' })).toMatchObject({ _tag: 'Ok' })
     expect(DebateAsk.read({ debate, ask: 'invite' })).toMatchObject({ value: { ask: 'unknown' } })
@@ -116,7 +116,7 @@ describe('debate room schemas', () => {
     expect(MeetingAsk.read({ debate, ask: 'reschedule' })).toMatchObject({ value: { ask: 'unknown' } })
   })
 
-  it('opens a scheduling room for one to seven other people, its opener being the eighth', () => {
+  it('opens a scheduling flock for one to seven other people, its opener being the eighth', () => {
     const setup = {
       title: 'Plan the launch',
       minutes: 30,
@@ -132,7 +132,7 @@ describe('debate room schemas', () => {
   })
 })
 
-describe("a room summary's outcome", () => {
+describe("a flock summary's outcome", () => {
   const listed = arbitrary(DebateSummary)
 
   it('is optional and reads an outcome it does not know as unknown', () => {

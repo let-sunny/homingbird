@@ -23,7 +23,7 @@ import { type TimeShown, timeShown } from './time.ts'
 
 /**
  * Everything that waits for the person, by kind, newest first in each: their own agent's drafts, the
- * channel agents' answers they review, notes their agent skipped and debate rooms that need them. The
+ * channel agents' answers they review, notes their agent skipped and flocks that need them. The
  * bell counts exactly what the groups list. Their agent being unable to answer is a state, not a thing
  * to do: it is told apart and never counted. Only the person's own drafts are listed, and never an
  * answer to a question they asked (rule 2); a kind whose feature is off is left out.
@@ -120,7 +120,7 @@ export interface ActivityGroup {
 
 /** Where an item happens, as a link to the conversation, with when it arrived. */
 export interface ActivityPlace {
-  /** The conversation it waits in; none for a debate room. */
+  /** The conversation it waits in; none for a flock. */
   readonly conversationId: ConversationId | null
   readonly text: string
   readonly href: string

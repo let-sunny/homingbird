@@ -53,7 +53,7 @@ describe('a scheduling delegation', () => {
     expect(mayJoinByDelegation(limited({}, { autoAdd: false }), BEN_ROOM)).toBe(true)
   })
 
-  it('covers only rooms the chosen people opened, and always the person’s own', () => {
+  it('covers only flocks the chosen people opened, and always the person’s own', () => {
     const onlyAna = limited({ people: [ANA] })
     expect(mayJoinByDelegation(onlyAna, BEN_ROOM)).toBe(false)
     expect(mayAddByDelegation(onlyAna, { ...BEN_ROOM, startsAt: at(9) })).toBe(false)

@@ -8,7 +8,7 @@ import { type CalendarFile, meetingCalendarFile } from './calendar-file.ts'
  * or whose agent could not add it, also gets the time as a calendar file, but never before the invitation
  * is sent, which would put the meeting in twice. While their agent is to add it, the person is told
  * whether their desk is running; when it is not, or the agent leaves it waiting, they may do it themself.
- * Whoever opened the room cancels the meeting for everyone by taking it out.
+ * Whoever opened the flock cancels the meeting for everyone by taking it out.
  */
 export const schedulingAttendanceModel = (
   input: SchedulingAttendanceInput,
@@ -92,7 +92,7 @@ export interface SchedulingAttendanceModel {
     readonly label: string
     readonly emphasis: 'primary' | 'plain'
   }>
-  /** Said beside the button that takes the meeting out, for the person who opened the room. */
+  /** Said beside the button that takes the meeting out, for the person who opened the flock. */
   readonly removeHint: string | null
   readonly calendarFileLabel: string
   /** The time as a calendar file for a person without an agent; null when there is none to give. */

@@ -12,7 +12,7 @@ const people = {
 }
 
 describe('demoDebates', () => {
-  it('seeds an open room with turns still coming, a closed one with its conclusion and a private one waiting for June’s agent, as the contract reads them', () => {
+  it('seeds an open flock with turns still coming, a closed one with its conclusion and a private one waiting for June’s agent, as the contract reads them', () => {
     const rooms = demoDebates((minutes) => NOW - minutes * 60_000, people)
     for (const room of rooms) expect(Debate.decode(room)._tag).toBe('Ok')
     expect(rooms.map((room) => [room.status, room.result === null])).toEqual([
@@ -25,7 +25,7 @@ describe('demoDebates', () => {
     expect(rooms[0]!.deadlineAt).toBeGreaterThan(NOW)
   })
 
-  it('closes the refunds room after every agent took its turns, the last ones adding nothing, and a tied vote', () => {
+  it('closes the refunds flock after every agent took its turns, the last ones adding nothing, and a tied vote', () => {
     const closed = demoDebates((minutes) => NOW - minutes * 60_000, people)[1]!
     expect(closed.turns.map((turn) => turn.position)).toEqual(
       Array.from({ length: 12 }, (_, index) => index + 1),

@@ -24,7 +24,7 @@ const input = (room: DebateRoomInput['debate'], fields: Partial<DebateRoomInput>
 })
 
 const room = (model: ReturnType<typeof debateRoomModel>) => {
-  if (model.kind !== 'room') throw new Error('expected a room')
+  if (model.kind !== 'room') throw new Error('expected a flock')
   return model
 }
 
@@ -48,12 +48,12 @@ const conclusion = {
 }
 
 describe('debateRoomModel', () => {
-  it('waits for the room and says when the person may not see it', () => {
+  it('waits for the flock and says when the person may not see it', () => {
     expect(debateRoomModel(input(null))).toEqual({ kind: 'loading' })
     expect(debateRoomModel(input('missing'))).toEqual({ kind: 'missing', text: strings.debates.notFound })
   })
 
-  it('shows an open room waiting for agents, with its limits, and lets its opener change them', () => {
+  it('shows an open flock waiting for agents, with its limits, and lets its opener change them', () => {
     const model = room(
       debateRoomModel(input(debate({ visibility: 'private' }), { agents: [credential('cred_desk')] })),
     )
@@ -108,7 +108,7 @@ describe('debateRoomModel', () => {
     expect(room(debateRoomModel(awake)).optIn).toMatchObject({ notAwake: null })
   })
 
-  it('says an agent is not awake, with the room open until its deadline, while no agent has taken a turn', () => {
+  it('says an agent is not awake, with the flock open until its deadline, while no agent has taken a turn', () => {
     const waiting = debate({ participants: [participant(ANA), participant(BEN, { takingPart: false })] })
     const model = room(debateRoomModel(input(waiting)))
     expect(model.participants[1]!.droppedOut).toBe(
@@ -116,7 +116,7 @@ describe('debateRoomModel', () => {
     )
   })
 
-  it('lets a participant edit their own note while the room takes turns, and shows it fixed afterwards', () => {
+  it('lets a participant edit their own note while the flock takes turns, and shows it fixed afterwards', () => {
     const taking = debate({ participants: [participant(ANA), participant(BEN)], brief: 'Q3 budget only.' })
     expect(room(debateRoomModel(input(taking))).brief).toEqual({
       kind: 'editable',
@@ -210,7 +210,7 @@ describe('debateRoomModel', () => {
     })
   })
 
-  it('shows which agents are ready to conclude while the room takes turns, and when that ends it early', () => {
+  it('shows which agents are ready to conclude while the flock takes turns, and when that ends it early', () => {
     const turn = (position: number, memberId: typeof ANA, ready?: boolean) => ({
       position,
       memberId,
@@ -260,7 +260,7 @@ describe('debateRoomModel', () => {
     ).toBeNull()
   })
 
-  it('says whose agent the room waits for and until when, passing the turn on as its waits run out', () => {
+  it('says whose agent the flock waits for and until when, passing the turn on as its waits run out', () => {
     const asked = { memberId: BEN, until: 150_000, next: [ANA] }
     const waiting = (fields: Partial<AsRead.Debate>, now = 10) =>
       room(debateRoomModel(input(debate({ askedTurn: asked, ...fields }), { now }))).waitingFor
@@ -275,7 +275,7 @@ describe('debateRoomModel', () => {
     expect(room(debateRoomModel(input(debate()))).waitingFor).toBeNull()
   })
 
-  it('says an agent dropped out while the room concludes, and no longer once it closed', () => {
+  it('says an agent dropped out while the flock concludes, and no longer once it closed', () => {
     const dropped = (status: AsRead.Debate['status']) =>
       room(
         debateRoomModel(input(debate({ status, participants: [participant(BEN, { takingPart: false })] }))),
@@ -284,7 +284,7 @@ describe('debateRoomModel', () => {
     expect(dropped('closed')).toBeNull()
   })
 
-  it('says why an ended room ended, and that a later stage has no turns', () => {
+  it('says why an ended flock ended, and that a later stage has no turns', () => {
     const ended = room(debateRoomModel(input(debate({ status: 'ended', endedBecause: 'one_agent_left' }))))
     expect(ended.ended).toBe(strings.debates.ended.one_agent_left)
     expect(ended.closesAt).toBeNull()
@@ -327,7 +327,7 @@ describe('debateRoomModel', () => {
     })
   })
 
-  it('shows a closed room’s result, its drafts, the vote record, and how to post or export it', () => {
+  it('shows a closed flock’s result, its drafts, the vote record, and how to post or export it', () => {
     const model = room(
       debateRoomModel(
         input(
@@ -507,7 +507,7 @@ describe('debateRoomModel', () => {
     ])
   })
 
-  it('leaves the answer to a suggested room’s opener, whose agent answers from it, and lets nobody else post it', () => {
+  it('leaves the answer to a suggested flock’s opener, whose agent answers from it, and lets nobody else post it', () => {
     const closed = debate({
       status: 'closed',
       createdBy: BEN,
@@ -534,7 +534,7 @@ describe('debateRoomModel', () => {
     })
   })
 
-  it('opens a room still taking turns on its turns and any later one on its result, unless a tab is asked for', () => {
+  it('opens a flock still taking turns on its turns and any later one on its result, unless a tab is asked for', () => {
     const shownFor = (fields: Parameters<typeof debate>[0], tab: DebateRoomInput['tab'] = null) =>
       room(debateRoomModel(input(debate(fields), { tab })))
     const tabsOf = (model: ReturnType<typeof shownFor>) => model.tabs.map((tab) => tab.tab)

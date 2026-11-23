@@ -15,9 +15,9 @@ import { agentsContinue, confirmedAttendance } from './scheduling-invitation.ts'
 import type { World } from './world.ts'
 
 /**
- * A scheduling room the visitor opened: a moment after it opens the visitor's own agent gives their free
+ * A scheduling flock the visitor opened: a moment after it opens the visitor's own agent gives their free
  * times from a scripted calendar, and a few seconds later each colleague's agent joins and does the same.
- * The visitor may replace their own times until the room settles; opening it is the only click.
+ * The visitor may replace their own times until the flock settles; opening it is the only click.
  */
 export const agentsAnswerLater = (world: World, debateId: string, adding: () => Adding): void => {
   const room = roomById(world, debateId)!
@@ -30,7 +30,7 @@ export const agentsAnswerLater = (world: World, debateId: string, adding: () => 
     )
 }
 
-/** The room settles once every required person answered: at the earliest common time, or the closest. */
+/** The flock settles once every required person answered: at the earliest common time, or the closest. */
 export const settleWhenAnswered = (world: World, debateId: string, adding: () => Adding): void => {
   const debate = roomById(world, debateId)
   if (debate === null || debate.status !== 'open') return
@@ -56,7 +56,7 @@ export const settleWhenAnswered = (world: World, debateId: string, adding: () =>
   agentsContinue(world, debateId, adding)
 }
 
-/** A person's or an agent's free times kept in the room, and who gave them marked answered. */
+/** A person's or an agent's free times kept in the flock, and who gave them marked answered. */
 export const withAnswer = (
   schedule: RoomSchedule,
   memberId: MemberId,
@@ -73,7 +73,7 @@ export const withAnswer = (
   ],
 })
 
-/** The room as the rules read it: what the agents' turns and the people's own choices gave. */
+/** The flock as the rules read it: what the agents' turns and the people's own choices gave. */
 export const ruleRoomOf = (debate: Debate): DebateRoom => {
   const schedule = debate.schedule!
   const given = schedule.freeSlots ?? []

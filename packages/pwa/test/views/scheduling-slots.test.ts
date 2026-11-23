@@ -73,7 +73,7 @@ const tick = (shown: HTMLElement, startsAt: number, checked: boolean): void => {
 }
 
 describe('the card to pick free times', () => {
-  it('shows the hours of the window and keeps the picks while the room is drawn again', () => {
+  it('shows the hours of the window and keeps the picks while the flock is drawn again', () => {
     const { shown, context } = opened(collecting(), false)
     expect(shown.querySelectorAll('.scheduling-pick-cell')).toHaveLength(4)
     expect(textOf(shown)).toContain(strings.scheduling.pickTitle)
@@ -88,7 +88,7 @@ describe('the card to pick free times', () => {
     expect(textOf(shown)).toContain('1 hour picked')
   })
 
-  it('sends the picked hours joined, then the picks start again from what the room holds', () => {
+  it('sends the picked hours joined, then the picks start again from what the flock holds', () => {
     const { shown, called } = opened(collecting(), false)
     tick(shown, WORK, true)
     tick(shown, WORK + HOUR, true)

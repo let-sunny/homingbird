@@ -15,7 +15,7 @@ import {
   turnsTakenBy,
 } from '@homingbird/protocol'
 
-/** Where a room stands for the person looking at it, which decides what the room page offers. */
+/** Where a flock stands for the person looking at it, which decides what the flock page offers. */
 export type DebateStage =
   | 'gathering'
   | 'debating'
@@ -39,7 +39,7 @@ export const debateStage = (debate: {
   return debate.participants.length < 2 ? 'gathering' : 'debating'
 }
 
-/** The same for a room in the list, which carries counts instead of the room itself. */
+/** The same for a flock in the list, which carries counts instead of the flock itself. */
 export const summaryStage = (summary: AsRead.DebateSummary): DebateStage =>
   debateStage({
     status: summary.status,
@@ -47,7 +47,7 @@ export const summaryStage = (summary: AsRead.DebateSummary): DebateStage =>
     result: summary.resultDrafted ? true : null,
   })
 
-/** A room as the list shows it: debating only while a taking-part agent is awake to take a turn. */
+/** A flock as the list shows it: debating only while a taking-part agent is awake to take a turn. */
 export const listedStage = (
   summary: AsRead.DebateSummary,
   agentAwake: (memberId: MemberId) => boolean,
@@ -56,7 +56,7 @@ export const listedStage = (
   return stage === 'debating' && !summary.participantIds.some(agentAwake) ? 'waiting-for-agent' : stage
 }
 
-/** Whether the viewer's own agent was opted in for the room. */
+/** Whether the viewer's own agent was opted in for the flock. */
 export const takesPart = (debate: Pick<AsRead.Debate, 'participants'>, viewerId: MemberId): boolean =>
   debate.participants.some((participant) => participant.memberId === viewerId)
 
@@ -67,11 +67,11 @@ export const tookATurn = (debate: Pick<AsRead.Debate, 'turns'>, viewerId: Member
 export const mayOptIn = (debate: AsRead.Debate, viewerId: MemberId): boolean =>
   debate.status === 'open' && !takesPart(debate, viewerId) && debate.participants.length < 8
 
-/** Limits are set at setup: only before the first turn, by the person who opened the room. */
+/** Limits are set at setup: only before the first turn, by the person who opened the flock. */
 export const mayChangeLimits = (debate: AsRead.Debate, viewerId: MemberId): boolean =>
   debate.status === 'open' && debate.createdBy === viewerId && debate.turns.length === 0
 
-/** The room's drafts with the chosen one marked, once the agents chose it. */
+/** The flock's drafts with the chosen one marked, once the agents chose it. */
 export const draftsOf = (
   debate: AsRead.Debate,
 ): ReadonlyArray<{
@@ -87,7 +87,7 @@ export const turnsLeftFor = (debate: AsRead.Debate, memberId: MemberId): number 
   Math.max(0, debate.limits.turnsPerAgent - turnsTakenBy(debate, memberId))
 
 /**
- * The limits a person typed, each clamped to what a room accepts, or the reason they cannot work. A total
+ * The limits a person typed, each clamped to what a flock accepts, or the reason they cannot work. A total
  * left empty follows the agents opted in.
  */
 export const limitsFrom = (
@@ -112,7 +112,7 @@ export const limitsFrom = (
 /** The limits typed as numbers; the grace is chosen among `DEBATE_GRACE_MINUTES` instead. */
 export type NumberLimit = Exclude<keyof DebateLimits, 'graceMinutes' | 'totalFollowsAgents'>
 
-/** The most turns per agent offered is 4: in real rooms nothing new appeared after an agent's fourth turn. */
+/** The most turns per agent offered is 4: in real flocks nothing new appeared after an agent's fourth turn. */
 export const LIMIT_BOUNDS: Readonly<Record<NumberLimit, readonly [number, number]>> = {
   turnsPerAgent: [1, TURNS_PER_AGENT_OFFERED],
   totalTurns: [2, 100],
@@ -120,7 +120,7 @@ export const LIMIT_BOUNDS: Readonly<Record<NumberLimit, readonly [number, number
   turnCharacters: [200, 4000],
 }
 
-/** The room's grace, the default when it says none or one this client does not know. */
+/** The flock's grace, the default when it says none or one this client does not know. */
 export const graceOf = (limits: {
   readonly graceMinutes?: AsRead.Debate['limits']['graceMinutes'] | undefined
 }): DebateGraceMinutes =>
@@ -128,17 +128,17 @@ export const graceOf = (limits: {
     ? DEFAULT_GRACE_MINUTES
     : limits.graceMinutes
 
-/** Rooms that want something of the viewer first, then the newest. */
+/** Flocks that want something of the viewer first, then the newest. */
 export const listedDebates = (rooms: ReadonlyArray<AsRead.DebateSummary>): AsRead.DebateSummary[] =>
   [...rooms].sort((a, b) => Number(isUnderWay(b)) - Number(isUnderWay(a)) || b.createdAt - a.createdAt)
 
-/** The member ids a room's export or result mentions, so names can be loaded before they are shown. */
+/** The member ids a flock's export or result mentions, so names can be loaded before they are shown. */
 export const peopleIn = (debate: AsRead.Debate): MemberId[] => [
   ...new Set([debate.createdBy, ...debate.memberIds, ...debate.participants.map((one) => one.memberId)]),
 ]
 
 /**
- * The vote record of a closed room as lines: each agent's vote, then each agent that dropped out or did
+ * The vote record of a closed flock as lines: each agent's vote, then each agent that dropped out or did
  * not vote in time; none when the result was the only draft and nobody voted.
  */
 export const voteRecordLines = (

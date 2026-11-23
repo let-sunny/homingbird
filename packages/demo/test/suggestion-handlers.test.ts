@@ -8,7 +8,7 @@ import { createWorld } from '../src/world.ts'
 import { NOW, demoApi, memberNamed, noteStarting, refused, succeeded } from './support/demo.ts'
 
 describe('debate suggestions', () => {
-  it('shows one suggestion from the visitor’s agent about Kai’s question, who is left out of the room', async () => {
+  it('shows one suggestion from the visitor’s agent about Kai’s question, who is left out of the flock', async () => {
     const { api, world } = started()
     const { suggestions } = await succeeded(api['debateSuggestions.list']({}))
     expect(suggestions).toHaveLength(1)
@@ -21,7 +21,7 @@ describe('debate suggestions', () => {
     })
   })
 
-  it('opens a short room from it, where Ana’s agent joins and a scripted debate settles a result', async () => {
+  it('opens a short flock from it, where Ana’s agent joins and a scripted debate settles a result', async () => {
     const { api, world, clock } = started()
     const [suggestion] = (await succeeded(api['debateSuggestions.list']({}))).suggestions
     const room = await succeeded(
@@ -48,7 +48,7 @@ describe('debate suggestions', () => {
     expect(closed.turns).toHaveLength(4)
   })
 
-  it('opens a room with nobody to ask when the visitor took everyone out', async () => {
+  it('opens a flock with nobody to ask when the visitor took everyone out', async () => {
     const { api, clock, world } = started()
     const [suggestion] = (await succeeded(api['debateSuggestions.list']({}))).suggestions
     const room = await succeeded(

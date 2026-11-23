@@ -27,7 +27,7 @@ export const VISITOR_ID = MemberId.of('demojune0000')
  * asked it privately, which June reviews as a manager. An invite link June made still waits. Long names,
  * text and links and an empty room are there on purpose, to show how pages hold them. The demo opens on
  * the conversation with Ana, the most recent, so a visitor first sees their own agent's draft. June's
- * agent is awake; it skipped Kai's question about the deploy window, and a private debate room waits for
+ * agent is awake; it skipped Kai's question about the deploy window, and a private flock waits for
  * it, so that the activity panel shows every kind of work it lists. Ben lets June
  * see his agent's drafts early, and one waits in their conversation.
  */

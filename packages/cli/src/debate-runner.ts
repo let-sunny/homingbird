@@ -31,9 +31,9 @@ import { type Outcome, outcome } from './outcome.ts'
 import { type Session, calling } from './session.ts'
 
 /**
- * Answers what the debate rooms ask of this desk's agent: its next turn, its draft of the room's result,
- * or its vote on the other agents' drafts. In split mode a reader describes the room first and the agent
- * writes, or votes, from that description alone. A scheduling room wakes the agent too, to read its
+ * Answers what the flocks ask of this desk's agent: its next turn, its draft of the flock's result,
+ * or its vote on the other agents' drafts. In split mode a reader describes the flock first and the agent
+ * writes, or votes, from that description alone. A scheduling flock wakes the agent too, to read its
  * person's calendar with its own tool and to send, accept, decline or cancel the meeting there; an agent
  * that cannot leaves it to its person, as a desk without a calendar does.
  */
@@ -74,7 +74,7 @@ export interface DebateDesk<R> {
   readonly isSplit: boolean
   /** The IANA time zone of this computer, where the person's working hours are. */
   readonly timeZone: string
-  /** The asks already tried, so a room that waits on others is not answered twice. */
+  /** The asks already tried, so a flock that waits on others is not answered twice. */
   readonly tried: Set<string>
   readonly told: Set<string>
   readonly report: (step: Outcome) => void
@@ -88,14 +88,14 @@ export interface DebateDesk<R> {
 }
 
 export const DEBATES_OFF_TEXT =
-  'Debate rooms are turned off in this organization; this desk answers notes and draft requests only.'
+  'Flocks are turned off in this organization; this desk answers notes and draft requests only.'
 
 type DeskServices = HasClock & { readonly nonce: () => string }
 
 const DEBATES_OFF = 'debates-off'
 
 const unknownAskText = (debateId: string): string =>
-  `Skipped debate room ${debateId}: it asks for something this command line does not know. Upgrade the command line to answer it.`
+  `Skipped flock ${debateId}: it asks for something this command line does not know. Upgrade the command line to answer it.`
 
 interface Waiting {
   readonly asks: ReadonlyArray<AsRead.DebateAsk>
@@ -126,7 +126,7 @@ const takeTurn = <R extends DeskServices>(
   authors: Authors,
 ): T.Task<void, CliFailure, R> =>
   T.gen(function* () {
-    const what = `the debate room ${debate.id}`
+    const what = `the flock ${debate.id}`
     const room = yield* roomFor(desk, debate, authors, what)
     if (room === null) return
     const first = yield* writeAndPostTurn(desk, debate, debateTurnPrompt(room), what)
@@ -141,7 +141,7 @@ const takeTurn = <R extends DeskServices>(
     desk.report(
       outcome(
         { step: 'debate-turn', debateId: debate.id, position: taken.turns.length },
-        `Took turn ${taken.turns.length} in ${what}. Turns are shown to the room’s members and never sent as notes.`,
+        `Took turn ${taken.turns.length} in ${what}. Turns are shown to the flock’s members and never sent as notes.`,
       ),
     )
   })
@@ -158,7 +158,7 @@ const shareFreeSlots = <R extends DeskServices>(
   T.gen(function* () {
     const env = yield* T.ask<R>()
     if (!isScheduled(debate)) return yield* declineCalendar(desk, debate)
-    const what = `the scheduling room ${debate.id}`
+    const what = `the scheduling flock ${debate.id}`
     const prompt = freeSlotsPrompt({
       debate,
       viewerId: desk.member.id,
@@ -182,7 +182,7 @@ const shareFreeSlots = <R extends DeskServices>(
     desk.report(
       outcome(
         { step: 'debate-slots', debateId: debate.id, shared: answer.slots.length },
-        `Shared ${answer.slots.length} free time(s) from your calendar in ${what}. Only free and busy times leave this computer; the others see only the time the room finds.`,
+        `Shared ${answer.slots.length} free time(s) from your calendar in ${what}. Only free and busy times leave this computer; the others see only the time the flock finds.`,
       ),
     )
   })
@@ -201,7 +201,7 @@ const useCalendar = <R extends DeskServices>(
     const { debate, ask } = meeting
     if (ask === 'unknown')
       return desk.report(outcome({ step: 'debate-skipped', debateId: debate.id }, unknownAskText(debate.id)))
-    const what = `the meeting of the scheduling room ${debate.id}`
+    const what = `the meeting of the scheduling flock ${debate.id}`
     const prompt = meetingPrompt({ meeting, authors, timeZone: desk.timeZone, nonce: env.nonce })
     const output = yield* desk.run('agent', prompt, what)
     const report = output === null ? null : calendarReportIn(output, ask)
@@ -226,7 +226,7 @@ const useCalendar = <R extends DeskServices>(
 /** The agent cannot read a calendar: the desk says so, and the person is asked to choose their times. */
 const declineCalendar = <R>(desk: DebateDesk<R>, debate: AsRead.Debate): T.Task<void, CliFailure, R> =>
   T.gen(function* () {
-    const what = `the scheduling room ${debate.id}`
+    const what = `the scheduling flock ${debate.id}`
     const posted = yield* T.result(
       desk.session.api['debates.slots.post']({
         params: { id: debate.id },
@@ -252,7 +252,7 @@ const declineCalendar = <R>(desk: DebateDesk<R>, debate: AsRead.Debate): T.Task<
 const reportNoCalendar = <R>(desk: DebateDesk<R>, meeting: AsRead.MeetingAsk): T.Task<void, CliFailure, R> =>
   T.gen(function* () {
     const { debate, ask } = meeting
-    const what = `the scheduling room ${debate.id}`
+    const what = `the scheduling flock ${debate.id}`
     const reported = yield* T.result(
       desk.session.api['debates.calendar.report']({ params: { id: debate.id }, body: { outcome: 'failed' } }),
     )
@@ -290,7 +290,7 @@ const writeAndPostTurn = <R extends DeskServices>(
     }
     if (body === '' || body.length > debate.limits.turnCharacters) {
       yield* desk.warn(
-        `The agent command printed ${body === '' ? 'nothing' : 'more than a turn in this room holds'}; no turn was taken in ${what}.`,
+        `The agent command printed ${body === '' ? 'nothing' : 'more than a turn in this flock holds'}; no turn was taken in ${what}.`,
       )
       return null
     }
@@ -302,7 +302,7 @@ const writeAndPostTurn = <R extends DeskServices>(
     )
   })
 
-/** Once, after a stale refusal: the room again with the turns the agent missed, and its turn rewritten. */
+/** Once, after a stale refusal: the flock again with the turns the agent missed, and its turn rewritten. */
 const retryTurn = <R extends DeskServices>(
   desk: DebateDesk<R>,
   debate: AsRead.Debate,
@@ -323,7 +323,7 @@ const draftResult = <R extends DeskServices>(
   authors: Authors,
 ): T.Task<void, CliFailure, R> =>
   T.gen(function* () {
-    const what = `the result of the debate room ${debate.id}`
+    const what = `the result of the flock ${debate.id}`
     const room = yield* roomFor(desk, debate, authors, what)
     if (room === null) return
     const output = yield* desk.run('agent', debateResultPrompt(room), what)
@@ -345,7 +345,7 @@ const draftResult = <R extends DeskServices>(
     desk.report(
       outcome(
         { step: 'debate-result', debateId: debate.id },
-        `Drafted ${what}. The agents vote on the drafts; the winner has not left the room: a person whose agent took a turn may post it as a note they send themselves.`,
+        `Drafted ${what}. The agents vote on the drafts; the winner has not left the flock: a person whose agent took a turn may post it as a note they send themselves.`,
       ),
     )
   })
@@ -357,7 +357,7 @@ const vote = <R extends DeskServices>(
 ): T.Task<void, CliFailure, R> =>
   T.gen(function* () {
     const env = yield* T.ask<R>()
-    const what = `the vote on the drafts of the debate room ${debate.id}`
+    const what = `the vote on the drafts of the flock ${debate.id}`
     const choices = (debate.drafts ?? [])
       .map((draft) => draft.draftedBy)
       .filter((id) => id !== desk.member.id)
@@ -382,7 +382,7 @@ const vote = <R extends DeskServices>(
     desk.report(
       outcome(
         { step: 'debate-vote', debateId: debate.id, draftBy },
-        `Voted in ${what}. The winning draft becomes the room’s result; only a person can post it, as a note they send themselves.`,
+        `Voted in ${what}. The winning draft becomes the flock’s result; only a person can post it, as a note they send themselves.`,
       ),
     )
   })
@@ -390,7 +390,7 @@ const vote = <R extends DeskServices>(
 /** The model the agent stated, for a request body; nothing when it stated none. */
 const modelOf = (model: string | null): { model?: string } => (model === null ? {} : { model })
 
-/** The room as the writer reads it: quoted in full, or in split mode the reader's checked description. */
+/** The flock as the writer reads it: quoted in full, or in split mode the reader's checked description. */
 const roomFor = <R extends DeskServices>(
   desk: DebateDesk<R>,
   debate: AsRead.Debate,

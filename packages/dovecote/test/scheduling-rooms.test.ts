@@ -52,8 +52,8 @@ const withAgents = async () => {
 
 const roomOf = async (id: string, as: Session = cast.ana) => (await as.api('GET', `/debates/${id}`)).json
 
-describe('opening a scheduling room', () => {
-  it('opens a private room whose opener is a required attendee, with a day from now for answers', async () => {
+describe('opening a scheduling flock', () => {
+  it('opens a private flock whose opener is a required attendee, with a day from now for answers', async () => {
     const room = (await cast.ana.api('POST', '/scheduling-rooms', setupFor({ title: '  Plan the launch ' })))
       .json
     expect(room).toMatchObject({
@@ -115,7 +115,7 @@ describe('opening a scheduling room', () => {
     expect(await storedRows(server, 'scheduling_rooms')).toEqual([])
   })
 
-  it('answers that the feature is off while debate rooms are off, even with scheduling rooms on', async () => {
+  it('answers that the feature is off while flocks are off, even with scheduling flocks on', async () => {
     const settings = (await cast.ana.api('GET', '/admin/settings')).json
     await cast.ana.api('PUT', '/admin/settings', {
       ...settings,
@@ -126,7 +126,7 @@ describe('opening a scheduling room', () => {
     expect(refused.json.error.message).toBe(FEATURE_OFF_MESSAGE)
   })
 
-  it('lets only the people asked opt their agent in, even when the room is open', async () => {
+  it('lets only the people asked opt their agent in, even when the flock is open', async () => {
     const room = await opened({
       visibility: 'open',
       attendees: [{ memberId: cast.ben.me.member.id, required: true }],
@@ -196,7 +196,7 @@ describe('collecting free times from agents', () => {
     expect(listed.json.debates).toMatchObject([{ id: room.id, status: 'closed', outcome: 'no_slot' }])
   })
 
-  it('lets an agent replace its own person’s free times while the room collects, and nobody else’s', async () => {
+  it('lets an agent replace its own person’s free times while the flock collects, and nobody else’s', async () => {
     const room = await opened({
       attendees: [
         { memberId: cast.ben.me.member.id, required: true },
@@ -231,7 +231,7 @@ describe('collecting free times from agents', () => {
     ).toBe(409)
   })
 
-  it('lets a person replace the times they chose themself while the room collects', async () => {
+  it('lets a person replace the times they chose themself while the flock collects', async () => {
     const room = await opened()
     await cast.ana.api('PUT', `/debates/${room.id}/slots/mine`, { slots: [hours(0, 1)] })
     const again = await cast.ana.api('PUT', `/debates/${room.id}/slots/mine`, { slots: [hours(5, 2)] })
@@ -244,12 +244,12 @@ describe('collecting free times from agents', () => {
       slots: [{ startsAt: windowStart() - HOUR, endsAt: windowStart() + HOUR }],
     })
     expect(outside.status).toBe(400)
-    expect(outside.json.error.message).toMatch(/Your place in the room is kept until/)
+    expect(outside.json.error.message).toMatch(/Your place in the flock is kept until/)
     expect(await storedRows(server, 'room_free_slots')).toEqual([])
     expect(await storedRows(server, 'debate_turns')).toEqual([])
   })
 
-  it('takes a text turn in no scheduling room, and free slots in no debate', async () => {
+  it('takes a text turn in no scheduling flock, and free slots in no debate', async () => {
     const room = await withAgents()
     expect((await cast.anaAgent.api('POST', `/debates/${room.id}/turns`, { body: 'Tuesday?' })).status).toBe(
       400,
@@ -333,7 +333,7 @@ describe('free times a person chooses themself', () => {
   })
 })
 
-describe('a scheduling room’s time', () => {
+describe('a scheduling flock’s time', () => {
   it('runs from when it opened, so a late first answer leaves the deadline, and leaves out whoever did not answer', async () => {
     const room = await withAgents()
     await server.clock.advance(100 * 60_000)
@@ -365,8 +365,8 @@ describe('a scheduling room’s time', () => {
   })
 })
 
-describe('opening a scheduling room again', () => {
-  it('asks the same people for the same meeting, in a wider window or the same one, once the room settled', async () => {
+describe('opening a scheduling flock again', () => {
+  it('asks the same people for the same meeting, in a wider window or the same one, once the flock settled', async () => {
     const room = await withAgents()
     const retry = (as: Session, body: unknown = {}) => as.api('POST', `/debates/${room.id}/retry`, body)
     expect((await retry(cast.ana)).status).toBe(409)

@@ -124,7 +124,7 @@ export interface DraftCard {
   readonly body: string
   /** What the agent based the draft on; null where no agent of the person's wrote it alone. */
   readonly basis: DraftBasis | null
-  /** The debate room a posted result came from, in place of a basis. */
+  /** The flock a posted result came from, in place of a basis. */
   readonly room: { readonly href: string; readonly label: string } | null
   readonly applied: ReadonlyArray<AppliedMarker>
   readonly destination:
@@ -211,7 +211,7 @@ const originText = (note: AsRead.Note): string => {
     : strings.originNamed[note.origin]({ agent })
 }
 
-/** A person's own words and a debate room's result have no agent of the person's behind them to give a basis. */
+/** A person's own words and a flock's result have no agent of the person's behind them to give a basis. */
 const hasAgentBasis = (note: AsRead.Note): boolean => note.origin !== 'human' && note.fromDebate === undefined
 
 const destinationOf = (

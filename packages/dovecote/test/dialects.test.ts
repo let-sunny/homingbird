@@ -415,7 +415,7 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
   )
 
   it.skipIf(url === undefined)(
-    'adds the debate room tables as step 3 to a database that has steps 1 and 2, keeping its rows',
+    'adds the flock tables as step 3 to a database that has steps 1 and 2, keeping its rows',
     async () => {
       const database = await emptyDatabase()
       try {

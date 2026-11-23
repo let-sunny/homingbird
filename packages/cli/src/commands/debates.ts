@@ -7,9 +7,9 @@ import { type Outcome, outcome } from '../outcome.ts'
 import { calling, openSession } from '../session.ts'
 
 /**
- * What debate rooms ask of this agent, without any room content: which room, and whether it wants a turn,
- * a draft of the result or a vote on the drafts; which rooms ask another agent for its turn first, and
- * whose; and which of its rooms closed without a result in the last day and why. `homingbird run`
+ * What flocks ask of this agent, without any flock content: which flock, and whether it wants a turn,
+ * a draft of the result or a vote on the drafts; which flocks ask another agent for its turn first, and
+ * whose; and which of its flocks closed without a result in the last day and why. `homingbird run`
  * answers them; the Claude Code plugin only shows them as a notice.
  */
 export const debates: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
@@ -61,7 +61,7 @@ export const debates: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () {
   if (shown.length === 0)
     return outcome(
       { debates: [], ...otherParts },
-      ['No debate room is waiting on this agent.', ...otherLines].join('\n'),
+      ['No flock is waiting on this agent.', ...otherLines].join('\n'),
     )
   return outcome(
     { debates: shown, ...otherParts },

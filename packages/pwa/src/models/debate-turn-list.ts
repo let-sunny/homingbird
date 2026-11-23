@@ -6,7 +6,7 @@ import type { AuthorModel } from './note-item.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
 /**
- * Every turn of a room, numbered, in order. A turn that adds nothing is shown quieter, and a run of them
+ * Every turn of a flock, numbered, in order. A turn that adds nothing is shown quieter, and a run of them
  * is folded behind one line; the run holding a turn the person jumped to opens on it.
  */
 export const turnListModel = (

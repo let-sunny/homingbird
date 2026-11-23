@@ -18,7 +18,7 @@ const started = () => {
 }
 
 describe('debateLater', () => {
-  it('plays nothing in a room that already has turns, or with one agent taking part', async () => {
+  it('plays nothing in a flock that already has turns, or with one agent taking part', async () => {
     const { world, clock } = started()
     const [spoken, , waiting] = world.records().debates
     debateLater(world, spoken!.id)
@@ -52,7 +52,7 @@ describe('debateLater', () => {
     expect(roomById(world, waiting.id)?.askedTurn).toBeNull()
   })
 
-  it('stops when the room closed meanwhile, and never plays the same room twice', async () => {
+  it('stops when the flock closed meanwhile, and never plays the same flock twice', async () => {
     const { world, clock } = started()
     const waiting = world.records().debates[2]!
     changeRoom(world, waiting.id, (room) => ({
@@ -73,7 +73,7 @@ describe('debateLater', () => {
 })
 
 describe('colleagueJoinsLater', () => {
-  it('joins nobody without a colleague, and not a room that is no longer open', async () => {
+  it('joins nobody without a colleague, and not a flock that is no longer open', async () => {
     const { world, clock } = started()
     const closed = world.records().debates[1]!
     colleagueJoinsLater(world, closed.id, memberNamed(world, 'Kai Lin'))
@@ -84,7 +84,7 @@ describe('colleagueJoinsLater', () => {
 })
 
 describe('changeRoom', () => {
-  it('tells the room’s members and its agents’ people that it changed', () => {
+  it('tells the flock’s members and its agents’ people that it changed', () => {
     const { world } = started()
     const open = world.records().debates[0]!
     changeRoom(world, open.id, (room) => room)

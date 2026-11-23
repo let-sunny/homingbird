@@ -84,7 +84,7 @@ export const waitingFilterModel = (pressed: boolean, waiting: Waiting): WaitingF
 export interface Waiting {
   /** Drafts to approve and answers to review, counted as the bell counts them. */
   readonly approvals: number
-  /** Notes the agent skipped and debate rooms that need the person. */
+  /** Notes the agent skipped and flocks that need the person. */
   readonly others: number
   /** Where each thing waits, approvals first, each place once. */
   readonly places: ReadonlyArray<WaitingPlace>

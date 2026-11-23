@@ -1,7 +1,7 @@
 import type { TimeSpan } from './common-slot.ts'
 
 /**
- * Minutes a scheduling room collects free times from its opening: until an hour before the meeting's
+ * Minutes a scheduling flock collects free times from its opening: until an hour before the meeting's
  * last possible start, at most a day, at least two hours, never past that start (why: docs/guide.md).
  */
 export const answersWithinMinutes = (

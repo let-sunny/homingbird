@@ -118,7 +118,7 @@ export const candidatesAmong = (
     .map((entry) => candidateOf(entry, null))
 
 /**
- * The people who may be asked to a debate room, in name order: every person but the viewer, listed with
+ * The people who may be asked to a flock, in name order: every person but the viewer, listed with
  * the reason when the viewer blocked them, or when they asked the note the room is about, since they would
  * read the room before its answer is approved.
  */

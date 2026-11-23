@@ -135,7 +135,7 @@ describe('whose turn it is', () => {
     })
   })
 
-  it('passes the turn of an agent that does not take it within the wait, so the room never stalls', () => {
+  it('passes the turn of an agent that does not take it within the wait, so the flock never stalls', () => {
     const three = { participants: [{ memberId: ANA }, { memberId: BEN }, { memberId: CY }] }
     const room = roomOf([ANA], { ...three, deadlineAt: 10 * WAIT })
     expect(askOf(room, BEN, WAIT - 1)).toBe('turn')
@@ -151,7 +151,7 @@ describe('whose turn it is', () => {
     const three = { participants: [{ memberId: ANA }, { memberId: BEN }, { memberId: CY }] }
     const until = new Date(WAIT).toISOString()
     expect(refusal(roomOf([], three), turn(BEN))).toBe(
-      `Conflict: It is not your turn: the room asks ${ANA}’s agent for a turn until ${until}. Yours comes next, by ${until} if that agent lets its turn pass. Wait until the room asks you; your turn was not saved.`,
+      `Conflict: It is not your turn: the flock asks ${ANA}’s agent for a turn until ${until}. Yours comes next, by ${until} if that agent lets its turn pass. Wait until the flock asks you; your turn was not saved.`,
     )
     expect(refusal(roomOf([], three), turn(CY))).toMatch(
       new RegExp(`Yours comes after 2 other agents’ turns, by ${new Date(2 * WAIT).toISOString()} if each`),
@@ -159,7 +159,9 @@ describe('whose turn it is', () => {
     const outOfOrder = stepDebate(roomOf([ANA], three), readFrom(CY, 0), NOW)
     if (Result.isOk(outOfOrder)) throw new Error('accepted')
     expect(isStaleTurnRefusal(outOfOrder.error)).toBe(false)
-    expect(outOfOrder.error.message).toMatch(new RegExp(`^It is not your turn: the room asks ${BEN}’s agent`))
+    expect(outOfOrder.error.message).toMatch(
+      new RegExp(`^It is not your turn: the flock asks ${BEN}’s agent`),
+    )
     const anaRests = roomOf([], {
       ...three,
       stage: { stage: 'open' },
@@ -170,13 +172,15 @@ describe('whose turn it is', () => {
       ],
     })
     expect(refusal(anaRests, turn(ANA))).toMatch(
-      /It is not your turn: you said you are ready to conclude, so the room asks you again only once another agent takes a turn that does not say so\./,
+      /It is not your turn: you said you are ready to conclude, so the flock asks you again only once another agent takes a turn that does not say so\./,
     )
     const cyAway = { participants: [{ memberId: ANA }, { memberId: BEN }, droppedOut(CY)] }
-    expect(refusal(roomOf([ANA], cyAway), turn(CY))).toMatch(/the room has no turn coming for this agent now/)
+    expect(refusal(roomOf([ANA], cyAway), turn(CY))).toMatch(
+      /the flock has no turn coming for this agent now/,
+    )
   })
 
-  it('refuses the asked agent as stale when the room moved on while its turn passed', () => {
+  it('refuses the asked agent as stale when the flock moved on while its turn passed', () => {
     const room = roomOf([], { deadlineAt: 10 * WAIT })
     expect(askOf(room, ANA, 0)).toBe('turn')
     const benSpoke = accepted(room, turn(BEN), WAIT).room
@@ -186,7 +190,7 @@ describe('whose turn it is', () => {
     expect(isStaleTurnRefusal(stale.error)).toBe(true)
   })
 
-  it('names nobody while the room takes no turn', () => {
+  it('names nobody while the flock takes no turn', () => {
     expect(askedTurnOf(drafting(), NOW)).toBeNull()
     expect(askedTurnOf(roomOf([], { participants: [{ memberId: ANA }] }), NOW)).toBeNull()
     expect(askedTurnOf(roomOf([ANA], { deadlineAt: NOW }), NOW)).toBeNull()
@@ -223,14 +227,14 @@ describe('whose turn it is', () => {
     )
   })
 
-  it('starts the room’s time with the first turn, so setting the room up takes none of it', () => {
+  it('starts the flock’s time with the first turn, so setting the flock up takes none of it', () => {
     const first = accepted(roomOf([], { createdAt: 0, deadlineAt: LIMITS.minutes * 60_000 }), turn(ANA), NOW)
     expect(first.action).toMatchObject({ deadlineAt: NOW + LIMITS.minutes * 60_000 })
     expect(first.room.deadlineAt).toBe(NOW + LIMITS.minutes * 60_000)
     expect(accepted(roomOf([ANA]), turn(BEN)).room.deadlineAt).toBe(NOW + 1)
   })
 
-  it('names why a turn is refused: the room, the agent, a missing second agent, or a used share', () => {
+  it('names why a turn is refused: the flock, the agent, a missing second agent, or a used share', () => {
     expect(refusal(drafting(), turn(ANA))).toMatch(/no more turns/)
     expect(refusal(roomOf([ANA], { deadlineAt: NOW }), turn(BEN))).toMatch(/no more turns/)
     expect(refusal(roomOf([ANA, BEN, ANA, BEN]), turn(ANA))).toMatch(/no more turns/)
@@ -243,7 +247,7 @@ describe('whose turn it is', () => {
     expect(askOf(roomOf([ANA, BEN, ANA, BEN]), BEN, NOW)).toBeNull()
   })
 
-  it('refuses a blank turn and one over the room’s cap as invalid', () => {
+  it('refuses a blank turn and one over the flock’s cap as invalid', () => {
     expect(refusal(roomOf([]), turn(ANA, ' '))).toMatch(/Invalid: A turn needs some text/)
     expect(refusal(roomOf([]), turn(ANA, 'x'.repeat(301)))).toMatch(/Invalid: .*at most 300/)
     expect(refusal(roomOf([]), turn(ANA, 'x'.repeat(342)))).toMatch(/this one has 342, 42 over\./)
@@ -281,19 +285,19 @@ describe('whose turn it is', () => {
     expect(settled(roomOf([], { participants: [{ memberId: ANA }] }))).toEqual([])
   })
 
-  it('stops a room at once with the turn that reaches its limit', () => {
+  it('stops a flock at once with the turn that reaches its limit', () => {
     const move = accepted(roomOf([ANA, BEN, ANA]), turn(BEN))
     expect(move.after).toEqual([{ type: 'conclude', because: 'limit' }])
     expect(move.room.stage).toEqual({ stage: 'drafting', concludedAt: NOW })
     expect(accepted(roomOf([ANA]), turn(BEN)).after).toEqual([])
   })
 
-  it('stops a room by time before it takes a turn, and refuses the turn', () => {
+  it('stops a flock by time before it takes a turn, and refuses the turn', () => {
     expect(settled(roomOf([ANA], { deadlineAt: NOW }))).toEqual([{ type: 'conclude', because: 'time' }])
   })
 })
 
-describe('a room whose agents agree', () => {
+describe('a flock whose agents agree', () => {
   const ready = (memberId: MemberId): DebateEvent => ({
     type: 'turn',
     memberId,
@@ -359,7 +363,7 @@ describe('a room whose agents agree', () => {
     expect(accepted(cySilent, ready(BEN)).after).toEqual([])
   })
 
-  it('leaves an agent that dropped out out of the agreement, so the room concludes when it settles', () => {
+  it('leaves an agent that dropped out out of the agreement, so the flock concludes when it settles', () => {
     const cyAsleep = { participants: [{ memberId: ANA }, { memberId: BEN }, droppedOut(CY)] }
     const room = roomOf([], {
       ...cyAsleep,
@@ -376,7 +380,7 @@ describe('a room whose agents agree', () => {
     expect(accepted(room, ready(BEN)).after).toEqual([{ type: 'conclude', because: 'limit' }])
   })
 
-  it('never concludes by agreement while an agent taking part dissents, and keeps the room open while one may speak', () => {
+  it('never concludes by agreement while an agent taking part dissents, and keeps the flock open while one may speak', () => {
     const turns = fc.array(fc.tuple(fc.constantFrom(ANA, BEN, CY), fc.boolean()), { maxLength: 14 })
     const awake = fc.record({ ana: fc.boolean(), ben: fc.boolean(), cy: fc.boolean() })
     fc.assert(
@@ -409,7 +413,7 @@ describe('a room whose agents agree', () => {
     )
   })
 
-  it('never skips the vote: an agreed room collects every agent’s draft, then puts them to a vote', () => {
+  it('never skips the vote: an agreed flock collects every agent’s draft, then puts them to a vote', () => {
     const turns = fc.array(fc.tuple(fc.constantFrom(ANA, BEN), fc.boolean()), { maxLength: 8 })
     fc.assert(
       fc.property(turns, (said) => {
@@ -434,7 +438,7 @@ describe('a room whose agents agree', () => {
 })
 
 describe('an agent that dropped out', () => {
-  it('is skipped: the room stops once no agent taking part has a turn left, but never before its first turn', () => {
+  it('is skipped: the flock stops once no agent taking part has a turn left, but never before its first turn', () => {
     const cyAsleep = { participants: [{ memberId: ANA }, { memberId: BEN }, droppedOut(CY)] }
     expect(settled(roomOf([ANA, CY, BEN], cyAsleep))).toEqual([])
     expect(settled(roomOf([ANA, BEN], { ...cyAsleep, limits: { ...LIMITS, turnsPerAgent: 1 } }))).toEqual([
@@ -461,7 +465,7 @@ describe('an agent that dropped out', () => {
     ])
   })
 
-  it('ends a room deciding its result as soon as fewer than two agents are left, whatever it collected', () => {
+  it('ends a flock deciding its result as soon as fewer than two agents are left, whatever it collected', () => {
     const benAsleep = { participants: [{ memberId: ANA }, droppedOut(BEN)], drafts: [draft(ANA, NOW)] }
     expect(settled(drafting(benAsleep))).toEqual([
       { type: 'end', because: 'one_agent_left', during: 'result' },
@@ -471,7 +475,7 @@ describe('an agent that dropped out', () => {
     ])
   })
 
-  it('never makes the room wait: with any agents dropped out, it stops exactly when no agent taking part may speak or one is left', () => {
+  it('never makes the flock wait: with any agents dropped out, it stops exactly when no agent taking part may speak or one is left', () => {
     const order = fc.array(fc.constantFrom(ANA, BEN, CY), { minLength: 1, maxLength: 8 })
     const awake = fc.record({ ana: fc.boolean(), ben: fc.boolean(), cy: fc.boolean() })
     fc.assert(
@@ -495,7 +499,7 @@ describe('an agent that dropped out', () => {
   })
 })
 
-describe('a room that stops', () => {
+describe('a flock that stops', () => {
   it('ends without a result with fewer than two agents or no turn, and otherwise asks for one', () => {
     const atDeadline = { deadlineAt: NOW }
     const endedBecause = (room: DebateRoom) => settleDebateRoom(room, NOW).room.stage
@@ -514,7 +518,7 @@ describe('a room that stops', () => {
 })
 
 describe('agents joining', () => {
-  it('takes a new agent while the room takes turns, once per person and up to the most a room holds', () => {
+  it('takes a new agent while the flock takes turns, once per person and up to the most a flock holds', () => {
     expect(accepted(roomOf([ANA]), { type: 'join', memberId: CY })).toMatchObject({
       action: { type: 'addParticipant', memberId: CY },
       after: [],
@@ -550,7 +554,7 @@ describe('limits', () => {
     )
   })
 
-  it('keep the room’s grace unless new limits name one', () => {
+  it('keep the flock’s grace unless new limits name one', () => {
     const withGrace = { ...wished, graceMinutes: 30 } as const
     expect(accepted(roomOf([]), { type: 'setLimits', limits: withGrace }).action).toMatchObject({
       limits: withGrace,
@@ -560,7 +564,7 @@ describe('limits', () => {
     })
   })
 
-  it('stop a room whose new time is already up', () => {
+  it('stop a flock whose new time is already up', () => {
     const move = accepted(roomOf([], { createdAt: -wished.minutes * 60_000 }), {
       type: 'setLimits',
       limits: wished,
@@ -582,7 +586,7 @@ describe('a total that follows the agents', () => {
     expect(accepted(roomOf([]), { type: 'join', memberId: CY }).action).toMatchObject({ totalTurns: null })
   })
 
-  it('follows the agents already in the room when a person sets limits without a total', () => {
+  it('follows the agents already in the flock when a person sets limits without a total', () => {
     const { totalTurns: _, ...withoutTotal } = { ...LIMITS, turnsPerAgent: 4 }
     expect(accepted(roomOf([]), { type: 'setLimits', limits: withoutTotal }).action).toMatchObject({
       limits: { turnsPerAgent: 4, totalTurns: 8, totalFollowsAgents: true },
@@ -590,7 +594,7 @@ describe('a total that follows the agents', () => {
   })
 })
 
-describe('a turn written against an older room', () => {
+describe('a turn written against an older flock', () => {
   const readTo = (memberId: MemberId, afterTurn: number, body = 'A point.'): TurnEvent => ({
     type: 'turn',
     memberId,
@@ -599,16 +603,16 @@ describe('a turn written against an older room', () => {
   })
   const three = { participants: [{ memberId: ANA }, { memberId: BEN }, { memberId: CY }] }
 
-  it('is refused when the room moved past the turn its agent read, and saved when it did not', () => {
+  it('is refused when the flock moved past the turn its agent read, and saved when it did not', () => {
     expect(refusal(roomOf([ANA, BEN], three), readTo(CY, 1))).toMatch(
-      /^Conflict: The room moved on: turns 2 to 2 were taken after turn 1, the last you read\. Your turn was not saved: rewrite it in the light of the turns you missed\./,
+      /^Conflict: The flock moved on: turns 2 to 2 were taken after turn 1, the last you read\. Your turn was not saved: rewrite it in the light of the turns you missed\./,
     )
     const stale = stepDebate(roomOf([ANA, BEN], three), readTo(CY, 1), NOW)
     if (Result.isOk(stale)) throw new Error('accepted')
     expect(isStaleTurnRefusal(stale.error)).toBe(true)
     expect(isStaleTurnRefusal({ _tag: 'Invalid', message: stale.error.message })).toBe(false)
-    expect(isStaleTurnRefusal({ _tag: 'Conflict', message: 'This room takes no more turns.' })).toBe(false)
-    expect(isStaleTurnRefusal({ _tag: 'Conflict', message: 'The room moved on.' })).toBe(false)
+    expect(isStaleTurnRefusal({ _tag: 'Conflict', message: 'This flock takes no more turns.' })).toBe(false)
+    expect(isStaleTurnRefusal({ _tag: 'Conflict', message: 'The flock moved on.' })).toBe(false)
     expect(isStaleTurnRefusal({ _tag: 'Conflict', message: `Note: ${stale.error.message}` })).toBe(false)
     expect(accepted(roomOf([ANA], three), readTo(BEN, 1)).action).toMatchObject({ afterTurn: 1, position: 2 })
     expect(accepted(roomOf([ANA], three), readTo(BEN, 1)).room.turns.at(-1)).toEqual({
@@ -628,7 +632,7 @@ describe('a turn written against an older room', () => {
       until: NOW + TURN_HOLD_MS,
     })
     expect(refusal(room, tooLong)).toMatch(
-      new RegExp(`Your place in the room is kept until ${new Date(NOW + TURN_HOLD_MS).toISOString()}`),
+      new RegExp(`Your place in the flock is kept until ${new Date(NOW + TURN_HOLD_MS).toISOString()}`),
     )
     expect(turnHoldOf(room, readTo(CY, 3), NOW)).toBeNull()
     expect(turnHoldOf(room, readTo(CY, 3, ' '), NOW)).toBeNull()
@@ -639,7 +643,7 @@ describe('a turn written against an older room', () => {
     const ranOut = { ...room, holds: [{ memberId: CY, turnsTaken: 0, until: NOW }] }
     expect(turnHoldOf(ranOut, tooLong, NOW)).toBeNull()
     expect(refusal(ranOut, tooLong)).toBe(
-      'Invalid: A turn in this room holds at most 300 characters; this one has 301, 1 over.',
+      'Invalid: A turn in this flock holds at most 300 characters; this one has 301, 1 over.',
     )
     for (const other of [
       { memberId: BEN, turnsTaken: 0, until: NOW + 10 },
@@ -655,7 +659,7 @@ describe('a turn written against an older room', () => {
     const room = roomOf([ANA], { ...three, holds, deadlineAt: 10 * WAIT })
     expect(askedTurnOf(room, WAIT + 5)).toEqual({ memberId: BEN, until, next: [CY] })
     expect(askOf(room, CY, WAIT + 5)).toBeNull()
-    expect(refusal(room, turn(CY), WAIT + 5)).toMatch(/the room asks .*ben000000000’s agent/)
+    expect(refusal(room, turn(CY), WAIT + 5)).toMatch(/the flock asks .*ben000000000’s agent/)
     expect(accepted(room, turn(BEN), WAIT + 5).action).toMatchObject({ position: 2, memberId: BEN })
     expect(askedTurnOf(room, until)).toEqual({ memberId: CY, until: until + WAIT, next: [BEN] })
     expect(askedTurnOf(room, until + WAIT)).toMatchObject({ memberId: BEN, until: until + 2 * WAIT })
@@ -679,7 +683,7 @@ describe('a turn written against an older room', () => {
     expect(settled(room, WAIT + 5)).toEqual([])
   })
 
-  it('keeps each refused turn in the order the room asked them, one after another', () => {
+  it('keeps each refused turn in the order the flock asked them, one after another', () => {
     const cyRefusedAt = until + 10
     const chain = [{ memberId: CY, turnsTaken: 0, until: cyRefusedAt + TURN_HOLD_MS }, holds[0]!]
     const room = roomOf([ANA], { ...three, holds: chain, deadlineAt: 10 * WAIT })
@@ -696,7 +700,7 @@ describe('collecting drafts of the result', () => {
     expect(askOf(drafting({ drafts: [draft(ANA, NOW)] }), ANA, NOW)).toBeNull()
   })
 
-  it('takes one draft per agent and round, fitting the room, while the room collects drafts', () => {
+  it('takes one draft per agent and round, fitting the flock, while the flock collects drafts', () => {
     expect(accepted(drafting(), draftBy(ANA))).toMatchObject({
       action: { type: 'addDraft', round: 0, memberId: ANA, result: RESULT },
       after: [],
@@ -706,7 +710,7 @@ describe('collecting drafts of the result', () => {
     expect(refusal(voting({ drafts: [draft(ANA, NOW), draft(BEN, NOW)] }), draftBy(ANA))).toMatch(
       /voting on this round’s drafts/,
     )
-    expect(refusal(roomOf([ANA]), draftBy(ANA))).toMatch(/once the room’s turns have run out/)
+    expect(refusal(roomOf([ANA]), draftBy(ANA))).toMatch(/once the flock’s turns have run out/)
     const three = { participants: [{ memberId: ANA }, { memberId: BEN }, { memberId: CY }] }
     expect(refusal(drafting(three), draftBy(ANA))).toMatch(/Invalid: .*missing/)
   })
@@ -864,8 +868,8 @@ describe('choosing the result by vote', () => {
   })
 })
 
-describe('a room whose result waits', () => {
-  it('closes a room stored while it waited for approvals with the result it chose', () => {
+describe('a flock whose result waits', () => {
+  it('closes a flock stored while it waited for approvals with the result it chose', () => {
     const stored = draft(BEN, 5)
     const room = deciding({ stage: 'approving', concludedAt: NOW, result: stored })
     expect(settled(room)).toMatchObject([{ type: 'close', chosen: stored, votes: null, replacing: 5 }])
@@ -888,14 +892,14 @@ describe('a room whose result waits', () => {
     ])
   })
 
-  it('leaves a closed or ended room as it is', () => {
+  it('leaves a closed or ended flock as it is', () => {
     const closed = deciding({ stage: 'closed', result: draft(ANA, 1) })
     expect(settled(closed, NOW + RESULT_WINDOW_MS)).toEqual([])
     expect(askOf(closed, ANA, NOW)).toBeNull()
   })
 })
 
-describe('the laws of a room, over any run of events', () => {
+describe('the laws of a flock, over any run of events', () => {
   const members = [ANA, BEN, CY, DAN] as const
   const member = fc.constantFrom(...members)
   const smallLimits = fc
@@ -1057,7 +1061,7 @@ describe('the laws of a room, over any run of events', () => {
       { numRuns: 150 },
     )
 
-  it('reaches every stage a room can reach, so the laws below are tried on each', () => {
+  it('reaches every stage a flock can reach, so the laws below are tried on each', () => {
     const reached = new Set(
       fc
         .sample(script, { numRuns: 300, seed: 11 })
@@ -1066,7 +1070,7 @@ describe('the laws of a room, over any run of events', () => {
     expect([...reached].sort()).toEqual(['closed', 'drafting', 'ended', 'open', 'setup', 'voting'])
   })
 
-  it('asks exactly one agent at a time for a turn while the room takes turns, and that one only', () => {
+  it('asks exactly one agent at a time for a turn while the flock takes turns, and that one only', () => {
     lawful(({ room, now }) => {
       const asked = room.participants.filter((one) => askOf(room, one.memberId, now) === 'turn')
       const named = askedTurnOf(room, now)
@@ -1088,7 +1092,7 @@ describe('the laws of a room, over any run of events', () => {
     })
   })
 
-  it('never skips the vote when the agents agree: the room goes on to collect drafts', () => {
+  it('never skips the vote when the agents agree: the flock goes on to collect drafts', () => {
     lawful(({ room, effects }) => {
       if (effects.some((effect) => effect.type === 'conclude' && effect.because === 'agreed'))
         expect(['drafting', 'ended']).toContain(room.stage.stage)
@@ -1109,7 +1113,7 @@ describe('the laws of a room, over any run of events', () => {
     })
   })
 
-  it('ends a started room with one agent left or none, before it decides anything', () => {
+  it('ends a started flock with one agent left or none, before it decides anything', () => {
     lawful(({ before, now }) => {
       const stage = before.stage.stage
       const takingPart = before.participants.filter(isTakingPart).length
@@ -1142,7 +1146,7 @@ describe('the laws of a room, over any run of events', () => {
     })
   })
 
-  it('closes an overdue room that has drafts with a result', () => {
+  it('closes an overdue flock that has drafts with a result', () => {
     lawful(({ before, now }) => {
       const stage = before.stage
       if (stage.stage !== 'drafting' && stage.stage !== 'voting') return
@@ -1169,7 +1173,7 @@ describe('the laws of a room, over any run of events', () => {
     })
   })
 
-  it('changes nothing when a settled room is settled again', () => {
+  it('changes nothing when a settled flock is settled again', () => {
     lawful(({ room, now }) => {
       const settledOnce = settleDebateRoom(room, now).room
       const again = settleDebateRoom(settledOnce, now)

@@ -5,7 +5,7 @@ import type { ViewContext } from './context.ts'
 import { section } from './debate-result.ts'
 import { field } from './parts.ts'
 
-/** The card that opts the person's agent in to answer a scheduling room it did not join by itself. */
+/** The card that opts the person's agent in to answer a scheduling flock it did not join by itself. */
 export const schedulingAgentCard = (
   context: ViewContext,
   input: {

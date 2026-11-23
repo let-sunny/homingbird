@@ -67,7 +67,7 @@ describe('the activity tasks', () => {
     expect(state.threadsLoading.size).toBe(0)
   })
 
-  it('still load the drafts when the inbox is refused, and no rooms while debate rooms are off', async () => {
+  it('still load the drafts when the inbox is refused, and no rooms while flocks are off', async () => {
     const { run, state, routes } = testApp({
       ...handlers,
       'inbox.list': () => fail(Forbidden({ message: 'no' })),

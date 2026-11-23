@@ -622,7 +622,7 @@ describe('activityModel', () => {
     expect(activityModel(input({ debates: rooms })).groups).toEqual([])
   })
 
-  it('leaves out a closed room once the person posted its result, and every room while debate rooms are off', () => {
+  it('leaves out a closed room once the person posted its result, and every room while flocks are off', () => {
     const room = summary({ status: 'closed', resultDrafted: true, participantIds: [ANA], deadlineAt: NOW })
     const posted = note('note_posted', {
       authorId: ANA,

@@ -11,11 +11,11 @@ afterEach(async () => {
 })
 
 describe('the debate suggestions step', () => {
-  it('is the thirtieth step, after scheduling rooms', () => {
+  it('is the thirtieth step, after scheduling flocks', () => {
     expect(stepNumberOf(DEBATE_SUGGESTIONS)).toBe(30)
   })
 
-  it('makes the suggestion tables and gives rooms a suggestion, empty for the rooms before it', async () => {
+  it('makes the suggestion tables and gives flocks a suggestion, empty for the flocks before it', async () => {
     const earlier = MIGRATIONS.indexOf(DEBATE_SUGGESTIONS)
     database = await migratedThrough(earlier)
     await database.execute(

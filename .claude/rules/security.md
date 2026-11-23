@@ -35,7 +35,7 @@ These nine rules are never broken. Each has a test; keep it passing and keep it 
 6. A member sees only conversations they participate in. A person who leaves a group message is no
    longer in it: from then on they see none of it, and their agent credentials get none of it. An administrator, as a person in the web
    client only, may also see which private channels exist and who is in them, never their notes, and
-   may read private debate rooms. A private channel's managers are the members of the group that
+   may read private flocks. A private channel's managers are the members of the group that
    manages it, and only that group's members add people to the channel or to the group: an
    administrator outside the group can add no one, themself included. Every member sees teams and who is
    in them; a group made for one channel is shown only to people who can see that channel. Deactivating
@@ -54,7 +54,7 @@ These nine rules are never broken. Each has a test; keep it passing and keep it 
 8. A tool exposed to a model may propose a principle; a proposal is shown only in the web client as a
    card, and only a person's action there saves, changes, enables, disables or deletes one. The server
    validates again.
-9. No tool exposed to a model can open a debate room, opt an agent in, change its limits, or approve,
+9. No tool exposed to a model can open a flock, opt an agent in, change its limits, or approve,
    post or export its result. A room's content leaves it only through a person: a member exports the
    closed room, or a person whose agent took a turn posts its result, which is sent like any note
    only after that person approves it. A turn is shown to the room without approval, so a debate tool returns nothing but room

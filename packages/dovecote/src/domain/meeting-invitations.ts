@@ -68,7 +68,7 @@ export const reportCalendar = (
         }),
       )
     if ((yield* meetingAgentOf(id, caller.member.id)) !== caller.credential.id)
-      return yield* T.fail(Forbidden({ message: 'Your person has not opted this agent in for this room.' }))
+      return yield* T.fail(Forbidden({ message: 'Your person has not opted this agent in for this flock.' }))
     if (report.outcome !== 'sent' && (report.inviteUid !== undefined || report.meetingUrl !== undefined))
       return yield* T.fail(Invalid({ message: 'Only a sent invitation carries its id and meeting link.' }))
     const row = yield* lockedSchedulingRoom(id)
@@ -155,7 +155,7 @@ const stateOf = (attendance: Attendance, memberId: MemberId): AttendanceState | 
 const requireAttendance = (row: DebateRow): T.Task<Attendance, Conflict, RequestEnv> =>
   T.flatMap((attendance: Attendance | null) =>
     attendance === null
-      ? T.fail(Conflict({ message: 'This room has not found a time for the meeting.' }))
+      ? T.fail(Conflict({ message: 'This flock has not found a time for the meeting.' }))
       : T.succeed(attendance),
   )(attendanceOf(row))
 

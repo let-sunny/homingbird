@@ -232,7 +232,7 @@ describe('reading whether an agent said its turn is ready to conclude', () => {
   })
 })
 
-describe('reading the model an agent stated in a debate room', () => {
+describe('reading the model an agent stated in a flock', () => {
   it('splits off a last line with the exact MODEL marker and one name, cleaned to a label', () => {
     expect(statedModelIn('My turn.\nMore of it.\nMODEL:  claude-opus-5-5 \n')).toEqual({
       answer: 'My turn.\nMore of it.',

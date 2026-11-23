@@ -47,7 +47,7 @@ describe('renderSchedulingRoom', () => {
     expect(shown.querySelector('.scheduling-deadline')).not.toBeNull()
   })
 
-  it('shows whoever opened the room where each other person’s part of the meeting stands', () => {
+  it('shows whoever opened the flock where each other person’s part of the meeting stands', () => {
     const room = meeting({ status: 'closed', createdBy: ANA })
     const attendees = [
       { memberId: ANA, required: true, answer: 'by_person', attendance: 'added' },
@@ -60,7 +60,7 @@ describe('renderSchedulingRoom', () => {
     expect(shown.querySelector(`li[data-member="${ANA}"] .scheduling-attendee-part`)).toBeNull()
   })
 
-  it('shows the time the room settled on and no deadline', () => {
+  it('shows the time the flock settled on and no deadline', () => {
     const slot = {
       kind: 'slot',
       startsAt: 0,
@@ -81,7 +81,7 @@ describe('renderSchedulingRoom', () => {
     expect(shown.querySelector('.scheduling-deadline')).toBeNull()
   })
 
-  it('says why a room it cannot show is not shown', () => {
+  it('says why a flock it cannot show is not shown', () => {
     const shown = mount(
       renderSchedulingRoom(
         schedulingRoomModel({
@@ -96,14 +96,14 @@ describe('renderSchedulingRoom', () => {
     expect(textOf(shown)).toContain(strings.scheduling.off)
   })
 
-  it('shows the time a room ended without as a plain line', () => {
+  it('shows the time a flock ended without as a plain line', () => {
     const shown = mount(renderSchedulingRoom(model(meeting({ status: 'ended' }))))
     expect(textOf(shown)).toContain(strings.scheduling.endedNoTime)
   })
 })
 
-describe('debateView for a scheduling room', () => {
-  it('shows a scheduling room as one when the feature is on, and draws it again as the room changes', () => {
+describe('debateView for a scheduling flock', () => {
+  it('shows a scheduling flock as one when the feature is on, and draws it again as the flock changes', () => {
     const { context } = testContext()
     context.state.serverInfo.set(serverInfo({ schedulingRooms: true }))
     context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben')])
@@ -114,7 +114,7 @@ describe('debateView for a scheduling room', () => {
     expect(textOf(shown)).toContain(strings.scheduling.endedNoTime)
   })
 
-  it('hides a scheduling room while the feature is off, and a room of a type it does not know', () => {
+  it('hides a scheduling flock while the feature is off, and a flock of a type it does not know', () => {
     const { context } = testContext()
     context.state.serverInfo.set(serverInfo())
     context.state.shownDebate.set(meeting())

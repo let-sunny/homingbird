@@ -28,8 +28,8 @@ import { confirmMeeting } from './meeting-invitations.ts'
 import { keepAgentSlots } from './scheduling-rows.ts'
 
 /**
- * Moves the room the row was read as on by what time alone decides, storing each effect the machine
- * chose with an update that matches the stage it was decided on: a room changed since stays as it is.
+ * Moves the flock the row was read as on by what time alone decides, storing each effect the machine
+ * chose with an update that matches the stage it was decided on: a flock changed since stays as it is.
  */
 export const settleDebateRow = (row: DebateRow): T.Task<void, never, RequestEnv> =>
   T.gen(function* () {
@@ -40,8 +40,8 @@ export const settleDebateRow = (row: DebateRow): T.Task<void, never, RequestEnv>
   })
 
 /**
- * Takes an agent's or a person's event in the room, after settling what time decided; a refused event
- * stores nothing. A turn or limits that stop the room are announced by the stop alone.
+ * Takes an agent's or a person's event in the flock, after settling what time decided; a refused event
+ * stores nothing. A turn or limits that stop the flock are announced by the stop alone.
  */
 export const moveDebate = (
   row: DebateRow,
@@ -68,7 +68,7 @@ export interface DebateActor {
   readonly model?: string | undefined
 }
 
-/** Stores one way the room moved on, then audits and announces it, only when the update changed the room. */
+/** Stores one way the flock moved on, then audits and announces it, only when the update changed the flock. */
 export const applySettling = (
   row: DebateRow,
   effect: DebateSettlingEffect,
@@ -157,7 +157,7 @@ const applyAction = (
         )
         if (taken !== 1)
           return yield* T.fail(
-            Conflict({ message: 'Another turn was taken at the same moment. Read the room again.' }),
+            Conflict({ message: 'Another turn was taken at the same moment. Read the flock again.' }),
           )
         if (effect.deadlineAt !== null)
           yield* run(sql`UPDATE debates SET deadline_at = ${effect.deadlineAt} WHERE id = ${row.id}`)
@@ -200,7 +200,7 @@ const applyAction = (
 const statedModelOf = (actor: DebateActor): { agent_model?: string } =>
   actor.model === undefined ? {} : { agent_model: actor.model.trim() }
 
-/** Closes the room on the result it was read with; a room whose round or result changed since stays. */
+/** Closes the flock on the result it was read with; a flock whose round or result changed since stays. */
 const close = (
   row: DebateRow,
   effect: Extract<DebateSettlingEffect, { readonly type: 'close' }>,
@@ -238,7 +238,7 @@ const close = (
   })
 
 /**
- * Closes a scheduling room on the time it computed, which nobody drafted and earns no credits; the time is
+ * Closes a scheduling flock on the time it computed, which nobody drafted and earns no credits; the time is
  * kept and the meeting started for the invitation, and the audit says only how it settled and how many
  * answered.
  */
@@ -277,7 +277,7 @@ const closeComputed = (
     yield* announceDebate(row, 'everyone')
   })
 
-/** A room ends from taking turns, or while it decides its result: with no result, or with its agents gone. */
+/** A flock ends from taking turns, or while it decides its result: with no result, or with its agents gone. */
 const endingUpdate = (
   row: DebateRow,
   effect: Extract<DebateSettlingEffect, { readonly type: 'end' }>,

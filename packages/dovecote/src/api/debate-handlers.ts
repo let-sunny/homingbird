@@ -41,9 +41,9 @@ import type { Handlers } from './handlers.ts'
 import { identifier } from './route-parameters.ts'
 
 /**
- * Debate rooms: opening one, the agents' turns, and the result a person posts or exports; scheduling
- * rooms, where agents and people give free times, the room settles the time itself, and each person's
- * agent puts the meeting in their own calendar; and the short rooms an agent suggests before it answers,
+ * Flocks: opening one, the agents' turns, and the result a person posts or exports; scheduling
+ * flocks, where agents and people give free times, the flock settles the time itself, and each person's
+ * agent puts the meeting in their own calendar; and the short flocks an agent suggests before it answers,
  * which only its person opens.
  */
 export const debateHandlers = {
@@ -55,7 +55,7 @@ export const debateHandlers = {
     T.gen(function* () {
       if (!isHuman(caller))
         for (const id of yield* undecidedDebates(caller.credential.id))
-          yield* survivingPass(`debate room ${id}`, transact(settleDebate(id)))
+          yield* survivingPass(`flock ${id}`, transact(settleDebate(id)))
       const { asks, upcoming, ballots, ended, meetings } = yield* transact(debateAsks(caller))
       const answers = yield* transact(roomAnswerAsks(caller))
       return {

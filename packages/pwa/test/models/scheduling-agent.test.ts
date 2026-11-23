@@ -24,7 +24,7 @@ const room = (answer: Answer = 'waiting', fields: Parameters<typeof debate>[0] =
 const AGENTS = [credential('cred_laptop000000', { name: 'Laptop' }), credential('cred_desk00000000')]
 
 describe('schedulingAgentModel', () => {
-  it('offers the person’s agents to answer a room none of them joined by itself', () => {
+  it('offers the person’s agents to answer a flock none of them joined by itself', () => {
     expect(schedulingAgentModel({ debate: room(), viewerId: ANA, agents: AGENTS })).toEqual({
       title: strings.scheduling.agentTitle,
       hint: strings.scheduling.agentHint,
@@ -37,7 +37,7 @@ describe('schedulingAgentModel', () => {
     })
   })
 
-  it('is not there once an agent takes part or the person answered, with no agent, after the room, or for someone not asked', () => {
+  it('is not there once an agent takes part or the person answered, with no agent, after the flock, or for someone not asked', () => {
     const joined = room('waiting', {
       participants: [{ memberId: ANA, agentId: null, agentName: 'Laptop', joinedAt: 1 }],
     })

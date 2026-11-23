@@ -12,7 +12,7 @@ const meeting = (minutes: number, endsIn: number) => ({
   window: { startsAt: NOW, endsAt: NOW + endsIn },
 })
 
-describe('how long a scheduling room collects free times', () => {
+describe('how long a scheduling flock collects free times', () => {
   it('collects for a day when the window spans a week', () => {
     expect(answersWithinMinutes(meeting(60, 7 * DAY), NOW)).toBe(24 * 60)
   })

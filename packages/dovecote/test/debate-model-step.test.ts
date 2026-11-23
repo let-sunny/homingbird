@@ -11,7 +11,7 @@ afterEach(async () => {
 })
 
 describe('the debate model step', () => {
-  it('adds the stated model to the turns, drafts and votes of rooms that already exist', async () => {
+  it('adds the stated model to the turns, drafts and votes of flocks that already exist', async () => {
     const earlier = MIGRATIONS.includes(DEBATE_MODEL) ? MIGRATIONS.indexOf(DEBATE_MODEL) : MIGRATIONS.length
     database = await migratedThrough(earlier)
     for (const table of ['debate_turns', 'debate_drafts', 'debate_votes'])

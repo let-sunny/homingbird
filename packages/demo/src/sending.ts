@@ -73,7 +73,7 @@ export interface DraftFields {
   readonly basis: string | null
   /** In a group message, the people whose agents it asks, as Dovecote stores them. */
   readonly tags?: ReadonlyArray<MemberId>
-  /** The debate room whose result this is: written by its agents, as Dovecote records it. */
+  /** The flock whose result this is: written by its agents, as Dovecote records it. */
   readonly fromDebate?: Note['fromDebate']
 }
 

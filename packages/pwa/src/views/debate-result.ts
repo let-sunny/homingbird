@@ -3,7 +3,7 @@ import type { CitedText, CreditBadge, ResultBody, ResultModel, ResultPoint } fro
 import { strings } from '../strings.ts'
 import { renderScheduleResult } from './schedule-result.ts'
 
-/** The room's result: waiting with its deadlines, or settled with who drafted it and its words. */
+/** The flock's result: waiting with its deadlines, or settled with who drafted it and its words. */
 export const resultSection = (result: ResultModel): HTMLElement => {
   if (result.kind === 'waiting')
     return section(
@@ -64,7 +64,7 @@ export const renderVoteRecord = (
         ),
   )
 
-/** A result's words, as headed lists; a settled result's contributions are shown with the room's stats. */
+/** A result's words, as headed lists; a settled result's contributions are shown with the flock's stats. */
 export const renderResultBody = (body: ResultBody, shows: { readonly contributions: boolean }): Child[] => {
   if (body.kind === 'unknown') return [h('p', { class: 'hint' }, body.text)]
   if (body.kind === 'schedule') return renderScheduleResult(body)
@@ -121,7 +121,7 @@ export const citedText = (parts: CitedText): Child[] =>
       : linkedText(part.text),
   )
 
-/** One headed section of a room's page. */
+/** One headed section of a flock's page. */
 export const section = (title: string, className: string, ...children: ReadonlyArray<Child>): HTMLElement =>
   h('section', { class: `debate-section ${className}` }, h('h2', {}, title), ...children)
 

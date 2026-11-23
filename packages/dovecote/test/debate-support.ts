@@ -16,13 +16,13 @@ export interface Cast {
   readonly cyAgent: Agent & { readonly id: string }
   /** Stops the desk of this person's agent, stream and heartbeat, so it drops out once the grace passed. */
   readonly sleep: (who: 'ana' | 'ben' | 'cy') => void
-  /** Opts an agent in a millisecond after the one before, so the room asks them in this order. */
+  /** Opts an agent in a millisecond after the one before, so the flock asks them in this order. */
   readonly optIn: (person: Session, id: string, agentId: string) => Promise<void>
   /** How long since the cast signed in, which is when the server started counting the grace. */
   readonly elapsed: () => number
 }
 
-/** A scheduling delegation turned off: the room asks the person before their agent joins or adds anything. */
+/** A scheduling delegation turned off: the flock asks the person before their agent joins or adds anything. */
 export const ASKING_FIRST = {
   autoJoin: false,
   autoAdd: false,
@@ -31,7 +31,7 @@ export const ASKING_FIRST = {
   scope: { people: null, hours: null, maxMinutes: null },
 }
 
-/** Turns each person's scheduling delegation off, for rooms that wait on their clicks. */
+/** Turns each person's scheduling delegation off, for flocks that wait on their clicks. */
 export const askFirst = async (...people: ReadonlyArray<Session>): Promise<void> => {
   for (const person of people) {
     const set = await person.api('PUT', '/me/scheduling', ASKING_FIRST)
@@ -80,8 +80,8 @@ export const dropOut = async (server: TestServer, cast: Cast, who: 'ana' | 'ben'
 }
 
 /**
- * Ana's agent drafts the result alone, and the room waits out the drafting window, so that draft goes to
- * the people: the room as it then stands.
+ * Ana's agent drafts the result alone, and the flock waits out the drafting window, so that draft goes to
+ * the people: the flock as it then stands.
  */
 export const draftedAlone = async (
   server: TestServer,
@@ -100,7 +100,7 @@ export const QUESTION = 'Should we ship the billing migration this week?'
 
 export const LIMITS = { turnsPerAgent: 2, totalTurns: 4, minutes: 30, turnCharacters: 300 }
 
-/** A room Ana opened, with Ana's and Ben's agents opted in by Ana and Ben. */
+/** A flock Ana opened, with Ana's and Ben's agents opted in by Ana and Ben. */
 export const openedRoom = async (
   cast: Cast,
   options: {
@@ -129,7 +129,7 @@ export const turnsRunOut = async (cast: Cast, id: string, count = LIMITS.totalTu
   }
 }
 
-/** A room with Cy's agent opted in too, whose three agents each took their one turn. */
+/** A flock with Cy's agent opted in too, whose three agents each took their one turn. */
 export const roomOfThree = async (cast: Cast): Promise<string> => {
   const created = await cast.ana.api('POST', '/debates', {
     question: 'Which week?',
@@ -192,7 +192,7 @@ export const resultFor = (cast: Cast, kind: 'conclusion' | 'no_conclusion' = 'co
       }
 }
 
-/** Adds the columns for the model an agent states in a room, unless the migrations already did. */
+/** Adds the columns for the model an agent states in a flock, unless the migrations already did. */
 export const withStatedModels = async (server: TestServer): Promise<void> => {
   if (MIGRATIONS.includes(DEBATE_MODEL)) return
   const target = await T.runPromise(dialect, server.env)

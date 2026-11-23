@@ -47,7 +47,7 @@ export const conversationParticipants = (input: ParticipantsInput): Participants
   }
 }
 
-/** The agents taking part in a debate room, each named with the person it takes part for. */
+/** The agents taking part in a flock, each named with the person it takes part for. */
 export const debateParticipants = (
   debate: AsRead.Debate,
   viewerId: MemberId,

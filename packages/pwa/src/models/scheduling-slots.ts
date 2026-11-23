@@ -11,7 +11,7 @@ import { zoneShown } from './schedule-result.ts'
 
 /**
  * The card on which a person picks the times they are free, one hour at a time, in their own time zone.
- * It is there while the room collects times and no agent of theirs takes part in the room, they were
+ * It is there while the flock collects times and no agent of theirs takes part in the flock, they were
  * asked to choose themself, or an answer is in, theirs or their agent's, which picking again replaces.
  */
 export const schedulingSlotsModel = (input: SchedulingSlotsInput): SchedulingSlotsModel | null => {

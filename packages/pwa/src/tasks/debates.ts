@@ -23,7 +23,7 @@ export const loadDebates: Action = withApp(({ api, state }) =>
   })(api['debates.list']({})),
 )
 
-/** Reads the room shown on screen again; a room the person may not see is shown as missing. */
+/** Reads the flock shown on screen again; a flock the person may not see is shown as missing. */
 export const loadDebate = (id: string): Action =>
   withApp(({ api, state }) =>
     T.catchTag('NotFound', () => T.sync(() => state.shownDebate.set('missing')))(
@@ -45,7 +45,7 @@ export const createDebate = (wish: DebateWish): Action<AsRead.Debate> =>
     )(api['debates.create']({ body: wish })),
   )
 
-/** Opens a scheduling room for the setup the person typed; the list is read again so the room shows in it. */
+/** Opens a scheduling flock for the setup the person typed; the list is read again so the flock shows in it. */
 export const createSchedulingRoom = (setup: ScheduleSetup): Action<AsRead.Debate> =>
   withApp(({ api }) => T.tap((_: AsRead.Debate) => loadDebates)(api['scheduling.create']({ body: setup })))
 
@@ -62,7 +62,7 @@ export const setMyFreeTimes = (
 export const addMeeting = (id: DebateId): Action =>
   withApp(({ api, state }) => shown(state, api['scheduling.attendance.add']({ params: { id } })))
 
-/** Takes the meeting out of the person's calendar; for whoever opened the room, cancels it for everyone. */
+/** Takes the meeting out of the person's calendar; for whoever opened the flock, cancels it for everyone. */
 export const removeMeeting = (id: DebateId): Action =>
   withApp(({ api, state }) => shown(state, api['scheduling.attendance.remove']({ params: { id } })))
 
@@ -78,7 +78,7 @@ export const optInAgent = (id: DebateId, agentId: CredentialId, brief: string): 
     ),
   )
 
-/** Sets or clears the person's note on what their agent may use and share in the room. */
+/** Sets or clears the person's note on what their agent may use and share in the flock. */
 export const setBrief = (id: DebateId, brief: string): Action =>
   withApp(({ api, state }) =>
     shown(state, api['debates.brief.set']({ params: { id }, body: { brief: brief.trim() } })),

@@ -13,7 +13,7 @@ import { listOf, strings } from '../strings.ts'
  * An agent's suggestion to talk a note over before answering, as a card: why, the question and the
  * colleagues it would ask, each still the person's to change, whose agents are not awake, and, when fewer
  * than two agents are awake to talk, that a group note may answer sooner. Nothing exists until they open
- * the room.
+ * the flock.
  */
 export const suggestionCardModel = (input: {
   readonly suggestion: AsRead.DebateSuggestion
@@ -73,7 +73,7 @@ export const suggestionCardModel = (input: {
   }
 }
 
-/** What opening the room sends, from what the person left or changed, or why it cannot be opened yet. */
+/** What opening the flock sends, from what the person left or changed, or why it cannot be opened yet. */
 export const suggestionAcceptance = (typed: {
   readonly question: string
   readonly memberIds: ReadonlyArray<MemberId>

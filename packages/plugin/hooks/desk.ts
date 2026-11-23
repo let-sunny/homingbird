@@ -350,8 +350,8 @@ function arrived($: Engine, desk: Desk, line: string): T.Task<void, unknown> {
 }
 
 /**
- * Tells the person once when a debate room waits on their agent. The desk takes no turn itself: the
- * runner does, and the person follows the room, and may post its result, in the web client.
+ * Tells the person once when a flock waits on their agent. The desk takes no turn itself: the
+ * runner does, and the person follows the flock, and may post its result, in the web client.
  */
 function noticeDebates($: Engine, desk: Desk): T.Task<void> {
   return T.gen(function* () {

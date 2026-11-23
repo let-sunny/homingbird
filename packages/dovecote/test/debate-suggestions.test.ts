@@ -72,7 +72,7 @@ describe('suggesting a short debate', () => {
     expect((await cast.ana.api('GET', `/notes/${draft.id}`)).json.status).toBe('draft')
   })
 
-  it('refuses a person, who opens rooms themself in the web client', async () => {
+  it('refuses a person, who opens flocks themself in the web client', async () => {
     const question = await questionToAna(server, cast)
     const made = await cast.ana.api('POST', '/debate-suggestions', {
       inReplyTo: question.id,
@@ -119,14 +119,14 @@ describe('suggesting a short debate', () => {
     })
     expect([withAsker.status, withAsker.json.error.message]).toEqual([
       400,
-      'Leave out the person who asked the note: they would read the room before your human approves its answer.',
+      'Leave out the person who asked the note: they would read the flock before your human approves its answer.',
     ])
     await cast.cy.api('PUT', `/blocks/${cast.ana.me.member.id}`)
     const blocked = await cast.anaAgent.api('POST', '/debate-suggestions', {
       ...body,
       memberIds: [cast.ben.me.member.id, cast.cy.me.member.id],
     })
-    expect([blocked.status, blocked.json.error.message]).toEqual([403, 'You cannot ask Cy to a debate room.'])
+    expect([blocked.status, blocked.json.error.message]).toEqual([403, 'You cannot ask Cy to a flock.'])
     expect(await storedRows(server, 'debate_suggestions')).toEqual([])
     const made = await cast.anaAgent.api('POST', '/debate-suggestions', {
       ...body,
@@ -163,7 +163,7 @@ describe('suggesting a short debate', () => {
     expect(await waitingOf()).toHaveLength(1)
   })
 
-  it('answers 404 while suggestions or debate rooms are off', async () => {
+  it('answers 404 while suggestions or flocks are off', async () => {
     const question = await questionToAna(server, cast)
     const body = {
       inReplyTo: question.id,
@@ -184,8 +184,8 @@ describe('suggesting a short debate', () => {
   })
 })
 
-describe('opening the suggested room', () => {
-  it('opens a short private room asking the suggested colleagues, with the suggesting agent in it', async () => {
+describe('opening the suggested flock', () => {
+  it('opens a short private flock asking the suggested colleagues, with the suggesting agent in it', async () => {
     const suggestion = await suggestedByAna(server, cast)
     const opened = await cast.ana.api('POST', `/debate-suggestions/${suggestion.id}/accept`, {})
     expect(opened.status).toBe(200)
@@ -228,7 +228,7 @@ describe('opening the suggested room', () => {
     expect((await cast.ana.api('POST', `/debate-suggestions/${suggestion.id}/accept`, {})).status).toBe(404)
   })
 
-  it('refuses a room asking the person who asked the note, or someone across a block, and keeps the suggestion waiting', async () => {
+  it('refuses a flock asking the person who asked the note, or someone across a block, and keeps the suggestion waiting', async () => {
     const suggestion = await suggestedByAna(server, cast)
     const [asked] = (await storedRows(server, 'notes')).filter((row) => row.id === suggestion.inReplyTo)
     const withAsker = await cast.ana.api('POST', `/debate-suggestions/${suggestion.id}/accept`, {
@@ -237,19 +237,19 @@ describe('opening the suggested room', () => {
     expect(withAsker.status).toBe(400)
     await cast.ana.api('PUT', `/blocks/${cast.cy.me.member.id}`)
     const blocked = await cast.ana.api('POST', `/debate-suggestions/${suggestion.id}/accept`, {})
-    expect([blocked.status, blocked.json.error.message]).toEqual([403, 'You cannot ask Cy to a debate room.'])
+    expect([blocked.status, blocked.json.error.message]).toEqual([403, 'You cannot ask Cy to a flock.'])
     expect(await waitingOf()).toHaveLength(1)
     expect(await storedRows(server, 'debates')).toEqual([])
   })
 
-  it('marks the room as opened from a suggestion, in the list and in the room', async () => {
+  it('marks the flock as opened from a suggestion, in the list and in the flock', async () => {
     const suggestion = await suggestedByAna(server, cast)
     const room = await acceptedByAna(server, cast, suggestion.id)
     expect((await cast.ben.api('GET', `/debates/${room.id}`)).json.fromSuggestion).toBe(true)
     expect((await cast.ben.api('GET', '/debates')).json.debates).toMatchObject([{ fromSuggestion: true }])
   })
 
-  it('refuses a room with no colleague, and keeps the suggestion waiting', async () => {
+  it('refuses a flock with no colleague, and keeps the suggestion waiting', async () => {
     const suggestion = await suggestedByAna(server, cast)
     const refused = await cast.ana.api('POST', `/debate-suggestions/${suggestion.id}/accept`, {
       memberIds: [cast.ana.me.member.id],
@@ -271,7 +271,7 @@ describe('opening the suggested room', () => {
 })
 
 describe('answering alone', () => {
-  it('sets the suggestion aside, opens no room and leaves the agent’s draft on its card', async () => {
+  it('sets the suggestion aside, opens no flock and leaves the agent’s draft on its card', async () => {
     const question = await questionToAna(server, cast)
     const draft = (
       await cast.anaAgent.api('POST', '/drafts', { inReplyTo: question.id, body: 'Frankfurt, probably.' })
@@ -319,8 +319,8 @@ describe('answering alone', () => {
   })
 })
 
-describe('the answer a suggested room asks for', () => {
-  it('asks the suggesting agent alone once the room closed, saying it has a result', async () => {
+describe('the answer a suggested flock asks for', () => {
+  it('asks the suggesting agent alone once the flock closed, saying it has a result', async () => {
     const suggestion = await suggestedByAna(server, cast)
     const room = await acceptedByAna(server, cast, suggestion.id)
     expect((await cast.anaAgent.api('GET', '/debate-asks')).json.answers).toEqual([])
@@ -338,7 +338,7 @@ describe('the answer a suggested room asks for', () => {
       expect((await other.api('GET', '/debate-asks')).json.answers).toEqual([])
   })
 
-  it('asks it to answer alone when the room ended without a result, and stops asking after a day', async () => {
+  it('asks it to answer alone when the flock ended without a result, and stops asking after a day', async () => {
     const suggestion = await suggestedByAna(server, cast)
     const room = await acceptedByAna(server, cast, suggestion.id)
     expect((await endedWithoutResult(server, cast.ana, room.id)).status).toBe('ended')

@@ -20,7 +20,7 @@ export const pendingWake = (
   return facts.now - facts.lastWakeAt >= ONLINE_WITHIN_MS ? 'did_not_come_online' : 'waiting'
 }
 
-/** Work waits 30 s to gather what arrives with it; a room wakes before its grace drops the agent out. */
+/** Work waits 30 s to gather what arrives with it; a flock wakes before its grace drops the agent out. */
 export const wakeDue = (facts: WakeFacts): { readonly work: boolean; readonly debate: boolean } => {
   const quiet =
     !facts.agentOnline &&

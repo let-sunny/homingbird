@@ -260,7 +260,7 @@ const everyAgentIsReady = (room: DebateRoom): boolean =>
   room.turns.length > 0 &&
   room.participants.filter(isTakingPart).every((one) => isReadyToConclude(room, one.memberId))
 
-describe('the debate room machine, as a model over any run of events', () => {
+describe('the flock machine, as a model over any run of events', () => {
   it('reaches every stage a run can reach, and refuses as well as accepts, so the laws are tried on each', () => {
     const traces = fc.sample(script, { numRuns: 300, seed: 7 }).flatMap(run)
     expect([...new Set(traces.map(({ after }) => after.stage.stage))].sort()).toEqual([
@@ -277,7 +277,7 @@ describe('the debate room machine, as a model over any run of events', () => {
     expect([...outcomes].sort()).toEqual(['Conflict', 'Invalid', 'ok', null].sort())
   })
 
-  it('only moves a room forward through its phases, and never leaves closed or ended', () => {
+  it('only moves a flock forward through its phases, and never leaves closed or ended', () => {
     lawful(({ before, after }) => {
       expect(STAGE_RANK[after.stage.stage]).toBeGreaterThanOrEqual(STAGE_RANK[before.stage.stage])
       if (before.stage.stage === 'closed' || before.stage.stage === 'ended')
@@ -301,14 +301,14 @@ describe('the debate room machine, as a model over any run of events', () => {
     })
   })
 
-  it('keeps a room in setup only while no turn is taken, and in open only once one is', () => {
+  it('keeps a flock in setup only while no turn is taken, and in open only once one is', () => {
     lawful(({ after }) => {
       if (after.stage.stage === 'setup') expect(after.turns).toEqual([])
       if (after.stage.stage === 'open') expect(after.turns.length).toBeGreaterThan(0)
     })
   })
 
-  it('leaves the room it was given untouched, and the room unchanged, when it refuses an event', () => {
+  it('leaves the flock it was given untouched, and the flock unchanged, when it refuses an event', () => {
     lawful(({ before, snapshot, after, now, event, outcome }) => {
       expect(before).toEqual(snapshot)
       if (outcome === null || outcome.accepted) return
@@ -320,7 +320,7 @@ describe('the debate room machine, as a model over any run of events', () => {
     })
   })
 
-  it('refuses every event a closed or ended room is given', () => {
+  it('refuses every event a closed or ended flock is given', () => {
     lawful(({ before, outcome }) => {
       if (outcome === null) return
       if (before.stage.stage === 'closed' || before.stage.stage === 'ended')
@@ -328,7 +328,7 @@ describe('the debate room machine, as a model over any run of events', () => {
     })
   })
 
-  it('never refuses time: settling a room takes no error, changes only its stage, and settles once', () => {
+  it('never refuses time: settling a flock takes no error, changes only its stage, and settles once', () => {
     lawful(({ before, now }) => {
       const settled = settleDebateRoom(before, now)
       expect({ ...settled.room, stage: before.stage }).toEqual({ ...before, stage: before.stage })
@@ -338,7 +338,7 @@ describe('the debate room machine, as a model over any run of events', () => {
     })
   })
 
-  it('holds the turn for at most one agent, the one the room names, and for none once turns stop', () => {
+  it('holds the turn for at most one agent, the one the flock names, and for none once turns stop', () => {
     lawful(({ after, now }) => {
       const asking = after.participants.filter((one) => askOf(after, one.memberId, now) === 'turn')
       expect(asking.length).toBeLessThanOrEqual(1)
@@ -379,7 +379,7 @@ describe('the debate room machine, as a model over any run of events', () => {
     })
   })
 
-  it('stops early by agreement exactly when every agent taking part is ready, and never leaves such a room open', () => {
+  it('stops early by agreement exactly when every agent taking part is ready, and never leaves such a flock open', () => {
     lawful(({ after, effects, now, outcome }) => {
       if (after.stage.stage === 'open' && (outcome === null || outcome.accepted))
         expect(everyAgentIsReady(after) && after.participants.length >= 2).toBe(false)
@@ -392,7 +392,7 @@ describe('the debate room machine, as a model over any run of events', () => {
     })
   })
 
-  it('stops by agreement a room whose agents all say ready, and keeps going while one dissents', () => {
+  it('stops by agreement a flock whose agents all say ready, and keeps going while one dissents', () => {
     fc.assert(
       fc.property(
         fc.integer({ min: 2, max: 4 }),
@@ -434,7 +434,7 @@ describe('the debate room machine, as a model over any run of events', () => {
     )
   })
 
-  it('keeps participants unique, in join order, at most the most a room holds, and only ever adds to them', () => {
+  it('keeps participants unique, in join order, at most the most a flock holds, and only ever adds to them', () => {
     lawful(({ before, after }) => {
       const ids = after.participants.map((one) => one.memberId)
       expect(new Set(ids).size).toBe(ids.length)

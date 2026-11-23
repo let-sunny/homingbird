@@ -35,9 +35,9 @@ import { renderSchedulingRoom } from './scheduling-room.ts'
 import { schedulingSlotsCard } from './scheduling-slots.ts'
 
 /**
- * One debate room, one short tab at a time, each its own address: the result the agents settled, how they
- * voted, what each contributed, and the turns as they come. Changing tabs keeps the room drawn while it is
- * read again. An address naming a turn brings that turn into view once the room is drawn.
+ * One flock, one short tab at a time, each its own address: the result the agents settled, how they
+ * voted, what each contributed, and the turns as they come. Changing tabs keeps the flock drawn while it is
+ * read again. An address naming a turn brings that turn into view once the flock is drawn.
  */
 export const debateView = (
   context: ViewContext,

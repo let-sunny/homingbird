@@ -10,12 +10,12 @@ afterEach(async () => {
   database = undefined
 })
 
-describe('the scheduling rooms step', () => {
+describe('the scheduling flocks step', () => {
   it('is the twenty-ninth step, after Slack edits', () => {
     expect(stepNumberOf(SCHEDULING_ROOMS)).toBe(29)
   })
 
-  it('gives rooms a type, empty for the debates before it, and makes the scheduling tables', async () => {
+  it('gives flocks a type, empty for the debates before it, and makes the scheduling tables', async () => {
     const earlier = MIGRATIONS.indexOf(SCHEDULING_ROOMS)
     database = await migratedThrough(earlier)
     await database.execute(

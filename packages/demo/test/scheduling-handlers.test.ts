@@ -18,8 +18,8 @@ const TOMORROW = Date.UTC(2026, 10, 22)
 const SUNDAY = Date.UTC(2026, 10, 22)
 const WINDOW = { startsAt: NOW, endsAt: NOW + 3 * DAY }
 
-describe('scheduling rooms', () => {
-  it('has the visitor’s own agent share free times, settle the room and have the agents send and accept the invitation', async () => {
+describe('scheduling flocks', () => {
+  it('has the visitor’s own agent share free times, settle the flock and have the agents send and accept the invitation', async () => {
     const { api, clock, ana, ben } = started()
     const room = await succeeded(api['scheduling.create']({ body: setup([ana, ben]) }))
     expect(room).toMatchObject({
@@ -242,7 +242,7 @@ describe('scheduling rooms', () => {
     ).toMatchObject({ _tag: 'Invalid' })
   })
 
-  it('refuses a room with nobody else, a stranger, a channel, a long window or no title', async () => {
+  it('refuses a flock with nobody else, a stranger, a channel, a long window or no title', async () => {
     const { api, ana } = started()
     const problems = await Promise.all(
       [
@@ -260,7 +260,7 @@ describe('scheduling rooms', () => {
     ).toMatchObject({ _tag: 'NotFound' })
   })
 
-  it('stops taking free times once the room has settled', async () => {
+  it('stops taking free times once the flock has settled', async () => {
     const { api, clock, ana } = started()
     const room = await succeeded(api['scheduling.create']({ body: setup([ana]) }))
     await clock.advance(ANSWER_AFTER_MS)

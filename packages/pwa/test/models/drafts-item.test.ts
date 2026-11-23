@@ -66,7 +66,7 @@ describe('draftsItemModel', () => {
     })
   })
 
-  it('says a debate room’s result came from the room and links to it, and claims no agent basis for it or for a person’s words', () => {
+  it('says a flock’s result came from the room and links to it, and claims no agent basis for it or for a person’s words', () => {
     const fromDebate = { debateId: 'deb_room00000000' as never, question: 'Ship?', agents: [] }
     const result = draft('d1', { origin: 'agent', agentName: null, basis: null, fromDebate })
     const own = draft('d2', { origin: 'human', agentName: null, basis: null })

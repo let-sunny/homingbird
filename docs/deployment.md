@@ -125,7 +125,7 @@ database first**, so point it only at a scratch database. The pilot is
 50 members, each with 2 agents (100 agent credentials), 20 channels with every member in 6 of them and 4
 people answering in each, 30 days of history at about 200 notes a day (3,000 exchanges: 5,036 sent notes,
 5,582 notes with drafts, 9,838 receipts and 122,636 event rows, since housekeeping is not run), and 10
-open debate rooms with 5 agents each. Four in five drafts come from an agent; seven in ten are sent as
+open flocks with 5 agents each. Four in five drafts come from an agent; seven in ten are sent as
 written, two edited and one discarded, and one reply in twenty is given back. The calls go over HTTP
 to a server in the same process, one at a time. For the fan-out, 100 agent streams are open and one note
 is sent to a channel all 50 members joined; the time runs from the send until the last stream has it.
@@ -192,10 +192,10 @@ Horizontal scaling (shared fan-out through the database or a broker) is on the
 
 - Dovecote creates its tables on first start. The 0.1.0 schema is one baseline, recorded as version
   1. Step 2 adds the columns and tables for the agent figures and teaching; a 0.1.0 database gets it
-  on its next start and keeps every row. Step 3 adds the debate room tables and the column that
-  links a posted debate result to its room; a database at step 2 gets it on its next start. Step 4
-  adds the tables for every agent's draft of a room's result and the votes on them, and the time a
-  room's vote opened; a database at step 3 gets it on its next start, and on MySQL a step cut off
+  on its next start and keeps every row. Step 3 adds the flock tables and the column that
+  links a posted debate result to its flock; a database at step 2 gets it on its next start. Step 4
+  adds the tables for every agent's draft of a flock's result and the votes on them, and the time a
+  flock's vote opened; a database at step 3 gets it on its next start, and on MySQL a step cut off
   halfway runs again.
 - Step 6 adds groups. It gives every channel its own unnamed group of managers: the channel's current
   managers who are still active and in the room, so every manager keeps their channel, or nobody. The
@@ -638,7 +638,7 @@ gave their agents and the saved-draft events still waiting in their event stream
 `note.unsent_erased` audit row with the counts. It keeps their sent notes, everyone else's notes and
 drafts, and the audit trail. A page they still have open drops the drafts at its next load.
 
-**What is not covered yet:** debate rooms' turns and results, erasing a person's sent notes, and a legal
+**What is not covered yet:** flocks' turns and results, erasing a person's sent notes, and a legal
 hold that keeps one person's notes past the retention. Copies outside the database stay as long as you
 keep them: backups, the event backlog (7 days) and anything an agent or a person saved.
 
@@ -669,7 +669,7 @@ HB_LOGS="audit=full,operational=info,requests=off,auditCopy=off"   # the default
 
 | Kind | Values | Default | What it means |
 | --- | --- | --- | --- |
-| `audit` | `full`, `security`, `off` | `full` | `security` keeps sign-in, credentials, refused attempts and refused tokens, roles and status, settings, retention, note exports and erasures, and start; `full` adds channels, contacts, principles, characters, approvals and debate rooms. `off` records nothing; Dovecote warns once at start |
+| `audit` | `full`, `security`, `off` | `full` | `security` keeps sign-in, credentials, refused attempts and refused tokens, roles and status, settings, retention, note exports and erasures, and start; `full` adds channels, contacts, principles, characters, approvals and flocks. `off` records nothing; Dovecote warns once at start |
 | `operational` | `debug`, `info`, `warn`, `error`, `off` | `info` | The lowest level written to stdout. `debug` adds the redacted detail of defects; Dovecote warns that it is not for production |
 | `requests` | `on`, `off` | `off` | One `http.request` line per request: route name, method, status and duration |
 | `auditCopy` | `on`, `off` | `off` | Each audit row also as an `audit.copy` line on stdout, without its detail. `HB_AUDIT_STDOUT=1` means the same |
@@ -700,7 +700,7 @@ Recorded: approving and discarding a note; credentials renamed, revoked and issu
 decisions; which profile fields changed; characters set, cleared and reset; role and status; settings;
 channels created, made open or private, joined, left, archived, renamed, and their members and managers;
 contacts and blocks; principles created, changed, deleted and reordered, without their text; debate
-rooms opened, agents opted in, limits, results decided, posted and exported; sign-in, failed sign-in
+flocks opened, agents opted in, limits, results decided, posted and exported; sign-in, failed sign-in
 and sign-out; OAuth clients registered and resolved; audit and note retention purges; a person's
 notes exported and their unsent notes erased, with counts; start and schema steps;
 refused attempts as `authz.denied`, one row per credential and route a minute with a `count`; and a
@@ -941,9 +941,9 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `insights` | on | Administrators see no organization-wide numbers |
 | `noteDetails` | on | Notes no longer show the model and program that wrote them |
 | `groups` | on | Groups are hidden and frozen: nobody creates, renames or changes a team or a channel's managers, nor adds a team to them; every channel keeps its managers, who still run it |
-| `debateRooms` | on | Debate rooms are hidden, agents take no turns and no room stops on time; the rooms stay |
-| `schedulingRooms` | on | Scheduling rooms cannot be opened and agents share no free times; the rooms stay |
-| `debateSuggestions` | on | Agents suggest no short debates before they answer and waiting suggestions are hidden; rooms already opened stay |
+| `debateRooms` | on | Flocks are hidden, agents take no turns and no flock stops on time; the flocks stay |
+| `schedulingRooms` | on | Scheduling flocks cannot be opened and agents share no free times; the flocks stay |
+| `debateSuggestions` | on | Agents suggest no short debates before they answer and waiting suggestions are hidden; flocks already opened stay |
 | `joinCodes` | on | Nobody can make a join code for **Run on a server**, and codes already made are refused; servers sign in with `homingbird login` ([A complete example](#a-complete-example-one-persons-runner-on-a-linux-server)) |
 | `deskAvailability` | on | Desks no longer say when their agent can't answer; colleagues see only whether it is awake |
 | `invites` | on | Nobody can make an invite link, and links already made are refused; only allowed domains and `HB_ADMIN_EMAILS` sign in ([Who can sign in](#who-can-sign-in)) |
@@ -998,7 +998,7 @@ Dovecote wake it when work waits ([guide](guide.md#wake-a-cloud-desk)). To offer
    must be on one of them exactly, subdomains not included; `none` allows none.
 
 What the server does and keeps: each wake is one `POST` with a fixed body that says only that work
-waits and where, sent at most every five minutes for work and every three for a debate room, never while
+waits and where, sent at most every five minutes for work and every three for a flock, never while
 the person's agent is online, and never following a redirect. Each successful wake starts a new session
 at the service, which may be paid and is rate limited there (a Claude routine allows 30 an hour). Wakes
 go to the operational log as `desk_wake.fired` and `desk_wake.unanswered`, with the member id, host and

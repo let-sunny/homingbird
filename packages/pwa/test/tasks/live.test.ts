@@ -274,7 +274,7 @@ describe('liveEvents', () => {
     expect(heard).toEqual(['0 0'])
   })
 
-  it('reloads a debate room shown, or the list', async () => {
+  it('reloads a flock shown, or the list', async () => {
     const { apply, state, routes } = live()
     apply(event({ type: 'debate.changed', debateId: 'd1', participantIds: [] }))
     state.route.set({ name: 'debates' })

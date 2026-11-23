@@ -8,7 +8,7 @@ import { ANA, BEN, CY, entry, summary } from '../support/fixtures.ts'
 const awake = { humanOnline: false, agentOnline: true }
 
 describe('debateListModel', () => {
-  it('waits for the rooms and says when there are none', () => {
+  it('waits for the flocks and says when there are none', () => {
     expect(
       debateListModel({ debates: [], loaded: false, directory: [], now: 0, schedulingOn: false }),
     ).toEqual({
@@ -22,7 +22,7 @@ describe('debateListModel', () => {
     })
   })
 
-  it('shows each room with its stage, privacy, counts and when it opened', () => {
+  it('shows each flock with its stage, privacy, counts and when it opened', () => {
     const model = debateListModel({
       debates: [summary({ visibility: 'private', participantIds: [ANA], turnCount: 0 })],
       loaded: true,
@@ -72,7 +72,7 @@ describe('debateListModel', () => {
   })
 })
 
-describe('debateListModel with scheduling rooms', () => {
+describe('debateListModel with scheduling flocks', () => {
   const meeting = summary({ type: 'scheduling', status: 'open', participantIds: [ANA, BEN], turnCount: 1 })
   const listed = (status: 'open' | 'closed' | 'ended' | 'unknown', schedulingOn = true) => {
     const model = debateListModel({
@@ -85,7 +85,7 @@ describe('debateListModel with scheduling rooms', () => {
     return model.kind === 'rooms' ? model.rooms[0]! : model
   }
 
-  it('shows a scheduling room as one, in its own stages and without turn counts', () => {
+  it('shows a scheduling flock as one, in its own stages and without turn counts', () => {
     expect(listed('open')).toMatchObject({
       className: 'debate-card is-collecting',
       kind: strings.scheduling.kind,
@@ -101,7 +101,7 @@ describe('debateListModel with scheduling rooms', () => {
     ])
   })
 
-  it('says a scheduling room that settled with no common time found none', () => {
+  it('says a scheduling flock that settled with no common time found none', () => {
     const none = debateListModel({
       debates: [{ ...meeting, status: 'closed', outcome: 'no_slot' }],
       loaded: true,
@@ -115,7 +115,7 @@ describe('debateListModel with scheduling rooms', () => {
     })
   })
 
-  it('leaves scheduling rooms out while the feature is off', () => {
+  it('leaves scheduling flocks out while the feature is off', () => {
     expect(listed('open', false)).toEqual({ kind: 'empty', text: strings.debates.empty })
   })
 })

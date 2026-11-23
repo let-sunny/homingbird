@@ -42,8 +42,8 @@ import { type Participants, debateParticipants } from './participants.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
 /**
- * One debate room, one short tab at a time: the result and what to do with it, how the agents voted, what
- * each one contributed, and the turns. A tab shows only once the room has something for it; a room still
+ * One flock, one short tab at a time: the result and what to do with it, how the agents voted, what
+ * each one contributed, and the turns. A tab shows only once the flock has something for it; a flock still
  * taking turns opens on its turns, any later one on its result.
  */
 export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
@@ -233,7 +233,7 @@ export const resultDestination = (
 
 export interface DebateRoomInput {
   readonly debate: AsRead.Debate | 'missing' | null
-  /** The tab asked for by the address, or null for the one the room's state calls for. */
+  /** The tab asked for by the address, or null for the one the flock's state calls for. */
   readonly tab: DebateTab | null
   /** A turn the address asks to bring into view, or null. */
   readonly turn?: number | null
@@ -272,21 +272,21 @@ export type DebateRoomModel =
       readonly grace: string
       readonly mayChangeLimits: boolean
       readonly limitsFixed: boolean
-      /** Who takes part, listed behind a count beside the room's stage. */
+      /** Who takes part, listed behind a count beside the flock's stage. */
       readonly people: Participants
       readonly participants: ReadonlyArray<{
         readonly memberId: MemberId
         readonly name: string
         readonly turnsLeft: string | null
         readonly droppedOut: string | null
-        /** While the room takes turns: that the agent is ready to conclude. */
+        /** While the flock takes turns: that the agent is ready to conclude. */
         readonly ready: string | null
       }>
-      /** While the room takes turns: when an agent counts as ready, and what follows. */
-      /** Whose turn the room waits for, and until when; null while it asks no agent for a turn. */
+      /** While the flock takes turns: when an agent counts as ready, and what follows. */
+      /** Whose turn the flock waits for, and until when; null while it asks no agent for a turn. */
       readonly waitingFor: string | null
       readonly readyHint: string | null
-      /** Why the room stopped taking turns before they ran out. */
+      /** Why the flock stopped taking turns before they ran out. */
       readonly agreedEarly: string | null
       readonly optIn:
         | { readonly kind: 'no-agent'; readonly text: string }
@@ -324,7 +324,7 @@ export type DebateRoomModel =
       }> | null
       readonly closed: {
         readonly mayPost: boolean
-        /** In a room opened from an agent's suggestion, that its person's agent answers from the result. */
+        /** In a flock opened from an agent's suggestion, that its person's agent answers from the result. */
         readonly answeredBy: string | null
         readonly channels: ReadonlyArray<{ readonly value: string; readonly label: string }>
         readonly people: ReadonlyArray<{ readonly value: string; readonly label: string }>
@@ -359,7 +359,7 @@ export interface Moved {
   readonly to: QuotedTurn
 }
 
-/** Text with each turn it cites linked to that turn on the room's Turns tab. */
+/** Text with each turn it cites linked to that turn on the flock's Turns tab. */
 const citingTurnsOf =
   (debate: AsRead.Debate) =>
   (text: string): CitedText =>
@@ -402,7 +402,7 @@ const briefField = (value: string): BriefField => ({
   maxLength: DEBATE_BRIEF_MAX,
 })
 
-/** Only the viewer's own note is ever in the room the server sends, so only a participant sees one. */
+/** Only the viewer's own note is ever in the flock the server sends, so only a participant sees one. */
 const briefOf = (debate: AsRead.Debate, viewerId: MemberId): BriefModel | null => {
   if (!debate.participants.some((participant) => participant.memberId === viewerId)) return null
   const text = debate.brief ?? ''
@@ -421,7 +421,7 @@ const briefOf = (debate: AsRead.Debate, viewerId: MemberId): BriefModel | null =
       }
 }
 
-/** A room opened from another person's agent's suggestion: that agent answers from it, nobody else posts it. */
+/** A flock opened from another person's agent's suggestion: that agent answers from it, nobody else posts it. */
 const isAnsweredByAnother = (debate: AsRead.Debate, viewerId: MemberId): boolean =>
   debate.fromSuggestion === true && debate.createdBy !== viewerId
 

@@ -12,7 +12,7 @@ import { ANA, BEN, entry, me, summary } from '../support/fixtures.ts'
 usingFakeDom()
 
 describe('debatesView', () => {
-  it('loads the rooms, says when there are none, and lists them with their stage', () => {
+  it('loads the flocks, says when there are none, and lists them with their stage', () => {
     const { context, called } = testContext()
     const shown = debatesView(context, lifetime(), me())
     expect(called('loadDebates')).toHaveLength(1)
@@ -26,7 +26,7 @@ describe('debatesView', () => {
     expect(textOf(shown)).toContain(strings.debates.stage.debating)
   })
 
-  it('opens a room for a question with the colleagues invited and the limits typed', () => {
+  it('opens a flock for a question with the colleagues invited and the limits typed', () => {
     const { context, called, page } = testContext()
     mount(dialogHost())
     context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben')])

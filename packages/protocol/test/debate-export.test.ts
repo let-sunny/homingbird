@@ -41,10 +41,10 @@ const HOSTILE = fc.oneof(
   ),
 )
 
-describe('exporting a debate room', () => {
+describe('exporting a flock', () => {
   it('writes the transcript and the conclusion as Markdown, naming people by display name only', () => {
     const text = debateMarkdown(roomOf(), nameOf)
-    expect(text).toMatch(/^# Debate room: Should we ship the billing migration this week\?/)
+    expect(text).toMatch(/^# Flock: Should we ship the billing migration this week\?/)
     expect(text).toContain('- Created: 2026-11-02T09:00:00.000Z by Ana')
     expect(text).toContain('- Participants: Ana (agent: Laptop), Ben (agent: Desk)')
     expect(text).toContain(
@@ -237,8 +237,8 @@ describe('exporting a debate room', () => {
 
   it('lets no text a person or agent wrote add a heading, an HTML tag or a link but http(s), in either language', () => {
     const HEADINGS = {
-      en: /^#{1,3} (?:Debate room: |Turns$|Result|Vote$|Reasons$|Where they disagreed$|Where they differed$|What changed minds$|Still open$|Next steps$|Contributions$|\d+\. )/,
-      ko: /^#{1,3} (?:토론방: |차례$|결과|투표$|이유$|의견이 갈린 곳$|의견이 달랐던 곳$|생각을 바꾼 차례$|아직 열린 질문$|다음 단계$|기여$|\d+\. )/,
+      en: /^#{1,3} (?:Flock: |Turns$|Result|Vote$|Reasons$|Where they disagreed$|Where they differed$|What changed minds$|Still open$|Next steps$|Contributions$|\d+\. )/,
+      ko: /^#{1,3} (?:플록: |차례$|결과|투표$|이유$|의견이 갈린 곳$|의견이 달랐던 곳$|생각을 바꾼 차례$|아직 열린 질문$|다음 단계$|기여$|\d+\. )/,
     } as const
     fc.assert(
       fc.property(
@@ -275,7 +275,7 @@ describe('exporting a debate room', () => {
 
   it('writes the headings and labels in Korean for a person who reads Korean, escaping the same', () => {
     const text = debateMarkdown(roomOf({ question: 'Ship *now*?' }), nameOf, exportLabelsIn('ko'))
-    expect(text).toMatch(/^# 토론방: Ship \\\*now\\\*\?/)
+    expect(text).toMatch(/^# 플록: Ship \\\*now\\\*\?/)
     expect(text).toContain('- 공개 범위: 비공개')
     expect(text).toContain('- 상태: 닫힘')
     expect(text).toContain('- 만든 때: 2026-11-02T09:00:00.000Z, 만든 사람: Ana')
@@ -286,7 +286,7 @@ describe('exporting a debate room', () => {
     expect(text).toContain('- Decide the date. (담당: 정하지 않음; 제안: Ben 님의 에이전트)')
     expect(text).toContain('- Ana 님의 에이전트: Named the March report. (빠진 정보를 채웠어요)')
     expect(text).toContain('## 투표\n\n- Ben 님의 에이전트(모델: 밝히지 않음)가 Ana 님의 초안에 투표했어요')
-    expect(text).not.toMatch(/Debate room|Turns|Vote/)
+    expect(text).not.toMatch(/Flock|Turns|Vote/)
     const ended = debateMarkdown(
       roomOf({ status: 'ended', endedBecause: 'one_agent_left', result: null, turns: [], voteRecord: null }),
       nameOf,
@@ -311,7 +311,7 @@ describe('exporting a debate room', () => {
     )
   })
 
-  it('writes the same room as JSON for tools, with names and ISO times and no member ids', () => {
+  it('writes the same flock as JSON for tools, with names and ISO times and no member ids', () => {
     const parsed = JSON.parse(debateJson(roomOf({ createdBy: GONE }), nameOf))
     expect(JSON.parse(debateJson(roomOf({ concludedBecause: 'agreed' }), nameOf)).concludedBecause).toBe(
       'agreed',
@@ -359,14 +359,14 @@ describe('exporting a debate room', () => {
   it('writes the result alone as plain text that says where it came from, without the turns or the vote', () => {
     const room = roomOf({ question: 'Ship *now*?' })
     const text = debateResultText(room, resultOf(room), nameOf)
-    expect(text).toMatch(/^From the debate room: Ship \*now\*\?\n\nResult: conclusion\n\nShip on Thursday\./)
+    expect(text).toMatch(/^From the flock: Ship \*now\*\?\n\nResult: conclusion\n\nShip on Thursday\./)
     expect(text).not.toContain('The March report')
     expect(text).not.toMatch(/voted/i)
     expect(text).not.toMatch(/^#|\\/m)
     expect(debateResultText(room, NO_CONCLUSION.result, nameOf)).toContain('Where they disagreed')
   })
 
-  it('names the file after the room', () => {
+  it('names the file after the flock', () => {
     expect(debateFilename(roomOf(), 'md')).toBe('debate-debate000000.md')
     expect(debateFilename(roomOf(), 'json')).toBe('debate-debate000000.json')
   })

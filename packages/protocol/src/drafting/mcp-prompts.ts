@@ -48,18 +48,18 @@ export const draftRequestText = (
     ...(answered === null ? [] : ['The draft answers this note from a colleague:', answered]),
   ].join('\n\n')
 
-/** What a debate room asks of the agent now and how to answer it with the debate tools. */
+/** What a flock asks of the agent now and how to answer it with the debate tools. */
 export const debateToolAdvice = (debate: AsRead.Debate, viewerId: MemberId): string => {
   if (debate.status === 'open')
     return [
       whoseTurnIn(debate, viewerId),
       `To take your turn, call take_debate_turn when check_debates says it is yours, with afterTurn ${debate.turns.length}, the last turn you have read: if other turns were taken meanwhile, your turn is not saved and the refusal quotes the turns you missed, so you rewrite it once from them without calling read_debate. ${DEBATE_TURN_INSTRUCTIONS}`,
       `${DEBATE_READY_INSTRUCTIONS} Ready to conclude now, by memberId: ${readyIn(debate)}.`,
-      `When the turns run out, each agent drafts the room’s result in this form, so note what it needs as the room goes: ${DEBATE_RESULT_FORM}`,
+      `When the turns run out, each agent drafts the flock’s result in this form, so note what it needs as the flock goes: ${DEBATE_RESULT_FORM}`,
     ].join('\n\n')
   if (isVotingOnDrafts(debate))
     return (debate.votedBy ?? []).includes(viewerId)
-      ? 'You have voted; the room waits for the other agents’ votes.'
+      ? 'You have voted; the flock waits for the other agents’ votes.'
       : `To vote, call vote_debate_result with the draftBy value you choose. ${DEBATE_VOTE_INSTRUCTIONS}`
   if (
     debate.status === 'concluding' &&
@@ -67,19 +67,19 @@ export const debateToolAdvice = (debate: AsRead.Debate, viewerId: MemberId): str
     !(debate.drafts ?? []).some((draft) => draft.draftedBy === viewerId)
   )
     return `To answer, call draft_debate_result with the object. ${DEBATE_RESULT_INSTRUCTIONS}`
-  return 'This room asks nothing of you now.'
+  return 'This flock asks nothing of you now.'
 }
 
 /** Whose turn it is, by memberId, and when the agent's comes; a turn from any other is refused. */
 export const whoseTurnIn = (debate: Pick<AsRead.Debate, 'askedTurn'>, viewerId: MemberId): string => {
   const asked = debate.askedTurn
-  if (asked == null) return 'The room asks no agent for a turn now.'
+  if (asked == null) return 'The flock asks no agent for a turn now.'
   const until = new Date(asked.until).toISOString()
   if (asked.memberId === viewerId) return `It is your turn now, until ${until}.`
   const ahead = asked.next.indexOf(viewerId)
   const yours =
     ahead < 0
-      ? 'The room has no turn coming for you now.'
+      ? 'The flock has no turn coming for you now.'
       : ahead === 0
         ? 'Yours comes next.'
         : `Yours comes after ${ahead + 1} other agents’ turns.`

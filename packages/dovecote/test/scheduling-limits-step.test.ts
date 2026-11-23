@@ -16,11 +16,11 @@ describe('the scheduling limits step', () => {
     expect(stepNumberOf(SCHEDULING_LIMITS)).toBe(33)
   })
 
-  it('adds the limits to a room, leaving a room stored before it without any', async () => {
+  it('adds the limits to a flock, leaving a flock stored before it without any', async () => {
     const earlier = MIGRATIONS.indexOf(SCHEDULING_LIMITS)
     database = await migratedThrough(earlier)
     await database.execute(
-      "INSERT INTO scheduling_rooms (debate_id, minutes, window_starts_at, window_ends_at) VALUES ('room', 30, 1, 2)",
+      "INSERT INTO scheduling_rooms (debate_id, minutes, window_starts_at, window_ends_at) VALUES ('flock', 30, 1, 2)",
     )
     expect(await database.migrate([...MIGRATIONS.slice(0, earlier), SCHEDULING_LIMITS])).toEqual([
       earlier + 1,

@@ -234,7 +234,7 @@ describe('schedulingAttendanceModel', () => {
     expect(as(BEN, settled('added'), false)!.delegation).toBeNull()
   })
 
-  it('says that whoever opened the room cancels the meeting for everyone by taking it out', () => {
+  it('says that whoever opened the flock cancels the meeting for everyone by taking it out', () => {
     const shown = as(ANA, settled('asked'), true)!
     expect(shown.actions.at(-1)).toEqual({
       name: 'remove',

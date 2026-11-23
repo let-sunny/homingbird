@@ -49,9 +49,9 @@ import {
 import { featureIsOn } from './settings.ts'
 
 /**
- * Opens a room that finds the earliest time every required person is free for a meeting. Only a person
+ * Opens a flock that finds the earliest time every required person is free for a meeting. Only a person
  * opens one (rule 9), and they are always a required attendee; its time runs from now, not from the first
- * answer, so a room nobody answers still ends, and fits the window: see `answersWithinMinutes`.
+ * answer, so a flock nobody answers still ends, and fits the window: see `answersWithinMinutes`.
  */
 export const openSchedulingRoom = (
   caller: Caller,
@@ -61,10 +61,10 @@ export const openSchedulingRoom = (
     const env = yield* T.ask<RequestEnv>()
     yield* requireDebateRooms
     if (!isHuman(caller))
-      return yield* T.fail(Forbidden({ message: 'Only a person can open a scheduling room.' }))
+      return yield* T.fail(Forbidden({ message: 'Only a person can open a scheduling flock.' }))
     const now = env.clock.now()
     const title = setup.title.trim()
-    if (title === '') return yield* T.fail(Invalid({ message: 'A scheduling room needs a title.' }))
+    if (title === '') return yield* T.fail(Invalid({ message: 'A scheduling flock needs a title.' }))
     const problem = setupProblem(setup, now)
     if (problem !== null) return yield* T.fail(Invalid({ message: problem }))
     const others = setup.attendees.filter((attendee) => attendee.memberId !== caller.member.id)
@@ -132,8 +132,8 @@ export const openSchedulingRoom = (
   })
 
 /**
- * Opens a new room asking the same people for a meeting of the same title and length, in the window
- * given or the same one; only whoever opened the room retries it, once it has settled or ended.
+ * Opens a new flock asking the same people for a meeting of the same title and length, in the window
+ * given or the same one; only whoever opened the flock retries it, once it has settled or ended.
  */
 export const retrySchedulingRoom = (
   caller: Caller,
@@ -143,13 +143,13 @@ export const retrySchedulingRoom = (
   T.gen(function* () {
     yield* requireDebateRooms
     if (!isHuman(caller))
-      return yield* T.fail(Forbidden({ message: 'Only a person can open a scheduling room.' }))
+      return yield* T.fail(Forbidden({ message: 'Only a person can open a scheduling flock.' }))
     yield* visibleDebate(viewerOf(caller), id)
     const row = yield* lockedSchedulingRoom(id)
     if (row.created_by !== caller.member.id)
-      return yield* T.fail(Forbidden({ message: 'Only the person who opened this room can open it again.' }))
+      return yield* T.fail(Forbidden({ message: 'Only the person who opened this flock can open it again.' }))
     if (row.status === 'open' || row.status === 'concluding')
-      return yield* T.fail(Conflict({ message: 'This room still takes answers.' }))
+      return yield* T.fail(Conflict({ message: 'This flock still takes answers.' }))
     const asked = (yield* first<
       { minutes: number; window_starts_at: number; window_ends_at: number } & LimitRow
     >(
@@ -180,7 +180,7 @@ export const retrySchedulingRoom = (
 
 /**
  * An agent's answer for its own person: their free slots as its turn, empty when they are busy throughout.
- * Answering again, while the room collects, replaces its own person's slots and nobody else's. An agent
+ * Answering again, while the flock collects, replaces its own person's slots and nobody else's. An agent
  * that cannot read the calendar takes no turn: its person is asked to choose in the web client.
  */
 export const shareFreeSlots = (
@@ -198,14 +198,14 @@ export const shareFreeSlots = (
       )
     const participant = yield* participantByAgent(id, caller.credential.id)
     if (participant === null)
-      return yield* T.fail(Forbidden({ message: 'Your person has not opted this agent in for this room.' }))
+      return yield* T.fail(Forbidden({ message: 'Your person has not opted this agent in for this flock.' }))
     const row = yield* lockedSchedulingRoom(id)
     const memberId = participant.member_id
     const answer = yield* answerOf(id, memberId)
     if (answer === 'by_person')
       return yield* T.fail(
         Conflict({
-          message: 'Your person chose their free times themself; this room needs nothing more from you.',
+          message: 'Your person chose their free times themself; this flock needs nothing more from you.',
         }),
       )
     if (answer === 'choosing')
@@ -231,7 +231,7 @@ export const shareFreeSlots = (
     return yield* describeDebate(yield* lockedDebate(id))
   })
 
-/** A person's own free times, counted over their agent's answer, while the room takes answers. */
+/** A person's own free times, counted over their agent's answer, while the flock takes answers. */
 export const chooseFreeSlots = (
   caller: Caller,
   id: DebateId,
@@ -259,21 +259,21 @@ export const chooseFreeSlots = (
     return yield* describeDebate(yield* lockedDebate(id))
   })
 
-/** Scheduling rooms are a kind of debate room, so they answer as switched off while debate rooms are. */
+/** Scheduling flocks are a kind of flock, so they answer as switched off while flocks are. */
 export const requireDebateRooms: T.Task<void, NotFound, RequestEnv> = T.flatMap((on: boolean) =>
   on ? T.unit : T.fail(NotFound({ message: FEATURE_OFF_MESSAGE })),
 )(featureIsOn('debateRooms'))
 
-/** The room's row lock, for a scheduling room only. */
+/** The flock's row lock, for a scheduling flock only. */
 export const lockedSchedulingRoom = (id: DebateId): T.Task<DebateRow, Conflict, RequestEnv> =>
   T.flatMap((row: DebateRow) =>
     row.room_type === 'scheduling'
       ? T.succeed(row)
-      : T.fail(Conflict({ message: 'This room is a debate: it takes turns, not free times.' })),
+      : T.fail(Conflict({ message: 'This flock is a debate: it takes turns, not free times.' })),
   )(lockedDebate(id))
 
 const requireTakingAnswers = (row: DebateRow): T.Task<void, Conflict> =>
-  row.status === 'open' ? T.unit : T.fail(Conflict({ message: 'This room no longer takes answers.' }))
+  row.status === 'open' ? T.unit : T.fail(Conflict({ message: 'This flock no longer takes answers.' }))
 
 /** The attendee's stored answer, null while they have none of their own, undefined for a non-attendee. */
 const answerOf = (id: DebateId, memberId: MemberId): T.Task<string | null | undefined, never, RequestEnv> =>
@@ -283,7 +283,7 @@ const answerOf = (id: DebateId, memberId: MemberId): T.Task<string | null | unde
     ),
   )
 
-/** Marks the person as asked to choose, once, before their agent took a turn; the room stops waiting on it. */
+/** Marks the person as asked to choose, once, before their agent took a turn; the flock stops waiting on it. */
 const askPersonToChoose = (
   row: DebateRow,
   memberId: MemberId,
@@ -297,7 +297,7 @@ const askPersonToChoose = (
       )
     yield* requireTakingAnswers(row)
     if (yield* hasTakenTurn(row.id, memberId))
-      return yield* T.fail(Conflict({ message: 'This agent already shared free slots in this room.' }))
+      return yield* T.fail(Conflict({ message: 'This agent already shared free slots in this flock.' }))
     const now = env.clock.now()
     yield* run(sql`
       UPDATE scheduling_attendees SET answer = 'choosing', changed_at = ${now}
@@ -306,7 +306,7 @@ const askPersonToChoose = (
     yield* announceDebate(row)
   })
 
-/** The agent's later answer, in place of the slots and note its turn gave, while the room collects. */
+/** The agent's later answer, in place of the slots and note its turn gave, while the flock collects. */
 const replaceAgentSlots = (
   row: DebateRow,
   memberId: MemberId,

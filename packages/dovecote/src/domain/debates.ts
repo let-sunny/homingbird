@@ -53,17 +53,16 @@ export interface DebateWish {
   readonly memberIds?: ReadonlyArray<MemberId>
 }
 
-/** Opens a room for one question. A private room is seen by its creator and the people they invite only. */
+/** Opens a flock for one question. A private flock is seen by its creator and the people they invite only. */
 export const createDebate = (
   caller: Caller,
   wish: DebateWish,
 ): T.Task<Debate, Forbidden | Invalid, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
-    if (!isHuman(caller))
-      return yield* T.fail(Forbidden({ message: 'Only a person can open a debate room.' }))
+    if (!isHuman(caller)) return yield* T.fail(Forbidden({ message: 'Only a person can open a flock.' }))
     const question = wish.question.trim()
-    if (question === '') return yield* T.fail(Invalid({ message: 'A debate room needs a question.' }))
+    if (question === '') return yield* T.fail(Invalid({ message: 'A flock needs a question.' }))
     const limits = limitsFor(wish.limits ?? DEFAULT_DEBATE_LIMITS, 0)
     yield* requireUsableLimits(limits)
     const invited = yield* activeMembersAmong((wish.memberIds ?? []).filter((id) => id !== caller.member.id))
@@ -101,8 +100,8 @@ export const createDebate = (
   })
 
 /**
- * The rooms the viewer may see, newest first: every open room and the private rooms they are in, and for
- * an administrator's own sign-in every private room too, as with channels. Statuses are as the
+ * The flocks the viewer may see, newest first: every open flock and the private flocks they are in, and for
+ * an administrator's own sign-in every private flock too, as with channels. Statuses are as the
  * background pass left them, at most a minute ago.
  */
 export const listDebates = (viewer: Viewer): T.Task<DebateSummary[], never, RequestEnv> =>
@@ -150,7 +149,7 @@ export const debateFor = (viewer: Viewer, id: DebateId): T.Task<Debate, NotFound
 
 /**
  * Opts the person's own connected agent in, with their note on what it may use here when they wrote one;
- * it joins the room and may take turns there, never elsewhere.
+ * it joins the flock and may take turns there, never elsewhere.
  */
 export const optInAgent = (
   caller: Caller,
@@ -168,7 +167,7 @@ export const optInAgent = (
     const visible = yield* visibleDebate(viewerOf(caller), id)
     if (visible.visibility === 'private' && !(yield* isDebateMember(id, caller.member.id)))
       return yield* T.fail(
-        Forbidden({ message: 'Only people invited to a private room can opt their agent in.' }),
+        Forbidden({ message: 'Only people invited to a private flock can opt their agent in.' }),
       )
     if (visible.room_type === 'scheduling' && !(yield* isDebateMember(id, caller.member.id)))
       return yield* T.fail(
@@ -185,7 +184,7 @@ export const optInAgent = (
   })
 
 /**
- * Sets or clears the person's note on what their agent may use and share in this room, until the room
+ * Sets or clears the person's note on what their agent may use and share in this flock, until the flock
  * stops taking turns. Only the person writes it, never an agent (rules 3 and 9).
  */
 export const setDebateBrief = (
@@ -196,7 +195,7 @@ export const setDebateBrief = (
   T.gen(function* () {
     if (!isHuman(caller))
       return yield* T.fail(
-        Forbidden({ message: 'Only a person can say what their agent may use in a debate room.' }),
+        Forbidden({ message: 'Only a person can say what their agent may use in a flock.' }),
       )
     yield* visibleDebate(viewerOf(caller), id)
     const row = yield* lockedDebate(id)
@@ -207,13 +206,13 @@ export const setDebateBrief = (
       return yield* T.fail(Conflict({ message: 'Opt your agent in first; the note goes with it.' }))
     if (row.status !== 'open')
       return yield* T.fail(
-        Conflict({ message: 'This room no longer takes turns, so what your agent may use here is fixed.' }),
+        Conflict({ message: 'This flock no longer takes turns, so what your agent may use here is fixed.' }),
       )
     yield* writeBrief(id, caller.member.id, brief)
     return yield* describeDebate(yield* lockedDebate(id))
   })
 
-/** Changes the limits at setup, before the first turn; only the person who opened the room may. */
+/** Changes the limits at setup, before the first turn; only the person who opened the flock may. */
 export const setDebateLimits = (
   caller: Caller,
   id: DebateId,
@@ -221,22 +220,22 @@ export const setDebateLimits = (
 ): T.Task<Debate, NotFound | Forbidden | Conflict | Invalid, RequestEnv> =>
   T.gen(function* () {
     if (!isHuman(caller))
-      return yield* T.fail(Forbidden({ message: 'Only a person can set a room’s limits.' }))
+      return yield* T.fail(Forbidden({ message: 'Only a person can set a flock’s limits.' }))
     yield* visibleDebate(viewerOf(caller), id)
     const row = yield* lockedDebate(id)
     if (row.created_by !== caller.member.id)
       return yield* T.fail(
-        Forbidden({ message: 'Only the person who opened this room can change its limits.' }),
+        Forbidden({ message: 'Only the person who opened this flock can change its limits.' }),
       )
     yield* moveDebate(row, { type: 'setLimits', limits })
     return yield* describeDebate(yield* lockedDebate(id))
   })
 
 /**
- * What the rooms ask of the calling agent: a turn where it may take one, a draft of the result while the
- * room collects drafts and it has not drafted, and as ballots the rooms whose drafts it is asked to vote
- * on; and, so it learns why they stopped asking, its rooms that closed in the last day because agents
- * dropped out. The route moves this agent's own rooms on first, each in a transaction of its own.
+ * What the flocks ask of the calling agent: a turn where it may take one, a draft of the result while the
+ * flock collects drafts and it has not drafted, and as ballots the flocks whose drafts it is asked to vote
+ * on; and, so it learns why they stopped asking, its flocks that closed in the last day because agents
+ * dropped out. The route moves this agent's own flocks on first, each in a transaction of its own.
  */
 export const debateAsks = (caller: Caller): T.Task<DebateAsks, never, RequestEnv> =>
   T.gen(function* () {
@@ -291,11 +290,11 @@ export const activeMembersAmong = (ids: ReadonlyArray<MemberId>): T.Task<MemberI
     return unique
   })
 
-/** Nobody is asked to a room across a block, either way, as nobody is written to across one. */
+/** Nobody is asked to a flock across a block, either way, as nobody is written to across one. */
 export const requireMayInvite = (
   inviterId: MemberId,
   ids: ReadonlyArray<MemberId>,
-  room: 'a debate room' | 'a meeting' = 'a debate room',
+  room: 'a flock' | 'a meeting' = 'a flock',
 ): T.Task<void, Forbidden, RequestEnv> =>
   T.gen(function* () {
     if (ids.length === 0) return

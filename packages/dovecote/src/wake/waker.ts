@@ -53,7 +53,7 @@ export interface DeskWaker {
 
 /**
  * Wakes cloud desks. Every 15 seconds each wake whose person has work waiting, no desk online and a
- * silent credential is sent once, gathering what arrived close together; a debate room the desk takes
+ * silent credential is sent once, gathering what arrived close together; a flock the desk takes
  * part in wakes it again before its grace runs out. The candidates live in memory, so after a restart
  * every wake is a candidate once.
  */
@@ -222,7 +222,7 @@ const isWorkWaiting = (caller: Caller): T.Task<boolean, never, AppEnv> =>
   })
 
 /**
- * Work waits for an agent while a room asks it for a turn or a vote now. A room keeps it from dropping
+ * Work waits for an agent while a flock asks it for a turn or a vote now. A flock keeps it from dropping
  * out while it still asks, or has a turn coming for it after other agents' turns.
  */
 const isDebateAsking = (caller: Caller, when: 'now' | 'or-soon'): T.Task<boolean, never, AppEnv> =>
@@ -233,7 +233,7 @@ const isDebateAsking = (caller: Caller, when: 'now' | 'or-soon'): T.Task<boolean
     return asks.length + ballots.length + (when === 'now' ? 0 : upcoming.length) > 0
   })
 
-/** The open rooms the bound credential opted into, with their grace. */
+/** The open flocks the bound credential opted into, with their grace. */
 const roomsOf = (
   row: WakeRow,
 ): T.Task<ReadonlyArray<{ graceMinutes: number; joinedAt: number }>, never, AppEnv> =>

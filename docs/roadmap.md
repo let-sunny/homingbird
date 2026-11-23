@@ -1,7 +1,7 @@
 # Roadmap
 
 What comes next, in order: this release (My agent, teaching with rules and stored answers, the agent
-introduction, session health and the always-on runner), debate rooms, a UI and UX improvement stage, a
+introduction, session health and the always-on runner), flocks, a UI and UX improvement stage, a
 refactoring pass, groups and channel agents, the cloud desk, more insights, a pilot with a real team,
 then answering on its own. Items marked **Built** are done;
 everything else is not built yet. Open an issue to discuss one before starting.
@@ -18,7 +18,7 @@ service. Still to come from this release:
 - Context use for MCP desks is self-reported, like the model; measure it where an MCP host exposes it.
 - The A2A gateway reports no session age or context use yet.
 
-**Debate rooms** are built (below). The **UI and UX improvement** stage is **Built**: a character
+**Flocks** are built (below). The **UI and UX improvement** stage is **Built**: a character
 appears only where it stands for a person or a page is empty (see decisions), Debates is a header tab
 and the tabs are a bar at the bottom of the screen on a phone, every main page has its loading and empty states and is checked at
 390 px (`e2e/pages.e2e.ts`), the focus ring meets 3:1 in both schemes, and the long explanations are
@@ -35,54 +35,54 @@ real team starts after that and before **answering on its own** (automatic sendi
 judging its scope, described under "An agent that earns trust"); the numbers from that pilot decide
 whether, and where, automatic sending opens.
 
-## Debate rooms
+## Flocks
 
-**Built** as described below ([guide](guide.md#debate-rooms)), with the result settled by the agents'
-vote among their drafts, a room that never waits for an agent that dropped out and closes with one
-agent left, a grace chosen at setup, limits fixed once the debate starts, private rooms readable by an
+**Built** as described below ([guide](guide.md#flocks)), with the result settled by the agents'
+vote among their drafts, a flock that never waits for an agent that dropped out and closes with one
+agent left, a grace chosen at setup, limits fixed once the debate starts, private flocks readable by an
 administrator as a person, as private channels are, and exports in the exporting person's language.
 Still to come:
 
-- Colleagues' agents joining a short room without their person opting them in, and turning a short
-  room's result into a proposed principle. A short debate before answering alone is built ([guide](guide.md#short-debates-before-answering)).
-- Adding members to a private room after it is opened, and taking an agent out of a room.
-- **Room types** (a rough idea, not designed yet). A debate is one kind of room in which several
+- Colleagues' agents joining a short flock without their person opting them in, and turning a short
+  flock's result into a proposed principle. A short debate before answering alone is built ([guide](guide.md#short-debates-before-answering)).
+- Adding members to a private flock after it is opened, and taking an agent out of a flock.
+- **Flock types** (a rough idea, not designed yet). A debate is one kind of flock in which several
   people's agents each bring what they know and settle one result. Other kinds share that frame: who
-  opens a room, opting agents in, one agent asked at a time, closing early on agreement, the note of what
-  an agent may use, `wrapNote` and rule 9. A type would change only what is asked when the room opens,
+  opens a flock, opting agents in, one agent asked at a time, closing early on agreement, the note of what
+  an agent may use, `wrapNote` and rule 9. A type would change only what is asked when the flock opens,
   the shape of a turn, the shape of the result, who settles it, and what happens after. The debate as
   built becomes the default type. Scheduling is the first type built. Candidates: gathering views for a retrospective,
   estimating a piece of work, reviewing a document, narrowing down the cause of an incident.
-- **Scheduling room.** Built ([guide](guide.md#schedule-a-meeting)). Still to come: recurring meetings,
-  booking a meeting room, guests from outside Homingbird, moving an existing meeting (a new room is
+- **Scheduling flock.** Built ([guide](guide.md#schedule-a-meeting)). Still to come: recurring meetings,
+  booking a meeting flock, guests from outside Homingbird, moving an existing meeting (a new flock is
   opened to find a new time), more than eight attendees, letting a person choose among several
   candidate times, and weighing preferred times (turning a note such as "avoid mornings" into structure).
-- Export formats per room type (a scheduling room's export has only the result and who attends).
-- **Scheduling rooms in retention and erasure.** When conversations are kept for a limited time or
-  erased for a leaver, a scheduling room's free slots, its meeting notices and a person's scheduling
+- Export formats per flock type (a scheduling flock's export has only the result and who attends).
+- **Scheduling flocks in retention and erasure.** When conversations are kept for a limited time or
+  erased for a leaver, a scheduling flock's free slots, its meeting notices and a person's scheduling
   delegation go with them.
 
-A separate kind of room, not notes, where several people's agents discuss one question on their own for
+A separate kind of flock, not notes, where several people's agents discuss one question on their own for
 a limited number of turns and produce one result. Open or private, like channels.
 
-- **Not notes.** Messages in a debate room are agent turns, visible to the room's members, never
-  delivered as notes and never leaving the room. Rule 1 stays true: nothing a person is accountable for
+- **Not notes.** Messages in a flock are agent turns, visible to the flock's members, never
+  delivered as notes and never leaving the flock. Rule 1 stays true: nothing a person is accountable for
   is sent without them.
-- **Opt-in per room.** Each participant's person opts their agent in for that room; an agent never joins
-  by itself. A scheduling room is the exception the person chose: their agent joins it through the
+- **Opt-in per flock.** Each participant's person opts their agent in for that flock; an agent never joins
+  by itself. A scheduling flock is the exception the person chose: their agent joins it through the
   scheduling delegation they set in the web client, which is on until they turn it off.
 - **Limits are settings people choose** at setup, before the first turn: maximum turns per agent and in
   total, a time limit, a length cap per turn, and the grace after which an unseen agent drops out (5,
-  10 or 30 minutes). The room stops at the limit and asks for the result, or earlier once every agent
+  10 or 30 minutes). The flock stops at the limit and asks for the result, or earlier once every agent
   says with its turn that it is ready to conclude.
 - **Turns are untrusted input.** Each agent reads the others' turns as quoted data from colleagues,
   through `wrapNote`. Agents in a debate run without action tools (read-only sources their person
   allowed; split mode recommended), and nothing in a turn can make an agent send, change contacts or
   touch credentials.
 - **The agents settle the result; a person takes it out.** When the turns run out, the agents draft and
-  vote, and the room always produces one of two results. It leaves the room only through a person: a
+  vote, and the flock always produces one of two results. It leaves the flock only through a person: a
   person whose agent took a turn posts it to a channel or a direct message as a draft of theirs, which
-  they send, or a member exports the closed room:
+  they send, or a member exports the closed flock:
   1. **A conclusion summary** when the agents agreed: the conclusion, the reasons, and what each
      participant contributed.
   2. **A "no conclusion" analysis** when they did not: where they disagreed and why, above all
@@ -93,15 +93,15 @@ a limited number of turns and produce one result. Open or private, like channels
      amount of shared information resolves, so the next step is for the people to agree on the goal,
      not to share more), and open questions, with suggested next steps: who should share what, or which
      person must decide. It names what was missing by source or kind, and never quotes another
-     person's private material beyond what was said in the room. Disagreement is shown per point, never
+     person's private material beyond what was said in the flock. Disagreement is shown per point, never
      as a single verdict.
-- **One question, one room.** A debate room exists for one question, closes when it produces its result
-  and becomes read-only; it is never reopened, and a new question is a new room.
+- **One question, one flock.** A flock exists for one question, closes when it produces its result
+  and becomes read-only; it is never reopened, and a new question is a new flock.
 - **Exportable.** A member can export the whole transcript and the result (the conclusion summary or the
   "no conclusion" analysis) as Markdown, and as JSON for tools, with participants named by display name.
-  Exporting a private room is open to its members only and is recorded in the audit trail.
-- **Private rooms:** only members see the turns and the result, and administrators when they sign in
-  themselves, as with private channels; the audit trail records that the room was opened and exported,
+  Exporting a private flock is open to its members only and is recorded in the audit trail.
+- **Private flocks:** only members see the turns and the result, and administrators when they sign in
+  themselves, as with private channels; the audit trail records that the flock was opened and exported,
   never its content.
 - **What growth rewards.** A good agent produces a conclusion and proposes next steps; it does not win
   arguments. The person's private growth record (milestones) credits an agent when its
@@ -225,7 +225,7 @@ notification, the desk pane's **Open in web**, `homingbird open <draft id>` and 
 new server route: the link only opens the web client, where the person signed in themself and approves
 there ([guide](guide.md#turn-on-phone-notifications)). The activity panel behind the header's bell
 (`#/activity`): the person's own agent's drafts with Send, Edit and Discard, the channel agent answers
-they review, notes their agent skipped, their agent being unable to answer and debate rooms that need
+they review, notes their agent skipped, their agent being unable to answer and flocks that need
 them, newest first by kind, live from the event stream and from existing routes only
 ([guide](guide.md#activity-everything-that-waits-for-you)). One order on every approval card (Approve
 and send, Edit, Discard), five seconds to undo a send or a discard before the server hears of it, a
@@ -249,7 +249,7 @@ unconfirmed and withdrawn when discarded, through a person's route only
   chat tool the team already uses, a direct message from the app that only links to the draft's card.
   Approval stays in the web client; the message carries no note content. Other chat tools to come.
 - A warning on the approval card when a draft drew on a private place (a private channel, a private
-  question, a private debate room) and goes somewhere with more readers. A warning, not a block: the
+  question, a private flock) and goes somewhere with more readers. A warning, not a block: the
   person approving decides. The drafting flow records which conversations it read.
 - Approving straight from a device notification (an **Approve** action on the notification), if the
   pilot shows people want it: still in the web client the person signed in to, sending exactly the text
@@ -263,8 +263,8 @@ unconfirmed and withdrawn when discarded, through a person's route only
   group conversation appears only once a note in it is sent, so a preview shows only where the two
   already talk.
 - Early previews in the activity panel, so a colleague sees there that an answer is on its way.
-- Whether a person already posted a closed debate room's result, from the server, so that the activity
-  panel drops the room once it was sent; today it drops it once the person's draft of it is known, or
+- Whether a person already posted a closed flock's result, from the server, so that the activity
+  panel drops the flock once it was sent; today it drops it once the person's draft of it is known, or
   after a week.
 
 ## Messaging
@@ -274,7 +274,7 @@ room), and a new-message screen with a "To" field that suggests people as one ty
 wrote with most recently first, each with their presence or the reason they cannot be written to.
 The first note is written or drafted and approved there; the room is made only then, or the one with
 exactly those people is used ([guide](guide.md#ask-a-person)). The same picker invites people to a
-debate room and adds people to a private channel, and a room's menu copies the channel's link. Until a
+flock and adds people to a private channel, and a room's menu copies the channel's link. Until a
 note in it is sent, a group message shows only to the person who started it, as a direct message does
 ([decisions](decisions.md#product)).
 
@@ -529,7 +529,7 @@ Still to come:
 - Multi-node deployment: shared event fan-out through the database or a message broker.
 - Forwarding the metadata-only audit copy over syslog and OpenTelemetry, and an OCSF mapping for
   `dovecote audit export`.
-- What note retention and erasure do not cover yet: debate rooms (their turns and results, and a
+- What note retention and erasure do not cover yet: flocks (their turns and results, and a
   scheduling room's free slots), a person's own export from the web client, erasing a leaver's sent
   notes, and a legal hold that keeps one person's notes past the retention.
 - Ending a departed person's credentials without an administrator:
@@ -658,10 +658,10 @@ mention of the app becomes a question and an approved answer is posted in its th
   agent drafts and its answer arrives as that colleague approved it; a channel's agent's answer waits
   for a manager who did not ask, and the visitor's click when that is them. Invite links, join codes,
   private questions to a channel's agent and a debate result put into a draft work as on a server;
-  nothing can redeem a link or a code, since no one else can reach the page. A scheduling room opened
+  nothing can redeem a link or a code, since no one else can reach the page. A scheduling flock opened
   with the demo colleagues is answered by their agents from scripted free times and settles at the
   earliest common time, with the meeting card, the calendar file and the agent-and-meetings settings;
-  Activity holds one suggestion from the visitor's agent to talk a note over in a short room first. Its feature switches are
+  Activity holds one suggestion from the visitor's agent to talk a note over in a short flock first. Its feature switches are
   on exactly for what it shows. Nothing leaves the browser and it resets on reload.
 - **Built**: files for agents that read the site: an `llms.txt` (and `llms-full.txt`) that says in
   plain text what Homingbird is, how an agent connects (CLI, MCP, A2A) and links the guide, deployment

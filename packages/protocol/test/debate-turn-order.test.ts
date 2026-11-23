@@ -93,7 +93,7 @@ describe('whose turn it is', () => {
     expect(isRestingReady(roomOf([]), ANA)).toBe(false)
   })
 
-  it('gives an asked agent half the room’s grace, 2.5 minutes by default', () => {
+  it('gives an asked agent half the flock’s grace, 2.5 minutes by default', () => {
     expect(turnWaitMs({})).toBe(WAIT)
     expect(turnWaitMs({ graceMinutes: 5 })).toBe(WAIT)
     expect(turnWaitMs({ graceMinutes: 10 })).toBe(5 * 60_000)
@@ -103,7 +103,7 @@ describe('whose turn it is', () => {
 })
 
 describe('a named turn, later', () => {
-  it('passes the turn on for each wait that ran out, as the room does when nobody speaks', () => {
+  it('passes the turn on for each wait that ran out, as the flock does when nobody speaks', () => {
     const asked = { memberId: ANA, until: WAIT, next: [BEN, CY] }
     expect(askedTurnLater(asked, {}, WAIT - 1)).toBe(asked)
     expect(askedTurnLater(asked, {}, WAIT)).toEqual({ memberId: BEN, until: 2 * WAIT, next: [CY, ANA] })
@@ -115,7 +115,7 @@ describe('a named turn, later', () => {
     })
   })
 
-  it('agrees with the room’s own order at any later time', () => {
+  it('agrees with the flock’s own order at any later time', () => {
     fc.assert(
       fc.property(fc.integer({ min: 0, max: 30 * WAIT }), (later) => {
         const room = roomOf([[ANA]], { askingSince: 0 })

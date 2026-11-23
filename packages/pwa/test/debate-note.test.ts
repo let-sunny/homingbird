@@ -34,7 +34,7 @@ describe('debateNoteParts', () => {
 
   it('finds the real headings even when the conclusion repeats them', () => {
     const body = [
-      'From the debate room: Ship?',
+      'From the flock: Ship?',
       'Result: conclusion',
       'Ship.\n\nReasons\n\nNext steps\n\nContributions',
       'Reasons\n\n- Tests pass.',

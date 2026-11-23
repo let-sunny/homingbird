@@ -173,7 +173,7 @@ describe('profileCardModel', () => {
     })
   })
 
-  it('says what the member is in the room or the debate room on screen, and nothing elsewhere', () => {
+  it('says what the member is in the room or the flock on screen, and nothing elsewhere', () => {
     const question = conversation({ privateQuestionOf: 'billing', askedBy: BEN, participantIds: [ANA, BEN] })
     const inRoom = { name: 'conversation', id: question.id, draft: null } as const
     expect(profileCardModel(input({ route: inRoom, conversations: [question] }))).toMatchObject({

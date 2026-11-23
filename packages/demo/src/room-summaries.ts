@@ -1,6 +1,6 @@
 import type { Debate, DebateSummary, MemberId } from '@homingbird/protocol'
 
-/** What a list shows of a room that is not a plain debate: a meeting, with the viewer's part, or a suggested room. */
+/** What a list shows of a flock that is not a plain debate: a meeting, with the viewer's part, or a suggested flock. */
 export const roomKindFields = (
   debate: Debate,
   viewerId: MemberId,

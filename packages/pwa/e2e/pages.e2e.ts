@@ -85,7 +85,7 @@ const scenario = async (): Promise<void> => {
     const ana = await signIn('ana@example.com', 'Ana')
     await signIn('cy@example.com', 'Cy')
 
-    // -- Empty: nothing written, no channel, no debate room ---------------------------------------
+    // -- Empty: nothing written, no channel, no flock ---------------------------------------
     await photograph('ana@example.com', 'Ana', 'empty', [
       { name: 'notes', hash: '#/', ready: '.sidebar' },
       { name: 'my-agent', hash: '#/agent', ready: '.my-agent-section' },
@@ -96,7 +96,7 @@ const scenario = async (): Promise<void> => {
       { name: 'admin-members', hash: '#/admin/members', ready: '.members .member' },
     ])
 
-    // -- In use: a conversation with a draft waiting, channels and a debate room ------------------
+    // -- In use: a conversation with a draft waiting, channels and a flock ------------------
     const june = await signIn('june@example.com', 'June')
     const ben = await signIn('ben@example.com', 'Ben')
     const ids = Object.fromEntries(

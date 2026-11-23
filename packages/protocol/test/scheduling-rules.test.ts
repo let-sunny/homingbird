@@ -57,7 +57,7 @@ const answered = (memberId: MemberId, slots: ReadonlyArray<TimeSpan>) => ({
   slots,
 })
 
-describe('the time a scheduling room settles on', () => {
+describe('the time a scheduling flock settles on', () => {
   it('is the earliest every required person is free, with which optional people can come', () => {
     const room = roomOf({
       turns: [
@@ -138,7 +138,7 @@ describe('the time a scheduling room settles on', () => {
     expect(scheduleOf(early, at(9, 30))?.result).toMatchObject({ kind: 'no_slot', closest: null })
   })
 
-  it('is no result for a room that schedules nothing', () => {
+  it('is no result for a flock that schedules nothing', () => {
     expect(scheduleOf(unscheduled(), NOW)).toBeNull()
   })
 })
@@ -155,8 +155,8 @@ describe('a scheduling turn', () => {
     expect(scheduleTurnProblem(turn([span(at(9), at(17))], 'x'.repeat(200)), roomOf())).toBeNull()
   })
 
-  it('is refused in a room that schedules nothing, or from a person not invited', () => {
-    expect(scheduleTurnProblem(turn([]), unscheduled())).toBe('This room does not schedule a meeting.')
+  it('is refused in a flock that schedules nothing, or from a person not invited', () => {
+    expect(scheduleTurnProblem(turn([]), unscheduled())).toBe('This flock does not schedule a meeting.')
     expect(scheduleTurnProblem({ ...turn([]), memberId: DAN }, roomOf())).toBe(
       'This agent’s person is not invited to this meeting.',
     )
@@ -164,7 +164,7 @@ describe('a scheduling turn', () => {
 
   it('is refused without slots, with too many, or with too long a note', () => {
     expect(scheduleTurnProblem(turn(), roomOf())).toBe(
-      'A turn in a scheduling room gives free slots: an empty list when there are none.',
+      'A turn in a scheduling flock gives free slots: an empty list when there are none.',
     )
     const many = Array.from({ length: 51 }, () => span(at(9), at(10)))
     expect(scheduleTurnProblem(turn(many), roomOf())).toBe(
@@ -187,7 +187,7 @@ describe('a scheduling turn', () => {
   })
 })
 
-describe('whether a scheduling room has its answers', () => {
+describe('whether a scheduling flock has its answers', () => {
   it('waits for every required person, from their agent or chosen by themself, and no optional one', () => {
     const ana = answered(ANA, [])
     expect(isEveryRequiredAnswered(roomOf({ turns: [ana] }))).toBe(false)
@@ -208,14 +208,14 @@ describe('whether a scheduling room has its answers', () => {
   })
 })
 
-describe('the time a scheduling room with limits settles on', () => {
+describe('the time a scheduling flock with limits settles on', () => {
   const limited = (limits: Partial<RoomSchedule>): DebateRoom =>
     roomOf({
       schedule: { ...SCHEDULE, window: span(at(0), at(24)), ...limits },
       turns: [answered(ANA, [span(at(0), at(24))]), answered(BEN, [span(at(0), at(24))])],
     })
 
-  it('is the earliest time inside the chosen hours, in the zone of whoever opened the room', () => {
+  it('is the earliest time inside the chosen hours, in the zone of whoever opened the flock', () => {
     const room = limited({ hours: { from: 600, to: 900 }, timeZone: 'UTC' })
     expect(scheduleOf(room, at(0))?.result).toMatchObject({ kind: 'slot', ...span(at(10), at(11)) })
   })

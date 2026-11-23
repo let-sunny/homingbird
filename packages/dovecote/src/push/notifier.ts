@@ -51,7 +51,7 @@ export interface PushNotice {
 export interface PushNotifier {
   /** `isNewReview` marks the review event a channel's agent's new answer sends its reviewers. */
   readonly consider: (memberId: MemberId, event: StreamEvent, isNewReview: boolean) => void
-  /** A scheduling room's meeting changed for this person: told on their devices unless they are looking. */
+  /** A scheduling flock's meeting changed for this person: told on their devices unless they are looking. */
   readonly considerMeeting: (memberId: MemberId, notice: MeetingNotice) => void
   readonly run: T.Task<never, never, AppEnv>
   readonly settled: T.Task<void>
@@ -122,7 +122,7 @@ const pushNoticeFor = (memberId: MemberId, event: StreamEvent): T.Task<PushNotic
   })
 
 /**
- * A review push needs both rooms to want it: a private question's own and its channel's, so muting the
+ * A review push needs both flocks to want it: a private question's own and its channel's, so muting the
  * channel quiets its private questions' answers too.
  */
 const reviewNoticeFor = (
@@ -159,8 +159,8 @@ const notPostedPush = (
   )(notPostedNoticeFor(memberId, note))
 
 /**
- * A meeting notice in the person's own language, titled by the room, with the name of whoever it is
- * about; it opens the room. It says nothing of the time, the invitation or its link.
+ * A meeting notice in the person's own language, titled by the flock, with the name of whoever it is
+ * about; it opens the flock. It says nothing of the time, the invitation or its link.
  */
 const meetingPushFor = (
   memberId: MemberId,

@@ -11,7 +11,7 @@ import {
 import { locale, strings } from '../strings.ts'
 
 /**
- * What the form to open a scheduling room starts with and offers: the lengths, the days a time is
+ * What the form to open a scheduling flock starts with and offers: the lengths, the days a time is
  * looked for, from today for a week, and a line for each person chosen to mark them optional.
  */
 export const schedulingFormModel = (input: SchedulingFormInput): SchedulingFormModel => ({

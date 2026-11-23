@@ -34,7 +34,7 @@ export const tellMeeting = (memberId: MemberId, meeting: MeetingNotice): T.Task<
   })
 
 /**
- * The viewer's own part of each scheduling room listed that asks them: how they answered, where their
+ * The viewer's own part of each scheduling flock listed that asks them: how they answered, where their
  * meeting stands, and what it told them, newest first. Nobody else's part, and never a time.
  */
 export const ownSchedulingParts = (

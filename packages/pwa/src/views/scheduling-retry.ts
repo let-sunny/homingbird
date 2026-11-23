@@ -5,7 +5,7 @@ import { hrefFor } from '../routes.ts'
 import type { ViewContext } from './context.ts'
 import { section } from './debate-result.ts'
 
-/** For whoever opened the room, once it has settled or ended: open it again, or in a wider window. */
+/** For whoever opened the flock, once it has settled or ended: open it again, or in a wider window. */
 export const schedulingRetryCard = (
   context: ViewContext,
   input: { readonly debate: AsRead.Debate; readonly viewerId: MemberId },

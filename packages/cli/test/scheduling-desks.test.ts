@@ -71,7 +71,7 @@ const deskFor = async (
   return { cli, running: cli.run('run', '--agent', 'claude -p') }
 }
 
-describe('a scheduling room with every person’s desk running', () => {
+describe('a scheduling flock with every person’s desk running', () => {
   it('needs nothing of anyone but its opening: free times, the time, the invitation and each calendar follow', async () => {
     const anaAsked: string[] = []
     const benAsked: string[] = []

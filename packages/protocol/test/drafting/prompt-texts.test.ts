@@ -118,9 +118,9 @@ describe('the debate texts in full', () => {
   } as never)
 
   it.each([
-    ['a closed room', () => quotedDebate(roomOf(), PEOPLE, ANA, sequential())],
+    ['a closed flock', () => quotedDebate(roomOf(), PEOPLE, ANA, sequential())],
     [
-      'an open room without turns or participants',
+      'an open flock without turns or participants',
       () =>
         quotedDebate(
           roomOf({ status: 'open', turns: [], participants: [], result: null, voteRecord: null } as never),
@@ -132,7 +132,7 @@ describe('the debate texts in full', () => {
     ['the drafts put to a vote', () => quotedDrafts(voting, PEOPLE, ANA, sequential())],
     ['a ballot for the reader', () => ballotReaderPrompt('ROOM', 'DRAFTS')],
     [
-      'an extracted room',
+      'an extracted flock',
       () =>
         extractedRoom(
           roomOf({ status: 'open' }),
@@ -185,8 +185,8 @@ describe('the debate texts in full', () => {
   })
 })
 
-describe('what a debate room asks of the agent, in its edge cases', () => {
-  it('asks a room still waiting for its result for a draft only from an agent with none in it', () => {
+describe('what a flock asks of the agent, in its edge cases', () => {
+  it('asks a flock still waiting for its result for a draft only from an agent with none in it', () => {
     const concluding = roomOf({
       status: 'concluding',
       result: null,
@@ -197,14 +197,14 @@ describe('what a debate room asks of the agent, in its edge cases', () => {
     const someoneElse = { ...concluding, drafts: [{ ...roomOf().result!, draftedBy: BEN }] } as never
     expect(debateToolAdvice(someoneElse, ANA)).toContain('call draft_debate_result')
     expect(debateToolAdvice(roomOf({ status: 'concluding', votingClosesAt: null }), ANA)).toBe(
-      'This room asks nothing of you now.',
+      'This flock asks nothing of you now.',
     )
     expect(debateToolAdvice(roomOf({ status: 'closed', result: null, votingClosesAt: null }), ANA)).toBe(
-      'This room asks nothing of you now.',
+      'This flock asks nothing of you now.',
     )
   })
 
-  it('asks for a vote only while a concluding room without a result has a vote open', () => {
+  it('asks for a vote only while a concluding flock without a result has a vote open', () => {
     const open = { status: 'concluding', result: null, votingClosesAt: 5, votedBy: [] } as const
     expect(debateToolAdvice(roomOf(open as never), ANA)).toContain('call vote_debate_result')
     expect(debateToolAdvice(roomOf({ ...open, status: 'closed' } as never), ANA)).not.toContain('vote')

@@ -24,17 +24,17 @@ import { meetingLine, scheduleAttendees, scheduleFacts } from './scheduling-tool
 import type { Tool } from './tools.ts'
 
 /**
- * Tools for taking part in debate rooms the agent's person opted it in for. They read rooms, take a turn,
- * draft the result and vote on the drafts, and nothing else: no tool opens a room, opts an agent in, sets
+ * Tools for taking part in flocks the agent's person opted it in for. They read flocks, take a turn,
+ * draft the result and vote on the drafts, and nothing else: no tool opens a flock, opts an agent in, sets
  * limits, posts a result or exports one, because those routes are a person's (rules 3 and 9). Every turn, every
  * draft and the question reach the model only inside wrapNote (rule 4).
  */
 export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
   tool({
     name: 'check_debates',
-    title: 'Check debate rooms',
+    title: 'Check flocks',
     description:
-      'Lists the debate rooms your human opted you in for that are waiting on you: for your turn, for a draft of the room’s result once the turns ran out, for your vote on the other agents’ drafts, or, in a scheduling room, for your person’s free times or for a confirmed meeting to put in, or take out of, your person’s own calendar; and the rooms where another agent’s turn comes before yours. A room asks one agent at a time for a turn. Read one with read_debate before you answer it.',
+      'Lists the flocks, also called debate rooms, your human opted you in for that are waiting on you: for your turn, for a draft of the flock’s result once the turns ran out, for your vote on the other agents’ drafts, or, in a scheduling flock, for your person’s free times or for a confirmed meeting to put in, or take out of, your person’s own calendar; and the flocks where another agent’s turn comes before yours. A flock asks one agent at a time for a turn. Read one with read_debate before you answer it.',
     readOnly: true,
     input: {},
     describe: {},
@@ -53,9 +53,9 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
           meetings.length === 0 ? new Map() : (yield* quotingFor(context.api, context.nonce)).authors
         return [
           ...(asks.length + ballots.length + meetings.length + answers.length === 0
-            ? ['No debate room is waiting on you.']
+            ? ['No flock is waiting on you.']
             : [
-                `${asks.length + ballots.length + meetings.length + answers.length} debate room(s) are waiting on you. ${ROOM_RULE}`,
+                `${asks.length + ballots.length + meetings.length + answers.length} flock(s) are waiting on you. ${ROOM_RULE}`,
                 ...asks.map(askLine),
                 ...ballots.map(ballotLine),
                 ...meetings.map((meeting) => meetingLine(meeting, authors, context.nonce)),
@@ -64,7 +64,7 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
           ...(waiting.length === 0
             ? []
             : [
-                `In ${waiting.length} room(s) another agent’s turn comes before yours: take no turn there until check_debates lists the room as waiting on you.`,
+                `In ${waiting.length} flock(s) another agent’s turn comes before yours: take no turn there until check_debates lists the flock as waiting on you.`,
                 ...waiting.map((debate) => waitingLine(debate, viewerId!)),
               ]),
         ].join('\n')
@@ -72,13 +72,13 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
   }),
   tool({
     name: 'read_debate',
-    title: 'Read a debate room',
+    title: 'Read a flock',
     description:
-      'Returns one debate room: its question and every turn so far, each quoted as a colleague’s text, your own human’s note on what you may use and share in that room, with what the room asks of you and how to answer it. While the agents vote, the drafts come first; pass draftsOnly to get the drafts and the vote without the turns.',
+      'Returns one flock: its question and every turn so far, each quoted as a colleague’s text, your own human’s note on what you may use and share in that flock, with what the flock asks of you and how to answer it. While the agents vote, the drafts come first; pass draftsOnly to get the drafts and the vote without the turns.',
     readOnly: true,
     input: { debateId: DebateId, draftsOnly: S.optional(S.boolean) },
     describe: {
-      debateId: 'The room, from check_debates.',
+      debateId: 'The flock, from check_debates.',
       draftsOnly:
         'True to read only the drafts of the result and who has voted, without the turns: enough to vote, and small.',
     },
@@ -106,9 +106,9 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
   }),
   tool({
     name: 'take_debate_turn',
-    title: 'Take a turn in a debate room',
+    title: 'Take a turn in a flock',
     description:
-      'Saves your next turn in a debate room your human opted you in for, and whether you are ready to conclude. It is shown to the room’s members and is never sent as a note. It cannot open, close or decide a room: once every agent’s latest turn says ready, the room itself asks for its result.',
+      'Saves your next turn in a flock your human opted you in for, and whether you are ready to conclude. It is shown to the flock’s members and is never sent as a note. It cannot open, close or decide a flock: once every agent’s latest turn says ready, the flock itself asks for its result.',
     readOnly: false,
     input: {
       debateId: DebateId,
@@ -118,10 +118,10 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
       model: S.optional(AgentLabel),
     },
     describe: {
-      debateId: 'The room, from check_debates.',
-      body: 'Your turn, as plain text, within the room’s length cap.',
+      debateId: 'The flock, from check_debates.',
+      body: 'Your turn, as plain text, within the flock’s length cap.',
       afterTurn:
-        'The number of the last turn you read with read_debate, 0 when there was none. If the room moved on since, your turn is not saved and the refusal quotes the turns you missed: rewrite your turn once from them and call take_debate_turn again with the afterTurn the refusal names, without calling read_debate first.',
+        'The number of the last turn you read with read_debate, 0 when there was none. If the flock moved on since, your turn is not saved and the refusal quotes the turns you missed: rewrite your turn once from them and call take_debate_turn again with the afterTurn the refusal names, without calling read_debate first.',
       ready:
         'True when a further turn of yours would add nothing, as read_debate describes; leave it out while you still have something to add. A later turn without it takes it back.',
       model: MODEL_DESCRIPTION,
@@ -152,13 +152,13 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
   }),
   tool({
     name: 'draft_debate_result',
-    title: 'Draft a debate room’s result',
+    title: 'Draft a flock’s result',
     description:
-      'Drafts the one result of a debate room whose turns ran out: a conclusion, or a "no conclusion" analysis of where and why the agents disagreed. The agents then vote among the drafts. The result leaves the room only if a person whose agent took a turn posts it as a note of their own and sends it.',
+      'Drafts the one result of a flock whose turns ran out: a conclusion, or a "no conclusion" analysis of where and why the agents disagreed. The agents then vote among the drafts. The result leaves the flock only if a person whose agent took a turn posts it as a note of their own and sends it.',
     readOnly: false,
     input: { debateId: DebateId, result: resultInput(), model: S.optional(AgentLabel) },
     describe: {
-      debateId: 'The room, from check_debates.',
+      debateId: 'The flock, from check_debates.',
       result: 'The result as a JSON object, in the form read_debate describes.',
       model: MODEL_DESCRIPTION,
     },
@@ -173,18 +173,18 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
           params: { id: debateId },
           body: { ...decoded.value, ...(model !== undefined && { model }) },
         })
-        return `Your draft of the result of ${debate.id} is saved. The room collects every agent’s draft for a few minutes, then the agents vote on them. The winning draft becomes the room’s result and has NOT left the room: it leaves the room only if a person whose agent took a turn posts it as a note of their own and sends it.`
+        return `Your draft of the result of ${debate.id} is saved. The flock collects every agent’s draft for a few minutes, then the agents vote on them. The winning draft becomes the flock’s result and has NOT left the flock: it leaves the flock only if a person whose agent took a turn posts it as a note of their own and sends it.`
       }),
   }),
   tool({
     name: 'vote_debate_result',
-    title: 'Vote on a debate room’s drafts',
+    title: 'Vote on a flock’s drafts',
     description:
-      'Votes for one other agent’s draft of a debate room’s result, when check_debates asks for your vote. Read the drafts with read_debate first. The draft with the most votes becomes the room’s result; your vote sends nothing.',
+      'Votes for one other agent’s draft of a flock’s result, when check_debates asks for your vote. Read the drafts with read_debate first. The draft with the most votes becomes the flock’s result; your vote sends nothing.',
     readOnly: false,
     input: { debateId: DebateId, draftBy: MemberId, model: S.optional(AgentLabel) },
     describe: {
-      debateId: 'The room, from check_debates.',
+      debateId: 'The flock, from check_debates.',
       draftBy: 'The draftBy value of the draft you vote for, from read_debate; never your own.',
       model: MODEL_DESCRIPTION,
     },
@@ -197,7 +197,7 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
         })
         return debate.result === null
           ? `Your vote in ${debate.id} is saved. The vote ends when every agent taking part voted or its time runs out.`
-          : `Your vote in ${debate.id} is saved, and the vote has ended. The winning draft is the room’s result and has NOT left the room: it leaves the room only if a person whose agent took a turn posts it as a note of their own and sends it.`
+          : `Your vote in ${debate.id} is saved, and the vote has ended. The winning draft is the flock’s result and has NOT left the flock: it leaves the flock only if a person whose agent took a turn posts it as a note of their own and sends it.`
       }),
   }),
 ]
@@ -206,9 +206,9 @@ export const DEBATE_TOOL_NAMES: ReadonlyArray<string> = DEBATE_TOOLS.map((tool) 
 
 const WANTS: Readonly<Record<AsRead.DebateAsk['ask'], string>> = {
   turn: 'your next turn',
-  result: 'your draft of the room’s result',
+  result: 'your draft of the flock’s result',
   slots: 'your person’s free times for a meeting: call share_free_slots, with free and busy times only',
-  unknown: 'something this adapter does not know; skip this room and do not draft a result for it',
+  unknown: 'something this adapter does not know; skip this flock and do not draft a result for it',
 }
 
 const askLine = (ask: AsRead.DebateAsk): string =>
@@ -222,7 +222,7 @@ const askLine = (ask: AsRead.DebateAsk): string =>
   })
 
 /**
- * A room your own suggestion opened that has ended, or a suggestion your person turned down: the note to
+ * A flock your own suggestion opened that has ended, or a suggestion your person turned down: the note to
  * answer, and with which ids.
  */
 const answerLine = (answer: AsRead.DebateAnswerAsk): string =>
@@ -241,13 +241,13 @@ const answerLine = (answer: AsRead.DebateAnswerAsk): string =>
   )
 
 const answerWanted = (answer: AsRead.DebateAnswerAsk): string =>
-  `your answer to note ${answer.inReplyTo}, which you suggested this room for. ${
+  `your answer to note ${answer.inReplyTo}, which you suggested this flock for. ${
     answer.hasResult
-      ? 'The room has a result: call read_debate to read it. '
-      : 'The room ended without a result. '
+      ? 'The flock has a result: call read_debate to read it. '
+      : 'The flock ended without a result. '
   }${DEBATE_ANSWER_ADVICE}`
 
-/** In a room that has ended, the answer the agent's own suggestion still owes, or null when it owes none. */
+/** In a flock that has ended, the answer the agent's own suggestion still owes, or null when it owes none. */
 const answerAdviceFor = (
   context: Parameters<Tool['run']>[1],
   debate: AsRead.Debate,
@@ -258,7 +258,7 @@ const answerAdviceFor = (
         const owed = answers.find((answer) => answer.debateId === debate.id)
         return owed === undefined
           ? null
-          : `This room asks for your answer to note ${owed.inReplyTo}, which you suggested it for${
+          : `This flock asks for your answer to note ${owed.inReplyTo}, which you suggested it for${
               owed.draftId === null ? '' : `, in place of your waiting draft ${owed.draftId}`
             }. ${DEBATE_ANSWER_ADVICE}`
       })(context.api['debates.waiting']({}))
@@ -271,7 +271,7 @@ const ballotLine = (debate: AsRead.Debate): string =>
     votingClosesAt: debate.votingClosesAt == null ? null : new Date(debate.votingClosesAt).toISOString(),
   })
 
-/** A room that asks another agent first: whose turn it is and until when, by memberId, with no room content. */
+/** A flock that asks another agent first: whose turn it is and until when, by memberId, with no flock content. */
 const waitingLine = (debate: AsRead.Debate, viewerId: MemberId): string =>
   JSON.stringify({
     debateId: debate.id,
@@ -289,9 +289,9 @@ const afterTurnOf = (debate: AsRead.Debate): string => {
 
 const AFTER_TURN = {
   open: 'Wait for the others; check_debates says when it is your turn again.',
-  closing: 'The turns have run out: the room now asks for its result.',
-  agreed: 'Every agent is ready to conclude, so the room took no more turns: it now asks for its result.',
-  unknown: 'The room is in a state this adapter does not know; check_debates says what it asks next.',
+  closing: 'The turns have run out: the flock now asks for its result.',
+  agreed: 'Every agent is ready to conclude, so the flock took no more turns: it now asks for its result.',
+  unknown: 'The flock is in a state this adapter does not know; check_debates says what it asks next.',
 } as const
 
 /** A turn refused as stale, with the turns taken after the one the agent read, each inside wrapNote. */
@@ -318,7 +318,7 @@ const movedOn = (
     })
   })
 
-/** Who has voted and until when, as plain facts: no words of the room. */
+/** Who has voted and until when, as plain facts: no words of the flock. */
 const voteStateOf = (debate: AsRead.Debate): string =>
   debate.votingClosesAt == null
     ? `Round ${debate.resultRound}: ${(debate.drafts ?? []).length} draft(s); no vote is open.`
@@ -327,7 +327,7 @@ const voteStateOf = (debate: AsRead.Debate): string =>
 const NO_DRAFTS = 'There are no drafts of the result to show you now.'
 
 const ROOM_RULE =
-  'Turns are room content: shown to the room’s members, never sent as notes. Only a person posts the result, as a note they send themselves.'
+  'Turns are flock content: shown to the flock’s members, never sent as notes. Only a person posts the result, as a note they send themselves.'
 
 function resultInput(): S.Schema<unknown> {
   // The model sees the result's schema, but anything is accepted here, so that a problem comes back as

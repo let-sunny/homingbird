@@ -5,8 +5,8 @@ import type { Session, TestServer } from './harness.ts'
 export const SUGGESTED_QUESTION = 'Which region should the billing database move to?'
 
 /**
- * Dee asks Ana a question, sent; the note her agent will suggest a room about. Dee is never asked to that
- * room, since she would read it before Ana approves its answer.
+ * Dee asks Ana a question, sent; the note her agent will suggest a flock about. Dee is never asked to that
+ * flock, since she would read it before Ana approves its answer.
  */
 export const questionToAna = async (
   server: TestServer,
@@ -40,7 +40,7 @@ export const suggestedByAna = async (
   return made.json
 }
 
-/** Ana opens the room from the suggestion, and Ben opts his agent in. */
+/** Ana opens the flock from the suggestion, and Ben opts his agent in. */
 export const acceptedByAna = async (
   server: TestServer,
   cast: Cast,
@@ -54,7 +54,7 @@ export const acceptedByAna = async (
   return opened.json
 }
 
-/** Both agents take their two turns and Ana's agent drafts the result alone, so the room closes with it. */
+/** Both agents take their two turns and Ana's agent drafts the result alone, so the flock closes with it. */
 export const closedWithResult = async (server: TestServer, cast: Cast, id: string) => {
   for (let round = 0; round < 2; round++) {
     await cast.anaAgent.api('POST', `/debates/${id}/turns`, { body: `Frankfurt, round ${round}.` })
@@ -66,7 +66,7 @@ export const closedWithResult = async (server: TestServer, cast: Cast, id: strin
   return (await cast.ana.api('GET', `/debates/${id}`)).json
 }
 
-/** No agent takes a turn and the room's half hour passes, so it ends without a result. */
+/** No agent takes a turn and the flock's half hour passes, so it ends without a result. */
 export const endedWithoutResult = async (server: TestServer, as: Session, id: string) => {
   await server.clock.advance(31 * 60_000)
   return (await as.api('GET', `/debates/${id}`)).json

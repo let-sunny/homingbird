@@ -19,7 +19,7 @@ export interface PushTitles {
   readonly meeting: MeetingPushTitles
 }
 
-/** A scheduling room's meeting, titled by the room and, when it is about someone else, their name. */
+/** A scheduling flock's meeting, titled by the flock and, when it is about someone else, their name. */
 export interface MeetingPushTitles {
   readonly colleague: string
   readonly waits: (room: string) => string

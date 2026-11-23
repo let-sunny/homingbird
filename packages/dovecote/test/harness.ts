@@ -93,7 +93,7 @@ export const connectAgent = async (
 /**
  * Runs a desk for this agent, as the event stream client does: it holds an agent event stream for the
  * member and sends the heartbeat request after every advance of the clock, so the agent takes part in
- * its debate rooms. The returned function stops the desk.
+ * its flocks. The returned function stops the desk.
  */
 export const keepAwake = (
   server: Pick<TestServer, 'env' | 'desks'>,

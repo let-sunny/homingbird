@@ -53,7 +53,7 @@ const storedRoom = async (id: string): Promise<DebateRow> =>
   (await storedRows(server, 'debates')).find((row) => row.id === id) as unknown as DebateRow
 
 describe('drafting the result', () => {
-  it('keeps collecting drafts after the first, then closes the room with the only draft', async () => {
+  it('keeps collecting drafts after the first, then closes the flock with the only draft', async () => {
     const id = await concludedRoom()
     const first = (await cast.benAgent.api('PUT', `/debates/${id}/result`, resultFor(cast, 'no_conclusion')))
       .json
@@ -131,7 +131,7 @@ describe('drafting the result', () => {
     expect((await cast.anaAgent.api('PUT', `/debates/${id}/result`, partial)).status).toBe(400)
   })
 
-  it('refuses a draft once the drafting window passed, even before the room was read again', async () => {
+  it('refuses a draft once the drafting window passed, even before the flock was read again', async () => {
     const id = await concludedRoom()
     await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))
     await server.clock.advance(RESULT_DRAFTING_WINDOW_MS)
@@ -141,7 +141,7 @@ describe('drafting the result', () => {
 })
 
 describe('settling the result by vote', () => {
-  it('closes the room with the draft that has the most votes, and records who voted for which', async () => {
+  it('closes the flock with the draft that has the most votes, and records who voted for which', async () => {
     const id = await roomOfThree()
     await cast.anaAgent.api('PUT', `/debates/${id}/result`, threeResult('Ana’s draft.'))
     await cast.benAgent.api('PUT', `/debates/${id}/result`, threeResult('Ben’s draft.'))
@@ -312,7 +312,7 @@ describe('settling the result by vote', () => {
     expect((await roomOf(id)).participants.every((one: { takingPart: boolean }) => one.takingPart)).toBe(true)
   })
 
-  it('closes with the earliest draft when the vote runs out, and ends a room with one agent left', async () => {
+  it('closes with the earliest draft when the vote runs out, and ends a flock with one agent left', async () => {
     const id = await concludedRoom()
     await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))
     await server.clock.advance(1_000)
@@ -334,7 +334,7 @@ describe('settling the result by vote', () => {
   })
 })
 
-describe('a room settled before 0.1.4', () => {
+describe('a flock settled before 0.1.4', () => {
   const waitingForApprovals = async () => {
     const id = await concludedRoom()
     const result = JSON.stringify(resultFor(cast))
@@ -346,7 +346,7 @@ describe('a room settled before 0.1.4', () => {
     return id
   }
 
-  it('closes a room stored while it waited for approvals with the result it chose, on the next pass', async () => {
+  it('closes a flock stored while it waited for approvals with the result it chose, on the next pass', async () => {
     const id = await waitingForApprovals()
     await T.runPromise(debateDeadlinePass, server.env)
     const room = (await storedRows(server, 'debates')).find((row) => row.id === id)!
@@ -355,14 +355,14 @@ describe('a room settled before 0.1.4', () => {
     expect(credits).toEqual(expect.arrayContaining([[cast.ana.me.member.id, 'gap_filled']]))
   })
 
-  it('closes a room that waited for approvals for more than a day with its result, not without one', async () => {
+  it('closes a flock that waited for approvals for more than a day with its result, not without one', async () => {
     const id = await waitingForApprovals()
     await server.clock.advance(RESULT_WINDOW_MS + 1)
     await T.runPromise(debateDeadlinePass, server.env)
     expect(await storedRoom(id)).toMatchObject({ status: 'closed', ended_because: null })
   })
 
-  it('closes a room whose vote ran out unread for more than a day with the winning draft', async () => {
+  it('closes a flock whose vote ran out unread for more than a day with the winning draft', async () => {
     const id = await concludedRoom()
     await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))
     await server.clock.advance(1_000)
@@ -372,7 +372,7 @@ describe('a room settled before 0.1.4', () => {
     expect(await storedRoom(id)).toMatchObject({ status: 'closed', result_by: cast.ana.me.member.id })
   })
 
-  it('closes a room left unread for more than a day before its vote opened with the earliest draft', async () => {
+  it('closes a flock left unread for more than a day before its vote opened with the earliest draft', async () => {
     const id = await roomOfThree()
     await cast.anaAgent.api('PUT', `/debates/${id}/result`, threeResult('Ship.'))
     await server.clock.advance(1_000)
@@ -386,7 +386,7 @@ describe('a room settled before 0.1.4', () => {
     })
   })
 
-  it('leaves a room alone when its round or result changed after it was described', async () => {
+  it('leaves a flock alone when its round or result changed after it was described', async () => {
     const id = await waitingForApprovals()
     const described = await storedRoom(id)
     await T.runPromise(
@@ -401,7 +401,7 @@ describe('a room settled before 0.1.4', () => {
 })
 
 describe('credits', () => {
-  it('credits the growth record when the room closes, with no person approving', async () => {
+  it('credits the growth record when the flock closes, with no person approving', async () => {
     await closedRoom()
     const credits = (await storedRows(server, 'debate_credits')).map((row) => [row.member_id, row.kind])
     expect(credits.sort()).toEqual(
@@ -442,7 +442,7 @@ describe('credits', () => {
   })
 })
 
-describe('the settled result leaving the room', () => {
+describe('the settled result leaving the flock', () => {
   it('puts only the result into a draft of the person’s own, sent like any other note', async () => {
     const id = await closedRoom()
     const lobby = (await cast.ana.api('PUT', '/channels/lobby/membership', {})).json
@@ -460,7 +460,7 @@ describe('the settled result leaving the room', () => {
         { agent: 'Ben agent', person: 'Ben' },
       ]),
     )
-    expect(draft.body).toMatch(/^From the debate room: Should we ship the billing migration this week\?\n/)
+    expect(draft.body).toMatch(/^From the flock: Should we ship the billing migration this week\?\n/)
     expect(draft.body).toContain('Ship on Thursday.')
     expect(draft.body).not.toMatch(/approved by/i)
     expect(draft.body).not.toContain('Turn 1')
@@ -536,7 +536,7 @@ describe('the settled result leaving the room', () => {
     expect(await storedRows(server, 'principle_offers')).toEqual([])
   })
 
-  it('refuses before the room closed, from someone whose agent took no turn, and without exactly one destination', async () => {
+  it('refuses before the flock closed, from someone whose agent took no turn, and without exactly one destination', async () => {
     const id = await concludedRoom()
     expect(
       (await cast.ana.api('POST', `/debates/${id}/result/post`, { to: cast.cy.me.member.id })).status,
@@ -580,7 +580,7 @@ describe('the settled result leaving the room', () => {
     ).toBe(200)
   })
 
-  it('exports the closed room as Markdown and JSON with display names, recording the export', async () => {
+  it('exports the closed flock as Markdown and JSON with display names, recording the export', async () => {
     const id = await closedRoom()
     const markdown = (await cast.ben.api('POST', `/debates/${id}/export`, { format: 'markdown' })).json
     expect(markdown).toMatchObject({ mediaType: 'text/markdown', filename: expect.stringMatching(/\.md$/) })
@@ -606,19 +606,19 @@ describe('the settled result leaving the room', () => {
     const id = await closedRoom()
     await cast.ben.api('PATCH', '/me', { locale: 'ko' })
     const korean = (await cast.ben.api('POST', `/debates/${id}/export`, { format: 'markdown' })).json.text
-    expect(korean).toMatch(/^# 토론방: /)
+    expect(korean).toMatch(/^# 플록: /)
     expect(korean).toContain('## 차례')
     const asked = (
       await cast.ben.api('POST', `/debates/${id}/export`, { format: 'markdown', language: 'en' })
     ).json.text
-    expect(asked).toMatch(/^# Debate room: /)
+    expect(asked).toMatch(/^# Flock: /)
     const fallback = (await cast.ana.api('POST', `/debates/${id}/export`, { format: 'markdown' })).json.text
     expect(fallback).toContain('## Turns')
     expect(fallback).toContain('## Vote\n\nNo vote was held: the result was the only draft.')
     expect(korean).toContain('## 투표\n\n초안이 하나뿐이라 투표하지 않았어요.')
   })
 
-  it('exports a private room to its members only, and no room before it closed', async () => {
+  it('exports a private flock to its members only, and no flock before it closed', async () => {
     const secret = await closedRoom('private')
     expect((await cast.cy.api('POST', `/debates/${secret}/export`, { format: 'json' })).status).toBe(404)
     expect((await cast.ben.api('POST', `/debates/${secret}/export`, { format: 'json' })).status).toBe(200)

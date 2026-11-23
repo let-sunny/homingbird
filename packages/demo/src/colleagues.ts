@@ -38,7 +38,7 @@ interface Responder {
 }
 
 /**
- * Who answers a note: nobody for a debate room's result, which is not a question; else a channel's agent
+ * Who answers a note: nobody for a flock's result, which is not a question; else a channel's agent
  * a new question in its room or asked privately of it, else the first colleague whose agent answers in
  * the channel, else the first other person in the conversation.
  */

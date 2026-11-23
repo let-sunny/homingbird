@@ -2,7 +2,7 @@ import { Schema as S } from '@homingbird/kernel'
 import { DEBATE_BRIEF_MAX } from './debates.ts'
 import { CredentialId, MemberId, type Timestamp } from './ids.ts'
 
-/** A room a person opened themself is always within the people they chose. */
+/** A flock a person opened themself is always within the people they chose. */
 export const mayJoinByDelegation = (delegation: SchedulingDelegation, meeting: DelegatedMeeting): boolean =>
   delegation.autoJoin && isWithinPeopleAndLength(delegation.scope, meeting)
 
@@ -79,7 +79,7 @@ export const DelegationHours = S.closed(
 )
 export type DelegationHours = S.Infer<typeof DelegationHours>
 
-/** Null is no limit. `people` opened the rooms it covers; `hours` bound only the meetings it adds. */
+/** Null is no limit. `people` opened the flocks it covers; `hours` bound only the meetings it adds. */
 export const DelegationScope = S.closed(
   S.struct({
     people: S.nullable(S.array(MemberId, { minItems: 1, maxItems: DELEGATION_PEOPLE_MAX })),

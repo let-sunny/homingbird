@@ -11,7 +11,7 @@ export const saveSchedulingDelegation = (
   delegation: SchedulingDelegation,
 ): Action<SchedulingDelegationView> => withApp(({ api }) => api['me.scheduling.set']({ body: delegation }))
 
-/** Opens a new room with the same people and length, in the window given or the same one; the list is read again. */
+/** Opens a new flock with the same people and length, in the window given or the same one; the list is read again. */
 export const retrySchedulingRoom = (
   id: DebateId,
   window: { readonly startsAt: number; readonly endsAt: number } | null,

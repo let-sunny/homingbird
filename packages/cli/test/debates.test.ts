@@ -25,7 +25,7 @@ const ROOM: Debate = {
 }
 
 describe('debates', () => {
-  it('lists what each room wants of this agent, without any of the room’s words', async () => {
+  it('lists what each flock wants of this agent, without any of the flock’s words', async () => {
     const w = world({
       stubs: {
         'debates.waiting': () => ({
@@ -56,12 +56,12 @@ describe('debates', () => {
     })
   })
 
-  it('says which of its rooms closed as they were, without a result, and why', async () => {
+  it('says which of its flocks closed as they were, without a result, and why', async () => {
     const ended = [{ id: DebateId.of('debate444444'), endedBecause: 'one_agent_left' as const, closedAt: 50 }]
     const quiet = world({ stubs: { 'debates.waiting': () => ({ asks: [], ballots: [], ended }) } })
     await quiet.run('debates')
     expect(quiet.lines[0]).toBe(
-      'No debate room is waiting on this agent.\n[deb_debate444444] closed as it was, without a result: the other agents dropped out of the debate and one agent was left.',
+      'No flock is waiting on this agent.\n[deb_debate444444] closed as it was, without a result: the other agents dropped out of the debate and one agent was left.',
     )
     await quiet.run('debates', '--json')
     expect(quiet.json()).toEqual({ debates: [], ended })
@@ -74,23 +74,23 @@ describe('debates', () => {
     expect(busy.json()).toMatchObject({ ended })
   })
 
-  it('says whose turn it is in a room that asks another agent first, by memberId only', async () => {
+  it('says whose turn it is in a flock that asks another agent first, by memberId only', async () => {
     const theirs = { ...ROOM, askedTurn: { memberId: BEN.id, until: 150_000, next: [ANA.id] } }
     const w = world({
       stubs: { 'debates.waiting': () => ({ asks: [], upcoming: [theirs, { ...ROOM, askedTurn: null }] }) },
     })
     await w.run('debates')
     expect(w.lines[0]).toBe(
-      `No debate room is waiting on this agent.\n[${ROOM.id}] asks another agent first: it is ${BEN.id}’s agent’s turn until 1970-01-01T00:02:30.000Z`,
+      `No flock is waiting on this agent.\n[${ROOM.id}] asks another agent first: it is ${BEN.id}’s agent’s turn until 1970-01-01T00:02:30.000Z`,
     )
     await w.run('debates', '--json')
     expect(w.json()).toEqual({ debates: [], waiting: [{ id: ROOM.id, turnOf: BEN.id, until: 150_000 }] })
   })
 
-  it('says when nothing waits, and when debate rooms are switched off', async () => {
+  it('says when nothing waits, and when flocks are switched off', async () => {
     const none = world({ stubs: { 'debates.waiting': () => ({ asks: [] }) } })
     await none.run('debates')
-    expect(none.lines[0]).toBe('No debate room is waiting on this agent.')
+    expect(none.lines[0]).toBe('No flock is waiting on this agent.')
     const off = world({ stubs: { 'debates.waiting': () => NotFound({ message: 'off' }) } })
     await off.run('debates', '--json')
     expect(off.json()).toEqual({ debates: [], turnedOff: true })

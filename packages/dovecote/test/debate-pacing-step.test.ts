@@ -15,7 +15,7 @@ describe('the debate pacing step', () => {
     expect(stepNumberOf(DEBATE_PACING)).toBe(15)
   })
 
-  it('adds whether a total follows the agents, and the turn an agent read, leaving rooms before it fixed', async () => {
+  it('adds whether a total follows the agents, and the turn an agent read, leaving flocks before it fixed', async () => {
     const earlier = MIGRATIONS.indexOf(DEBATE_PACING)
     database = await migratedThrough(earlier)
     expect(await database.columnsOf('debates')).not.toContain('total_follows_agents')
@@ -25,7 +25,7 @@ describe('the debate pacing step', () => {
     expect(await database.columnsOf('debate_turns')).toContain('after_turn')
   })
 
-  it('adds only columns that may be empty, so every room and turn before it reads as before', () => {
+  it('adds only columns that may be empty, so every flock and turn before it reads as before', () => {
     for (const step of DEBATE_PACING) expect('addTo' in step && step.column.nullable).toBe(true)
   })
 })

@@ -2,7 +2,7 @@ import { type AsRead, type MemberId, SCHEDULE_WINDOW_MAX_DAYS } from '@homingbir
 import { strings } from '../strings.ts'
 
 /**
- * What whoever opened a scheduling room can do once it has settled or ended: open it again with the same
+ * What whoever opened a scheduling flock can do once it has settled or ended: open it again with the same
  * people and length, in the same window or a wider one. Nothing for anyone else, or while it takes answers.
  */
 export const schedulingRetryModel = (input: SchedulingRetryInput): SchedulingRetryModel | null => {
@@ -27,7 +27,7 @@ export const schedulingRetryModel = (input: SchedulingRetryInput): SchedulingRet
 }
 
 /**
- * A window that starts no earlier than now and runs a week longer, within the longest a room may look;
+ * A window that starts no earlier than now and runs a week longer, within the longest a flock may look;
  * one already that long moves on to the week after it.
  */
 export const widerWindow = (window: TimeSpan, now: number): TimeSpan => {
@@ -50,7 +50,7 @@ export interface SchedulingRetryModel {
   readonly actions: ReadonlyArray<{
     readonly name: 'again' | 'wider'
     readonly label: string
-    /** The window to ask for, or null for the room's own. */
+    /** The window to ask for, or null for the flock's own. */
     readonly window: TimeSpan | null
     readonly emphasis: 'primary' | 'plain'
   }>

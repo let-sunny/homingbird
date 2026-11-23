@@ -47,7 +47,7 @@ export interface DraftTarget extends DraftDestination {
   readonly body: string
   /** In a group message, the people whose agents it asks; a person approves them with the note. */
   readonly tags?: ReadonlyArray<MemberId>
-  /** The debate room whose approved result this draft carries; its agents wrote it, so it is the agents' note. */
+  /** The flock whose approved result this draft carries; its agents wrote it, so it is the agents' note. */
   readonly fromDebate?: DebateId
   readonly basis?: string
   readonly sources?: ReadonlyArray<DraftSource>

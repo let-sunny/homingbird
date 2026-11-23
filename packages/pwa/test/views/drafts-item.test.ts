@@ -134,7 +134,7 @@ describe('renderDraftsItem', () => {
     expect(dialog.open).toBe(true)
   })
 
-  it('links a debate room’s result to its room instead of a basis', () => {
+  it('links a flock’s result to its room instead of a basis', () => {
     const { context } = testContext()
     const fromDebate = { debateId: 'deb_room00000000' as never, question: 'Ship?', agents: [] }
     const shown = mount(

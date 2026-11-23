@@ -127,7 +127,7 @@ export const USAGE = `Usage: homingbird <command> [options]
   channels [query]
   inbox [--fresh]
   requests                                     drafts your person asked this agent for
-  debates                                      debate rooms waiting on this agent for a turn or a result
+  debates                                      flocks waiting on this agent for a turn or a result
   conversations
   conversation <id>
   draft (--to <email-or-id> | --reply <noteId> | --conversation <id> | --channel <slug> | --request <id>)

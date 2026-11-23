@@ -28,7 +28,7 @@ const choose = (dialog: HTMLElement, typed: string): void => {
 }
 
 describe('the button to schedule a meeting', () => {
-  it('shows only while scheduling rooms are on', () => {
+  it('shows only while scheduling flocks are on', () => {
     const { context } = testContext()
     context.state.serverInfo.set(serverInfo())
     const shown = mount(debatesView(context, lifetime(), me()))
@@ -56,7 +56,7 @@ describe('the button to schedule a meeting', () => {
     ])
   })
 
-  it('lists a scheduling room with its kind, and not at all while the feature is off', () => {
+  it('lists a scheduling flock with its kind, and not at all while the feature is off', () => {
     const { context } = testContext()
     context.state.debatesLoaded.set(true)
     context.state.debates.set([summary({ type: 'scheduling' })])
@@ -69,7 +69,7 @@ describe('the button to schedule a meeting', () => {
 })
 
 describe('the form to schedule a meeting', () => {
-  it('opens a room for the title, the people with the optional ones marked, the length and the days', () => {
+  it('opens a flock for the title, the people with the optional ones marked, the length and the days', () => {
     const { context, dialog, called, page } = opened()
     fire.type(getByRole(dialog, 'textbox', { name: strings.scheduling.titleLabel }), ' Planning sync ')
     choose(dialog, 'be')
@@ -100,7 +100,7 @@ describe('the form to schedule a meeting', () => {
     ).toBe(false)
   })
 
-  it('opens a room limited to the days ticked and the hours typed, in the browser’s time zone', () => {
+  it('opens a flock limited to the days ticked and the hours typed, in the browser’s time zone', () => {
     const { dialog, called } = opened()
     fire.type(getByRole(dialog, 'textbox', { name: strings.scheduling.titleLabel }), 'Planning sync')
     choose(dialog, 'be')
@@ -124,7 +124,7 @@ describe('the form to schedule a meeting', () => {
     expect(textOf(dialog)).toContain(strings.scheduling.hoursHint({ zone: 'Asia/Seoul' }))
   })
 
-  it('says what is missing instead of opening a room', () => {
+  it('says what is missing instead of opening a flock', () => {
     const { context, dialog, called } = opened()
     fire.submit(dialog.querySelector('.scheduling-form')!)
     expect(context.state.notice.get()).toEqual({ kind: 'error', text: strings.scheduling.problems.noTitle })

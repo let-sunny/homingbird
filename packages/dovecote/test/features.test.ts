@@ -188,7 +188,7 @@ describe('feature switches', () => {
     expect(JSON.stringify((await ana.api('GET', '/inbox')).json)).not.toContain('my-otter')
   })
 
-  it('keeps a debate room while debate rooms are off, and refuses its agents’ routes too', async () => {
+  it('keeps a flock while flocks are off, and refuses its agents’ routes too', async () => {
     const room = (await ana.api('POST', '/debates', { question: 'Ship this week?' })).json
     await switchTo({ debateRooms: false })
     expect((await anaAgent.api('GET', '/debate-asks')).status).toBe(404)

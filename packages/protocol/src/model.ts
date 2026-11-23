@@ -258,7 +258,7 @@ export const Note = S.struct({
   approvedBy: S.optional(S.nullable(MemberId)),
   /** Sent by its person's saved answer without a click, under the switch they set for it. */
   autoSent: S.optional(S.boolean),
-  /** A debate room's approved result, posted by a person whose agent took part: which room, which agents. */
+  /** A flock's approved result, posted by a person whose agent took part: which room, which agents. */
   /** A note that arrived from an outside chat tool: who asked there, where, and what became of it there. */
   via: S.optional(
     S.struct({

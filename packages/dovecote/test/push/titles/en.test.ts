@@ -15,13 +15,13 @@ describe('English push titles', () => {
     expect(en.reviewWaiting('#payments-wiki')).toBe('#payments-wiki · An answer waits for your review')
   })
 
-  it('tells a person how a scheduling room’s meeting changed, naming the room and whoever it is about', () => {
+  it('tells a person how a scheduling flock’s meeting changed, naming the flock and whoever it is about', () => {
     expect(en.meeting.waits('Plan')).toBe('Plan · A time was found')
     expect(en.meeting.busy('Plan', 'Ben')).toBe('Plan · Ben is busy then')
     expect(en.meeting.left('Plan', 'Ben')).toBe('Plan · Ben left')
   })
 
-  it('tells a person their agent joined a scheduling room for them, naming it the first time', () => {
+  it('tells a person their agent joined a scheduling flock for them, naming it the first time', () => {
     expect(en.meeting.joined('Plan')).toBe('Plan · Your agent is finding a time')
     expect(en.meeting.joinedFirstBody('Ben laptop')).toBe(
       'Ben laptop joined for you to share your free times. You can change this in Settings.',

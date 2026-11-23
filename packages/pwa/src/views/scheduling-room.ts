@@ -7,8 +7,8 @@ import { profileName } from './profile-card.ts'
 import { renderScheduleResult } from './schedule-result.ts'
 
 /**
- * A scheduling room: who has answered, the deadline, and the time the room settled on. The cards that act on
- * the room (picking free times, adding the meeting) come after it, drawn by the caller.
+ * A scheduling flock: who has answered, the deadline, and the time the flock settled on. The cards that act on
+ * the flock (picking free times, adding the meeting) come after it, drawn by the caller.
  */
 export const renderSchedulingRoom = (
   model: SchedulingRoomModel,

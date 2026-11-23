@@ -5,8 +5,8 @@ import type { ViewContext } from './context.ts'
 import { section } from './debate-result.ts'
 
 /**
- * The card on which a person ticks the hours they are free. The ticks live in `picked`, which the room
- * view keeps, so that drawing the room again while the person picks does not lose them.
+ * The card on which a person ticks the hours they are free. The ticks live in `picked`, which the flock
+ * view keeps, so that drawing the flock again while the person picks does not lose them.
  */
 export const schedulingSlotsCard = (
   context: ViewContext,

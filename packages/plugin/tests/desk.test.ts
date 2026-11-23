@@ -146,7 +146,7 @@ test('a draft request still wakes the desk when the command line cannot list req
   expect(seen.prompts).toEqual([requestPromptFor({ ...REQUEST, answers: null })])
 })
 
-test('a debate room waiting on the agent gives the person one notice per ask, and the desk takes no turn', async ($, on) => {
+test('a flock waiting on the agent gives the person one notice per ask, and the desk takes no turn', async ($, on) => {
   const changed = streamLine(
     { type: 'debate.changed', debateId: 'deb_debate000000', participantIds: ['mem_mmmmmmmmmmmmmmmm'] },
     {},
@@ -164,21 +164,21 @@ test('a debate room waiting on the agent gives the person one notice per ask, an
   await $.session.start(START)
   await openDesk($, seen)
   const text = paneTextIn('en')
-  expect(seen.notifications.filter((said) => said.includes('debate room'))).toEqual([
+  expect(seen.notifications.filter((said) => said.includes('flock'))).toEqual([
     text.debateWaiting('turn'),
     text.debateWaiting('result'),
     text.debateWaiting('vote'),
   ])
-  expect(seen.toasts.filter((said) => said.includes('debate room'))).toEqual([
-    'Homingbird: it is your agent’s turn in a debate room',
-    'Homingbird: a debate room waits for your agent’s result',
-    'Homingbird: a debate room waits for your agent’s vote',
+  expect(seen.toasts.filter((said) => said.includes('flock'))).toEqual([
+    'Homingbird: it is your agent’s turn in a flock',
+    'Homingbird: a flock waits for your agent’s result',
+    'Homingbird: a flock waits for your agent’s vote',
   ])
   expect(seen.prompts).toEqual([])
   expect(seen.commands.filter((args) => args[0] === 'debates')).toHaveLength(2)
 })
 
-test('a debate room change says nothing when the command line cannot list rooms', async ($, on) => {
+test('a flock change says nothing when the command line cannot list flocks', async ($, on) => {
   const seen = engineBeneath(on, {
     overview: OVERVIEW,
     exitCodes: { debates: 2 },
@@ -192,10 +192,10 @@ test('a debate room change says nothing when the command line cannot list rooms'
   })
   await $.session.start(START)
   await openDesk($, seen)
-  expect(seen.notifications.filter((text) => text.startsWith('A debate room'))).toEqual([])
+  expect(seen.notifications.filter((text) => text.startsWith('A flock'))).toEqual([])
 })
 
-test('a change in a room the agent takes no part in runs nothing', async ($, on) => {
+test('a change in a flock the agent takes no part in runs nothing', async ($, on) => {
   const seen = engineBeneath(on, {
     overview: OVERVIEW,
     debates: [{ id: 'deb_debate000000', wants: 'turn', turnsTaken: 1, resultRound: 0 }],
@@ -220,7 +220,7 @@ test('a draft preview change, which no agent stream carries, prompts and runs no
   expect(seen.commands.filter((args) => args.some((arg) => String(arg).includes('preview')))).toEqual([])
 })
 
-test('a declined result gives a new notice when the room asks for the result again', async ($, on) => {
+test('a declined result gives a new notice when the flock asks for the result again', async ($, on) => {
   const changed = streamLine({
     type: 'debate.changed',
     debateId: 'deb_debate000000',

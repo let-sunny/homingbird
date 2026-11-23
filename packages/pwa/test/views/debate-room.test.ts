@@ -26,7 +26,7 @@ const conclusion = {
 }
 
 describe('debateView', () => {
-  it('loads the room, and says when the person may not see it', () => {
+  it('loads the flock, and says when the person may not see it', () => {
     const { context, called } = testContext()
     const shown = debateView(context, lifetime(), me(), 'debate_1', null)
     expect(called('loadDebate')[0]!.args).toEqual(['debate_1'])
@@ -98,7 +98,7 @@ describe('debateView', () => {
     expect(textOf(section)).toContain(strings.debates.briefFixed)
   })
 
-  it('shows who is ready to conclude, and that the room stopped early because every agent agreed', () => {
+  it('shows who is ready to conclude, and that the flock stopped early because every agent agreed', () => {
     const { context } = testContext()
     const shown = debateView(context, lifetime(), me(), 'debate_1', 'turns')
     const turns = [
@@ -185,7 +185,7 @@ describe('debateView', () => {
     expect(shown.querySelector('.debate-voting')).not.toBeNull()
   })
 
-  it('shows a closed room’s result and drafts, exports it, and posts it to a channel or a person', () => {
+  it('shows a closed flock’s result and drafts, exports it, and posts it to a channel or a person', () => {
     const { context, called, page } = testContext()
     context.state.session.set(me())
     context.state.channels.set([channel('billing', { joined: true })])
@@ -311,7 +311,7 @@ describe('debateView', () => {
     expect(shown.querySelector('.debate-export .export-markdown')).not.toBeNull()
   })
 
-  it('says that the suggesting person’s agent answers from a suggested room, in place of the send form', () => {
+  it('says that the suggesting person’s agent answers from a suggested flock, in place of the send form', () => {
     const { context } = testContext()
     const shown = debateView(context, lifetime(), me(), 'debate_1', null)
     context.state.directory.set([entry(BEN, 'Ben')])
@@ -340,7 +340,7 @@ describe('debateView', () => {
     )
   })
 
-  it('opens an open room on its turns alone and a later one on its result, each tab its own address', () => {
+  it('opens an open flock on its turns alone and a later one on its result, each tab its own address', () => {
     const { context, page } = testContext()
     context.state.agentCredentials.set([credential('cred_desk')])
     const shown = mount(debateView(context, lifetime(), me(), 'debate_1', null))
@@ -373,7 +373,7 @@ describe('debateView', () => {
     expect(shown.querySelector('.debate-export')).not.toBeNull()
   })
 
-  it('keeps the room drawn when another tab is chosen, and focuses that tab once', () => {
+  it('keeps the flock drawn when another tab is chosen, and focuses that tab once', () => {
     const { context, page, called } = testContext()
     context.state.shownDebate.set(debate({ status: 'ended', createdBy: BEN }))
     const shown = mount(debateView(context, lifetime(), me(), 'debate_000000000000', 'turns'))

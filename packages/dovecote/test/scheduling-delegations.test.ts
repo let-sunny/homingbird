@@ -129,7 +129,7 @@ describe('a person’s scheduling delegation', () => {
     ])
   })
 
-  it('answers that the feature is off while scheduling rooms or debate rooms are off', async () => {
+  it('answers that the feature is off while scheduling flocks or flocks are off', async () => {
     const { ana } = cast
     const switched = async (features: Record<string, boolean>) => {
       const settings = (await ana.api('GET', '/admin/settings')).json

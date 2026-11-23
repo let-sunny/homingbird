@@ -11,7 +11,7 @@ import { type DraftedDebateResult, draftedResultOf } from './drafted-result.ts'
 import type { MemberId } from './ids.ts'
 
 /**
- * The whole room, transcript and result, as Markdown, with participants named by display name and the
+ * The whole flock, transcript and result, as Markdown, with participants named by display name and the
  * headings in the exporting person's language. Every text a person or an agent wrote is escaped, so none
  * of it can add a heading, an HTML tag or a link other than a plain http(s) address.
  */
@@ -140,7 +140,7 @@ export const debateResultText = (
   nameOf: (id: MemberId) => string,
 ): string =>
   [
-    `From the debate room: ${PLAIN.inline(debate.question)}`,
+    `From the flock: ${PLAIN.inline(debate.question)}`,
     ...resultIn(PLAIN, exportLabelsIn(null), result, nameOf),
   ].join('\n\n')
 
