@@ -67,6 +67,11 @@ describe('profileCardHost', () => {
     expect(textOf(card)).toContain(strings.presenceWords.online.off)
     expect(textOf(card)).toContain(strings.profileCard.groups({ groups: 'Payments' }))
     expect(textOf(card)).toContain('Runs billing.')
+    expect(
+      (card.querySelector('.profile-head .turning-bird') as HTMLElement).style.getPropertyValue(
+        '--turn-sheet',
+      ),
+    ).toMatch(/^url\("data:image\/png;fake,624x39"\)$/)
     expect(getByRole(card, 'link', { name: strings.profileCard.openInPeople }).getAttribute('href')).toBe(
       `#/people?person=${BEN}`,
     )

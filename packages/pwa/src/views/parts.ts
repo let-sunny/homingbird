@@ -10,7 +10,7 @@ import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { closesDialog } from './dialog.ts'
 import { type HintContext, hinted } from './hint.ts'
-import { type PipState, pip } from './pip.ts'
+import { renderTurningPip } from './turning-bird.ts'
 
 /** A page with a back link, its title and its body. */
 export const page = (title: string, ...children: ReadonlyArray<Child>): HTMLElement =>
@@ -151,8 +151,8 @@ export const empty = (text: string, ...actions: ReadonlyArray<Child>): HTMLEleme
   h('div', { class: 'empty' }, h('p', {}, text), ...actions)
 
 /** A page with nothing in it yet: the one place on a page where Pip appears, always at the same size. */
-export const emptyWithPip = (state: PipState, text: string, ...actions: ReadonlyArray<Child>): HTMLElement =>
-  h('div', { class: 'empty' }, pip(state, EMPTY_PIP_SCALE), h('p', {}, text), ...actions)
+export const emptyWithPip = (text: string, ...actions: ReadonlyArray<Child>): HTMLElement =>
+  h('div', { class: 'empty' }, renderTurningPip(EMPTY_PIP_SCALE), h('p', {}, text), ...actions)
 
 export const channelChips = (slugs: ReadonlyArray<string>): HTMLElement =>
   h(
@@ -262,4 +262,4 @@ export const dialogActions = (label: string, kind: 'primary' | 'danger'): HTMLEl
     h('button', { type: 'submit', class: kind }, label),
   )
 
-const EMPTY_PIP_SCALE = 3
+const EMPTY_PIP_SCALE = 2

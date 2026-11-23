@@ -1,4 +1,5 @@
 import type { Fetch } from '@homingbird/client'
+import type { Pixels } from '@homingbird/sprites'
 import type { Unsubscribe } from '@homingbird/ui'
 
 /** The browser around the document; views and tasks reach it only through this, so tests fake it. */
@@ -90,6 +91,19 @@ export const browserPage = (window: BrowserWindow): Page => {
             () => false,
           ),
     readText: (file) => file.text(),
+    pngUrlOf: (image) => {
+      const canvas = document.createElement('canvas')
+      canvas.width = image.width
+      canvas.height = image.height
+      canvas
+        .getContext('2d')
+        ?.putImageData(
+          new window.ImageData(new Uint8ClampedArray(image.data), image.width, image.height),
+          0,
+          0,
+        )
+      return canvas.toDataURL('image/png')
+    },
     watchInView: (root, onChange) => {
       const observer = new window.IntersectionObserver(
         (entries) =>
@@ -149,6 +163,8 @@ export interface Page {
   readonly copyText: (text: string) => Promise<boolean>
   /** The text of a file the person chose, read in this browser only. */
   readonly readText: (file: Blob) => Promise<string>
+  /** Pixels drawn in this browser as a PNG `data:` address, which a stylesheet can use as an image. */
+  readonly pngUrlOf: (image: Pixels) => string
   readonly watchInView: (root: HTMLElement, onChange: (entries: ReadonlyArray<InView>) => void) => InViewWatch
 }
 
@@ -214,6 +230,7 @@ export interface BrowserWindow {
   readonly URL: Pick<typeof URL, 'createObjectURL' | 'revokeObjectURL'>
   readonly Blob: typeof Blob
   readonly IntersectionObserver: typeof IntersectionObserver
+  readonly ImageData: typeof ImageData
 }
 
 /** A service worker registration, as far as the page reads the notifications it shows. */

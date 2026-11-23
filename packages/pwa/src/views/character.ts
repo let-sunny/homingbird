@@ -2,12 +2,14 @@ import type { AsRead, CharacterSpec } from '@homingbird/protocol'
 import { type Lifetime, h, region, signal } from '@homingbird/ui'
 import { characterOf } from '../characters.ts'
 import { featureOn } from '../features.ts'
-import { avatarOf, memberAvatarOf } from '../models/avatar.ts'
+import { avatarOf, characterName, memberAvatarOf } from '../models/avatar.ts'
 import { type MyCharacterModel, myCharacterModel, previewModel } from '../models/character.ts'
+import { turningBirdOf } from '../models/turning-bird.ts'
 import { strings } from '../strings.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { button } from './parts.ts'
+import { renderTurningBird } from './turning-bird.ts'
 
 /** "My character" on the profile: the character in use, the 24 built-ins to pick from, and the editor. */
 export const myCharacterSection = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
@@ -101,6 +103,7 @@ export const characterPreview = (
   h(
     'div',
     { class: 'character-preview' },
+    renderTurningBird(context, turningBirdOf(avatarOf(spec, { label: characterName(spec) }), 2)),
     previewModel(spec).map((ground) =>
       h(
         'figure',
