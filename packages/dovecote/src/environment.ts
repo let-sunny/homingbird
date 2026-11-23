@@ -16,6 +16,7 @@ import type { IdentityProvider } from './auth/identity-provider.ts'
 import type { Config } from './config.ts'
 import type { TurnHolds } from './domain/debate-turn-holds.ts'
 import type { AttemptWindows } from './domain/denied-attempts.ts'
+import type { MeetingNotice } from './domain/meeting-rows.ts'
 import type { Hub } from './events/hub.ts'
 import type { RateLimiter } from './http/rate-limiter.ts'
 import type { Log } from './log/operational-log.ts'
@@ -37,6 +38,7 @@ export interface AppEnv extends HasSql, HasClock {
   readonly pushSink: (memberId: MemberId, event: StreamEvent, isNewReview: boolean) => void
   readonly pushTest: (memberId: MemberId) => T.Task<ReadonlyArray<PushOutcome>, never, AppEnv>
   readonly pushDeskUnavailable: (memberId: MemberId, kind: DeskUnavailableKind) => T.Task<void, never, AppEnv>
+  readonly meetingPushSink: (memberId: MemberId, notice: MeetingNotice) => void
   readonly wakeSink: (memberId: MemberId, event: StreamEvent) => void
   readonly wakeTest: (memberId: MemberId) => T.Task<DeskWakeTest, NotFound | Conflict, AppEnv>
   readonly slackApi: (botToken: string) => SlackApi

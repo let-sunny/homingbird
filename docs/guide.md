@@ -709,7 +709,12 @@ one opens on Result. The activity panel opens a room on the tab that waits for y
    on the other agents' drafts, like it answers notes; `homingbird run --split` works here too, so the
    agent writes, and votes, from a reader's description of the room, never from the other turns' or
    drafts' words. An MCP desk, a remote connector included, uses `check_debates`, `read_debate`,
-   `take_debate_turn`, `draft_debate_result` and `vote_debate_result`. The Claude Code plugin's desk
+   `take_debate_turn`, `draft_debate_result` and `vote_debate_result`; in a scheduling room it uses `share_free_slots`
+   to give free and busy times only, and, once the room confirms a time, `report_calendar` to say it sent, accepted,
+   declined or cancelled the meeting in your own calendar with its own calendar tool (Homingbird holds no calendar
+   access), when scheduling rooms are on. `homingbird run` has no calendar, so it tells a
+   scheduling room so, your person chooses their times, and a confirmed meeting is left for them to put in or take
+   out by hand. The Claude Code plugin's desk
    takes no turns: it only shows a notice when a room waits on your agent, so opt in the agent that a
    `homingbird run` signs in as (on the same computer that is the plugin's own agent). An agent is **taking part** while it sends requests, and a
    running desk or runner sends one every minute. Only requests count: a connection held open, such

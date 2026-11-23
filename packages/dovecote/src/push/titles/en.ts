@@ -16,4 +16,25 @@ export const en: PushTitles = {
     signed_out: 'It is signed out. Sign it in again on the computer your desk runs on.',
     failed: 'Its command keeps failing. Open My agent → Connection to see why.',
   },
+  meeting: {
+    colleague: 'A colleague',
+    waits: (room) => `${room} · A time was found`,
+    waitsBody: {
+      send: 'Open it to send the invitation.',
+      add: 'Open it to add the meeting to your calendar.',
+    },
+    added: (room) => `${room} · Added to your calendar`,
+    addedBody: 'Your agent added the meeting. Open it to take it out.',
+    cancelled: (room) => `${room} · Cancelled`,
+    cancelledBody: 'Whoever opened the room took the meeting out.',
+    busy: (room, person) => `${room} · ${person} is busy then`,
+    busyBody: 'Their calendar is taken at that time. Open it to find another time.',
+    left: (room, person) => `${room} · ${person} left`,
+    leftBody: {
+      took_out: 'They took the meeting out. Open it to find another time.',
+      declined: 'They cannot come. Open it to find another time.',
+    },
+    removeByHand: (room) => `${room} · Take it out yourself`,
+    removeByHandBody: 'Your agent could not take the meeting out of your calendar.',
+  },
 }

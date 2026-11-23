@@ -9,6 +9,7 @@ import {
   DebateLimits,
   DebateLimitsWish,
   DebateSummary,
+  MeetingAsk,
   RoomScheduleDetails,
   ScheduleSetup,
   TURNS_PER_AGENT_OFFERED,
@@ -85,10 +86,34 @@ describe('debate room schemas', () => {
     expect(RoomScheduleDetails.read(later)).toMatchObject({ value: { attendees: [{ answer: 'unknown' }] } })
   })
 
+  it('carries each person’s part of the confirmed meeting and the invitation once sent', () => {
+    const confirmed = {
+      minutes: 30,
+      window: { startsAt: 1, endsAt: 2 },
+      attendees: [{ memberId: ANA, required: true, answer: 'by_agent', attendance: 'added' }],
+      invite: { uid: 'event-1@example.com', meetingUrl: 'https://meet.example.com/x' },
+    }
+    expect(RoomScheduleDetails.decode(confirmed)).toMatchObject({ _tag: 'Ok' })
+    expect(RoomScheduleDetails.decode({ ...confirmed, invite: null })).toMatchObject({ _tag: 'Ok' })
+    const later = { ...confirmed, attendees: [{ memberId: ANA, required: true, attendance: 'tentative' }] }
+    expect(RoomScheduleDetails.read(later)).toMatchObject({
+      value: { attendees: [{ attendance: 'unknown' }] },
+    })
+  })
+
   it('asks an agent for free slots in a scheduling room, and an old client reads that ask as unknown', () => {
     const debate = JSON.parse(JSON.stringify(roomOf()))
     expect(DebateAsk.decode({ debate, ask: 'slots' })).toMatchObject({ _tag: 'Ok' })
     expect(DebateAsk.read({ debate, ask: 'invite' })).toMatchObject({ value: { ask: 'unknown' } })
+  })
+
+  it('asks an agent to send, accept, decline or cancel the meeting’s one invitation, apart from its turns', () => {
+    const debate = JSON.parse(JSON.stringify(roomOf()))
+    for (const ask of ['send_invite', 'accept_invite', 'decline_invite', 'cancel_invite']) {
+      expect(MeetingAsk.decode({ debate, ask })).toMatchObject({ _tag: 'Ok', value: { ask } })
+      expect(DebateAsk.read({ debate, ask })).toMatchObject({ value: { ask: 'unknown' } })
+    }
+    expect(MeetingAsk.read({ debate, ask: 'reschedule' })).toMatchObject({ value: { ask: 'unknown' } })
   })
 
   it('opens a scheduling room for one to seven other people, its opener being the eighth', () => {

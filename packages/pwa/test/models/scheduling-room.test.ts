@@ -1,0 +1,177 @@
+import { UNKNOWN } from '@homingbird/protocol'
+import { describe, expect, it } from 'vitest'
+import {
+  type SchedulingRoomInput,
+  roomKindOf,
+  schedulingRoomModel,
+  schedulingStageOf,
+} from '../../src/models/scheduling-room.ts'
+import { strings } from '../../src/strings.ts'
+import { ANA, BEN, CY, debate, member } from '../support/fixtures.ts'
+import { plainSpaces } from '../support/text.ts'
+
+const ZONE = 'Asia/Seoul'
+const TEN = Date.UTC(2026, 10, 20, 1)
+
+const members = new Map([
+  [ANA, member(ANA, 'Ana')],
+  [BEN, member(BEN, 'Ben')],
+])
+
+const meeting = (fields: Partial<SchedulingRoomInput['debate']> = {}): SchedulingRoomInput['debate'] =>
+  debate({
+    type: 'scheduling',
+    question: 'Planning sync',
+    deadlineAt: Date.UTC(2026, 10, 19, 15, 30),
+    schedule: {
+      minutes: 60,
+      window: { startsAt: Date.UTC(2026, 10, 19, 15), endsAt: Date.UTC(2026, 10, 26, 15) },
+      attendees: [
+        { memberId: ANA, required: true, answer: 'by_person' },
+        { memberId: BEN, required: true, answer: 'by_agent' },
+        { memberId: CY, required: false, answer: 'waiting' },
+      ],
+    },
+    ...fields,
+  })
+
+const input = (room: SchedulingRoomInput['debate'], fields: Partial<SchedulingRoomInput> = {}) => ({
+  debate: room,
+  viewerId: ANA,
+  enabled: true,
+  members,
+  timeZone: ZONE,
+  ...fields,
+})
+
+const room = (model: ReturnType<typeof schedulingRoomModel>) => {
+  if (model.kind !== 'room') throw new Error('expected a room')
+  return model
+}
+
+const settledAs = (result: object) =>
+  meeting({ status: 'closed', result: { draftedBy: null, draftedAt: 5, result } as never })
+
+describe('schedulingRoomModel', () => {
+  it('counts who answered of everyone invited and says what each one is doing', () => {
+    const model = room(schedulingRoomModel(input(meeting())))
+    expect(model.title).toBe('Planning sync')
+    expect(model.answered).toBe('Answered: 2 of 3')
+    expect(model.attendees).toEqual([
+      {
+        memberId: ANA,
+        name: 'You',
+        required: 'Required',
+        answer: strings.scheduling.answer.by_person,
+        answered: true,
+      },
+      {
+        memberId: BEN,
+        name: 'Ben',
+        required: 'Required',
+        answer: strings.scheduling.answer.by_agent,
+        answered: true,
+      },
+      {
+        memberId: CY,
+        name: strings.formerMember,
+        required: 'Optional',
+        answer: strings.scheduling.answer.waiting,
+        answered: false,
+      },
+    ])
+  })
+
+  it('reads an attendee without an answer, or with one it does not know, as not yet answered', () => {
+    const attendees = [
+      { memberId: ANA, required: true },
+      { memberId: BEN, required: true, answer: UNKNOWN },
+    ] as never
+    const base = meeting()
+    const model = room(schedulingRoomModel(input({ ...base, schedule: { ...base.schedule!, attendees } })))
+    expect(model.attendees.map((one) => one.answer)).toEqual([
+      strings.scheduling.answer.waiting,
+      strings.scheduling.answer.unknown,
+    ])
+    expect(model.answered).toBe('Answered: 0 of 2')
+  })
+
+  it('gives the length, the days searched and the deadline in the given time zone while collecting', () => {
+    const model = room(schedulingRoomModel(input(meeting())))
+    expect(model.stage).toBe('collecting')
+    expect(plainSpaces(model.summary)).toEqual([
+      'A 60-minute meeting',
+      'A time is looked for between Nov 20 – 26, 2026.',
+    ])
+    expect(plainSpaces(model.deadline)).toBe('Free times are collected until Nov 20, 2026, 12:30 AM.')
+    expect(model.result).toEqual({ kind: 'waiting', text: strings.scheduling.waitingForResult })
+  })
+
+  it('shows the chosen time once the room settled, and no deadline', () => {
+    const slot = {
+      kind: 'slot',
+      startsAt: TEN,
+      endsAt: TEN + 3_600_000,
+      optionalFree: [],
+      optionalBusy: [CY],
+      unanswered: [],
+    }
+    const model = room(schedulingRoomModel(input({ ...settledAs(slot), visibility: 'private' })))
+    expect([model.stage, model.deadline, model.isPrivate]).toEqual(['settled', null, true])
+    const { body } = model.result as unknown as { body: { outcome: string; lines: string[] } }
+    expect([body.outcome, plainSpaces(body.lines)]).toEqual([
+      'slot',
+      ['Friday, November 20, 10:00 – 11:00 AM GMT+9', `${strings.formerMember} is optional and busy then.`],
+    ])
+  })
+
+  it('shows that no common time was found', () => {
+    const model = room(
+      schedulingRoomModel(input(settledAs({ kind: 'no_slot', closest: null, unanswered: [] }))),
+    )
+    expect(model.result).toMatchObject({ kind: 'settled', body: { outcome: 'no_slot' } })
+  })
+
+  it('says a room that ended had no time, and a result of a kind it does not know cannot be shown', () => {
+    expect(room(schedulingRoomModel(input(meeting({ status: 'ended' })))).result).toEqual({
+      kind: 'ended',
+      text: strings.scheduling.endedNoTime,
+    })
+    expect(room(schedulingRoomModel(input(settledAs({ kind: 'unknown' })))).result).toEqual({
+      kind: 'unknown',
+      text: strings.debates.unknownResult,
+    })
+  })
+
+  it('refuses a room while the feature is off, and one that carries no schedule or is of an unknown type', () => {
+    expect(schedulingRoomModel(input(meeting(), { enabled: false }))).toEqual({
+      kind: 'unsupported',
+      text: strings.scheduling.off,
+    })
+    const unsupported = { kind: 'unsupported', text: strings.scheduling.unsupported }
+    expect(schedulingRoomModel(input(meeting({ schedule: null })))).toEqual(unsupported)
+    expect(schedulingRoomModel(input(meeting({ type: UNKNOWN })))).toEqual(unsupported)
+  })
+})
+
+describe('roomKindOf', () => {
+  it('reads a room without a type as a debate and a type it does not know as unknown', () => {
+    expect(
+      ([undefined, 'debate', 'scheduling', UNKNOWN] as const).map((type) =>
+        roomKindOf(type === undefined ? {} : { type }),
+      ),
+    ).toEqual(['debate', 'debate', 'scheduling', 'unknown'])
+  })
+})
+
+describe('schedulingStageOf', () => {
+  it('collects while the room is open or concluding and settles or ends with it', () => {
+    expect((['open', 'concluding', 'closed', 'ended', UNKNOWN] as const).map(schedulingStageOf)).toEqual([
+      'collecting',
+      'collecting',
+      'settled',
+      'ended',
+      'unknown',
+    ])
+  })
+})

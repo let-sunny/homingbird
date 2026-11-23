@@ -320,3 +320,19 @@ describe('the vote record', () => {
     })
   })
 })
+
+describe('resultBody for a scheduling result', () => {
+  it('words a time or no common time instead of calling the result unknown', () => {
+    const slot = {
+      kind: 'slot',
+      startsAt: 0,
+      endsAt: 1,
+      optionalFree: [],
+      optionalBusy: [BEN],
+      unanswered: [],
+    }
+    const noSlot = { kind: 'no_slot', closest: null, unanswered: [] }
+    expect(resultBody(slot as never, ana)).toMatchObject({ kind: 'schedule', outcome: 'slot' })
+    expect(resultBody(noSlot as never, ana)).toMatchObject({ kind: 'schedule', outcome: 'no_slot' })
+  })
+})

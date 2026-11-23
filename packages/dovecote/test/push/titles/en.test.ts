@@ -14,4 +14,10 @@ describe('English push titles', () => {
   it('names the channel whose agent’s answer waits for review', () => {
     expect(en.reviewWaiting('#payments-wiki')).toBe('#payments-wiki · An answer waits for your review')
   })
+
+  it('tells a person how a scheduling room’s meeting changed, naming the room and whoever it is about', () => {
+    expect(en.meeting.waits('Plan')).toBe('Plan · A time was found')
+    expect(en.meeting.busy('Plan', 'Ben')).toBe('Plan · Ben is busy then')
+    expect(en.meeting.left('Plan', 'Ben')).toBe('Plan · Ben left')
+  })
 })

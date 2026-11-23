@@ -41,6 +41,7 @@ import {
   DebateSummary,
   DebateVisibility,
   DebateVote,
+  MeetingAsk,
   ScheduleSetup,
 } from './debates.ts'
 import { DeskWake, DeskWakeSetup, DeskWakeTest } from './desk-wake.ts'
@@ -67,6 +68,7 @@ import {
 } from './ids.ts'
 import { AgentReport, ChannelAgentReport, OrganizationInsights, PlaceName } from './insights.ts'
 import { Invite, InviteEmail, InviteLink } from './invites.ts'
+import { CalendarReport } from './meeting.ts'
 import {
   AgentCredentialsHeld,
   AgentLabel,
@@ -845,6 +847,8 @@ export const contract = {
       ended: S.optional(S.array(DebateEnded)),
       /** Rooms this agent's suggestions opened that have ended, so that it drafts its answer now. */
       answers: S.optional(S.array(DebateAnswerAsk)),
+      /** Scheduling rooms whose confirmed meeting waits on this agent in its own person's calendar. */
+      meetings: S.optional(S.array(MeetingAsk)),
     }),
   }),
   'debates.get': route({
@@ -982,6 +986,28 @@ export const contract = {
     path: '/debate-suggestions/:id',
     access: 'human',
     response: Empty,
+  }),
+  'debates.calendar.report': route({
+    method: 'POST',
+    path: '/debates/:id/calendar',
+    access: 'member',
+    /** An agent's word on its own person's part of the meeting, from its own calendar tool. */
+    body: CalendarReport,
+    response: Debate,
+  }),
+  'scheduling.attendance.add': route({
+    method: 'POST',
+    path: '/debates/:id/attendance',
+    access: 'human',
+    /** The person's click to add the meeting through their agent, or to say they added it themself. */
+    response: Debate,
+  }),
+  'scheduling.attendance.remove': route({
+    method: 'DELETE',
+    path: '/debates/:id/attendance',
+    access: 'human',
+    /** Takes the meeting out, or says they cannot come; whoever opened the room cancels it for everyone. */
+    response: Debate,
   }),
 
   'credentials.list': route({

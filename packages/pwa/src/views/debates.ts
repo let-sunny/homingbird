@@ -1,5 +1,6 @@
 import { type AsRead, DEBATE_QUESTION_MAX, DEFAULT_DEBATE_LIMITS, type MemberId } from '@homingbird/protocol'
 import { type Lifetime, h, region, signal } from '@homingbird/ui'
+import { featureOn } from '../features.ts'
 import {
   type DebateListModel,
   type ShownLimits,
@@ -14,6 +15,7 @@ import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
 import { peoplePicker } from './people-picker.ts'
+import { schedulingForm } from './scheduling-form.ts'
 
 /** Debate rooms: the rooms the person may see, and a way to open one for a question. */
 export const debatesView = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
@@ -21,14 +23,26 @@ export const debatesView = (context: ViewContext, life: Lifetime, me: AsRead.Me)
   actions.loadDebates()
   return page(
     strings.debates.title,
-    h('div', { class: 'debates-intro' }, h('p', {}, strings.debates.intro), newDebateButton(context, me)),
-    region(life, [state.debates, state.debatesLoaded, state.directory], () =>
+    h(
+      'div',
+      { class: 'debates-intro' },
+      h('p', {}, strings.debates.intro),
+      newDebateButton(context, me),
+      region(
+        life,
+        [state.serverInfo],
+        () => featureOn('schedulingRooms', state.serverInfo.get()) && newSchedulingButton(context, me),
+        { class: 'scheduling-new' },
+      ),
+    ),
+    region(life, [state.debates, state.debatesLoaded, state.directory, state.serverInfo], () =>
       renderDebateList(
         debateListModel({
           debates: state.debates.get(),
           loaded: state.debatesLoaded.get(),
           directory: state.directory.get(),
           now: context.clock.now(),
+          schedulingOn: featureOn('schedulingRooms', state.serverInfo.get()),
         }),
       ),
     ),
@@ -183,6 +197,7 @@ const renderDebateList = (model: DebateListModel): HTMLElement => {
           'p',
           { class: 'debate-meta' },
           h('span', { class: 'debate-stage' }, room.stage),
+          room.kind !== null && h('span', { class: 'debate-kind' }, room.kind),
           room.isPrivate && privateMarkOf(strings.debates.private),
           room.counts.map((count) => h('span', {}, count)),
           timeLabel(room.time),
@@ -191,6 +206,17 @@ const renderDebateList = (model: DebateListModel): HTMLElement => {
     ),
   )
 }
+
+const newSchedulingButton = (context: ViewContext, me: AsRead.Me): HTMLElement =>
+  h(
+    'button',
+    {
+      type: 'button',
+      class: 'new-scheduling',
+      ...opensDialog(context, strings.scheduling.newRoom, (life) => schedulingForm(context, life, me)),
+    },
+    strings.scheduling.newRoom,
+  )
 
 const newDebateButton = (context: ViewContext, me: AsRead.Me): HTMLElement =>
   h(

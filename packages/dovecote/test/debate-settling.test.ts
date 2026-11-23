@@ -138,6 +138,7 @@ describe('a room that moves on by itself', () => {
       upcoming: [],
       ballots: [],
       ended: [],
+      meetings: [],
     })
   })
 

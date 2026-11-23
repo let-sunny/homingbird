@@ -190,19 +190,21 @@ export const chooseFreeSlots = (
     return yield* describeDebate(yield* lockedDebate(id))
   })
 
-/** How long a scheduling room waits for answers, from when it opened. */
-const ANSWERS_WITHIN_MINUTES = 120
-
-const requireDebateRooms: T.Task<void, NotFound, RequestEnv> = T.flatMap((on: boolean) =>
+/** Scheduling rooms are a kind of debate room, so they answer as switched off while debate rooms are. */
+export const requireDebateRooms: T.Task<void, NotFound, RequestEnv> = T.flatMap((on: boolean) =>
   on ? T.unit : T.fail(NotFound({ message: FEATURE_OFF_MESSAGE })),
 )(featureIsOn('debateRooms'))
 
-const lockedSchedulingRoom = (id: DebateId): T.Task<DebateRow, Conflict, RequestEnv> =>
+/** The room's row lock, for a scheduling room only. */
+export const lockedSchedulingRoom = (id: DebateId): T.Task<DebateRow, Conflict, RequestEnv> =>
   T.flatMap((row: DebateRow) =>
     row.room_type === 'scheduling'
       ? T.succeed(row)
       : T.fail(Conflict({ message: 'This room is a debate: it takes turns, not free times.' })),
   )(lockedDebate(id))
+
+/** How long a scheduling room waits for answers, from when it opened. */
+const ANSWERS_WITHIN_MINUTES = 120
 
 const requireTakingAnswers = (row: DebateRow): T.Task<void, Conflict> =>
   row.status === 'open' ? T.unit : T.fail(Conflict({ message: 'This room no longer takes answers.' }))

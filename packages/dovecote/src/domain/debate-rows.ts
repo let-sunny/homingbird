@@ -210,11 +210,13 @@ const scheduleSeenBy = (
   schedule: NonNullable<Debate['schedule']>,
 ): NonNullable<Debate['schedule']> => {
   const viewerId = caller.member.id
-  const attending = schedule.attendees.some((attendee) => attendee.memberId === viewerId)
-  const seesAll = isHuman(caller) && (attending || caller.member.role === 'admin')
-  return seesAll
+  const own = schedule.attendees.find((attendee) => attendee.memberId === viewerId)
+  const seesAll = isHuman(caller) && (own !== undefined || caller.member.role === 'admin')
+  const shown = seesAll
     ? schedule
     : { ...schedule, freeSlots: (schedule.freeSlots ?? []).filter((one) => one.memberId === viewerId) }
+  const isInvited = own?.attendance !== undefined
+  return schedule.invite == null || isInvited ? shown : { ...shown, invite: null }
 }
 
 const draftsOf = (id: DebateId, round: number): T.Task<ReadonlyArray<DraftRow>, never, AppEnv> =>

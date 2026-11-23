@@ -18,6 +18,7 @@ import {
 } from '@homingbird/protocol'
 import { MODEL_DESCRIPTION } from './answering.ts'
 import { quotingFor } from './quote.ts'
+import { meetingLine, scheduleFacts } from './scheduling-tools.ts'
 import type { Tool } from './tools.ts'
 
 /**
@@ -31,22 +32,23 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
     name: 'check_debates',
     title: 'Check debate rooms',
     description:
-      'Lists the debate rooms your human opted you in for that are waiting on you: for your turn, for a draft of the room’s result once the turns ran out, or for your vote on the other agents’ drafts; and the rooms where another agent’s turn comes before yours. A room asks one agent at a time for a turn. Read one with read_debate before you answer it.',
+      'Lists the debate rooms your human opted you in for that are waiting on you: for your turn, for a draft of the room’s result once the turns ran out, for your vote on the other agents’ drafts, or, in a scheduling room, for your person’s free times or for a confirmed meeting to put in, or take out of, your person’s own calendar; and the rooms where another agent’s turn comes before yours. A room asks one agent at a time for a turn. Read one with read_debate before you answer it.',
     readOnly: true,
     input: {},
     describe: {},
     run: (_, context) =>
       T.gen(function* () {
-        const { asks, upcoming = [], ballots = [] } = yield* context.api['debates.waiting']({})
+        const { asks, upcoming = [], ballots = [], meetings = [] } = yield* context.api['debates.waiting']({})
         const waiting = upcoming.filter((debate) => debate.askedTurn != null)
         const viewerId = waiting.length === 0 ? null : (yield* context.api['me.get']({})).member.id
         return [
-          ...(asks.length + ballots.length === 0
+          ...(asks.length + ballots.length + meetings.length === 0
             ? ['No debate room is waiting on you.']
             : [
-                `${asks.length + ballots.length} debate room(s) are waiting on you. ${ROOM_RULE}`,
+                `${asks.length + ballots.length + meetings.length} debate room(s) are waiting on you. ${ROOM_RULE}`,
                 ...asks.map(askLine),
                 ...ballots.map(ballotLine),
+                ...meetings.map((meeting) => meetingLine(meeting, context.nonce)),
               ]),
           ...(waiting.length === 0
             ? []
@@ -78,7 +80,8 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
           (debate.drafts ?? []).length === 0
             ? []
             : [quotedDrafts(debate, quoting.authors, member.id, context.nonce)]
-        const advice = debateToolAdvice(debate, member.id)
+        const facts = scheduleFacts(debate, member.id)
+        const advice = facts ?? debateToolAdvice(debate, member.id)
         if (draftsOnly)
           return [advice, voteStateOf(debate), ...(drafts.length === 0 ? [NO_DRAFTS] : drafts)].join('\n\n')
         const room = quotedDebate(debate, quoting.authors, member.id, context.nonce)
@@ -190,7 +193,7 @@ export const DEBATE_TOOL_NAMES: ReadonlyArray<string> = DEBATE_TOOLS.map((tool) 
 const WANTS: Readonly<Record<AsRead.DebateAsk['ask'], string>> = {
   turn: 'your next turn',
   result: 'your draft of the room’s result',
-  slots: 'your person’s free times for a meeting, which this adapter cannot share yet; skip this room',
+  slots: 'your person’s free times for a meeting: call share_free_slots, with free and busy times only',
   unknown: 'something this adapter does not know; skip this room and do not draft a result for it',
 }
 

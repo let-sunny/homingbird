@@ -72,6 +72,95 @@ describe('the runner in a debate room', () => {
       if (call.route !== null) expect(contract[call.route].access).not.toMatch(/human|admin/)
   })
 
+  it('answers a scheduling room by saying it cannot read a calendar, running no agent', async () => {
+    const posted: unknown[] = []
+    const r = runner({
+      stubs: {
+        'debates.waiting': once({ asks: [{ debate: ROOM, ask: 'slots' }] }, { asks: [] }),
+        'debates.slots.post': (request) => {
+          posted.push(request.body)
+          return ROOM
+        },
+      },
+      agent: () => ({ exitCode: 0, output: 'unused' }),
+    })
+    await settle(
+      () => posted.length === 1 && r.w.lines.some((line) => line.includes('cannot read a calendar')),
+    )
+    await r.stop()
+    expect(posted).toEqual([{ slots: [], cannotReadCalendar: true }])
+    expect(r.w.agentRuns).toHaveLength(0)
+  })
+
+  it.each([
+    ['send_invite', /put the meeting in their calendar by hand/],
+    ['accept_invite', /put the meeting in their calendar by hand/],
+    ['decline_invite', /take the meeting out of their calendar by hand/],
+    ['cancel_invite', /take the meeting out of their calendar by hand/],
+  ] as const)('reports failed for a %s ask, running no agent', async (ask, said) => {
+    const posted: unknown[] = []
+    const r = runner({
+      stubs: {
+        'debates.waiting': once({ asks: [], meetings: [{ debate: ROOM, ask }] }, { asks: [] }),
+        'debates.calendar.report': (request) => {
+          posted.push(request.body)
+          return ROOM
+        },
+      },
+      agent: () => ({ exitCode: 0, output: 'unused' }),
+    })
+    await settle(() => posted.length === 1 && r.w.lines.some((line) => said.test(line)))
+    await r.stop()
+    expect(posted).toEqual([{ outcome: 'failed' }])
+    expect(r.w.agentRuns).toHaveLength(0)
+  })
+
+  it('skips a meeting ask it does not know, reporting nothing', async () => {
+    const r = runner({
+      stubs: {
+        'debates.waiting': once(
+          { asks: [], meetings: [{ debate: ROOM, ask: 'unknown' as never }] },
+          { asks: [] },
+        ),
+      },
+      agent: () => ({ exitCode: 0, output: 'unused' }),
+    })
+    await settle(() => r.w.lines.some((line) => line.includes('asks for something this command line')))
+    await r.stop()
+    expect(r.w.calls.map((call) => call.route)).not.toContain('debates.calendar.report')
+  })
+
+  it('warns when the room refuses that report', async () => {
+    const r = runner({
+      stubs: {
+        'debates.waiting': once({ asks: [], meetings: [{ debate: ROOM, ask: 'send_invite' }] }, { asks: [] }),
+        'debates.calendar.report': () => ({ _tag: 'Conflict', message: 'Nothing waits.' }) as never,
+      },
+      agent: () => ({ exitCode: 0, output: 'unused' }),
+    })
+    await settle(() => r.w.problems.length > 0)
+    await r.stop()
+    expect(r.w.problems).toEqual([
+      expect.stringMatching(/calendar cannot be used in the scheduling room .* was refused/),
+    ])
+  })
+
+  it('warns when the room refuses that answer', async () => {
+    const r = runner({
+      stubs: {
+        'debates.waiting': once({ asks: [{ debate: ROOM, ask: 'slots' }] }, { asks: [] }),
+        'debates.slots.post': () =>
+          ({ _tag: 'Conflict', message: 'This room no longer takes answers.' }) as never,
+      },
+      agent: () => ({ exitCode: 0, output: 'unused' }),
+    })
+    await settle(() => r.w.problems.length > 0)
+    await r.stop()
+    expect(r.w.problems).toEqual([
+      expect.stringMatching(/cannot be read in the scheduling room .* was refused/),
+    ])
+  })
+
   it('writes nothing while the room asks another agent for its turn', async () => {
     const theirs = { ...ROOM, askedTurn: { memberId: BEN.id, until: 150_000, next: [ANA.id] } }
     let listed = 0

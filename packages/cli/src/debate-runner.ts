@@ -33,8 +33,8 @@ export const answerDebates = <R extends { readonly nonce: () => string }>(
   desk: DebateDesk<R>,
 ): T.Task<void, CliFailure, R> =>
   T.gen(function* () {
-    const { asks, ballots } = yield* waitingAsks(desk)
-    if (asks.length + ballots.length === 0) return
+    const { asks, ballots, meetings } = yield* waitingAsks(desk)
+    if (asks.length + ballots.length + meetings.length === 0) return
     const authors = yield* authorsOf(desk.session)
     for (const ask of asks) {
       const attempt = `${ask.debate.id}:${ask.ask}:${ask.debate.turns.length}:${ask.debate.resultRound}`
@@ -42,6 +42,7 @@ export const answerDebates = <R extends { readonly nonce: () => string }>(
       desk.tried.add(attempt)
       if (ask.ask === 'turn') yield* takeTurn(desk, ask.debate, authors)
       else if (ask.ask === 'result') yield* draftResult(desk, ask.debate, authors)
+      else if (ask.ask === 'slots') yield* declineCalendar(desk, ask.debate)
       else
         desk.report(
           outcome({ step: 'debate-skipped', debateId: ask.debate.id }, unknownAskText(ask.debate.id)),
@@ -52,6 +53,12 @@ export const answerDebates = <R extends { readonly nonce: () => string }>(
       if (desk.tried.has(attempt)) continue
       desk.tried.add(attempt)
       yield* vote(desk, debate, authors)
+    }
+    for (const meeting of meetings) {
+      const attempt = `${meeting.debate.id}:${meeting.ask}`
+      if (desk.tried.has(attempt)) continue
+      desk.tried.add(attempt)
+      yield* reportNoCalendar(desk, meeting)
     }
   })
 
@@ -83,18 +90,24 @@ const unknownAskText = (debateId: string): string =>
 interface Waiting {
   readonly asks: ReadonlyArray<AsRead.DebateAsk>
   readonly ballots: ReadonlyArray<AsRead.Debate>
+  readonly meetings: ReadonlyArray<AsRead.MeetingAsk>
 }
 
 const waitingAsks = <R>(desk: DebateDesk<R>): T.Task<Waiting, CliFailure> =>
   T.gen(function* () {
     const listed = yield* T.result(desk.session.api['debates.waiting']({}))
-    if (listed._tag === 'Ok') return { asks: listed.value.asks, ballots: listed.value.ballots ?? [] }
+    if (listed._tag === 'Ok')
+      return {
+        asks: listed.value.asks,
+        ballots: listed.value.ballots ?? [],
+        meetings: listed.value.meetings ?? [],
+      }
     if (listed.error._tag !== 'NotFound') return yield* calling(T.fail(listed.error))
     if (!desk.told.has(DEBATES_OFF)) {
       desk.told.add(DEBATES_OFF)
       desk.report(outcome({ step: DEBATES_OFF }, DEBATES_OFF_TEXT))
     }
-    return { asks: [], ballots: [] }
+    return { asks: [], ballots: [], meetings: [] }
   })
 
 const takeTurn = <R extends { readonly nonce: () => string }>(
@@ -119,6 +132,54 @@ const takeTurn = <R extends { readonly nonce: () => string }>(
       outcome(
         { step: 'debate-turn', debateId: debate.id, position: taken.turns.length },
         `Took turn ${taken.turns.length} in ${what}. Turns are shown to the room’s members and never sent as notes.`,
+      ),
+    )
+  })
+
+/** The runner has no calendar to read: it says so, and the person is asked to choose their times. */
+const declineCalendar = <R>(desk: DebateDesk<R>, debate: AsRead.Debate): T.Task<void, CliFailure, R> =>
+  T.gen(function* () {
+    const what = `the scheduling room ${debate.id}`
+    const posted = yield* T.result(
+      desk.session.api['debates.slots.post']({
+        params: { id: debate.id },
+        body: { slots: [], cannotReadCalendar: true },
+      }),
+    )
+    if (posted._tag === 'Err')
+      return yield* desk.warn(
+        `Saying the calendar cannot be read in ${what} was refused: ${posted.error.message}`,
+      )
+    desk.report(
+      outcome(
+        { step: 'debate-slots', debateId: debate.id },
+        `This desk cannot read a calendar, so ${what} asks your person to choose their free times in the web client.`,
+      ),
+    )
+  })
+
+/**
+ * The runner has no calendar, so it reports `failed` for every meeting it is asked to put in or take out:
+ * the server then leaves adding to the person, and counts a person it could not take out as out and tells
+ * them to remove the meeting by hand. An ask this command line does not know is skipped, reporting nothing.
+ */
+const reportNoCalendar = <R>(desk: DebateDesk<R>, meeting: AsRead.MeetingAsk): T.Task<void, CliFailure, R> =>
+  T.gen(function* () {
+    const { debate, ask } = meeting
+    if (ask === 'unknown')
+      return desk.report(outcome({ step: 'debate-skipped', debateId: debate.id }, unknownAskText(debate.id)))
+    const what = `the scheduling room ${debate.id}`
+    const reported = yield* T.result(
+      desk.session.api['debates.calendar.report']({ params: { id: debate.id }, body: { outcome: 'failed' } }),
+    )
+    if (reported._tag === 'Err')
+      return yield* desk.warn(
+        `Saying the calendar cannot be used in ${what} was refused: ${reported.error.message}`,
+      )
+    desk.report(
+      outcome(
+        { step: 'debate-meeting', debateId: debate.id, ask },
+        `This desk cannot use a calendar, so ${what} asks your person to ${ask === 'send_invite' || ask === 'accept_invite' ? 'put the meeting in their calendar' : 'take the meeting out of their calendar'} by hand.`,
       ),
     )
   })

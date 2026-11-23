@@ -211,6 +211,65 @@ describe('push notifications', () => {
     desk.abort()
   })
 
+  it('tells a person how a scheduling room’s meeting changed for them, opening the room, and never its time or link', async () => {
+    const debateId = 'deb_meeting00000001'
+    const about = ana.me.member.id
+    const told = (notice: object, toOpener = false) =>
+      server.env.meetingPushSink(ben.me.member.id, {
+        debateId,
+        title: 'Plan the launch',
+        toOpener,
+        notice: { to: ben.me.member.id, ...notice },
+      } as never)
+    told({ notice: 'waits' }, true)
+    told({ notice: 'waits' })
+    told({ notice: 'added' })
+    told({ notice: 'cancelled' })
+    told({ notice: 'remove_by_hand' })
+    told({ notice: 'busy', memberId: about })
+    told({ notice: 'left', memberId: about, because: 'took_out' })
+    told({ notice: 'left', memberId: 'mem_gone000000000', because: 'declined' })
+    await server.settled()
+    expect(deliveries.map((delivery) => JSON.parse(decrypt(delivery.body, benDevice)))).toEqual(
+      [
+        ['Plan the launch · A time was found', 'Open it to send the invitation.'],
+        ['Plan the launch · A time was found', 'Open it to add the meeting to your calendar.'],
+        ['Plan the launch · Added to your calendar', 'Your agent added the meeting. Open it to take it out.'],
+        ['Plan the launch · Cancelled', 'Whoever opened the room took the meeting out.'],
+        [
+          'Plan the launch · Take it out yourself',
+          'Your agent could not take the meeting out of your calendar.',
+        ],
+        [
+          'Plan the launch · Ana is busy then',
+          'Their calendar is taken at that time. Open it to find another time.',
+        ],
+        ['Plan the launch · Ana left', 'They took the meeting out. Open it to find another time.'],
+        ['Plan the launch · A colleague left', 'They cannot come. Open it to find another time.'],
+      ].map(([title, body]) => ({ title, body, url: `/#/debate/${debateId}` })),
+    )
+  })
+
+  it('tells nothing of a meeting while the person is looking, and in the language they picked', async () => {
+    const notice = {
+      debateId: 'deb_meeting00000001',
+      title: 'Plan the launch',
+      toOpener: false,
+      notice: { to: ben.me.member.id, notice: 'added' },
+    } as never
+    await ben.api('POST', '/presence/visibility', { page: 'page-0001', visible: true })
+    server.env.meetingPushSink(ben.me.member.id, notice)
+    await server.settled()
+    expect(deliveries).toEqual([])
+    await ben.api('POST', '/presence/visibility', { page: 'page-0001', visible: false })
+    await ben.api('PATCH', '/me', { locale: 'ko' })
+    server.env.meetingPushSink(ben.me.member.id, notice)
+    await server.settled()
+    expect(JSON.parse(decrypt(deliveries[0]!.body, benDevice)).title).toBe(
+      'Plan the launch · 캘린더에 들어갔어요',
+    )
+  })
+
   it('names a VAPID subject push services accept: the https address, else an administrator’s mailto', () => {
     expect(vapidSubject({ publicUrl: 'https://hb.example.com', adminEmails: ['root@example.com'] })).toBe(
       'https://hb.example.com',

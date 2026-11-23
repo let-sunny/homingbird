@@ -129,6 +129,9 @@ export const ROUTE_AUDIT = {
   'debateSuggestions.dismiss': {
     none: 'Answering alone opens no room and changes nothing an agent or a colleague sees.',
   },
+  'debates.calendar.report': activity(),
+  'scheduling.attendance.add': { event: 'scheduling.meeting_added', target: 'debate' },
+  'scheduling.attendance.remove': { event: 'scheduling.meeting_removed', target: 'debate' },
   'credentials.list': read(),
   'credentials.rename': { event: 'credential.renamed', target: 'credential' },
   'credentials.revoke': { event: 'credential.revoked', target: 'credential' },

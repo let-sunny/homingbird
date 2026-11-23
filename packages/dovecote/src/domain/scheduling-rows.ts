@@ -1,7 +1,9 @@
 import { Task as T } from '@homingbird/kernel'
 import type {
+  AttendanceState,
   AttendeeAnswer,
   DebateId,
+  MeetingInvite,
   MemberId,
   RoomSchedule,
   RoomScheduleDetails,
@@ -22,10 +24,11 @@ export const scheduleOf = (
 ): T.Task<ScheduleFacts, never, AppEnv> =>
   T.gen(function* () {
     const asked = (yield* first<SchedulingRoomRow>(
-      sql`SELECT minutes, window_starts_at, window_ends_at FROM scheduling_rooms WHERE debate_id = ${id}`,
+      sql`SELECT minutes, window_starts_at, window_ends_at, invite_uid, meeting_url, invite_state
+        FROM scheduling_rooms WHERE debate_id = ${id}`,
     ))!
     const attendees = yield* all<AttendeeRow>(sql`
-      SELECT a.member_id, a.required, a.answer FROM scheduling_attendees a
+      SELECT a.member_id, a.required, a.answer, a.state FROM scheduling_attendees a
       JOIN debate_members m ON m.debate_id = a.debate_id AND m.member_id = a.member_id
       WHERE a.debate_id = ${id} ORDER BY m.created_at, a.member_id`)
     const slots = yield* all<FreeSlotRow>(sql`
@@ -57,8 +60,13 @@ export const scheduleOf = (
       details: {
         minutes,
         window,
-        attendees: attendees.map((attendee, at) => ({ ...listed[at]!, answer: answerOf(attendee) })),
+        attendees: attendees.map((attendee, at) => ({
+          ...listed[at]!,
+          answer: answerOf(attendee),
+          ...(attendee.state !== null && { attendance: attendee.state }),
+        })),
         freeSlots: answered,
+        invite: inviteOf(asked),
       },
       room: {
         minutes,
@@ -141,16 +149,26 @@ const mergedSlots = (slots: ReadonlyArray<TimeSpan>): TimeSpan[] => {
   return merged
 }
 
+/** The invitation once the opener sent it, by their agent or by hand, kept after it was cancelled. */
+const inviteOf = (room: SchedulingRoomRow): MeetingInvite | null =>
+  room.invite_state === 'sent' || room.invite_uid !== null || room.meeting_url !== null
+    ? { uid: room.invite_uid, meetingUrl: room.meeting_url }
+    : null
+
 interface SchedulingRoomRow {
   readonly minutes: number
   readonly window_starts_at: number
   readonly window_ends_at: number
+  readonly invite_uid: string | null
+  readonly meeting_url: string | null
+  readonly invite_state: string | null
 }
 
 interface AttendeeRow {
   readonly member_id: MemberId
   readonly required: number
   readonly answer: string | null
+  readonly state: AttendanceState | null
 }
 
 interface FreeSlotRow {

@@ -42,6 +42,7 @@ import {
 } from './debate-rows.ts'
 import { moveDebate } from './debate-settling.ts'
 import { settleDebate } from './debate-turns.ts'
+import { meetingAsks } from './meeting-invitations.ts'
 
 export interface DebateWish {
   readonly question: string
@@ -230,7 +231,7 @@ export const setDebateLimits = (
 export const debateAsks = (caller: Caller): T.Task<DebateAsks, never, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
-    if (isHuman(caller)) return { asks: [], upcoming: [], ballots: [], ended: [] }
+    if (isHuman(caller)) return { asks: [], upcoming: [], ballots: [], ended: [], meetings: [] }
     const ended = yield* all<{ id: DebateId; ended_because: DebateEnding; closed_at: number }>(sql`
       SELECT d.id, d.ended_because, d.closed_at FROM debates d
       JOIN debate_participants p ON p.debate_id = d.id
@@ -263,6 +264,7 @@ export const debateAsks = (caller: Caller): T.Task<DebateAsks, never, RequestEnv
         endedBecause: row.ended_because,
         closedAt: Number(row.closed_at),
       })),
+      meetings: yield* meetingAsks(caller),
     }
   })
 
