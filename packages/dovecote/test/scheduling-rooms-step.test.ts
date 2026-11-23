@@ -11,8 +11,7 @@ afterEach(async () => {
 })
 
 describe('the scheduling rooms step', () => {
-  it('is the last step, the twenty-ninth, after Slack edits', () => {
-    expect(stepNumberOf(SCHEDULING_ROOMS)).toBe(MIGRATIONS.length)
+  it('is the twenty-ninth step, after Slack edits', () => {
     expect(stepNumberOf(SCHEDULING_ROOMS)).toBe(29)
   })
 

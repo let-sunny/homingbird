@@ -6,6 +6,7 @@ import {
   DraftRequestId,
   type EarlierAnswer,
   type InboxItem,
+  Invalid,
   NotFound,
   type Note,
   NoteId,
@@ -33,6 +34,7 @@ import {
 } from '../domain/private-question-readers.ts'
 import { recallNote } from '../domain/recalls.ts'
 import { markRead, pickUp, release } from '../domain/receipts.ts'
+import { draftAnswerFromRoom, reviseAnswerFromRoom } from '../domain/room-answers.ts'
 import { isHuman } from '../environment.ts'
 import type { Handlers } from './handlers.ts'
 import { identifier, pageSize } from './route-parameters.ts'
@@ -125,20 +127,30 @@ export const noteHandlers = {
     T.map((drafts: Awaited<ResponseOf<Contract['drafts.list']>>['drafts']) => ({ drafts }))(
       draftsOf(caller.member.id),
     ),
-  'drafts.create': ({ body: { requestId, ...target } }, caller) =>
-    requestId === undefined
-      ? T.flatMap(() => createDraft(caller, target))(requireReadableTarget(caller, target))
-      : answerDraftRequest(caller, requestId, {
-          body: target.body,
-          ...(target.tags !== undefined && { tags: target.tags }),
-          ...(target.basis !== undefined && { basis: target.basis }),
-          ...(target.sources !== undefined && { sources: target.sources }),
-          ...(target.client !== undefined && { client: target.client }),
-          ...(target.model !== undefined && { model: target.model }),
-          ...(target.session !== undefined && { session: target.session }),
-        }),
-  'drafts.update': ({ params, body }, caller) =>
-    T.flatMap((id: NoteId) => updateDraft(caller, id, body))(identifier(NoteId, params.id)),
+  'drafts.create': ({ body: { requestId, debateId, ...target } }, caller) =>
+    debateId !== undefined
+      ? requestId === undefined
+        ? T.flatMap(() => draftAnswerFromRoom(caller, debateId, target))(
+            requireReadableTarget(caller, target),
+          )
+        : T.fail(Invalid({ message: 'A draft answers a request or a room, not both.' }))
+      : requestId === undefined
+        ? T.flatMap(() => createDraft(caller, target))(requireReadableTarget(caller, target))
+        : answerDraftRequest(caller, requestId, {
+            body: target.body,
+            ...(target.tags !== undefined && { tags: target.tags }),
+            ...(target.basis !== undefined && { basis: target.basis }),
+            ...(target.sources !== undefined && { sources: target.sources }),
+            ...(target.client !== undefined && { client: target.client }),
+            ...(target.model !== undefined && { model: target.model }),
+            ...(target.session !== undefined && { session: target.session }),
+          }),
+  'drafts.update': ({ params, body: { debateId, ...change } }, caller) =>
+    T.flatMap((id: NoteId) =>
+      debateId === undefined
+        ? updateDraft(caller, id, change)
+        : reviseAnswerFromRoom(caller, id, debateId, change),
+    )(identifier(NoteId, params.id)),
   'drafts.send': ({ params, body }, caller) =>
     T.flatMap((id: NoteId) => sendDraft(caller, id, body.body, body.expected))(identifier(NoteId, params.id)),
   'drafts.discard': ({ params, body }, caller) =>

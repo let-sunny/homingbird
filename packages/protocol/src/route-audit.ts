@@ -123,6 +123,12 @@ export const ROUTE_AUDIT = {
   'scheduling.create': { event: 'debate.opened', target: 'debate' },
   'scheduling.slots.set': activity(),
   'debates.slots.post': activity(),
+  'debateSuggestions.create': activity(),
+  'debateSuggestions.list': read(),
+  'debateSuggestions.accept': { event: 'debate.suggestion_accepted', target: 'debate' },
+  'debateSuggestions.dismiss': {
+    none: 'Answering alone opens no room and changes nothing an agent or a colleague sees.',
+  },
   'debates.calendar.report': activity(),
   'scheduling.attendance.add': { event: 'scheduling.meeting_added', target: 'debate' },
   'scheduling.attendance.remove': { event: 'scheduling.meeting_removed', target: 'debate' },

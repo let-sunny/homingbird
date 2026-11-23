@@ -6,6 +6,7 @@ import { transact } from '../src/events/events.ts'
 import type { Database } from '../src/sql/database.ts'
 import { MIGRATIONS } from '../src/sql/migrations.ts'
 import { DEBATE_MODEL } from '../src/sql/migrations/debate-model-step.ts'
+import { DEBATE_SUGGESTIONS } from '../src/sql/migrations/debate-suggestions-step.ts'
 import { GROUPS } from '../src/sql/migrations/groups-step.ts'
 import { MUTE } from '../src/sql/migrations/mute-step.ts'
 import { SCHEDULING_ROOMS } from '../src/sql/migrations/scheduling-rooms-step.ts'
@@ -632,6 +633,28 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         expect(await migrated(database)).toEqual({ _tag: 'Ok', value: stepsFrom(scheduling + 1) })
         expect(await versionsOf(database)).toEqual(stepsFrom(1))
         expect(await T.runPromise(database.all(raw('SELECT * FROM room_free_slots')))).toEqual([])
+      } finally {
+        await T.runPromise(database.close)
+      }
+    },
+    timeout,
+  )
+
+  it.skipIf(url === undefined || !url.startsWith('mysql'))(
+    'runs the debate suggestions step again after MySQL left it half applied, skipping what it already made',
+    async () => {
+      const database = await emptyDatabase()
+      try {
+        const suggestions = MIGRATIONS.indexOf(DEBATE_SUGGESTIONS)
+        await migrated(database, MIGRATIONS.slice(0, suggestions))
+        const statements = schemaStatements('mysql', [[], DEBATE_SUGGESTIONS])
+        const half = [statements[1]!, statements.at(-1)!]
+        expect(half[0]).toMatch(/^CREATE TABLE IF NOT EXISTS debate_suggestions /)
+        expect(half[1]).toBe('ALTER TABLE debates ADD COLUMN suggestion_id VARCHAR(64)')
+        for (const statement of half) await T.runPromise(database.run(raw(statement)))
+        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: stepsFrom(suggestions + 1) })
+        expect(await versionsOf(database)).toEqual(stepsFrom(1))
+        expect(await T.runPromise(database.all(raw('SELECT * FROM debate_suggestion_people')))).toEqual([])
       } finally {
         await T.runPromise(database.close)
       }

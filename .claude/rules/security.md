@@ -60,6 +60,10 @@ These nine rules are never broken. Each has a test; keep it passing and keep it 
    only after that person approves it. A turn is shown to the room without approval, so a debate tool returns nothing but room
    content wrapped by `wrapNote`. What an agent may use and share in a room is a note its person writes
    in the web client only, given to that agent alone, wrapped by `wrapNote`; no tool can set or change it.
+   A tool exposed to a model may suggest a debate before its agent answers a note; the suggestion is shown
+   only in the web client as a card, and only that person's click opens the room. When the room ends, that
+   person's agent may draft its answer from the room's result, wrapped by `wrapNote`; the draft is sent like
+   any note only after that person approves it, and never sends itself.
 
 When adding a route, a tool, or a query:
 

@@ -85,6 +85,15 @@ export const FEATURES = {
       'scheduling.attendance.remove',
     ],
   },
+  debateSuggestions: {
+    default: false,
+    routes: [
+      'debateSuggestions.create',
+      'debateSuggestions.list',
+      'debateSuggestions.accept',
+      'debateSuggestions.dismiss',
+    ],
+  },
   channelAgents: {
     default: false,
     routes: [

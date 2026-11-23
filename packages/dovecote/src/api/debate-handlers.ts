@@ -1,8 +1,21 @@
 import { Task as T } from '@homingbird/kernel'
-import { type Contract, type Debate, DebateId, type ResponseOf } from '@homingbird/protocol'
+import {
+  type Contract,
+  type Debate,
+  DebateId,
+  type DebateSuggestion,
+  type ResponseOf,
+} from '@homingbird/protocol'
 import { survivingPass } from '../background-pass.ts'
 import { draftResult, exportDebate, postResult, voteForDraft } from '../domain/debate-results.ts'
 import { shownTo } from '../domain/debate-rows.ts'
+import {
+  acceptSuggestion,
+  dismissSuggestion,
+  roomAnswerAsks,
+  suggestDebate,
+  waitingSuggestions,
+} from '../domain/debate-suggestions.ts'
 import { settleDebate, takeTurn, undecidedDebates } from '../domain/debate-turns.ts'
 import {
   createDebate,
@@ -21,9 +34,10 @@ import type { Handlers } from './handlers.ts'
 import { identifier } from './route-parameters.ts'
 
 /**
- * Debate rooms: opening one, the agents' turns, and the result a person posts or exports; and scheduling
+ * Debate rooms: opening one, the agents' turns, and the result a person posts or exports; scheduling
  * rooms, where agents and people give free times, the room settles the time itself, and each person's
- * agent puts the meeting in their own calendar.
+ * agent puts the meeting in their own calendar; and the short rooms an agent suggests before it answers,
+ * which only its person opens.
  */
 export const debateHandlers = {
   'debates.list': (_, caller) =>
@@ -36,6 +50,7 @@ export const debateHandlers = {
         for (const id of yield* undecidedDebates(caller.credential.id))
           yield* survivingPass(`debate room ${id}`, transact(settleDebate(id)))
       const { asks, upcoming, ballots, ended, meetings } = yield* transact(debateAsks(caller))
+      const answers = yield* transact(roomAnswerAsks(caller))
       return {
         asks: yield* T.forEach(asks, (ask) =>
           T.map((debate: Debate) => ({ ...ask, debate }))(shownTo(caller)(ask.debate)),
@@ -46,6 +61,7 @@ export const debateHandlers = {
         meetings: yield* T.forEach(meetings, (ask) =>
           T.map((debate: Debate) => ({ ...ask, debate }))(shownTo(caller)(ask.debate)),
         ),
+        ...(answers !== null && { answers }),
       }
     }),
   'debates.get': ({ params }, caller) =>
@@ -104,4 +120,10 @@ export const debateHandlers = {
     T.flatMap((id: DebateId) => T.flatMap(shownTo(caller))(takeOutMeeting(caller, id)))(
       identifier(DebateId, params.id),
     ),
+  'debateSuggestions.create': ({ body }, caller) => suggestDebate(caller, body),
+  'debateSuggestions.list': (_, caller) =>
+    T.map((suggestions: DebateSuggestion[]) => ({ suggestions }))(waitingSuggestions(caller)),
+  'debateSuggestions.accept': ({ params, body }, caller) =>
+    T.flatMap(shownTo(caller))(acceptSuggestion(caller, params.id, body)),
+  'debateSuggestions.dismiss': ({ params }, caller) => T.as({})(dismissSuggestion(caller, params.id)),
 } satisfies Partial<Handlers>

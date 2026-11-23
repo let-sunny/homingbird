@@ -70,6 +70,7 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
       window: { startsAt: Date.UTC(2100, 0, 1), endsAt: Date.UTC(2100, 0, 2) },
       attendees: [{ memberId: ben.me.member.id, required: true }],
     }),
+  debateSuggestions: (person) => person.api('GET', '/debate-suggestions'),
   groups: (person) => person.api('GET', '/groups'),
   channelAgents: (person) => person.api('GET', '/reviews'),
   cloudDesk: (person) => person.api('GET', '/me/desk-wake'),
@@ -100,6 +101,7 @@ describe('feature switches', () => {
       autoSend: false,
       draftPreviews: false,
       schedulingRooms: false,
+      debateSuggestions: false,
       slack: false,
     })
     await switchTo({ teaching: false })
