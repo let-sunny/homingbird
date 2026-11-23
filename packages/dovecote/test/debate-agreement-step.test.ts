@@ -15,7 +15,7 @@ describe('the debate agreement step', () => {
     expect(stepNumberOf(DEBATE_AGREEMENT)).toBe(20)
   })
 
-  it('adds whether a turn said it was ready and why a room stopped taking turns', async () => {
+  it('adds whether a turn said it was ready and why a flock stopped taking turns', async () => {
     const earlier = MIGRATIONS.indexOf(DEBATE_AGREEMENT)
     database = await migratedThrough(earlier)
     expect(await database.columnsOf('debate_turns')).not.toContain('ready')
@@ -25,7 +25,7 @@ describe('the debate agreement step', () => {
     expect(await database.columnsOf('debates')).toContain('concluded_because')
   })
 
-  it('adds only columns that may be empty, so every room and turn before it reads as before', () => {
+  it('adds only columns that may be empty, so every flock and turn before it reads as before', () => {
     for (const step of DEBATE_AGREEMENT) expect('addTo' in step && step.column.nullable).toBe(true)
   })
 })

@@ -9,7 +9,7 @@ export const meetingCalendarFile = (meeting: MeetingForCalendar): CalendarFile =
 })
 
 export interface MeetingForCalendar {
-  /** The invitation's UID when the opener's calendar sent one; a stable one made from the room otherwise. */
+  /** The invitation's UID when the opener's calendar sent one; a stable one made from the flock otherwise. */
   readonly uid: string
   readonly title: string
   readonly startsAt: number

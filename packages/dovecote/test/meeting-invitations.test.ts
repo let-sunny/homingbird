@@ -34,8 +34,8 @@ const hours = (from: number, length: number) => ({
 })
 
 /**
- * Ana opens a room asking Ben, required, and Cy, optional; Ana's and Ben's agents share their free times,
- * so the room settles at once and Cy, who never answered, is invited to add it by hand.
+ * Ana opens a flock asking Ben, required, and Cy, optional; Ana's and Ben's agents share their free times,
+ * so the flock settles at once and Cy, who never answered, is invited to add it by hand.
  */
 const confirmed = async (visibility: 'open' | 'private' = 'private') => {
   const opened = await cast.ana.api('POST', '/scheduling-rooms', {
@@ -96,7 +96,7 @@ const noticesTold = () =>
     return notice.notice
   })
 
-describe('a meeting the room confirmed', () => {
+describe('a meeting the flock confirmed', () => {
   it('waits on the opener’s click to send one invitation, and asks nobody else anything yet', async () => {
     const id = await confirmed()
     const { ana, ben, cy } = cast
@@ -145,7 +145,7 @@ describe('a meeting the room confirmed', () => {
     expect(told).toEqual([])
   })
 
-  it('starts no meeting for a room that found no time', async () => {
+  it('starts no meeting for a flock that found no time', async () => {
     const opened = await cast.ana.api('POST', '/scheduling-rooms', {
       title: 'Plan the launch',
       minutes: 60,
@@ -389,7 +389,7 @@ describe('reports and clicks that do not fit', () => {
     expect((await partsOf(id))[cast.ben.me.member.id]).toBe('adding')
   })
 
-  it('refuses a report on what does not wait on the agent, and before the room found a time', async () => {
+  it('refuses a report on what does not wait on the agent, and before the flock found a time', async () => {
     const id = await sent()
     expect((await report(cast.benAgent, id, { outcome: 'accepted' })).status).toBe(409)
     expect((await report(cast.benAgent, id, { outcome: 'sent', ...INVITE })).status).toBe(409)
@@ -404,7 +404,7 @@ describe('reports and clicks that do not fit', () => {
     expect((await cast.ana.api('POST', `/debates/${open.json.id}/attendance`)).status).toBe(409)
   })
 
-  it('answers that the feature is off while scheduling rooms or debate rooms are off', async () => {
+  it('answers that the feature is off while scheduling flocks or flocks are off', async () => {
     const id = await sent()
     const settings = (await cast.ana.api('GET', '/admin/settings')).json
     for (const off of [{ schedulingRooms: false }, { debateRooms: false }]) {
@@ -419,7 +419,7 @@ describe('reports and clicks that do not fit', () => {
 })
 
 describe('the invitation as people see it', () => {
-  it('is shown to the people invited and their agents only, never to anyone else who can see the room', async () => {
+  it('is shown to the people invited and their agents only, never to anyone else who can see the flock', async () => {
     const id = await confirmed('open')
     await cast.ana.api('POST', `/debates/${id}/attendance`)
     await report(cast.anaAgent, id, { outcome: 'sent', ...INVITE })

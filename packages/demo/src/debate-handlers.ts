@@ -28,7 +28,7 @@ import { saveDraft } from './sending.ts'
 import type { Records, World } from './world.ts'
 
 /**
- * Debate rooms to open, read and export, the visitor's agent opted in, and a closed room's result put
+ * Flocks to open, read and export, the visitor's agent opted in, and a closed flock's result put
  * into the visitor's draft. Colleagues' agents and the debate itself are scripted on the world's clock.
  */
 export const debateHandlers = (world: World): Handlers => ({
@@ -44,7 +44,7 @@ export const debateHandlers = (world: World): Handlers => ({
   'debates.create': ({ body }, viewerId) =>
     T.gen(function* () {
       const question = body.question.trim()
-      if (question === '') return yield* T.fail(Invalid({ message: 'A debate room needs a question.' }))
+      if (question === '') return yield* T.fail(Invalid({ message: 'A flock needs a question.' }))
       const limits = limitsFor(body.limits ?? DEFAULT_DEBATE_LIMITS, 0)
       const problem = limitsProblem(limits)
       if (problem !== null) return yield* T.fail(Invalid({ message: problem }))
@@ -87,9 +87,9 @@ export const debateHandlers = (world: World): Handlers => ({
       const agent = connectedAgentOf(world.records(), viewerId, body.agentId)
       if (agent === null) return yield* T.fail(NotFound({ message: 'No such connected agent.' }))
       if (debate.status !== 'open')
-        return yield* T.fail(Conflict({ message: 'This room takes no more agents.' }))
+        return yield* T.fail(Conflict({ message: 'This flock takes no more agents.' }))
       if (debate.participants.some((participant) => participant.memberId === viewerId))
-        return yield* T.fail(Conflict({ message: 'Your agent already takes part in this room.' }))
+        return yield* T.fail(Conflict({ message: 'Your agent already takes part in this flock.' }))
       changeRoom(world, debate.id, (room) => {
         const participants = [
           ...room.participants,
@@ -121,7 +121,9 @@ export const debateHandlers = (world: World): Handlers => ({
         return yield* T.fail(Conflict({ message: 'Opt your agent in first; the note goes with it.' }))
       if (debate.status !== 'open')
         return yield* T.fail(
-          Conflict({ message: 'This room no longer takes turns, so what your agent may use here is fixed.' }),
+          Conflict({
+            message: 'This flock no longer takes turns, so what your agent may use here is fixed.',
+          }),
         )
       changeRoom(world, debate.id, (room) => ({ ...room, brief: briefOf(body.brief) }))
       return yield* roomOf(world.records(), viewerId, debate.id)
@@ -131,7 +133,7 @@ export const debateHandlers = (world: World): Handlers => ({
       const debate = yield* roomOf(world.records(), viewerId, params.id)
       if (debate.createdBy !== viewerId)
         return yield* T.fail(
-          Forbidden({ message: 'Only the person who opened this room can change its limits.' }),
+          Forbidden({ message: 'Only the person who opened this flock can change its limits.' }),
         )
       if (debate.status !== 'open' || debate.turns.length > 0)
         return yield* T.fail(Conflict({ message: 'The limits are fixed once the first turn is taken.' }))
@@ -149,7 +151,7 @@ export const debateHandlers = (world: World): Handlers => ({
     T.gen(function* () {
       const debate = yield* roomOf(world.records(), viewerId, params.id)
       if (debate.status !== 'closed' || debate.result === null)
-        return yield* T.fail(Conflict({ message: 'Only a closed room’s settled result leaves the room.' }))
+        return yield* T.fail(Conflict({ message: 'Only a closed flock’s settled result leaves the flock.' }))
       if (!debate.turns.some((turn) => turn.memberId === viewerId))
         return yield* T.fail(
           Forbidden({ message: 'Only a person whose agent took a turn posts the result.' }),
@@ -196,7 +198,7 @@ export const debateHandlers = (world: World): Handlers => ({
     })(roomOf(world.records(), viewerId, params.id)),
 })
 
-/** Whose agent joins an open room the visitor opened without inviting anyone. */
+/** Whose agent joins an open flock the visitor opened without inviting anyone. */
 const OPEN_ROOM_COLLEAGUE = MemberId.of('demoana00000')
 
 const nameIn =
@@ -207,7 +209,7 @@ const nameIn =
 const mayEnter = (debate: Debate, viewerId: MemberId): boolean =>
   debate.visibility === 'open' || debate.memberIds.includes(viewerId)
 
-/** A room as one member reads it: which of the agents is theirs is shown to them only. */
+/** A flock as one member reads it: which of the agents is theirs is shown to them only. */
 const roomOf = (records: Records, viewerId: MemberId, id: string): T.Task<Debate, ApiError> =>
   T.map((debate: Debate) => ({
     ...debate,
@@ -217,11 +219,11 @@ const roomOf = (records: Records, viewerId: MemberId, id: string): T.Task<Debate
   }))(
     found(
       records.debates.find((debate) => debate.id === id && mayEnter(debate, viewerId)),
-      'No such debate room.',
+      'No such flock.',
     ),
   )
 
-/** Only the visitor opts an agent in here, so the room keeps the visitor's own note as the server shows it. */
+/** Only the visitor opts an agent in here, so the flock keeps the visitor's own note as the server shows it. */
 const briefOf = (brief: string): string | null => (brief.trim() === '' ? null : brief.trim())
 
 const summaryOf = (debate: Debate, viewerId: MemberId): DebateSummary => ({

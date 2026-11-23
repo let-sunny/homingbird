@@ -11,7 +11,7 @@ import { formats, strings } from '../strings.ts'
 import { type ScheduleResultBody, scheduleResultBody } from './schedule-result.ts'
 
 /**
- * The room's result as it stands: waiting while drafts are collected and voted on, or settled. The
+ * The flock's result as it stands: waiting while drafts are collected and voted on, or settled. The
  * viewer's own agent is called theirs, never by the viewer's name.
  */
 export const resultModel = (debate: AsRead.Debate, stage: ResultStage, people: RoomPeople): ResultModel => {
@@ -118,8 +118,8 @@ export const resultBody = (result: AsRead.RoomResult, people: RoomPeople): Resul
 }
 
 /**
- * A credit as the room shows it, with what it means on request. "Changed position" alone says nothing a
- * reader can check, so it is shown only where the room can name the turns it changed between.
+ * A credit as the flock shows it, with what it means on request. "Changed position" alone says nothing a
+ * reader can check, so it is shown only where the flock can name the turns it changed between.
  */
 export const creditShown = (credit: Credit): CreditBadge => {
   const kind = creditKindOf(credit)
@@ -145,14 +145,14 @@ export type Credit = Extract<
   { kind: 'conclusion' }
 >['contributions'][number]['credits'][number]
 
-/** Text with the turns it cites as links into the room's turns. */
+/** Text with the turns it cites as links into the flock's turns. */
 export type CitedText = ReadonlyArray<
   | { readonly kind: 'text'; readonly text: string }
   | { readonly kind: 'turn'; readonly text: string; readonly href: string }
 >
 
 /**
- * How a room names people, by name, except the viewer, whose agent is called theirs; and how it links
+ * How a flock names people, by name, except the viewer, whose agent is called theirs; and how it links
  * the turns a text cites, when it shows them.
  */
 export interface RoomPeople {
@@ -161,7 +161,7 @@ export interface RoomPeople {
   readonly cite?: (text: string) => CitedText
 }
 
-/** The stages in which a room shows its result, settled or still to come. */
+/** The stages in which a flock shows its result, settled or still to come. */
 export type ResultStage = Extract<DebateStage, 'awaiting-result' | 'voting' | 'closed'>
 
 export type ResultModel =

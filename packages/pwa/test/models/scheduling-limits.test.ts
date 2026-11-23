@@ -5,7 +5,7 @@ import { plainSpaces } from '../support/text.ts'
 const window = { startsAt: Date.UTC(2026, 10, 19, 15), endsAt: Date.UTC(2026, 10, 26, 15) }
 
 describe('limitsSummary', () => {
-  it('says nothing for a room without limits', () => {
+  it('says nothing for a flock without limits', () => {
     expect(limitsSummary({ window }, 'Asia/Seoul')).toBeNull()
     expect(limitsSummary({ window, weekdays: [1, 2, 3, 4, 5, 6, 7], timeZone: 'UTC' }, 'UTC')).toBeNull()
   })

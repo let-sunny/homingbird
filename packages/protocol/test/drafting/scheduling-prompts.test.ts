@@ -66,8 +66,8 @@ const settled = (invite: { uid: string | null; meetingUrl: string | null } | nul
 
 const meetingOf = (ask: MeetingAsk['ask'], debate: Debate = settled()): MeetingAsk => ({ debate, ask })
 
-describe('the prompt for a scheduling room’s free times', () => {
-  it('asks for free and busy times only, inside working hours in the person’s zone, with no room text unquoted', () => {
+describe('the prompt for a scheduling flock’s free times', () => {
+  it('asks for free and busy times only, inside working hours in the person’s zone, with no flock text unquoted', () => {
     const prompt = freeSlotsPrompt({
       debate: scheduled({ brief: 'Mornings only. 9c1d' }),
       viewerId: ANA,
@@ -81,7 +81,7 @@ describe('the prompt for a scheduling room’s free times', () => {
     expect(prompt).toContain('Never write an event’s title, place, attendees, notes')
     expect(prompt).toContain('Prefer their working hours, 09:00 to 18:00 on working days in Asia/Seoul')
     expect(prompt).toContain(
-      `Scheduling room ${scheduled().id}: a meeting of 60 minutes, somewhere from 2026-11-24T09:00:00+09:00 to 2026-11-26T09:00:00+09:00 (2026-11-24T00:00:00.000Z to 2026-11-26T00:00:00.000Z). Your person's time zone, as their computer has it: Asia/Seoul.`,
+      `Scheduling flock ${scheduled().id}: a meeting of 60 minutes, somewhere from 2026-11-24T09:00:00+09:00 to 2026-11-26T09:00:00+09:00 (2026-11-24T00:00:00.000Z to 2026-11-26T00:00:00.000Z). Your person's time zone, as their computer has it: Asia/Seoul.`,
     )
     expect(prompt).toContain('Mornings only.')
     expect(prompt).toContain('{"cannotReadCalendar":true}')
@@ -104,7 +104,7 @@ describe('the prompt for a scheduling room’s free times', () => {
   })
 })
 
-describe('the days and hours a room is limited to', () => {
+describe('the days and hours a flock is limited to', () => {
   const limitedRoom = () =>
     scheduled({
       schedule: {
@@ -115,7 +115,7 @@ describe('the days and hours a room is limited to', () => {
       },
     } as never)
 
-  it('tells the agent to offer no free time outside them, in the zone of whoever opened the room', () => {
+  it('tells the agent to offer no free time outside them, in the zone of whoever opened the flock', () => {
     const prompt = freeSlotsPrompt({
       debate: limitedRoom(),
       viewerId: ANA,
@@ -125,11 +125,11 @@ describe('the days and hours a room is limited to', () => {
       nonce: counter(),
     })
     expect(prompt).toContain(
-      'The meeting must lie on Tuesday, from 10:00 to 12:00, by the clock in Asia/Seoul (the time zone of whoever opened the room)',
+      'The meeting must lie on Tuesday, from 10:00 to 12:00, by the clock in Asia/Seoul (the time zone of whoever opened the flock)',
     )
   })
 
-  it('says nothing of them for a room without limits', () => {
+  it('says nothing of them for a flock without limits', () => {
     const prompt = freeSlotsPrompt({
       debate: scheduled(),
       viewerId: ANA,
@@ -246,8 +246,8 @@ describe('the prompt for a settled meeting', () => {
       "The meeting: 2026-11-24T18:00:00+09:00 to 2026-11-24T19:00:00+09:00 in your person's time zone, Asia/Seoul (2026-11-24T09:00:00.000Z to 2026-11-24T10:00:00.000Z).",
     )
     expect(prompt.split('\n\n')[0]).toBe(SCHEDULING_INSTRUCTIONS[0])
-    expect(prompt).toContain('The meeting as the room holds it, quoted:\n\n<')
-    expect(prompt).toContain(`id="${settled().id}/meeting" from="Homingbird scheduling room &lt;room&gt;"`)
+    expect(prompt).toContain('The meeting as the flock holds it, quoted:\n\n<')
+    expect(prompt).toContain(`id="${settled().id}/meeting" from="Homingbird scheduling flock &lt;room&gt;"`)
     expect(prompt).toContain('Title: Plan the launch\n')
     expect(prompt).toContain('9c1d\nOrganizer: ana@example.com\nInvite: ben@example.com\n')
     expect(prompt).not.toContain('Stryker')
@@ -263,7 +263,7 @@ describe('the prompt for a settled meeting', () => {
       ['accept_invite', 'accept it', '{"outcome":"conflict"}'],
       ['decline_invite', 'Decline the invitation', '{"outcome":"declined"}'],
       ['cancel_invite', 'Cancel the invitation', '{"outcome":"cancelled"}'],
-      ['unknown', 'does not know what the room asks', 'Print exactly {"outcome":"failed"}'],
+      ['unknown', 'does not know what the flock asks', 'Print exactly {"outcome":"failed"}'],
     ] as const) {
       const prompt = meetingPrompt({
         meeting: meetingOf(ask, invited),
@@ -280,14 +280,14 @@ describe('the prompt for a settled meeting', () => {
     }
   })
 
-  it('says to fail when the room holds no confirmed time', () => {
+  it('says to fail when the flock holds no confirmed time', () => {
     const prompt = meetingPrompt({
       meeting: meetingOf('accept_invite', scheduled({ status: 'closed' })),
       authors: PEOPLE,
       timeZone: 'UTC',
       nonce: counter(),
     })
-    expect(prompt).toContain('The room has no confirmed time; print the failed answer.')
+    expect(prompt).toContain('The flock has no confirmed time; print the failed answer.')
     const unscheduled = meetingPrompt({
       meeting: meetingOf('send_invite', roomOf()),
       authors: PEOPLE,
@@ -329,7 +329,7 @@ describe('the report an agent prints on a meeting', () => {
   })
 })
 
-describe('a room that carries its meeting', () => {
+describe('a flock that carries its meeting', () => {
   it('is told apart from one that does not', () => {
     expect(isScheduled(scheduled())).toBe(true)
     expect(isScheduled(roomOf())).toBe(false)

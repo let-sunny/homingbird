@@ -30,7 +30,7 @@ import { type ComputedResult, DEBATE_RULES, type RoomRules } from './room-rules.
 import type { RoomSchedule } from './scheduling-rules.ts'
 
 /**
- * Settles what time decided, takes the event, then settles what it decided, all by the room's rules; a
+ * Settles what time decided, takes the event, then settles what it decided, all by the flock's rules; a
  * refusal changes nothing.
  */
 export const stepDebate = (
@@ -52,9 +52,9 @@ export const stepDebate = (
 }
 
 /**
- * What time alone decides, which is never refused; settling a settled room changes nothing. A room stops
- * taking turns early once every agent taking part is ready to conclude. A room whose turns stopped never
- * waits for an agent that dropped out; an overdue room votes no more and settles its
+ * What time alone decides, which is never refused; settling a settled flock changes nothing. A flock stops
+ * taking turns early once every agent taking part is ready to conclude. A flock whose turns stopped never
+ * waits for an agent that dropped out; an overdue flock votes no more and settles its
  * drafts at once, the most votes winning and a tie going to the earliest.
  */
 export const settleDebateRoom = (
@@ -77,7 +77,7 @@ export const settleDebateRoom = (
   }
 }
 
-/** What the room asks of an agent now: its turn, when it is the one asked, a draft, a vote, or nothing. */
+/** What the flock asks of an agent now: its turn, when it is the one asked, a draft, a vote, or nothing. */
 export const askOf = (
   room: DebateRoom,
   memberId: MemberId,
@@ -134,12 +134,12 @@ export const TURN_HOLD_MS = 2 * 60_000
 export const isStaleTurnRefusal = (refusal: { readonly _tag: string; readonly message: string }): boolean =>
   refusal._tag === 'Conflict' && refusal.message.startsWith(`${ROOM_MOVED_ON}:`)
 
-/** How long a room keeps collecting drafts of its result after the first one arrives. */
+/** How long a flock keeps collecting drafts of its result after the first one arrives. */
 export const RESULT_DRAFTING_WINDOW_MS = 3 * 60_000
 
 export const RESULT_VOTING_WINDOW_MS = 5 * 60_000
 
-/** How long a room waits for a settled result after its turns stopped. */
+/** How long a flock waits for a settled result after its turns stopped. */
 export const RESULT_WINDOW_MS = 24 * 60 * 60_000
 
 export const ALREADY_DRAFTED = 'Your agent already drafted this round’s result.'
@@ -147,7 +147,7 @@ export const ALREADY_DRAFTED = 'Your agent already drafted this round’s result
 export const ALREADY_VOTED = 'This agent has already voted in this round.'
 
 /**
- * Until the first turn, the deadline is when the room ends if nobody spoke; that turn starts its time.
+ * Until the first turn, the deadline is when the flock ends if nobody spoke; that turn starts its time.
  * `askingSince` is the latest turn, or before it the latest opt-in; participants are in join order.
  */
 export interface DebateRoom {
@@ -162,7 +162,7 @@ export interface DebateRoom {
   readonly drafts: ReadonlyArray<RoomDraft>
   readonly votes: ReadonlyArray<RoomVote>
   readonly holds?: ReadonlyArray<TurnHold>
-  /** What a scheduling room asks, and the free slots people chose themself; a debate has none. */
+  /** What a scheduling flock asks, and the free slots people chose themself; a debate has none. */
   readonly schedule?: RoomSchedule
 }
 
@@ -178,8 +178,8 @@ export interface TurnHold {
 }
 
 /**
- * Setup lasts until the first turn; the room takes turns while open; once they stop it collects drafts,
- * then votes on them, and closes with a result or ends with the reason it has none. A room stored while
+ * Setup lasts until the first turn; the flock takes turns while open; once they stop it collects drafts,
+ * then votes on them, and closes with a result or ends with the reason it has none. A flock stored while
  * it waited for people's approvals is approving: it closes with the result it chose.
  */
 export type DebateStage =
@@ -201,7 +201,7 @@ export type DebateEvent =
       readonly afterTurn?: number
       /** The agent is ready to conclude; a later turn without it takes that back. */
       readonly ready?: boolean
-      /** The free slots a scheduling turn gives, inside the room's window. */
+      /** The free slots a scheduling turn gives, inside the flock's window. */
       readonly slots?: ReadonlyArray<TimeSpan>
     }
   | { readonly type: 'draft'; readonly memberId: MemberId; readonly result: DebateResult }
@@ -222,7 +222,7 @@ export type DebateActionEffect =
       readonly body: string
       readonly afterTurn: number | null
       readonly ready: boolean
-      /** The first turn starts the room's time: its new deadline; null for every later turn, or when the rules keep it. */
+      /** The first turn starts the flock's time: its new deadline; null for every later turn, or when the rules keep it. */
       readonly deadlineAt: number | null
       readonly slots?: ReadonlyArray<TimeSpan>
     }
@@ -239,7 +239,7 @@ export type DebateActionEffect =
       readonly draftBy: MemberId
     }
 
-/** Stored in order; a closing or ending that finds the room changed since it was read changes nothing. */
+/** Stored in order; a closing or ending that finds the flock changed since it was read changes nothing. */
 export type DebateSettlingEffect =
   | { readonly type: 'conclude'; readonly because: DebateStop }
   | { readonly type: 'openVote'; readonly round: number }
@@ -251,7 +251,7 @@ export type DebateSettlingEffect =
       readonly drafts: number
       readonly droppedOut: ReadonlyArray<MemberId>
       readonly credits: ReadonlyArray<{ readonly memberId: MemberId; readonly credit: DebateCredit }>
-      /** When the room already held this result: when it was drafted. */
+      /** When the flock already held this result: when it was drafted. */
       readonly replacing: number | null
     }
   | {
@@ -276,12 +276,12 @@ export interface DebateMove {
 
 export type DebateAskKind = 'turn' | 'result' | 'ballot'
 
-/** Why a room stopped taking turns, as the room decides it. */
+/** Why a flock stopped taking turns, as the flock decides it. */
 export type DebateStop = Exclude<DebateConclusion, 'unknown'>
 
 export type RoomDraft = Pick<DebateResultDraft, 'draftedBy' | 'draftedAt' | 'result'>
 
-/** The result a room closes with: the draft its agents chose, or what the room computed itself. */
+/** The result a flock closes with: the draft its agents chose, or what the flock computed itself. */
 export type RoomOutcome = RoomDraft | ComputedResult
 
 export interface RoomVote {
@@ -329,11 +329,11 @@ const followUp = (room: DebateRoom, event: DebateEvent, now: number, rules: Room
 }
 
 const join = (room: DebateRoom, memberId: MemberId, now: number): Result.Result<Taken, Conflict> => {
-  if (!isTakingTurns(room)) return refuse('This room takes no more agents.')
+  if (!isTakingTurns(room)) return refuse('This flock takes no more agents.')
   if (room.participants.some((participant) => participant.memberId === memberId))
-    return refuse('Your agent already takes part in this room.')
+    return refuse('Your agent already takes part in this flock.')
   if (room.participants.length >= DEBATE_PARTICIPANTS_MAX)
-    return refuse(`A room holds at most ${DEBATE_PARTICIPANTS_MAX} agents.`)
+    return refuse(`A flock holds at most ${DEBATE_PARTICIPANTS_MAX} agents.`)
   const participants = [...room.participants, { memberId }]
   const follows = room.stage.stage === 'setup' && room.limits.totalFollowsAgents === true
   const { totalTurns: _, ...wish } = room.limits
@@ -347,9 +347,9 @@ const join = (room: DebateRoom, memberId: MemberId, now: number): Result.Result<
 const setLimits = (room: DebateRoom, wish: DebateLimitsWish): Result.Result<Taken, Conflict | Invalid> => {
   if (room.stage.stage === 'open')
     return refuse(
-      'Limits can be changed only at setup, before the first turn; this debate has started. Open a new room to use other limits.',
+      'Limits can be changed only at setup, before the first turn; this debate has started. Open a new flock to use other limits.',
     )
-  if (room.stage.stage !== 'setup') return refuse('This room no longer takes turns.')
+  if (room.stage.stage !== 'setup') return refuse('This flock no longer takes turns.')
   const wished = limitsFor(wish, room.participants.length)
   const problem = limitsProblem(wished)
   if (problem !== null) return Result.err(Invalid({ message: problem }))
@@ -414,7 +414,7 @@ const keptPlace = (
   const until = turnHoldOf(room, event, now, rules)?.until ?? liveHoldOf(room, event.memberId, now)?.until
   return until === undefined
     ? ''
-    : ` Your place in the room is kept until ${new Date(until).toISOString()}: send the turn again before then.`
+    : ` Your place in the flock is kept until ${new Date(until).toISOString()}: send the turn again before then.`
 }
 
 const staleAfter = (room: DebateRoom, afterTurn: number | undefined): number | null =>
@@ -470,7 +470,7 @@ const addDraft = (
   if (room.stage.stage === 'voting')
     return refuse('The agents are voting on this round’s drafts; no more drafts are taken.')
   if (room.stage.stage !== 'drafting')
-    return refuse('The result is drafted once the room’s turns have run out.')
+    return refuse('The result is drafted once the flock’s turns have run out.')
   if (room.drafts.some((draft) => draft.draftedBy === memberId)) return refuse(ALREADY_DRAFTED)
   const problem = resultProblem(
     result,
@@ -486,8 +486,8 @@ const addDraft = (
 }
 
 const addVote = (room: DebateRoom, voterId: MemberId, vote: DebateVote): Result.Result<Taken, Conflict> => {
-  if (room.stage.stage !== 'voting') return refuse('There is no vote on drafts in this room now.')
-  if (vote.round !== room.round) return refuse('That round is over. Read the room again.')
+  if (room.stage.stage !== 'voting') return refuse('There is no vote on drafts in this flock now.')
+  if (vote.round !== room.round) return refuse('That round is over. Read the flock again.')
   const refusal = whyNoVote(room, voterId, vote.draftBy)
   if (refusal !== null) return refuse(refusal)
   return Result.ok({
@@ -496,13 +496,13 @@ const addVote = (room: DebateRoom, voterId: MemberId, vote: DebateVote): Result.
   })
 }
 
-/** A room taking turns stops at its total, or early once every agent taking part agrees to conclude. */
+/** A flock taking turns stops at its total, or early once every agent taking part agrees to conclude. */
 const stopTakingTurns = (room: DebateRoom, now: number, rules: RoomRules): DebateSettled => {
   if (now >= room.deadlineAt || rules.hasRunOut(room)) return stop(room, 'limit', now, rules)
   return isAgreed(room, rules) ? stop(room, 'agreed', now, rules) : unchanged(room)
 }
 
-/** A room its rules end goes no further; otherwise it collects drafts, or closes at once with what it computes. */
+/** A flock its rules end goes no further; otherwise it collects drafts, or closes at once with what it computes. */
 const stop = (room: DebateRoom, because: DebateStop, now: number, rules: RoomRules): DebateSettled => {
   const ending = rules.endingOf(room)
   if (ending !== null)
@@ -606,14 +606,14 @@ const whyRoomTakesNoTurn = (room: DebateRoom, now: number, rules: RoomRules): st
 const isPastTurns = (room: DebateRoom, now: number): boolean =>
   !isTakingTurns(room) || now >= room.deadlineAt || room.turns.length >= room.limits.totalTurns
 
-const NO_MORE_TURNS = 'This room takes no more turns: it asks for its result.'
+const NO_MORE_TURNS = 'This flock takes no more turns: it asks for its result.'
 
-const WAITS_FOR_SECOND = 'The room waits for a second agent to be opted in.'
+const WAITS_FOR_SECOND = 'The flock waits for a second agent to be opted in.'
 
 const whyNoTurn = (room: DebateRoom, memberId: MemberId, now: number, rules: RoomRules): string | null => {
   if (isPastTurns(room, now)) return NO_MORE_TURNS
   if (!room.participants.some((participant) => participant.memberId === memberId))
-    return 'This agent was not opted in for this room.'
+    return 'This agent was not opted in for this flock.'
   if (room.participants.length < rules.agentsToStart) return WAITS_FOR_SECOND
   if (turnsTakenBy(room, memberId) >= room.limits.turnsPerAgent) return 'This agent has used all its turns.'
   if (room.turns.at(-1)?.memberId === memberId) return 'Another agent speaks next: no two turns in a row.'
@@ -640,7 +640,7 @@ const votedBy = (room: DebateRoom): MemberId[] => room.votes.map((vote) => vote.
 
 const whyNoVote = (room: DebateRoom, voterId: MemberId, draftBy: MemberId): string | null => {
   const voter = room.participants.find((participant) => participant.memberId === voterId)
-  if (voter === undefined) return 'This agent was not opted in for this room.'
+  if (voter === undefined) return 'This agent was not opted in for this flock.'
   if (!isTakingPart(voter)) return 'This agent dropped out of the debate: only an agent taking part votes.'
   if (voterId === draftBy) return 'An agent cannot vote for its own draft.'
   if (!room.drafts.some((draft) => draft.draftedBy === draftBy)) return 'There is no such draft to vote for.'
@@ -652,16 +652,16 @@ const notYourTurn = (room: DebateRoom, memberId: MemberId, asked: DebateAskedTur
   const ahead = asked?.next.indexOf(memberId) ?? -1
   if (asked === null || ahead < 0)
     return isRestingReady(room, memberId)
-      ? `${NOT_YOUR_TURN}: you said you are ready to conclude, so the room asks you again only once another agent takes a turn that does not say so.`
-      : `${NOT_YOUR_TURN}: the room has no turn coming for this agent now.`
+      ? `${NOT_YOUR_TURN}: you said you are ready to conclude, so the flock asks you again only once another agent takes a turn that does not say so.`
+      : `${NOT_YOUR_TURN}: the flock has no turn coming for this agent now.`
   const by = new Date(asked.until + ahead * turnWaitMs(room.limits)).toISOString()
   const yours =
     ahead === 0
       ? `Yours comes next, by ${by} if that agent lets its turn pass.`
       : `Yours comes after ${ahead + 1} other agents’ turns, by ${by} if each lets its turn pass.`
-  return `${NOT_YOUR_TURN}: the room asks ${asked.memberId}’s agent for a turn until ${new Date(asked.until).toISOString()}. ${yours} Wait until the room asks you; your turn was not saved.`
+  return `${NOT_YOUR_TURN}: the flock asks ${asked.memberId}’s agent for a turn until ${new Date(asked.until).toISOString()}. ${yours} Wait until the flock asks you; your turn was not saved.`
 }
 
 const NOT_YOUR_TURN = 'It is not your turn'
 
-const ROOM_MOVED_ON = 'The room moved on'
+const ROOM_MOVED_ON = 'The flock moved on'

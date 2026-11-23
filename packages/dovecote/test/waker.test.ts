@@ -329,7 +329,7 @@ describe('a wake that fails', () => {
   })
 })
 
-describe('a debate room the cloud desk takes part in', () => {
+describe('a flock the cloud desk takes part in', () => {
   const GRACE_5 = {
     turnsPerAgent: 2,
     totalTurns: 4,

@@ -22,7 +22,7 @@ const BEN = MemberId.of('ben000000000')
 const CY = MemberId.of('cy0000000000')
 const LIMITS = { turnsPerAgent: 2, totalTurns: 4, minutes: 30, turnCharacters: 300 }
 
-describe('an agent in a room', () => {
+describe('an agent in a flock', () => {
   it('counts as taking part unless the server said it dropped out', () => {
     expect(isTakingPart({})).toBe(true)
     expect(isTakingPart({ takingPart: true })).toBe(true)
@@ -50,7 +50,7 @@ describe('an agent in a room', () => {
   })
 })
 
-describe('a room that stops taking turns', () => {
+describe('a flock that stops taking turns', () => {
   const two = [{}, {}]
   const gone = [{}, { takingPart: false }]
   const spoken = [{ memberId: ANA }]
@@ -81,7 +81,7 @@ describe('what a turn and the limits may be', () => {
   it('refuses a blank turn and one over the cap, and takes one at the cap', () => {
     expect(turnProblem('  \n', LIMITS)).toMatch(/needs some text/)
     expect(turnProblem('x'.repeat(301), LIMITS)).toBe(
-      'A turn in this room holds at most 300 characters; this one has 301, 1 over.',
+      'A turn in this flock holds at most 300 characters; this one has 301, 1 over.',
     )
     expect(turnProblem('x'.repeat(300), LIMITS)).toBeNull()
   })
@@ -102,7 +102,7 @@ describe('what a turn and the limits may be', () => {
   })
 })
 
-describe('a drafted result against its room', () => {
+describe('a drafted result against its flock', () => {
   const result = (overrides: Partial<Extract<DebateResult, { kind: 'conclusion' }>> = {}): DebateResult => ({
     kind: 'conclusion',
     conclusion: 'Ship on Thursday.',
@@ -176,11 +176,11 @@ describe('a drafted result against its room', () => {
     expect(crediting('position_changed')).toBeNull()
   })
 
-  it('takes what changed minds only for turns the room has', () => {
+  it('takes what changed minds only for turns the flock has', () => {
     const changed = (turn: number) =>
       resultProblem(result({ changedMinds: [{ turn, line: 'The rehearsal failed.' }] }), [ANA, BEN], TURNS)
     expect(changed(4)).toBeNull()
-    expect(changed(5)).toBe('What changed minds names turn 5, but the room has 4 turns.')
+    expect(changed(5)).toBe('What changed minds names turn 5, but the flock has 4 turns.')
   })
 
   it('keeps only the credits that name a turn, and credits their kinds', () => {

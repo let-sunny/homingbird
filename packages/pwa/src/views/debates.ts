@@ -17,7 +17,7 @@ import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './
 import { peoplePicker } from './people-picker.ts'
 import { schedulingForm } from './scheduling-form.ts'
 
-/** Debate rooms: the rooms the person may see, and a way to open one for a question. */
+/** Flocks: the flocks the person may see, and a way to open one for a question. */
 export const debatesView = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const { state, actions } = context
   actions.loadDebates()
@@ -201,13 +201,13 @@ const newRoomButton = (context: ViewContext, me: AsRead.Me): HTMLElement =>
     'button',
     {
       type: 'button',
-      class: 'primary new-room-button',
+      class: 'primary new-flock-button',
       ...opensDialog(context, strings.debates.newRoom, (life) => newRoomDialog(context, life, me)),
     },
     strings.debates.newRoom,
   )
 
-/** One form for every kind of room: the kind is the first choice, and the fields below follow it. */
+/** One form for every kind of flock: the kind is the first choice, and the fields below follow it. */
 const newRoomDialog = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const debateForm = debateCreateForm(context, life, me)
   if (!featureOn('schedulingRooms', context.state.serverInfo.get())) return debateForm

@@ -106,7 +106,7 @@ const decoded = <A>(schema: S.Schema<A>, input: unknown): T.Task<A, Invalid> => 
 
 /**
  * Routes that open their own transactions: a long poll holds none while it waits, and the asks of a
- * debate room move each of the agent's rooms on in a transaction of its own before they are read, and a
+ * flock move each of the agent's rooms on in a transaction of its own before they are read, and a
  * test wake, a Slack link request and a Slack token being checked hold none while they wait for the
  * service they call.
  */

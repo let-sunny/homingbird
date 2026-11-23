@@ -19,7 +19,7 @@ export interface EventStreamOptions extends HttpApiOptions {
   readonly onTransport?: (transport: Transport) => void
   /** Told when an event does not read; the stream skips it and moves past it. */
   readonly onUnreadable?: (problem: string) => void
-  /** False for a person's web client, whose session takes part in no debate room; true by default. */
+  /** False for a person's web client, whose session takes part in no flock; true by default. */
   readonly heartbeat?: boolean
   /** Also delivers `resync` on each stream connect and on the first poll that answers after a failure. */
   readonly resyncOnConnect?: boolean

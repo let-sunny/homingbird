@@ -23,7 +23,7 @@ import { featureIsOn } from './settings.ts'
 /**
  * The unconfirmed drafts of other people's agents that this person may see in a conversation, and the
  * ones withdrawn while they could: never the person's own, a channel's agent's, a hand-written draft or
- * a debate room's result. Read through a person's route only, so no agent credential ever gets one.
+ * a flock's result. Read through a person's route only, so no agent credential ever gets one.
  */
 export const previewsFor = (
   viewerId: MemberId,

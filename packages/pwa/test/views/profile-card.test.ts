@@ -120,7 +120,7 @@ describe('profileCardHost', () => {
     expect(card.querySelector('button, a')).toBeNull()
   })
 
-  it('names what the member is in the debate room on screen', () => {
+  it('names what the member is in the flock on screen', () => {
     const { card, context } = shown()
     const room = debate({ participants: [{ memberId: BEN, agentId: null, agentName: 'Desk', joinedAt: 1 }] })
     context.state.shownDebate.set(room)

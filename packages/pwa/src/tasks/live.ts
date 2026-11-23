@@ -181,7 +181,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
   return (event) => batch(() => apply(event))
 }
 
-/** Several directory, group, review or debate room changes in a row are loaded once, after they settle. */
+/** Several directory, group, review or flock changes in a row are loaded once, after they settle. */
 export const DIRECTORY_SETTLE_MS = 400
 
 const leaveRoomIfShown = (app: App, conversationId: string): void => {

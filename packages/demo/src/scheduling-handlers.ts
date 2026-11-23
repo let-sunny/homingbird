@@ -29,7 +29,7 @@ import { VISITOR_ID } from './team.ts'
 import type { World } from './world.ts'
 
 /**
- * Scheduling rooms the visitor opens, answers and takes a settled meeting from, and what the visitor lets
+ * Scheduling flocks the visitor opens, answers and takes a settled meeting from, and what the visitor lets
  * their agent do about meetings. Colleagues' agents answer from scripted calendars; nothing is ever added
  * to a real one, so the visitor adds a settled meeting themself.
  */
@@ -64,7 +64,7 @@ export const schedulingHandlers = (world: World): Handlers => {
       T.gen(function* () {
         const debate = yield* roomOf(world, viewerId, params.id)
         if (debate.status !== 'open')
-          return yield* T.fail(Conflict({ message: 'This room no longer takes free times.' }))
+          return yield* T.fail(Conflict({ message: 'This flock no longer takes free times.' }))
         const problem = SCHEDULING_RULES.turnProblem(
           { memberId: viewerId, body: '', slots: body.slots },
           ruleRoomOf(debate),
@@ -86,10 +86,10 @@ export const schedulingHandlers = (world: World): Handlers => {
         const debate = yield* roomOf(world, viewerId, params.id)
         if (debate.createdBy !== viewerId)
           return yield* T.fail(
-            Forbidden({ message: 'Only the person who opened this room can open it again.' }),
+            Forbidden({ message: 'Only the person who opened this flock can open it again.' }),
           )
         if (debate.status === 'open')
-          return yield* T.fail(Conflict({ message: 'This room still takes answers.' }))
+          return yield* T.fail(Conflict({ message: 'This flock still takes answers.' }))
         const schedule = debate.schedule!
         return openRoom(
           world,
@@ -108,7 +108,7 @@ export const schedulingHandlers = (world: World): Handlers => {
   }
 }
 
-/** How long a room takes answers. */
+/** How long a flock takes answers. */
 const ANSWERS_WITHIN_MINUTES = 120
 
 const openRoom = (world: World, viewerId: MemberId, setup: ScheduleSetup, adding: () => Adding): Debate => {
@@ -159,7 +159,7 @@ const openRoom = (world: World, viewerId: MemberId, setup: ScheduleSetup, adding
 
 const setupProblem = (world: World, viewerId: MemberId, setup: ScheduleSetup): string | null => {
   const others = setup.attendees.filter((attendee) => attendee.memberId !== viewerId)
-  if (setup.title.trim() === '') return 'A scheduling room needs a title.'
+  if (setup.title.trim() === '') return 'A scheduling flock needs a title.'
   if (setup.window.endsAt <= setup.window.startsAt) return 'The window ends after it starts.'
   if (setup.window.endsAt - setup.window.startsAt > SCHEDULE_WINDOW_MAX_DAYS * 86_400_000)
     return `The window is at most ${SCHEDULE_WINDOW_MAX_DAYS} days.`
@@ -186,14 +186,14 @@ const attend = (
   T.gen(function* () {
     const debate = yield* roomOf(world, viewerId, id)
     if (debate.status !== 'closed' || debate.result?.result.kind !== 'slot')
-      return yield* T.fail(Conflict({ message: 'This room has settled no meeting.' }))
+      return yield* T.fail(Conflict({ message: 'This flock has settled no meeting.' }))
     const step = stepRoomAttendance(world, debate, event, adding)
     if ('refusal' in step) return yield* T.fail(step.refusal)
     agentsContinue(world, debate.id, adding)
     return yield* roomOf(world, viewerId, id)
   })
 
-/** The days and hours a room is limited to, as they were set up. */
+/** The days and hours a flock is limited to, as they were set up. */
 const limitsOf = (limits: ScheduleLimits): ScheduleLimits => ({
   ...(limits.weekdays !== undefined && { weekdays: limits.weekdays }),
   ...(limits.hours !== undefined && { hours: limits.hours }),
@@ -207,5 +207,5 @@ const roomOf = (world: World, viewerId: MemberId, id: string): T.Task<Debate, No
       .debates.find(
         (debate) => debate.id === id && debate.type === 'scheduling' && debate.memberIds.includes(viewerId),
       ),
-    'No such scheduling room.',
+    'No such scheduling flock.',
   )

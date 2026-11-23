@@ -13,7 +13,7 @@ import { type MuteToggle, muteToggleModel } from './mute-toggle.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
 /**
- * The header's tabs, the current one marked; Debates only where the organization has it. My agent
+ * The header's tabs, the current one marked; Flocks only where the organization has it. My agent
  * carries a mark while the person's agent cannot answer, named by `agentUnavailable`. On a phone the
  * same tabs are the bar at the bottom of the screen, each word under its glyph.
  */

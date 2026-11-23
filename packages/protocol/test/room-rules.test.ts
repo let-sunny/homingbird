@@ -61,12 +61,12 @@ const accepted = (room: DebateRoom, event: DebateEvent, rules: RoomRules, now = 
 }
 
 describe('the debate rules', () => {
-  it('make a debate room whose agents draft the result and vote on it', () => {
+  it('make a flock whose agents draft the result and vote on it', () => {
     expect(DEBATE_RULES.kind).toBe('debate')
     expect(DEBATE_RULES.settlement).toEqual({ by: 'drafted_and_voted' })
   })
 
-  it('check a turn’s text against the room’s limits, as a debate does', () => {
+  it('check a turn’s text against the flock’s limits, as a debate does', () => {
     fc.assert(
       fc.property(
         fc.string({ maxLength: 40 }),
@@ -99,7 +99,7 @@ describe('the debate rules', () => {
     )
   })
 
-  it('end a room without two agents, without a turn, or with fewer than two left taking part', () => {
+  it('end a flock without two agents, without a turn, or with fewer than two left taking part', () => {
     const spoken = [{ memberId: ANA, afterTurn: null, ready: false }]
     expect(DEBATE_RULES.endingOf(roomOf({ participants: [{ memberId: ANA }] }))).toBe('too_few_agents')
     expect(DEBATE_RULES.endingOf(roomOf())).toBe('no_turns')
@@ -112,8 +112,8 @@ describe('the debate rules', () => {
   })
 })
 
-describe('a room stepped by the debate rules', () => {
-  it('moves exactly as a room stepped without rules, through any run of events', () => {
+describe('a flock stepped by the debate rules', () => {
+  it('moves exactly as a flock stepped without rules, through any run of events', () => {
     fc.assert(
       fc.property(script, ({ joined, steps }) => {
         let room = roomOf({ participants: joined.map((memberId) => ({ memberId })) })
@@ -138,13 +138,13 @@ describe('a room stepped by the debate rules', () => {
   })
 })
 
-describe('a room stepped by other rules', () => {
+describe('a flock stepped by other rules', () => {
   it('refuses a turn its rules refuse, keeping the place of one that has text', () => {
     const fussy = ruledBy({ turnProblem: (one) => (one.body === 'A point.' ? 'Say it otherwise.' : null) })
     const move = stepDebate(roomOf(), turn(ANA), NOW, fussy)
     expect(Result.isOk(move) ? null : move.error).toMatchObject({
       _tag: 'Invalid',
-      message: expect.stringMatching(/^Say it otherwise\. Your place in the room is kept until /),
+      message: expect.stringMatching(/^Say it otherwise\. Your place in the flock is kept until /),
     })
     expect(turnHoldOf(roomOf(), turn(ANA), NOW, fussy)).toEqual({
       memberId: ANA,
@@ -160,7 +160,7 @@ describe('a room stepped by other rules', () => {
     expect(accepted(roomOf(), turn(ANA), DEBATE_RULES).after).toEqual([])
   })
 
-  it('ends a room its rules end once its turns stop', () => {
+  it('ends a flock its rules end once its turns stop', () => {
     const ending = ruledBy({ endingOf: () => 'no_result' })
     const room = roomOf({
       turns: [{ memberId: ANA, afterTurn: null, ready: false }],
@@ -220,7 +220,7 @@ describe('a room stepped by other rules', () => {
   })
 })
 
-describe('a room stepped by the scheduling rules', () => {
+describe('a flock stepped by the scheduling rules', () => {
   const HOUR = 60 * 60_000
   const START = 9 * HOUR
   const SCHEDULE: RoomSchedule = {
@@ -261,7 +261,7 @@ describe('a room stepped by the scheduling rules', () => {
     slots,
   })
 
-  it('make a room that computes its result, and asks a lone agent for its turn', () => {
+  it('make a flock that computes its result, and asks a lone agent for its turn', () => {
     expect(SCHEDULING_RULES.kind).toBe('scheduling')
     expect(SCHEDULING_RULES.settlement.by).toBe('computed')
     expect(DEBATE_RULES.agentsToStart).toBe(2)
@@ -271,7 +271,7 @@ describe('a room stepped by the scheduling rules', () => {
     expect(askedTurnOf(scheduling(), NOW, SCHEDULING_RULES)?.memberId).toBe(ANA)
   })
 
-  it('keep a turn’s free slots on the room and in what it stores, and nothing for a debate turn', () => {
+  it('keep a turn’s free slots on the flock and in what it stores, and nothing for a debate turn', () => {
     const debate = accepted(roomOf(), turn(ANA), DEBATE_RULES)
     expect(debate.room.turns).toStrictEqual([{ memberId: ANA, afterTurn: null, ready: false }])
     expect(Object.keys(debate.action)).not.toContain('slots')
@@ -337,7 +337,7 @@ describe('a room stepped by the scheduling rules', () => {
     expect(silent.effects).toEqual([{ type: 'end', because: 'no_turns', during: 'turns' }])
   })
 
-  it('count the room’s time from when it opened, so a first turn does not move its deadline', () => {
+  it('count the flock’s time from when it opened, so a first turn does not move its deadline', () => {
     expect(DEBATE_RULES.timeFromFirstTurn).toBe(true)
     expect(SCHEDULING_RULES.timeFromFirstTurn).toBe(false)
     const late = NOW + 20 * 60_000
@@ -353,7 +353,9 @@ describe('a room stepped by the scheduling rules', () => {
     const move = stepDebate(scheduling(), outside, NOW, SCHEDULING_RULES)
     expect(Result.isOk(move) ? null : move.error).toMatchObject({
       _tag: 'Invalid',
-      message: expect.stringMatching(/^Every free slot lies inside .* Your place in the room is kept until /),
+      message: expect.stringMatching(
+        /^Every free slot lies inside .* Your place in the flock is kept until /,
+      ),
     })
     expect(turnHoldOf(scheduling(), outside, NOW, SCHEDULING_RULES)).toEqual({
       memberId: ANA,

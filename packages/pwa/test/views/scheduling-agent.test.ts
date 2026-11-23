@@ -37,7 +37,7 @@ const opened = (agents: ReadonlyArray<ReturnType<typeof credential>>) => {
   return { ...kit, shown }
 }
 
-describe('the card to let an agent answer a scheduling room', () => {
+describe('the card to let an agent answer a scheduling flock', () => {
   it('opts the person’s one agent in, beside the card to pick free times themself', () => {
     const { shown, called } = opened([credential('cred_laptop000000', { name: 'Laptop' })])
     expect(textOf(shown)).toContain(strings.scheduling.agentTitle)

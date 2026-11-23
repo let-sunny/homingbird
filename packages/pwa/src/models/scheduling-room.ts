@@ -3,12 +3,12 @@ import { locale, strings } from '../strings.ts'
 import { type ScheduleResultBody, scheduleResultBody } from './schedule-result.ts'
 import { limitsSummary } from './scheduling-limits.ts'
 
-/** Whether a room is one this client shows as a scheduling room, a debate, or a kind it does not know. */
+/** Whether a flock is one this client shows as a scheduling flock, a debate, or a kind it does not know. */
 export const roomKindOf = (debate: Pick<AsRead.Debate, 'type'>): 'debate' | 'scheduling' | 'unknown' =>
   debate.type === 'scheduling' ? 'scheduling' : debate.type === UNKNOWN ? 'unknown' : 'debate'
 
 /**
- * A scheduling room: who has answered and what each one is doing, the deadline, and the result, with
+ * A scheduling flock: who has answered and what each one is doing, the deadline, and the result, with
  * every time in the viewer's time zone. Whoever opened it also sees where each other person's part of
  * the meeting stands.
  */
@@ -64,7 +64,7 @@ export const schedulingRoomModel = (input: SchedulingRoomInput): SchedulingRoomM
 export interface SchedulingRoomInput {
   readonly debate: AsRead.Debate
   readonly viewerId: MemberId
-  /** Whether scheduling rooms are on in this organization. */
+  /** Whether scheduling flocks are on in this organization. */
   readonly enabled: boolean
   readonly members: ReadonlyMap<MemberId, AsRead.Member>
   /** An IANA time zone for tests; the browser's own when absent. */
@@ -90,7 +90,7 @@ export type SchedulingRoomModel =
         readonly required: string
         readonly answer: string
         readonly answered: boolean
-        /** Where their part of the meeting stands, for whoever opened the room. */
+        /** Where their part of the meeting stands, for whoever opened the flock. */
         readonly part: string | null
       }>
       readonly resultTitle: string
@@ -105,7 +105,7 @@ export type SchedulingResult =
 
 export type SchedulingStage = 'collecting' | 'settled' | 'no_slot' | 'ended' | 'unknown'
 
-/** The stage a scheduling room shows; a list has the status alone, and a room that closed with no common time says so. */
+/** The stage a scheduling flock shows; a list has the status alone, and a flock that closed with no common time says so. */
 export const schedulingStageOf = (status: AsRead.Debate['status'], resultKind?: string): SchedulingStage =>
   status === 'open' || status === 'concluding'
     ? 'collecting'

@@ -34,20 +34,20 @@ import { type Viewer, isVisibleRoom } from './channel-rows.ts'
 import { type ScheduleFacts, scheduleOf } from './scheduling-rows.ts'
 import { featureIsOn } from './settings.ts'
 
-/** A private room shows to its members, and to an administrator's own sign-in only (rule 6). */
+/** A private flock shows to its members, and to an administrator's own sign-in only (rule 6). */
 export const visibleDebate = (viewer: Viewer, id: DebateId): T.Task<DebateRow, NotFound, AppEnv> =>
   T.gen(function* () {
     const row = yield* first<DebateRow>(sql`SELECT * FROM debates WHERE id = ${id}`)
     if (row === null || !(yield* maySeeDebate(viewer, row)))
-      return yield* T.fail(NotFound({ message: 'No such debate room.' }))
+      return yield* T.fail(NotFound({ message: 'No such flock.' }))
     return row
   })
 
-/** The room as every viewer who may see it sees it: nothing in it depends on who asks. */
+/** The flock as every viewer who may see it sees it: nothing in it depends on who asks. */
 export const describeDebate = (row: DebateRow): T.Task<Debate, never, AppEnv> =>
   T.map((facts: DebateFacts) => facts.debate)(loadRoom(row))
 
-/** The room as the state machine reads it, with the description it was read from. */
+/** The flock as the state machine reads it, with the description it was read from. */
 export const loadRoom = (row: DebateRow): T.Task<DebateFacts, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
@@ -145,7 +145,7 @@ export const loadRoom = (row: DebateRow): T.Task<DebateFacts, never, AppEnv> =>
     return { debate: { ...debate, askedTurn }, room }
   })
 
-/** A room stored without a type is a debate. */
+/** A flock stored without a type is a debate. */
 export const roomRulesOf = (row: Pick<DebateRow, 'room_type'>): RoomRules =>
   row.room_type === 'scheduling' ? SCHEDULING_RULES : DEBATE_RULES
 
@@ -191,7 +191,7 @@ const seenBy =
   }
 
 /**
- * The room as `seenBy` shows it, with the caller's own note on what their agent may use here: to the person
+ * The flock as `seenBy` shows it, with the caller's own note on what their agent may use here: to the person
  * who wrote it and to the agent they opted in, never to another participant, an administrator or another
  * agent of theirs.
  */
@@ -237,7 +237,7 @@ const participantsOf = (id: DebateId): T.Task<ReadonlyArray<ParticipantRow>, nev
     sql`SELECT * FROM debate_participants WHERE debate_id = ${id} ORDER BY created_at, member_id`,
   )
 
-/** The participant a credential takes turns for in this room, or null. */
+/** The participant a credential takes turns for in this flock, or null. */
 export const participantByAgent = (
   id: DebateId,
   credentialId: CredentialId,
@@ -247,7 +247,7 @@ export const participantByAgent = (
   )
 
 /**
- * Takes the room's row lock for the rest of the transaction, changing nothing, so concurrent turns,
+ * Takes the flock's row lock for the rest of the transaction, changing nothing, so concurrent turns,
  * drafts and votes see each other; it returns the row as it is now.
  */
 export const lockedDebate = (id: DebateId): T.Task<DebateRow, never, AppEnv> =>
@@ -256,11 +256,11 @@ export const lockedDebate = (id: DebateId): T.Task<DebateRow, never, AppEnv> =>
     return (yield* first<DebateRow>(sql`SELECT * FROM debates WHERE id = ${id}`))!
   })
 
-/** Marks the room changed, after a turn, an agent, a draft or a vote was added to it. */
+/** Marks the flock changed, after a turn, an agent, a draft or a vote was added to it. */
 export const touchDebate = (id: DebateId, now: number): T.Task<void, never, AppEnv> =>
   T.asUnit(run(sql`UPDATE debates SET updated_at = ${now} WHERE id = ${id}`))
 
-/** Makes the person a member of the room, once. */
+/** Makes the person a member of the flock, once. */
 export const enterDebate = (id: DebateId, memberId: MemberId, now: number): T.Task<void, never, RequestEnv> =>
   T.gen(function* () {
     yield* run(
@@ -273,8 +273,8 @@ export const enterDebate = (id: DebateId, memberId: MemberId, now: number): T.Ta
   })
 
 /**
- * Tells the room's members that it changed, without content; everyone too when an open room opens or
- * ends. A private room is never announced beyond its members.
+ * Tells the flock's members that it changed, without content; everyone too when an open flock opens or
+ * ends. A private flock is never announced beyond its members.
  */
 export const announceDebate = (
   row: Pick<DebateRow, 'id' | 'visibility'>,
@@ -380,7 +380,7 @@ interface TurnRow {
   readonly ready?: number | null
 }
 
-/** The stored result passed `DebateResult` when it was drafted, or is what the room computed, by nobody. */
+/** The stored result passed `DebateResult` when it was drafted, or is what the flock computed, by nobody. */
 const resultOf = (row: DebateRow): Debate['result'] =>
   row.result === null
     ? null
@@ -438,7 +438,7 @@ const stageOf = (row: DebateRow, debate: Debate): DebateStage => {
   }
 }
 
-/** A closed room's result: the draft its agents chose, or what a scheduling room computed. */
+/** A closed flock's result: the draft its agents chose, or what a scheduling flock computed. */
 const outcomeOf = (settled: NonNullable<Debate['result']>): RoomOutcome =>
   draftedResultOf(settled) ?? {
     draftedBy: null,

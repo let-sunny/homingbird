@@ -66,7 +66,7 @@ const room = (overrides: Partial<AsRead.Debate> = {}): AsRead.Debate => ({
   ...overrides,
 })
 
-describe('where a room stands', () => {
+describe('where a flock stands', () => {
   it('gathers agents, debates, waits for the agents to settle the result, then closes', () => {
     expect(debateStage(room({ participants: [participant(ANA)] }))).toBe('gathering')
     expect(debateStage(room())).toBe('debating')
@@ -78,7 +78,7 @@ describe('where a room stands', () => {
     expect(debateStage(room({ status: 'unknown' }))).toBe('unknown')
   })
 
-  it('offers opting in to people whose agent is not in an open room with room to spare', () => {
+  it('offers opting in to people whose agent is not in an open flock with flock to spare', () => {
     expect(mayOptIn(room(), CY)).toBe(true)
     expect(mayOptIn(room(), ANA)).toBe(false)
     expect(mayOptIn(room({ status: 'concluding' }), CY)).toBe(false)
@@ -155,7 +155,7 @@ describe('typed limits', () => {
 })
 
 describe('the grace and the vote record', () => {
-  it('reads the room’s grace, five minutes when it says none', () => {
+  it('reads the flock’s grace, five minutes when it says none', () => {
     expect(graceOf({ ...room().limits, graceMinutes: 10 })).toBe(10)
     expect(graceOf(room().limits)).toBe(5)
     expect(graceOf({ ...room().limits, graceMinutes: 'unknown' })).toBe(5)
@@ -189,7 +189,7 @@ describe('the grace and the vote record', () => {
   })
 })
 
-describe('the list of rooms', () => {
+describe('the list of flocks', () => {
   const summary = (id: string, status: DebateSummary['status'], createdAt: number): DebateSummary => ({
     id: DebateId.of(id),
     question: 'Q?',
@@ -205,7 +205,7 @@ describe('the list of rooms', () => {
     joined: false,
   })
 
-  it('puts rooms still under way first, newest first within each', () => {
+  it('puts flocks still under way first, newest first within each', () => {
     const listed = listedDebates([
       summary('closed000000', 'closed', 3),
       summary('ended0000000', 'ended', 4),
@@ -220,12 +220,12 @@ describe('the list of rooms', () => {
     ])
   })
 
-  it('tells the stage of a listed room from its counts', () => {
+  it('tells the stage of a listed flock from its counts', () => {
     expect(summaryStage(summary('room00000000', 'open', 1))).toBe('gathering')
     expect(summaryStage(summary('room00000000', 'concluding', 1))).toBe('awaiting-result')
   })
 
-  it('names everyone a room mentions once', () => {
+  it('names everyone a flock mentions once', () => {
     expect(peopleIn(room({ memberIds: [ANA, BEN, CY] }))).toEqual([ANA, BEN, CY])
   })
 })

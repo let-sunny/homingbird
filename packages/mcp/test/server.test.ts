@@ -239,7 +239,7 @@ describe('handleMcpMessage', () => {
     expect(withholding.calls.map((call: any) => call.name)).not.toContain('notes.release')
   })
 
-  it('lists the debate tools only while the server has debate rooms switched on', async () => {
+  it('lists the debate tools only while the server has flocks switched on', async () => {
     const info = (features?: Readonly<Record<string, boolean>>): Stubs => ({
       'server.info': () => ({
         name: 'dovecote',
@@ -296,7 +296,7 @@ describe('handleMcpMessage', () => {
       expect(await names(off)).not.toEqual(expect.arrayContaining(['report_calendar']))
   })
 
-  it('lists suggest_debate only while the server has debate rooms and debate suggestions switched on', async () => {
+  it('lists suggest_debate only while the server has flocks and debate suggestions switched on', async () => {
     const info = (features?: Readonly<Record<string, boolean>>): Stubs => ({
       'server.info': () => ({
         name: 'dovecote',

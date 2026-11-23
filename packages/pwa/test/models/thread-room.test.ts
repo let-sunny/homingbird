@@ -42,7 +42,7 @@ describe('reading the conversation', () => {
     )
   })
 
-  it('finds its notes, a note by id, its room, names and features', () => {
+  it('finds its notes, a note by id, its flock, names and features', () => {
     const first = note('n1')
     const input = threadInput({ thread: { notes: [first], hasMore: false } })
     expect(notesOf(input)).toEqual([first])
@@ -107,7 +107,7 @@ describe('threadTopModel', () => {
 })
 
 describe('channelAskedIn', () => {
-  it('finds the channel a private question asks, and none for a direct room or a channel no longer listed', () => {
+  it('finds the channel a private question asks, and none for a direct flock or a channel no longer listed', () => {
     const wiki = channel('wiki')
     const asked = conversation({ kind: 'group', privateQuestionOf: 'wiki', participantIds: [ANA, BEN] })
     expect(channelAskedIn(threadInput({ conversations: [asked], channels: [wiki] }))).toBe(wiki)
@@ -234,7 +234,7 @@ describe('threadHeadModel', () => {
     })
   })
 
-  it('shows a channel room with its channel, and an archived room without one', () => {
+  it('shows a channel room with its channel, and an archived flock without one', () => {
     const billing = channel('billing', { conversationId: ROOM })
     expect(
       threadHeadModel(

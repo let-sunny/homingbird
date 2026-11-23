@@ -11,8 +11,8 @@ import { memberById } from './reads.ts'
 import type { World } from './world.ts'
 
 /**
- * A room the visitor opened: a few seconds later a colleague's agent joins it, the first person invited
- * or, in an open room, Ana; once the visitor's agent takes part too, the scripted debate begins.
+ * A flock the visitor opened: a few seconds later a colleague's agent joins it, the first person invited
+ * or, in an open flock, Ana; once the visitor's agent takes part too, the scripted debate begins.
  */
 export const colleagueJoinsLater = (world: World, debateId: string, colleagueId: MemberId | null): void => {
   if (colleagueId === null) return
@@ -39,8 +39,8 @@ export const colleagueJoinsLater = (world: World, debateId: string, colleagueId:
 }
 
 /**
- * Plays a room's debate on the world's clock once two agents take part and none has spoken: the room asks
- * one agent at a time, in join order, the agents take their turns, then the room closes with the result
+ * Plays a flock's debate on the world's clock once two agents take part and none has spoken: the flock asks
+ * one agent at a time, in join order, the agents take their turns, then the flock closes with the result
  * they settled, which only a person posts.
  */
 export const debateLater = (world: World, debateId: string): void => {
@@ -80,15 +80,15 @@ export const debateLater = (world: World, debateId: string): void => {
   step(1)
 }
 
-/** How long a colleague's agent takes to join a new room, and each agent to take a turn. */
+/** How long a colleague's agent takes to join a new flock, and each agent to take a turn. */
 export const DEBATE_JOIN_AFTER_MS = 3_000
 export const DEBATE_TURN_AFTER_MS = 4_000
 
-/** The room with this id as it stands now, or null. */
+/** The flock with this id as it stands now, or null. */
 export const roomById = (world: World, id: string): Debate | null =>
   world.records().debates.find((debate) => debate.id === id) ?? null
 
-/** Changes one room and tells everyone in it, as a server's `debate.changed`. */
+/** Changes one flock and tells everyone in it, as a server's `debate.changed`. */
 export const changeRoom = (world: World, id: string, change: (debate: Debate) => Debate): Debate => {
   world.update((records) => ({
     ...records,

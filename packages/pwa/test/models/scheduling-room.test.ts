@@ -45,7 +45,7 @@ const input = (room: SchedulingRoomInput['debate'], fields: Partial<SchedulingRo
 })
 
 const room = (model: ReturnType<typeof schedulingRoomModel>) => {
-  if (model.kind !== 'room') throw new Error('expected a room')
+  if (model.kind !== 'room') throw new Error('expected a flock')
   return model
 }
 
@@ -85,7 +85,7 @@ describe('schedulingRoomModel', () => {
     ])
   })
 
-  it('shows whoever opened the room where each other person’s part of the meeting stands, and no one else', () => {
+  it('shows whoever opened the flock where each other person’s part of the meeting stands, and no one else', () => {
     const base = meeting({ status: 'closed', createdBy: ANA })
     const attendees = [
       { memberId: ANA, required: true, answer: 'by_person', attendance: 'added' },
@@ -136,7 +136,7 @@ describe('schedulingRoomModel', () => {
     expect(model.result).toEqual({ kind: 'waiting', text: strings.scheduling.waitingForResult })
   })
 
-  it('shows the days and hours the room is limited to on the viewer’s clock', () => {
+  it('shows the days and hours the flock is limited to on the viewer’s clock', () => {
     const base = meeting()
     const limited = (schedule: object) => ({ ...base, schedule: { ...base.schedule!, ...schedule } })
     const lines = (debateRoom: SchedulingRoomInput['debate'], timeZone = ZONE) =>
@@ -151,7 +151,7 @@ describe('schedulingRoomModel', () => {
     ])
   })
 
-  it('shows the chosen time once the room settled, and no deadline', () => {
+  it('shows the chosen time once the flock settled, and no deadline', () => {
     const slot = {
       kind: 'slot',
       startsAt: TEN,
@@ -176,7 +176,7 @@ describe('schedulingRoomModel', () => {
     expect(model.result).toMatchObject({ kind: 'settled', body: { outcome: 'no_slot' } })
   })
 
-  it('says a room that ended had no time, and a result of a kind it does not know cannot be shown', () => {
+  it('says a flock that ended had no time, and a result of a kind it does not know cannot be shown', () => {
     expect(room(schedulingRoomModel(input(meeting({ status: 'ended' })))).result).toEqual({
       kind: 'ended',
       text: strings.scheduling.endedNoTime,
@@ -187,7 +187,7 @@ describe('schedulingRoomModel', () => {
     })
   })
 
-  it('refuses a room while the feature is off, and one that carries no schedule or is of an unknown type', () => {
+  it('refuses a flock while the feature is off, and one that carries no schedule or is of an unknown type', () => {
     expect(schedulingRoomModel(input(meeting(), { enabled: false }))).toEqual({
       kind: 'unsupported',
       text: strings.scheduling.off,
@@ -199,7 +199,7 @@ describe('schedulingRoomModel', () => {
 })
 
 describe('roomKindOf', () => {
-  it('reads a room without a type as a debate and a type it does not know as unknown', () => {
+  it('reads a flock without a type as a debate and a type it does not know as unknown', () => {
     expect(
       ([undefined, 'debate', 'scheduling', UNKNOWN] as const).map((type) =>
         roomKindOf(type === undefined ? {} : { type }),
@@ -209,7 +209,7 @@ describe('roomKindOf', () => {
 })
 
 describe('schedulingStageOf', () => {
-  it('collects while the room is open or concluding and settles or ends with it', () => {
+  it('collects while the flock is open or concluding and settles or ends with it', () => {
     expect(
       (['open', 'concluding', 'closed', 'ended', UNKNOWN] as const).map((status) =>
         schedulingStageOf(status),
@@ -217,7 +217,7 @@ describe('schedulingStageOf', () => {
     ).toEqual(['collecting', 'collecting', 'settled', 'ended', 'unknown'])
   })
 
-  it('says no time was found when the room closed without a common time', () => {
+  it('says no time was found when the flock closed without a common time', () => {
     expect(schedulingStageOf('closed', 'no_slot')).toBe('no_slot')
     expect(schedulingStageOf('closed', 'slot')).toBe('settled')
   })

@@ -40,8 +40,8 @@ const answerBoth = async (id: string) => {
   return (await cast.benAgent.api('POST', `/debates/${id}/slots`, { slots: [hours(0, 8)] })).json
 }
 
-describe('a scheduling room limited to weekdays and hours', () => {
-  it('stores the limits, shows them with the room, and keeps them when the room is opened again', async () => {
+describe('a scheduling flock limited to weekdays and hours', () => {
+  it('stores the limits, shows them with the flock, and keeps them when the flock is opened again', async () => {
     const limits = { weekdays: [dayOfWeek(midnight), 7], hours: { from: 180, to: 360 }, timeZone: 'UTC' }
     const room = (await open(limits)).json
     expect(room.schedule).toMatchObject({
@@ -77,7 +77,7 @@ describe('a scheduling room limited to weekdays and hours', () => {
     expect((await open({ hours: { from: 180, to: 210 }, timeZone: 'UTC' })).status).toBe(400)
   })
 
-  it('has no limit for a room opened without them', async () => {
+  it('has no limit for a flock opened without them', async () => {
     const room = (await open({})).json
     expect(room.schedule.weekdays).toBeUndefined()
     expect((await answerBoth(room.id)).result.result).toMatchObject({ kind: 'slot', ...hours(0, 1) })

@@ -5,7 +5,7 @@ import { LOCALES } from '../src/model.ts'
 describe('export labels', () => {
   it('falls back to English when the person chose no language', () => {
     expect(exportLabelsIn(null)).toBe(exportLabelsIn('en'))
-    expect(exportLabelsIn('ko').title('Q')).toBe('토론방: Q')
+    expect(exportLabelsIn('ko').title('Q')).toBe('플록: Q')
   })
 
   it('words every ending, status, category and credit in each language, and differently from English', () => {

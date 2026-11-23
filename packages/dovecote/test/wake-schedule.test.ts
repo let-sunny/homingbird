@@ -63,7 +63,7 @@ describe('when a wake is due', () => {
     expect(wakeDue(facts({ retryAt: NOW })).work).toBe(true)
   })
 
-  it('wakes for work at most every five minutes and for a debate room every three', () => {
+  it('wakes for work at most every five minutes and for a flock every three', () => {
     expect(wakeDue(facts({ lastWakeAt: NOW - 5 * MINUTE + 1 })).work).toBe(false)
     expect(wakeDue(facts({ lastWakeAt: NOW - 5 * MINUTE })).work).toBe(true)
     const room = { waitingSince: null, debateDueAt: NOW }

@@ -19,7 +19,7 @@ import type { DebateRow } from './debate-rows.ts'
 import { tellMeeting } from './meeting-notices.ts'
 import { delegationOf } from './scheduling-delegations.ts'
 
-/** The meeting's attendance as stored, opener first, or null before the room found a time. */
+/** The meeting's attendance as stored, opener first, or null before the flock found a time. */
 export const attendanceOf = (
   row: Pick<DebateRow, 'id' | 'created_by'>,
 ): T.Task<Attendance | null, never, AppEnv> =>
@@ -143,7 +143,7 @@ export interface MeetingNotice {
   readonly notice: AttendanceNotice | JoinedNotice
 }
 
-/** The person's agent joined the room by their delegation; the first time it is named. */
+/** The person's agent joined the flock by their delegation; the first time it is named. */
 export interface JoinedNotice {
   readonly to: MemberId
   readonly notice: 'joined'

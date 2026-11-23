@@ -55,15 +55,15 @@ export const scheduleOf = (room: DebateRoom, now: number): ComputedResult | null
   }
 }
 
-/** Why the room cannot take a scheduling turn: free slots inside the window and a short note, or null. */
+/** Why the flock cannot take a scheduling turn: free slots inside the window and a short note, or null. */
 export const scheduleTurnProblem = (turn: RoomTurn, room: DebateRoom): string | null => {
   const schedule = room.schedule
-  if (schedule === undefined) return 'This room does not schedule a meeting.'
+  if (schedule === undefined) return 'This flock does not schedule a meeting.'
   if (!schedule.attendees.some((attendee) => attendee.memberId === turn.memberId))
     return 'This agent’s person is not invited to this meeting.'
   const slots = turn.slots
   if (slots === undefined)
-    return 'A turn in a scheduling room gives free slots: an empty list when there are none.'
+    return 'A turn in a scheduling flock gives free slots: an empty list when there are none.'
   if (slots.length > FREE_SLOTS_MAX)
     return `A turn gives at most ${FREE_SLOTS_MAX} free slots; this one has ${slots.length}.`
   if (turn.body.length > FREE_SLOTS_NOTE_MAX)
@@ -75,7 +75,7 @@ export const scheduleTurnProblem = (turn: RoomTurn, room: DebateRoom): string | 
     : null
 }
 
-/** The room has an answer from every required person, from their agent or chosen by themself. */
+/** The flock has an answer from every required person, from their agent or chosen by themself. */
 export const isEveryRequiredAnswered = (room: DebateRoom): boolean => {
   const answers = answersOf(room)
   return (
@@ -84,7 +84,7 @@ export const isEveryRequiredAnswered = (room: DebateRoom): boolean => {
   )
 }
 
-/** A room no required person answered ends with no turns: there is nobody to schedule for. */
+/** A flock no required person answered ends with no turns: there is nobody to schedule for. */
 export const scheduleEndingOf = (room: DebateRoom): DebateEnding | null => {
   const answers = answersOf(room)
   const anyRequired = room.schedule?.attendees.some(

@@ -29,7 +29,7 @@ describe('citedTurns', () => {
     )
   })
 
-  it('links each turn number an English or Korean citation names, and only turns the room has', () => {
+  it('links each turn number an English or Korean citation names, and only turns the flock has', () => {
     expect(cited('Turn 4 moved me; see turns 2, 5, and 9.')).toEqual([4, 2, 5, 9])
     expect(cited('Turns 3-5 and turns 6 to 7 or 8 & 9.')).toEqual([3, 5, 6, 7, 8, 9])
     expect(cited('턴 4와 2, 5번 차례, 그리고 3번째 턴, 차례 6')).toEqual([4, 2, 5, 3, 6])
@@ -49,8 +49,8 @@ describe('citedTurns', () => {
 })
 
 describe('isFillerTurn', () => {
-  it('tells a short turn that only says the room is ready from one that adds something', () => {
-    expect(isFillerTurn('Nothing new; short turn only to bring the room to drafting.')).toBe(true)
+  it('tells a short turn that only says the flock is ready from one that adds something', () => {
+    expect(isFillerTurn('Nothing new; short turn only to bring the flock to drafting.')).toBe(true)
     expect(isFillerTurn('Agreed. Ready to vote.')).toBe(true)
     expect(isFillerTurn('새로운 내용은 없어요. 투표할 준비가 됐어요.')).toBe(true)
     expect(

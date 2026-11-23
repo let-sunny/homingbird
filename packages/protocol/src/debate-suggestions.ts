@@ -12,7 +12,7 @@ export const SUGGESTION_REASON_MAX = 300
 export const SUGGESTED_MEMBERS_MAX = DEBATE_PARTICIPANTS_MAX - 1
 export const SUGGESTIONS_PER_PERSON = 20
 
-/** An agent's suggestion to talk a note over before it answers: never a room until its person opens one. */
+/** An agent's suggestion to talk a note over before it answers: never a flock until its person opens one. */
 export const DebateSuggestion = S.struct({
   id: SuggestionId,
   inReplyTo: NoteId,
@@ -47,7 +47,7 @@ export const SuggestionAcceptance = S.closed(
 )
 export type SuggestionAcceptance = S.Infer<typeof SuggestionAcceptance>
 
-/** A suggested room ended, or with no `debateId` its person turned it down: its agent answers the note. */
+/** A suggested flock ended, or with no `debateId` its person turned it down: its agent answers the note. */
 export const DebateAnswerAsk = S.struct({
   debateId: S.nullable(DebateId),
   suggestionId: SuggestionId,

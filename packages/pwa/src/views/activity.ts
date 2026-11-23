@@ -267,7 +267,7 @@ const activityContent = (context: ViewContext, life: Lifetime, me: AsRead.Me): H
 
 const ACTIVITY_KINDS: ReadonlyArray<ActivityKind> = ['drafts', 'reviews', 'suggestions', 'skipped', 'debates']
 
-/** A group's heading, with a hint for the kinds other messengers lack: skipped notes and debate rooms. */
+/** A group's heading, with a hint for the kinds other messengers lack: skipped notes and flocks. */
 const activityHeading = (context: ViewContext, kind: ActivityKind): Child => {
   const heading = h('h3', {}, strings.activity.groups[kind])
   if (kind === 'skipped') return hinted(context, 'skippedDraft', strings.hints.skippedDraft, heading)

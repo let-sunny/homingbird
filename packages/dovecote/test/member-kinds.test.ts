@@ -136,8 +136,8 @@ const YEAR_2100 = Date.UTC(2100, 0, 1)
 const ALLOWED: Readonly<Partial<Record<RouteName, string>>> = {
   'contacts.remove': 'Removing a contact that does not exist changes nothing.',
   'blocks.remove': 'Removing a block that does not exist changes nothing.',
-  'debates.result.draft': 'Names only the members of a debate room, which no channel’s agent can join.',
-  'debates.result.vote': 'Names only the members of a debate room, which no channel’s agent can join.',
+  'debates.result.draft': 'Names only the members of a flock, which no channel’s agent can join.',
+  'debates.result.vote': 'Names only the members of a flock, which no channel’s agent can join.',
   'debates.result.post': 'Its `to` goes through the same draft destination as drafts.create.',
   'debateSuggestions.create':
     'Its colleagues pass the same check of active people as debates.create, probed above, before anything is kept.',

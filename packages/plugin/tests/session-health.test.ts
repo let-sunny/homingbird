@@ -27,7 +27,7 @@ const sessionToldOnDraft = async ($: Engine, on: On, world: Partial<World>): Pro
   return seen.sessions.at(-1) ?? null
 }
 
-test('a young session with room left is not due for a fresh start', async ($, on) => {
+test('a young session with flock left is not due for a fresh start', async ($, on) => {
   expect(await isDueForFreshStart($, on, { sessionUsage: { startedAt: -30 * 60_000, percent: 40 } })).toBe(
     false,
   )

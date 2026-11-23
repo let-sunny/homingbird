@@ -34,7 +34,7 @@ const concludedRoom = async () => {
 
 const roomOf = async (id: string) => (await cast.cy.api('GET', `/debates/${id}`)).json
 
-describe('a room that moves on by itself', () => {
+describe('a flock that moves on by itself', () => {
   it('keeps collecting while the window is open and an agent taking part has not drafted', async () => {
     const id = await concludedRoom()
     await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))
@@ -85,7 +85,7 @@ describe('a room that moves on by itself', () => {
     })
   })
 
-  it('closes a room as it is, without a result, the moment the vote is down to one agent', async () => {
+  it('closes a flock as it is, without a result, the moment the vote is down to one agent', async () => {
     const id = await roomOfThree(cast)
     await cast.anaAgent.api('PUT', `/debates/${id}/result`, threeResult(cast, 'A.'))
     await cast.benAgent.api('PUT', `/debates/${id}/result`, threeResult(cast, 'B.'))
@@ -99,7 +99,7 @@ describe('a room that moves on by itself', () => {
     expect(await storedRows(server, 'debate_credits')).toEqual([])
   })
 
-  it('stops a started room at once when the agents with turns left dropped out', async () => {
+  it('stops a started flock at once when the agents with turns left dropped out', async () => {
     const created = await cast.ana.api('POST', '/debates', {
       question: 'Which week?',
       limits: { turnsPerAgent: 1, totalTurns: 3, minutes: 30, turnCharacters: 300 },
@@ -118,7 +118,7 @@ describe('a room that moves on by itself', () => {
     ])
   })
 
-  it('closes a started room as it is, without a result, when one agent is left', async () => {
+  it('closes a started flock as it is, without a result, when one agent is left', async () => {
     const id = await openedRoom(cast)
     await cast.anaAgent.api('POST', `/debates/${id}/turns`, { body: 'First.' })
     await dropOut(server, cast, 'ben')
@@ -143,7 +143,7 @@ describe('a room that moves on by itself', () => {
     })
   })
 
-  it('closes a started room as it is, without a result, when every agent dropped out', async () => {
+  it('closes a started flock as it is, without a result, when every agent dropped out', async () => {
     const id = await openedRoom(cast)
     await cast.anaAgent.api('POST', `/debates/${id}/turns`, { body: 'First.' })
     cast.sleep('ana')
@@ -159,7 +159,7 @@ describe('a room that moves on by itself', () => {
     expect((await roomOf(id)).status).toBe('open')
   })
 
-  it('settles only the room a request reads, leaving the others to the per-minute pass', async () => {
+  it('settles only the flock a request reads, leaving the others to the per-minute pass', async () => {
     const first = await openedRoom(cast)
     const second = await openedRoom(cast)
     await server.clock.advance(31 * 60_000)

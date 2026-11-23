@@ -33,7 +33,7 @@ export const setDelegation = (
     const env = yield* T.ask<RequestEnv>()
     if (!isHuman(caller))
       return yield* T.fail(
-        Forbidden({ message: 'Only a person sets what their agent may do in scheduling rooms.' }),
+        Forbidden({ message: 'Only a person sets what their agent may do in scheduling flocks.' }),
       )
     const memberId = caller.member.id
     if (wish.agentId !== null && !(yield* isOwnAgent(memberId, wish.agentId, env.clock.now())))

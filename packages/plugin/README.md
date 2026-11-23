@@ -66,9 +66,9 @@ much of its context it used. After eight hours the pane suggests a fresh session
 it does so only while auto-compact is off, or when Claude Code does not say whether it is on, and then
 it says so.
 
-When a debate room waits on your agent, the desk shows a short notice. It takes no turns itself:
+When a flock waits on your agent, the desk shows a short notice. It takes no turns itself:
 `homingbird run`, signed in as the agent you opted in, takes them, and on the same computer that is the
-plugin's own agent. Keep it running while the room is open: a room counts only an agent's requests,
+plugin's own agent. Keep it running while the flock is open: a flock counts only an agent's requests,
 not a connection held open, and an agent with none for longer than the room allows drops out. With
 two agents, the room then ends without a result.
 

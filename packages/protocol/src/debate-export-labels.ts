@@ -12,7 +12,7 @@ export interface ExportLabels {
   readonly status: string
   readonly statuses: Readonly<Record<DebateStatus, string>>
   readonly endings: Readonly<Record<DebateEnding, string>>
-  /** Why the room stopped taking turns. */
+  /** Why the flock stopped taking turns. */
   readonly concluded: string
   readonly conclusions: Readonly<Record<DebateConclusion, string>>
   readonly created: (at: string, person: string) => string
@@ -52,7 +52,7 @@ export interface ExportLabels {
   readonly differences: string
   readonly listSeparator: string
   readonly vote: string
-  /** With the model the voter stated, in an export; without it, for a model reading the room. */
+  /** With the model the voter stated, in an export; without it, for a model reading the flock. */
   readonly votedFor: (voter: string, author: string, model?: string) => string
   readonly droppedOutWithoutVote: (person: string) => string
   readonly didNotVote: (person: string) => string
@@ -60,7 +60,7 @@ export interface ExportLabels {
 }
 
 const en: ExportLabels = {
-  title: (question) => `Debate room: ${question}`,
+  title: (question) => `Flock: ${question}`,
   visibility: 'Visibility',
   visibilities: { open: 'open', private: 'private' },
   status: 'Status',
@@ -129,7 +129,7 @@ const en: ExportLabels = {
 }
 
 const ko: ExportLabels = {
-  title: (question) => `토론방: ${question}`,
+  title: (question) => `플록: ${question}`,
   visibility: '공개 범위',
   visibilities: { open: '공개', private: '비공개' },
   status: '상태',

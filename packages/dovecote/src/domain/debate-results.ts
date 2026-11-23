@@ -40,7 +40,7 @@ export const draftResult = (
     yield* visibleDebate(viewerOf(caller), id)
     const participant = isHuman(caller) ? null : yield* participantByAgent(id, caller.credential.id)
     if (participant === null)
-      return yield* T.fail(Forbidden({ message: 'Only an agent opted in for this room drafts its result.' }))
+      return yield* T.fail(Forbidden({ message: 'Only an agent opted in for this flock drafts its result.' }))
     const { result, model } = resultOfDraft(drafted)
     yield* moveDebate(
       yield* lockedDebate(id),
@@ -50,7 +50,7 @@ export const draftResult = (
     return yield* describeDebate(yield* lockedDebate(id))
   })
 
-/** An agent taking part votes for another's draft; the winner closes the room. */
+/** An agent taking part votes for another's draft; the winner closes the flock. */
 export const voteForDraft = (
   caller: Caller,
   id: DebateId,
@@ -61,7 +61,7 @@ export const voteForDraft = (
     const participant = isHuman(caller) ? null : yield* participantByAgent(id, caller.credential.id)
     if (participant === null)
       return yield* T.fail(
-        Forbidden({ message: 'Only an agent opted in for this room votes on its drafts.' }),
+        Forbidden({ message: 'Only an agent opted in for this flock votes on its drafts.' }),
       )
     yield* moveDebate(
       yield* lockedDebate(id),
@@ -78,7 +78,7 @@ export interface ResultDestination {
 }
 
 /**
- * Puts the settled result, and nothing else from the room, into a draft of the person's own in a channel
+ * Puts the settled result, and nothing else from the flock, into a draft of the person's own in a channel
  * or a conversation; it leaves when they send it there, as every note does.
  */
 export const postResult = (
@@ -100,7 +100,7 @@ export const postResult = (
     const drafted = draftedResultOf(debate.result)
     if (drafted === null)
       return yield* T.fail(
-        Conflict({ message: 'A scheduling room’s time goes into calendars, never into a note.' }),
+        Conflict({ message: 'A scheduling flock’s time goes into calendars, never into a note.' }),
       )
     const body = debateResultText(debate, drafted.result, yield* namesFor(debate))
     if (body.length > NOTE_BODY_MAX)
@@ -119,8 +119,8 @@ export const postResult = (
   })
 
 /**
- * The whole closed room, transcript and result, for a member to keep; the export itself is audited. A
- * private room is exported to its members only: an administrator may read it, not take it out.
+ * The whole closed flock, transcript and result, for a member to keep; the export itself is audited. A
+ * private flock is exported to its members only: an administrator may read it, not take it out.
  */
 export const exportDebate = (
   caller: Caller,
@@ -131,7 +131,7 @@ export const exportDebate = (
   T.gen(function* () {
     const debate = yield* closedDebate(caller, id)
     if (debate.visibility === 'private' && !debate.memberIds.includes(caller.member.id))
-      return yield* T.fail(Forbidden({ message: 'Only the members of a private room can export it.' }))
+      return yield* T.fail(Forbidden({ message: 'Only the members of a private flock can export it.' }))
     const nameOf = yield* namesFor(debate)
     const labels = exportLabelsIn(language ?? (yield* chosenLocaleOf(caller.member.id)))
     return format === 'markdown'
@@ -155,7 +155,7 @@ const closedDebate = (
     if (!isHuman(caller)) return yield* T.fail(Forbidden({ message: 'Only a person can do this.' }))
     const debate = yield* describeDebate(yield* visibleDebate(viewerOf(caller), id))
     if (debate.status !== 'closed' || debate.result === null)
-      return yield* T.fail(Conflict({ message: 'Only a closed room’s settled result leaves the room.' }))
+      return yield* T.fail(Conflict({ message: 'Only a closed flock’s settled result leaves the flock.' }))
     return debate
   })
 

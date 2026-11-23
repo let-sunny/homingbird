@@ -36,7 +36,7 @@ describe('the debate reader in split mode', () => {
     expect(debateExtractionIn(JSON.stringify({ ...EXTRACTED, openPoints: ['line\u0007bell'] }))).toBeNull()
   })
 
-  it('describes the room for the writer by name, and says when nothing was said yet', () => {
+  it('describes the flock for the writer by name, and says when nothing was said yet', () => {
     const named = describedDebateForWriter(EXTRACTED, () => 'Ben')
     expect(named).toContain(`Position of Ben’s agent (${BEN}): Against, citing the March report`)
     expect(named).toContain('Open points: Was the rollback fixed?')
@@ -45,19 +45,19 @@ describe('the debate reader in split mode', () => {
     expect(empty).toContain('Open points: none named')
   })
 
-  it('puts its instructions before the quoted room, and reads JSON or nothing', () => {
+  it('puts its instructions before the quoted flock, and reads JSON or nothing', () => {
     expect(debateReaderPrompt('ROOM')).toBe(`${DEBATE_READER_INSTRUCTIONS}\n\nROOM`)
     expect(jsonIn(' {"a":1} ')).toEqual({ a: 1 })
     expect(jsonIn('{')).toBeUndefined()
   })
 })
 
-describe('the room as the writer reads it in split mode', () => {
+describe('the flock as the writer reads it in split mode', () => {
   it('gives plain facts and quotes the reader’s description, never the turns', () => {
     const room = roomOf({ status: 'open' })
     const viewer = room.participants[0]!.memberId
     const text = extractedRoom(room, viewer, EXTRACTED, PEOPLE, sequentialNonce())
-    expect(text).toContain(`Debate room ${room.id}. Your turns: 1 of 2; a turn holds at most 500 characters.`)
+    expect(text).toContain(`Flock ${room.id}. Your turns: 1 of 2; a turn holds at most 500 characters.`)
     expect(text).toContain(`${viewer} (you)`)
     expect(text).toContain(`<${WRAPPER_TAG} id="${room.id}/extracted"`)
     expect(textOutsideWrappers(text)).not.toContain('Against, citing the March report')
@@ -65,7 +65,7 @@ describe('the room as the writer reads it in split mode', () => {
     expect(text).toContain('Position of Ben’s agent')
   })
 
-  it('gives the writer its own person’s note on what it may use in the room, wrapped, after the description', () => {
+  it('gives the writer its own person’s note on what it may use in the flock, wrapped, after the description', () => {
     const room = roomOf({ status: 'open', brief: 'Share the Q3 budget, not the vendor quotes.' })
     const viewer = room.participants[0]!.memberId
     const text = extractedRoom(room, viewer, EXTRACTED, PEOPLE, sequentialNonce())

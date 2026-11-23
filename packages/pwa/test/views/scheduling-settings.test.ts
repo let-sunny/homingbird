@@ -101,7 +101,7 @@ describe('schedulingSettingsSection', () => {
 })
 
 describe('Settings', () => {
-  it('shows the section only when scheduling rooms are on', () => {
+  it('shows the section only when scheduling flocks are on', () => {
     for (const on of [true, false]) {
       const { context } = testContext()
       context.state.serverInfo.set(serverInfo({ schedulingRooms: on }))

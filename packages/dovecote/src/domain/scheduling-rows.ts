@@ -16,7 +16,7 @@ import { all, first, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
 
 /**
- * A scheduling room as it is stored: what it asks, of whom, and the free slots each attendee gave, from
+ * A scheduling flock as it is stored: what it asks, of whom, and the free slots each attendee gave, from
  * their agent's turn or chosen by themself. A person who chose themself, or was asked to because their
  * agent cannot read their calendar, waits on that agent no more.
  */
@@ -95,14 +95,14 @@ export const scheduleOf = (
     }
   })
 
-/** The columns that keep a room's limits on weekdays and hours; none for a room without them. */
+/** The columns that keep a flock's limits on weekdays and hours; none for a flock without them. */
 export const limitColumnsOf = (setup: ScheduleSetup) => ({
   ...(setup.weekdays !== undefined && { weekdays: [...setup.weekdays].sort().join(',') }),
   ...(setup.hours !== undefined && { hours_from: setup.hours.from, hours_to: setup.hours.to }),
   ...(setup.timeZone !== undefined && { time_zone: setup.timeZone }),
 })
 
-/** The limits a stored room has: only the ones it was opened with. */
+/** The limits a stored flock has: only the ones it was opened with. */
 export const limitsOf = (row: LimitRow): ScheduleLimits => ({
   ...(row.weekdays !== null && { weekdays: row.weekdays.split(',').map(Number) }),
   ...(row.hours_from !== null &&

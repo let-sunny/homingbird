@@ -13,7 +13,7 @@ export const loadSuggestions: Action = withApp(({ api, state }) =>
     : T.unit,
 )
 
-/** The person's click to open the short room, with what they changed; the suggestion is then gone. */
+/** The person's click to open the short flock, with what they changed; the suggestion is then gone. */
 export const acceptSuggestion = (id: SuggestionId, change: SuggestionAcceptance): Action<AsRead.Debate> =>
   withApp(({ api, state }) =>
     T.tap((_: AsRead.Debate) =>

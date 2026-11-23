@@ -18,7 +18,7 @@ import type { World } from './world.ts'
 
 /**
  * The one suggestion the demo's agent makes: before answering Kai's question about the deploy window it
- * proposes a short room with Ana's agent. The visitor opens it, and a scripted short debate follows, or
+ * proposes a short flock with Ana's agent. The visitor opens it, and a scripted short debate follows, or
  * says "just answer" and the agent drafts its reply to Kai.
  */
 export const suggestionHandlers = (world: World): Handlers => {
@@ -38,7 +38,7 @@ export const suggestionHandlers = (world: World): Handlers => {
         const { suggestion } = yield* waitingOf(params.id)
         const agent = connectedAgentOf(world.records(), viewerId, null)
         const question = (body.question ?? suggestion.question).trim()
-        if (question === '') return yield* T.fail(Invalid({ message: 'A debate room needs a question.' }))
+        if (question === '') return yield* T.fail(Invalid({ message: 'A flock needs a question.' }))
         const invited = (body.memberIds ?? suggestion.memberIds).filter(
           (id) => id !== viewerId && memberById(world.records(), id)?.kind === 'person',
         )

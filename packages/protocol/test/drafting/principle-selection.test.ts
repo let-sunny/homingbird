@@ -104,7 +104,7 @@ describe('selectPrinciples', () => {
     expect(text).not.toContain('approve the draft yourself')
   })
 
-  it('reserves room for the ignored line only when something was ignored', () => {
+  it('reserves flock for the ignored line only when something was ignored', () => {
     const lines = Array.from({ length: 25 }, (_, index) =>
       principle(`T${String.fromCharCode(97 + index)}`, { rule: 'r'.repeat(72), position: index }),
     )

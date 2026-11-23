@@ -48,7 +48,7 @@ const model = (
     ...(extra.chosen !== undefined && { chosen: extra.chosen }),
   })
 
-describe('schedulingSlotsModel in a room with limits', () => {
+describe('schedulingSlotsModel in a flock with limits', () => {
   it('hides every hour outside the days and hours, and says so', () => {
     const limited = room({}, {
       weekdays: [5],
@@ -62,7 +62,7 @@ describe('schedulingSlotsModel in a room with limits', () => {
     expect(shown.slots).toEqual([])
   })
 
-  it('says nothing of limits in a room without any', () => {
+  it('says nothing of limits in a flock without any', () => {
     expect(model(room())!.limitsHint).toBeNull()
   })
 
@@ -134,7 +134,7 @@ describe('schedulingSlotsModel', () => {
     expect(model(room({}, {}, 'choosing'), { joined: true })).not.toBeNull()
   })
 
-  it('is not there while an agent of theirs is still to answer, when the room is not collecting, or for someone not invited', () => {
+  it('is not there while an agent of theirs is still to answer, when the flock is not collecting, or for someone not invited', () => {
     expect(model(room({}, {}, 'waiting'), { joined: true })).toBeNull()
     expect(model(room({}, {}, 'unknown' as never), { joined: true })).toBeNull()
     expect(model(room({}, { attendees: [{ memberId: ANA, required: true }] }), { joined: true })).toBeNull()
@@ -150,7 +150,7 @@ describe('schedulingSlotsModel', () => {
     ).toBeNull()
   })
 
-  it('lets a person replace the times their agent or they themself shared while the room collects', () => {
+  it('lets a person replace the times their agent or they themself shared while the flock collects', () => {
     const byAgent = model(room({}, {}, 'by_agent'), { joined: true })!
     expect(byAgent.answered).toBe(strings.scheduling.pickAnsweredByAgent)
     const byPerson = model(room({}, {}, 'by_person'), { joined: true })!

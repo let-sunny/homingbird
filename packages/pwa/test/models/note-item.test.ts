@@ -182,7 +182,7 @@ describe('noteItemModel', () => {
   it('reads a posted debate result for its conclusion and next steps, links its room, and never waits for an answer', () => {
     const fromDebate = { debateId: 'deb_room00000000' as never, question: 'Ship?', agents: [] }
     const body = [
-      'From the debate room: Ship?',
+      'From the flock: Ship?',
       'Result: conclusion',
       'Ship Friday.',
       'Reasons\n\n- Tests pass.',

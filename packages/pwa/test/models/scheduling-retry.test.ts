@@ -28,7 +28,7 @@ const room = (status: 'open' | 'closed' | 'ended', result: 'slot' | 'no_slot' | 
   })
 
 describe('schedulingRetryModel', () => {
-  it('offers the opener both ways to ask again once the room settled', () => {
+  it('offers the opener both ways to ask again once the flock settled', () => {
     const model = schedulingRetryModel({ debate: room('closed', 'slot'), viewerId: ANA, now: NOW })
     expect(model!.actions.map((action) => [action.name, action.label, action.emphasis])).toEqual([
       ['again', strings.scheduling.retryAgain, 'plain'],
@@ -38,14 +38,14 @@ describe('schedulingRetryModel', () => {
     expect(model!.actions[1]!.window).toEqual({ startsAt: NOW + DAY, endsAt: NOW + 10 * DAY })
   })
 
-  it('stresses the wider window when no time was found or the room ended', () => {
+  it('stresses the wider window when no time was found or the flock ended', () => {
     for (const room_ of [room('closed', 'no_slot'), room('ended', null)])
       expect(schedulingRetryModel({ debate: room_, viewerId: ANA, now: NOW })!.actions[1]!.emphasis).toBe(
         'primary',
       )
   })
 
-  it('offers nothing to anyone else, while the room takes answers, or without a schedule', () => {
+  it('offers nothing to anyone else, while the flock takes answers, or without a schedule', () => {
     expect(schedulingRetryModel({ debate: room('closed', 'slot'), viewerId: BEN, now: NOW })).toBeNull()
     expect(schedulingRetryModel({ debate: room('open', null), viewerId: ANA, now: NOW })).toBeNull()
     expect(schedulingRetryModel({ debate: debate({ status: 'closed' }), viewerId: ANA, now: NOW })).toBeNull()
@@ -60,7 +60,7 @@ describe('widerWindow', () => {
     })
   })
 
-  it('stays within the longest a room may look', () => {
+  it('stays within the longest a flock may look', () => {
     const wider = widerWindow({ startsAt: NOW, endsAt: NOW + 10 * DAY }, NOW)
     expect(wider).toEqual({ startsAt: NOW, endsAt: NOW + SCHEDULE_WINDOW_MAX_DAYS * DAY })
   })

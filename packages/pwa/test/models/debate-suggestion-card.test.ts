@@ -43,7 +43,7 @@ describe('suggestionCardModel', () => {
     expect(card.heading).toBe(strings.debateSuggestion.headingAlone({ agent: 'Desk' }))
   })
 
-  it('names the colleagues whose agents are not awake, and keeps the room while two agents are', () => {
+  it('names the colleagues whose agents are not awake, and keeps the flock while two agents are', () => {
     const card = cardFor([
       entry(ANA, 'Ana', { presence: awake }),
       entry(BEN, 'Ben', { presence: awake }),

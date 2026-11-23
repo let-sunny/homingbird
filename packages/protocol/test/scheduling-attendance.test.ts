@@ -176,10 +176,10 @@ describe('the opener’s invitation', () => {
       'There is nothing for this person to add now: their part of the meeting is waiting_invite.',
     )
     expect(refusal(opened, report(BEN, 'sent'))).toBe(
-      'Only the agent of whoever opened the room reports the invitation sent.',
+      'Only the agent of whoever opened the flock reports the invitation sent.',
     )
     expect(refusal(opened, report(ANA, 'accepted'))).toBe(
-      'The agent of whoever opened the room sends and cancels the invitation; it does not report accepted.',
+      'The agent of whoever opened the flock sends and cancels the invitation; it does not report accepted.',
     )
     expect(refusal(opened, report(DAN, 'accepted'))).toBe('This person is not invited to this meeting.')
   })
@@ -227,7 +227,7 @@ describe('an invited person', () => {
       'This person can no longer say they cannot come: their part of the meeting is declined.',
     )
     expect(refusal(busy, { type: 'decline', memberId: ANA })).toBe(
-      'Whoever opened the room takes the meeting out instead, which cancels it.',
+      'Whoever opened the flock takes the meeting out instead, which cancels it.',
     )
   })
 
@@ -291,7 +291,7 @@ describe('a click that does not fit', () => {
     const afterClick = () => 'agent_after_click' as const
     const opened = confirmAttendance(ANA, PEOPLE, afterClick, []).attendance
     expect(refusal(opened, { type: 'decline', memberId: ANA }, afterClick)).toBe(
-      'Whoever opened the room takes the meeting out instead, which cancels it.',
+      'Whoever opened the flock takes the meeting out instead, which cancels it.',
     )
     const asked = sent(afterClick)
     expect(refusal(asked, { type: 'remove', memberId: BEN }, afterClick)).toBe(

@@ -297,7 +297,7 @@ describe('renderNoteItem', () => {
     const { context } = testContext()
     const fromDebate = { debateId: 'deb_room00000000' as never, question: 'Ship?', agents: [] }
     const body = [
-      'From the debate room: Ship?',
+      'From the flock: Ship?',
       'Result: conclusion',
       'Ship Friday.',
       'Reasons\n\n- Tests pass.',

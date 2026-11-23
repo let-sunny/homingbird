@@ -1,5 +1,5 @@
 /**
- * How a reader tells debate turns apart from their words alone: a turn that only says the room is ready,
+ * How a reader tells debate turns apart from their words alone: a turn that only says the flock is ready,
  * a turn in which its agent says it changed position, and the turn numbers a text cites, as agents cite
  * them in English or Korean. A citation of one turn is linked whole; in a list, each number is.
  */
@@ -23,7 +23,7 @@ export const citedTurns = (text: string, lastPosition: number): ReadonlyArray<Ci
     }),
   )
 
-/** A turn that adds nothing: short, and saying so, as agents do while they wait for the room to close. */
+/** A turn that adds nothing: short, and saying so, as agents do while they wait for the flock to close. */
 export const isFillerTurn = (body: string): boolean =>
   body.trim().length <= FILLER_MAX_CHARACTERS && FILLER.some((pattern) => pattern.test(body))
 

@@ -647,7 +647,7 @@ describe('Rule 1: a saved answer its person switched to send automatically is th
 })
 
 describe('Rule 2: drafts are invisible to recipients', () => {
-  it('2: never lets the person who asked a note into the debate room about it, by the agent’s suggestion or by its acceptance, so they read nothing before the answer is approved', async () => {
+  it('2: never lets the person who asked a note into the flock about it, by the agent’s suggestion or by its acceptance, so they read nothing before the answer is approved', async () => {
     const asked = await questionFromBen('Which region should billing move to? 7e1a')
     const refused = await anaAgent.api('POST', '/debate-suggestions', {
       inReplyTo: asked.id,
@@ -1865,7 +1865,7 @@ describe('Rule 5: credentials are stored hashed and never logged', () => {
 })
 
 describe('Rule 6: a member sees only conversations they participate in', () => {
-  it('6: asks nobody to a debate room across a block, either way: not by an agent’s suggestion, its acceptance or a room the person opens', async () => {
+  it('6: asks nobody to a flock across a block, either way: not by an agent’s suggestion, its acceptance or a room the person opens', async () => {
     dee = await server.signIn('dee@example.com', 'Dee')
     const asked = await questionFrom(dee, 'Which region should billing move to? 3b9f')
     const suggestion = await suggestedByAnaAgent(asked.id, [cy.me.member.id])
@@ -2093,7 +2093,7 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
     expect((await ben.api('GET', '/events/poll?after=0')).json.events.length).toBeGreaterThan(0)
   })
 
-  it('shows a private debate room to its members, and to an administrator as a person only, never to their agent', async () => {
+  it('shows a private flock to its members, and to an administrator as a person only, never to their agent', async () => {
     expect(ana.me.member.role).toBe('admin')
     const id = (
       await ben.api('POST', '/debates', {
@@ -3260,7 +3260,7 @@ const callMcp = async (agent: Agent, name: string, args: Readonly<Record<string,
   return answer.json.result as { isError?: boolean; content: ReadonlyArray<{ text: string }> }
 }
 
-describe('Rule 9: no tool exposed to a model can open a debate room, opt an agent in, change its limits, or approve, post or export its result', () => {
+describe('Rule 9: no tool exposed to a model can open a flock, opt an agent in, change its limits, or approve, post or export its result', () => {
   it('refuses an agent credential that tries to open a room, opt itself in, set limits, post or export', async () => {
     const id = await concludedDebate()
     await draftedByAna(id)
@@ -3396,9 +3396,9 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
     const room = (await ana.api('GET', `/debates/${id}`)).json
     expect(room.status).toBe('closed')
     expect(room.participants).toHaveLength(2)
-    expect(
-      (await storedRows(server, 'notes')).filter((note) => String(note.body).includes('debate room')),
-    ).toEqual([])
+    expect((await storedRows(server, 'notes')).filter((note) => String(note.body).includes('flock'))).toEqual(
+      [],
+    )
     const actions = (await storedRows(server, 'audit_events')).map((entry) => entry.event)
     expect(actions.filter((action) => /debate\.(exported|result_posted)/.test(String(action)))).toEqual([])
   })

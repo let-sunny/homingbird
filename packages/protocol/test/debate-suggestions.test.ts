@@ -90,7 +90,7 @@ describe('a debate suggestion', () => {
   })
 })
 
-describe('opening a suggested room', () => {
+describe('opening a suggested flock', () => {
   it('takes the person’s edits to the question, the colleagues and their agent’s note, or none', () => {
     expect(SuggestionAcceptance.decode({})).toEqual(Result.ok({}))
     const edits = {
@@ -103,7 +103,7 @@ describe('opening a suggested room', () => {
     expect(refused(SuggestionAcceptance, { limits: { minutes: 600 } })).toEqual(['limits'])
   })
 
-  it('opens a short room: two turns each within half an hour, which the room accepts as limits', () => {
+  it('opens a short flock: two turns each within half an hour, which the flock accepts as limits', () => {
     expect(SHORT_DEBATE_LIMITS).toEqual({
       turnsPerAgent: 2,
       minutes: 30,

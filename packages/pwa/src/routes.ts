@@ -26,7 +26,7 @@ export type Route =
       readonly teach?: true
     }
   | { readonly name: 'debates' }
-  /** A debate room, on one of its tabs; none asked for shows the tab its state calls for. */
+  /** A flock, on one of its tabs; none asked for shows the tab its state calls for. */
   | {
       readonly name: 'debate'
       readonly id: string

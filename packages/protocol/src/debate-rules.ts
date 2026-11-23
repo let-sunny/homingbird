@@ -32,11 +32,11 @@ export const isReadyToConclude = (
 export const turnProblem = (body: string, limits: Pick<DebateLimits, 'turnCharacters'>): string | null => {
   if (body.trim() === '') return 'A turn needs some text.'
   if (body.length > limits.turnCharacters)
-    return `A turn in this room holds at most ${limits.turnCharacters} characters; this one has ${body.length}, ${body.length - limits.turnCharacters} over.`
+    return `A turn in this flock holds at most ${limits.turnCharacters} characters; this one has ${body.length}, ${body.length - limits.turnCharacters} over.`
   return null
 }
 
-/** Why a room that stops taking turns ends without a result, or null when it goes on to one. */
+/** Why a flock that stops taking turns ends without a result, or null when it goes on to one. */
 export const debateEndingOf = (room: EndingRoom): DebateEnding | null => {
   if (room.participants.length < 2) return 'too_few_agents'
   if (room.turns.length === 0) return 'no_turns'
@@ -60,7 +60,7 @@ export const isDownToOneAgent = (room: EndingRoom): boolean =>
 export const agentsLeftEnding = (room: Pick<EndingRoom, 'participants'>): DebateEndingDetail =>
   room.participants.some(isTakingPart) ? 'one_agent_left' : 'no_agent_left'
 
-/** Without a total, the total is the turns per agent times the agents, within what a room takes. */
+/** Without a total, the total is the turns per agent times the agents, within what a flock takes. */
 export const limitsFor = (wish: DebateLimitsWish, agents: number): DebateLimits => {
   const { totalTurns, ...rest } = wish
   if (totalTurns !== undefined) return { ...rest, totalTurns, totalFollowsAgents: false }
@@ -68,11 +68,11 @@ export const limitsFor = (wish: DebateLimitsWish, agents: number): DebateLimits 
   return { ...rest, totalTurns: Math.min(TOTAL_TURNS_MAX, followed), totalFollowsAgents: true }
 }
 
-/** Why limits cannot be used, or null: an agent's share may not be more than the room's total. */
+/** Why limits cannot be used, or null: an agent's share may not be more than the flock's total. */
 export const limitsProblem = (limits: DebateLimits): string | null =>
   limits.turnsPerAgent > limits.totalTurns ? 'Turns per agent cannot be more than the total turns.' : null
 
-/** Why a draft does not fit the room, or null; a credit's turn is the agent's own, read after another's. */
+/** Why a draft does not fit the flock, or null; a credit's turn is the agent's own, read after another's. */
 export const resultProblem = (
   result: DebateResult,
   participantIds: ReadonlyArray<MemberId>,
@@ -93,7 +93,7 @@ export const resultProblem = (
     (changed) => changed.turn > turns.length,
   )
   if (unknownTurn !== undefined)
-    return `What changed minds names turn ${unknownTurn.turn}, but the room has ${turns.length} turns.`
+    return `What changed minds names turn ${unknownTurn.turn}, but the flock has ${turns.length} turns.`
   for (const contribution of result.contributions)
     for (const credit of contribution.credits) {
       const problem = creditProblem(contribution.memberId, credit, turns)
@@ -102,7 +102,7 @@ export const resultProblem = (
   return null
 }
 
-/** The result as the room keeps it: a credit that names no turn cannot be checked, so it is left out. */
+/** The result as the flock keeps it: a credit that names no turn cannot be checked, so it is left out. */
 export const withCheckedCredits = (result: DebateResult): DebateResult => ({
   ...result,
   contributions: result.contributions.map((contribution) => ({

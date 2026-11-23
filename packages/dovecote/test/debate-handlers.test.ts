@@ -16,7 +16,7 @@ beforeEach(async () => {
 afterEach(() => server?.close())
 
 describe('the debate handlers', () => {
-  it('open a room, list it, and show it by a valid id only', async () => {
+  it('open a flock, list it, and show it by a valid id only', async () => {
     const room = (await ana.api('POST', '/debates', { question: 'Which plan holds up?' })).json
     expect(room).toMatchObject({ question: 'Which plan holds up?', status: 'open' })
     expect((await ben.api('GET', '/debates')).json.debates.map((debate: any) => debate.id)).toEqual([room.id])
@@ -37,7 +37,7 @@ describe('the debate handlers', () => {
       ])
   })
 
-  it('leave opening a room and opting an agent in to a person', async () => {
+  it('leave opening a flock and opting an agent in to a person', async () => {
     expect((await anaAgent.api('POST', '/debates', { question: 'Mine?' })).status).toBe(403)
     const room = (await ana.api('POST', '/debates', { question: 'Which plan holds up?' })).json
     const agent = (await ana.api('GET', '/credentials')).json.credentials.find(

@@ -237,7 +237,7 @@ describe('push notifications', () => {
         ['Plan the launch · A time was found', 'Open it to send the invitation.'],
         ['Plan the launch · A time was found', 'Open it to add the meeting to your calendar.'],
         ['Plan the launch · Added to your calendar', 'Your agent added the meeting. Open it to take it out.'],
-        ['Plan the launch · Cancelled', 'Whoever opened the room took the meeting out.'],
+        ['Plan the launch · Cancelled', 'Whoever opened the flock took the meeting out.'],
         [
           'Plan the launch · Take it out yourself',
           'Your agent could not take the meeting out of your calendar.',

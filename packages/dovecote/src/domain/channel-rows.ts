@@ -120,7 +120,7 @@ export const channelOfAgentRoom = (
 
 /**
  * Whether a room is visible without being in it: an open one to everyone, a private one to administrators
- * only. Channels and debate rooms share this rule; members of a private room see it through membership.
+ * only. Channels and flocks share this rule; members of a private room see it through membership.
  */
 export const isVisibleRoom = (visibility: ChannelVisibility, viewer: Pick<Viewer, 'role'>): boolean =>
   visibility === 'open' || viewer.role === 'admin'

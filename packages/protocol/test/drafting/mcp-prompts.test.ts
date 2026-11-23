@@ -82,13 +82,13 @@ describe('the text that wakes an agent for a note or a draft request', () => {
   })
 })
 
-describe('what a debate room asks of the agent', () => {
-  it('asks an open room for a turn after the last turn read, and shows the result form before drafting opens', () => {
+describe('what a flock asks of the agent', () => {
+  it('asks an open flock for a turn after the last turn read, and shows the result form before drafting opens', () => {
     const advice = debateToolAdvice(roomOf({ status: 'open' }), ANA)
     expect(advice).toContain(DEBATE_TURN_INSTRUCTIONS)
     expect(advice).toContain('with afterTurn 2, the last turn you have read')
     expect(advice).toContain(
-      `each agent drafts the room’s result in this form, so note what it needs as the room goes: ${DEBATE_RESULT_FORM}`,
+      `each agent drafts the flock’s result in this form, so note what it needs as the flock goes: ${DEBATE_RESULT_FORM}`,
     )
   })
 
@@ -104,9 +104,9 @@ describe('what a debate room asks of the agent', () => {
       `It is ${BEN}’s agent’s turn, until 1970-01-01T00:02:30.000Z. Yours comes next. Write a turn only once check_debates says it is yours: a turn out of order is not saved.`,
     )
     expect(whoseTurnIn(asked(BEN, [CY, ANA]), ANA)).toContain('Yours comes after 2 other agents’ turns.')
-    expect(whoseTurnIn(asked(BEN, [CY]), ANA)).toContain('The room has no turn coming for you now.')
-    expect(whoseTurnIn({ askedTurn: null }, ANA)).toBe('The room asks no agent for a turn now.')
-    expect(whoseTurnIn({}, ANA)).toBe('The room asks no agent for a turn now.')
+    expect(whoseTurnIn(asked(BEN, [CY]), ANA)).toContain('The flock has no turn coming for you now.')
+    expect(whoseTurnIn({ askedTurn: null }, ANA)).toBe('The flock asks no agent for a turn now.')
+    expect(whoseTurnIn({}, ANA)).toBe('The flock asks no agent for a turn now.')
   })
 
   it('says when to mark a turn ready, and which agents are ready to conclude now', () => {
@@ -123,17 +123,17 @@ describe('what a debate room asks of the agent', () => {
     const voting = roomOf({ status: 'concluding', result: null, votingClosesAt: 5, votedBy: [BEN] })
     expect(isVotingOnDrafts(voting)).toBe(true)
     expect(debateToolAdvice(voting, ANA)).toContain(DEBATE_VOTE_INSTRUCTIONS)
-    expect(debateToolAdvice(voting, BEN)).toBe('You have voted; the room waits for the other agents’ votes.')
+    expect(debateToolAdvice(voting, BEN)).toBe('You have voted; the flock waits for the other agents’ votes.')
     expect(debateToolAdvice({ ...voting, votedBy: undefined } as never, ANA)).toContain('vote_debate_result')
   })
 
-  it('asks for a draft of the result once, and nothing after that or once the room settled', () => {
+  it('asks for a draft of the result once, and nothing after that or once the flock settled', () => {
     const concluding = roomOf({ status: 'concluding', result: null, votingClosesAt: null })
     expect(isVotingOnDrafts(concluding)).toBe(false)
     expect(debateToolAdvice(concluding, ANA)).toContain(DEBATE_RESULT_INSTRUCTIONS)
     expect(
       debateToolAdvice({ ...concluding, drafts: [{ ...roomOf().result!, draftedBy: ANA }] } as never, ANA),
-    ).toBe('This room asks nothing of you now.')
-    expect(debateToolAdvice(roomOf(), ANA)).toBe('This room asks nothing of you now.')
+    ).toBe('This flock asks nothing of you now.')
+    expect(debateToolAdvice(roomOf(), ANA)).toBe('This flock asks nothing of you now.')
   })
 })

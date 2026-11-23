@@ -82,7 +82,7 @@ export const limitsSentence = (limits: ScheduleLimits): string | null => {
     limits.hours === undefined
       ? null
       : `from ${clockText(limits.hours.from)} to ${clockText(limits.hours.to)}`
-  return `The meeting must lie ${[days, hours].filter((part) => part !== null).join(', ')}, by the clock in ${limits.timeZone} (the time zone of whoever opened the room): offer no free time outside it, and the room cannot use one.`
+  return `The meeting must lie ${[days, hours].filter((part) => part !== null).join(', ')}, by the clock in ${limits.timeZone} (the time zone of whoever opened the flock): offer no free time outside it, and the flock cannot use one.`
 }
 
 export const limitsLines = (limits: ScheduleLimits): ReadonlyArray<string> => {

@@ -49,9 +49,9 @@ const scenario = async (): Promise<void> => {
 
     // -- The list starts empty, and a person opens a private room with its limits -----------------
     await ana.page.goto(`${base}/#/channels`)
-    await ana.page.click('.tab:has-text("Debates")')
-    await ana.page.waitForSelector('.tab[aria-current="page"]:has-text("Debates")')
-    await ana.page.waitForSelector('.empty:has-text("No debate rooms yet.")')
+    await ana.page.click('.tab:has-text("Flocks")')
+    await ana.page.waitForSelector('.tab[aria-current="page"]:has-text("Flocks")')
+    await ana.page.waitForSelector('.empty:has-text("No flocks yet.")')
     await capture(ana.page, 'no-debate-rooms-yet')
     await ana.page.click('button.new-debate')
     await ana.page.waitForSelector('dialog[open] .create-debate')
@@ -87,7 +87,7 @@ const scenario = async (): Promise<void> => {
     await cy.page.goto(`${base}/#/debate/${id}`)
     await cy.page.waitForSelector('.empty:has-text("does not exist, or you cannot see it")')
     await cy.page.goto(`${base}/#/debates`)
-    await cy.page.waitForSelector('.empty:has-text("No debate rooms yet.")')
+    await cy.page.waitForSelector('.empty:has-text("No flocks yet.")')
 
     // -- Turns arrive live over the event stream, quoted as text --------------------------------
     await anaAgent.call('POST', `/debates/${id}/turns`, {
@@ -189,7 +189,7 @@ const scenario = async (): Promise<void> => {
       ana.page.click('button.export-markdown'),
     ])
     const exported = await readFile(await download.path(), 'utf8')
-    assert.match(exported, /^# Debate room: Should we ship the billing migration this week\?/)
+    assert.match(exported, /^# Flock: Should we ship the billing migration this week\?/)
     assert.match(exported, /Ana’s agent \(Ana laptop; model: not stated\)/)
     assert.equal(exported.includes(ids.ana), false, 'the export names people, not ids')
     const [json] = await Promise.all([
@@ -199,7 +199,7 @@ const scenario = async (): Promise<void> => {
     assert.equal(JSON.parse(await readFile(await json.path(), 'utf8')).result.kind, 'no_conclusion')
     await ana.page.selectOption('.debate-post-form select[name="person"]', ids.ben)
     await ana.page.click('.debate-post-form button[type="submit"]')
-    await ana.page.waitForSelector('main .draft:has-text("From the debate room")')
+    await ana.page.waitForSelector('main .draft:has-text("From the flock")')
     await capture(ana.page, 'settled-result-waiting-as-a-draft')
 
     // -- The growth record credits the agent, never with a count -------------------------------
@@ -241,7 +241,7 @@ const scenario = async (): Promise<void> => {
       korean.page.waitForEvent('download'),
       korean.page.click('button.export-markdown'),
     ])
-    assert.match(await readFile(await koreanDownload.path(), 'utf8'), /^# 토론방: /)
+    assert.match(await readFile(await koreanDownload.path(), 'utf8'), /^# 플록: /)
     await korean.page.goto(`${base}/#/debates`)
     await korean.page.click('button.new-debate')
     await korean.page.waitForSelector('dialog[open] .create-debate')

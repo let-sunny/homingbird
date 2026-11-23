@@ -12,7 +12,7 @@ import {
   updateDraft,
 } from './drafts.ts'
 
-/** The draft carries the room, so a saved answer never sends it: it waits for its person (rules 1, 9). */
+/** The draft carries the flock, so a saved answer never sends it: it waits for its person (rules 1, 9). */
 export const draftAnswerFromRoom = (
   caller: Caller,
   debateId: DebateId,

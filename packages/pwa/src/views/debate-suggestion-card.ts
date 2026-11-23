@@ -10,7 +10,7 @@ import { peoplePicker } from './people-picker.ts'
 
 /**
  * A suggestion from the person's own agent to talk a note over first: why, the question and the colleagues
- * it would ask, all of which the person may change. Opening the room leads to it; answering alone only
+ * it would ask, all of which the person may change. Opening the flock leads to it; answering alone only
  * clears the card.
  */
 export const debateSuggestionCard = (

@@ -7,7 +7,7 @@ import { profileName } from './profile-card.ts'
 import { renderScheduleResult } from './schedule-result.ts'
 
 /**
- * A scheduling room, leading with one thing: the time it settled on, or while it waits, what the person can
+ * A scheduling flock, leading with one thing: the time it settled on, or while it waits, what the person can
  * do about it (picking free times, adding the meeting), drawn by the caller. Who has answered comes after.
  */
 export const renderSchedulingRoom = (

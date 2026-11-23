@@ -6,7 +6,7 @@ import { MemberId, Timestamp } from './ids.ts'
 export const ScheduleResult = S.openVariants('kind', scheduleResultCases(), UNKNOWN_RESULT)
 export type ScheduleResult = S.Infer<typeof ScheduleResult>
 
-/** The cases of a schedule result, for a result type that holds them beside another room's. */
+/** The cases of a schedule result, for a result type that holds them beside another flock's. */
 export function scheduleResultCases() {
   return {
     slot: {

@@ -13,8 +13,8 @@ beforeEach(async () => {
 
 afterEach(() => server?.close())
 
-describe('opening a debate room', () => {
-  it('opens an open room with the default limits and makes its creator a member', async () => {
+describe('opening a flock', () => {
+  it('opens an open flock with the default limits and makes its creator a member', async () => {
     const room = (await cast.ana.api('POST', '/debates', { question: `  ${QUESTION}  ` })).json
     expect(room).toMatchObject({
       question: QUESTION,
@@ -64,10 +64,7 @@ describe('opening a debate room', () => {
     ] as const) {
       await blocker.api('PUT', `/blocks/${blocked.me.member.id}`)
       const refused = await cast.ana.api('POST', '/debates', asking)
-      expect([refused.status, refused.json.error.message]).toEqual([
-        403,
-        'You cannot ask Cy to a debate room.',
-      ])
+      expect([refused.status, refused.json.error.message]).toEqual([403, 'You cannot ask Cy to a flock.'])
       await blocker.api('DELETE', `/blocks/${blocked.me.member.id}`)
     }
     expect(await storedRows(server, 'debates')).toEqual([])
@@ -76,8 +73,8 @@ describe('opening a debate room', () => {
   })
 })
 
-describe('listing and reading rooms', () => {
-  it('lists every open room and the private rooms the viewer is in, newest first', async () => {
+describe('listing and reading flocks', () => {
+  it('lists every open flock and the private flocks the viewer is in, newest first', async () => {
     const open = await openedRoom(cast)
     await server.clock.advance(1)
     const secret = await openedRoom(cast, { visibility: 'private' })
@@ -91,7 +88,7 @@ describe('listing and reading rooms', () => {
     expect([...summary.participantIds].sort()).toEqual([cast.ana.me.member.id, cast.ben.me.member.id].sort())
   })
 
-  it('lists and shows every private room to an administrator’s own sign-in, never to their agent', async () => {
+  it('lists and shows every private flock to an administrator’s own sign-in, never to their agent', async () => {
     const secret = (await cast.ben.api('POST', '/debates', { question: QUESTION, visibility: 'private' }))
       .json.id
     const listed = async (who: Pick<typeof cast.ana, 'api'>) =>
@@ -106,11 +103,11 @@ describe('listing and reading rooms', () => {
     expect((await cast.anaAgent.api('GET', `/debates/${secret}`)).status).toBe(404)
   })
 
-  it('lists nothing when there are no rooms', async () => {
+  it('lists nothing when there are no flocks', async () => {
     expect((await cast.ana.api('GET', '/debates')).json.debates).toEqual([])
   })
 
-  it('shows an open room to everyone and a private room to its members only', async () => {
+  it('shows an open flock to everyone and a private flock to its members only', async () => {
     const open = await openedRoom(cast)
     const secret = await openedRoom(cast, { visibility: 'private' })
     expect((await cast.cy.api('GET', `/debates/${open}`)).status).toBe(200)
@@ -137,7 +134,7 @@ describe('opting an agent in', () => {
     expect(room.memberIds).toContain(cast.cy.me.member.id)
   })
 
-  it('refuses another person’s agent, a second agent, and a room that is past taking turns', async () => {
+  it('refuses another person’s agent, a second agent, and a flock that is past taking turns', async () => {
     const id = await openedRoom(cast)
     expect((await cast.cy.api('PUT', `/debates/${id}/agent`, { agentId: cast.anaAgent.id })).status).toBe(404)
     expect((await cast.ana.api('PUT', `/debates/${id}/agent`, { agentId: cast.anaAgent.id })).status).toBe(
@@ -159,7 +156,7 @@ describe('opting an agent in', () => {
   })
 })
 
-describe('what a person’s agent may use in a room', () => {
+describe('what a person’s agent may use in a flock', () => {
   const NOTE = 'Use the Q3 budget sheet; never share vendor prices.'
 
   it('keeps the note written with the opt-in and shows it to that person and the agent they opted in only', async () => {
@@ -193,7 +190,7 @@ describe('what a person’s agent may use in a room', () => {
     expect(JSON.stringify((await cast.ben.api('GET', '/debates')).json)).not.toContain('vendor')
   })
 
-  it('lets the person change or clear the note until the room stops taking turns, and records that it changed, never what it says', async () => {
+  it('lets the person change or clear the note until the flock stops taking turns, and records that it changed, never what it says', async () => {
     const id = await openedRoom(cast)
     const changed = await cast.ana.api('PUT', `/debates/${id}/brief`, { brief: NOTE })
     expect(changed.json.brief).toBe(NOTE)
@@ -215,7 +212,7 @@ describe('what a person’s agent may use in a room', () => {
     expect(JSON.stringify(await storedRows(server, 'audit_events'))).not.toContain('vendor')
   })
 
-  it('refuses a note from someone whose agent is not in the room, from any agent, and in a room they cannot see', async () => {
+  it('refuses a note from someone whose agent is not in the flock, from any agent, and in a flock they cannot see', async () => {
     const id = await openedRoom(cast, { visibility: 'private' })
     expect((await cast.cy.api('PUT', `/debates/${id}/brief`, { brief: NOTE })).status).toBe(404)
     const open = await openedRoom(cast)
@@ -255,7 +252,7 @@ describe('limits', () => {
     expect(row).toMatchObject({ total_turns: LIMITS.totalTurns, total_follows_agents: null })
   })
 
-  it('lets the creator change the limits while the room is open, moving its deadline', async () => {
+  it('lets the creator change the limits while the flock is open, moving its deadline', async () => {
     const id = await openedRoom(cast)
     const room = (await cast.ana.api('PUT', `/debates/${id}/limits`, { ...LIMITS, minutes: 90 })).json
     expect(room.limits.minutes).toBe(90)
@@ -295,7 +292,7 @@ describe('limits', () => {
     )
   })
 
-  it('refuses limits from anyone but the creator, limits that do not add up, and a room past its turns', async () => {
+  it('refuses limits from anyone but the creator, limits that do not add up, and a flock past its turns', async () => {
     const id = await openedRoom(cast)
     expect((await cast.ben.api('PUT', `/debates/${id}/limits`, LIMITS)).status).toBe(403)
     expect((await cast.ana.api('PUT', `/debates/${id}/limits`, { ...LIMITS, turnsPerAgent: 9 })).status).toBe(
@@ -318,7 +315,7 @@ describe('limits', () => {
     })
   })
 
-  it('lets a private room’s invitees opt in, and no administrator who was not invited', async () => {
+  it('lets a private flock’s invitees opt in, and no administrator who was not invited', async () => {
     expect(cast.ana.me.member.role).toBe('admin')
     const id = (
       await cast.ben.api('POST', '/debates', {
@@ -336,7 +333,7 @@ describe('limits', () => {
   })
 })
 
-describe('what a room asks of an agent', () => {
+describe('what a flock asks of an agent', () => {
   it('asks for a turn where the agent may take one, then for the result, and nothing of a person', async () => {
     const id = await openedRoom(cast)
     const asks = async (agent: typeof cast.anaAgent) =>

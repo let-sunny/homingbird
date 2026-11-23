@@ -21,7 +21,7 @@ afterEach(() => server?.close())
 const HOUR = 60 * 60_000
 const DAY = 24 * HOUR
 
-/** Ben opens a room asking Cy; both opt their agents in, and only Ben's shares free slots. */
+/** Ben opens a flock asking Cy; both opt their agents in, and only Ben's shares free slots. */
 const openedWithAgents = async () => {
   const id = (
     await cast.ben.api('POST', '/scheduling-rooms', {
@@ -43,7 +43,7 @@ const ben = () => cast.ben.me.member.id as MemberId
 const cy = () => cast.cy.me.member.id as MemberId
 
 describe('a meeting as it is stored', () => {
-  it('has no attendance before the room found a time', async () => {
+  it('has no attendance before the flock found a time', async () => {
     const id = await openedWithAgents()
     const row = { id, created_by: ben() }
     expect(await T.runPromise(attendanceOf(row), server.env)).toBeNull()

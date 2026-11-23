@@ -8,7 +8,7 @@ import {
 } from '@homingbird/protocol'
 
 /**
- * Three debate rooms: one open with turns still coming; one closed, where four agents brought what the
+ * Three flocks: one open with turns still coming; one closed, where four agents brought what the
  * others lacked, one changed position, the last turns added nothing, and the vote tied; and a private
  * one waiting for June's agent.
  */

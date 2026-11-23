@@ -6,8 +6,8 @@ import { VISITOR_ID } from '../src/team.ts'
 import { createWorld } from '../src/world.ts'
 import { NOW, demoApi, memberNamed, refused, succeeded } from './support/demo.ts'
 
-describe('debate rooms', () => {
-  it('lists the rooms a member may enter, a private one only to its members, and whether they were asked', async () => {
+describe('flocks', () => {
+  it('lists the flocks a member may enter, a private one only to its members, and whether they were asked', async () => {
     const { api, world } = demoApi()
     const { debates } = await succeeded(api['debates.list']({}))
     expect(debates.map((room) => [room.status, room.joined, room.turnCount, room.resultDrafted])).toEqual([
@@ -22,7 +22,7 @@ describe('debate rooms', () => {
     ])
   })
 
-  it('names a member’s own agent in a room to them only', async () => {
+  it('names a member’s own agent in a flock to them only', async () => {
     const { api, world, viewerId } = demoApi()
     const [open] = world.records().debates
     const own = (participants: ReadonlyArray<{ memberId: MemberId; agentId: unknown }>) =>
@@ -36,7 +36,7 @@ describe('debate rooms', () => {
     ).toBeNull()
   })
 
-  it('keeps a private room from the people it does not name', async () => {
+  it('keeps a private flock from the people it does not name', async () => {
     const { api, world } = demoApi()
     world.update((records) => ({
       ...records,
@@ -52,7 +52,7 @@ describe('debate rooms', () => {
     expect((await succeeded(api['debates.get']({ params: { id: open!.id } }))).visibility).toBe('private')
   })
 
-  it('exports a room as Markdown or JSON, and says when there is no such room', async () => {
+  it('exports a flock as Markdown or JSON, and says when there is no such flock', async () => {
     const { api, world } = demoApi()
     const closed = world.records().debates[1]!
     const markdown = await succeeded(
@@ -72,7 +72,7 @@ describe('debate rooms', () => {
 })
 
 describe('debates.result.post', () => {
-  it('puts a closed room’s result into the visitor’s own draft in the chosen conversation, and tells their stream', async () => {
+  it('puts a closed flock’s result into the visitor’s own draft in the chosen conversation, and tells their stream', async () => {
     const { api, world, viewerId } = demoApi()
     const closed = world.records().debates.find((debate) => debate.status === 'closed')!
     const ana = memberNamed(world, 'Ana Silva')
@@ -111,7 +111,7 @@ describe('debates.result.post', () => {
     })
   })
 
-  it('refuses an open room, two places at once, and a person whose agent took no turn', async () => {
+  it('refuses an open flock, two places at once, and a person whose agent took no turn', async () => {
     const { api, world } = demoApi()
     const [open, closed] = world.records().debates
     const kai = memberNamed(world, 'Kai Lin')
@@ -132,8 +132,8 @@ describe('debates.result.post', () => {
   })
 })
 
-describe('opening a room and taking part', () => {
-  it('opens a room for the visitor and the people invited, which a colleague’s agent joins, then debates and closes once the visitor opts in', async () => {
+describe('opening a flock and taking part', () => {
+  it('opens a flock for the visitor and the people invited, which a colleague’s agent joins, then debates and closes once the visitor opts in', async () => {
     const { api, world, clock } = started()
     const kai = memberNamed(world, 'Kai Lin')
     const room = await succeeded(
@@ -191,7 +191,7 @@ describe('opening a room and taking part', () => {
     expect(draft).toMatchObject({ authorId: VISITOR_ID, status: 'draft' })
   })
 
-  it('lets the visitor opt into the private room Ana’s agent waits in, which then debates', async () => {
+  it('lets the visitor opt into the private flock Ana’s agent waits in, which then debates', async () => {
     const { api, world, clock } = started()
     const waiting = world
       .records()
@@ -202,7 +202,7 @@ describe('opening a room and taking part', () => {
     expect(roomNow(world, waiting.id).turns[0]?.memberId).toBe(memberNamed(world, 'Ana Silva'))
   })
 
-  it('has Ana’s agent join an open room nobody was invited to, and keeps to the limits the visitor set', async () => {
+  it('has Ana’s agent join an open flock nobody was invited to, and keeps to the limits the visitor set', async () => {
     const { api, world, clock } = started()
     const room = await succeeded(api['debates.create']({ body: { question: 'Tabs or spaces?' } }))
     const limits = { ...DEFAULT_DEBATE_LIMITS, turnsPerAgent: 1, totalTurns: 2 }
@@ -222,7 +222,7 @@ describe('opening a room and taking part', () => {
     )
   })
 
-  it('waits in a private room nobody else was invited to', async () => {
+  it('waits in a private flock nobody else was invited to', async () => {
     const { api, world, clock } = started()
     const room = await succeeded(
       api['debates.create']({ body: { question: 'Alone?', visibility: 'private' } }),
@@ -281,7 +281,7 @@ describe('opening a room and taking part', () => {
     ).toMatchObject({ _tag: 'NotFound' })
     expect(
       await refused(api['debates.optIn']({ params: { id: open!.id }, body: { agentId: JUNE_LAPTOP } })),
-    ).toMatchObject({ _tag: 'Conflict', message: 'Your agent already takes part in this room.' })
+    ).toMatchObject({ _tag: 'Conflict', message: 'Your agent already takes part in this flock.' })
     expect(
       await refused(api['debates.optIn']({ params: { id: closed!.id }, body: { agentId: JUNE_LAPTOP } })),
     ).toMatchObject({ _tag: 'Conflict' })

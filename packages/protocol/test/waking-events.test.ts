@@ -25,7 +25,7 @@ describe('which events may mean work waits for an agent', () => {
     expect(isWakingEvent(noteBy(ANA), ANA)).toBe(false)
   })
 
-  it('wakes for a debate room only when the person’s agent takes part in it', () => {
+  it('wakes for a flock only when the person’s agent takes part in it', () => {
     const room = (participantIds: MemberId[]) =>
       ({ type: 'debate.changed', debateId: DebateId.of('room00000000'), participantIds }) as EventBody
     expect(isWakingEvent(room([BEN, ANA]), ANA)).toBe(true)

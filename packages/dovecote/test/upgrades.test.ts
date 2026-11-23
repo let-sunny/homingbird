@@ -383,7 +383,7 @@ describe.each(UPGRADES)('Starting this Dovecote on a database %s left, on %s', (
   )
 
   it.skipIf(url === undefined)(
-    'lets the agents the release connected take turns in a new debate room, and still shows a closed one',
+    'lets the agents the release connected take turns in a new flock, and still shows a closed one',
     async () => {
       const ana = as(TOKEN.anaBrowser)
       const desks = [

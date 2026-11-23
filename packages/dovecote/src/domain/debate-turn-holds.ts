@@ -1,7 +1,7 @@
 import type { DebateId, TurnHold } from '@homingbird/protocol'
 
 /**
- * Places kept for agents whose turn a room refused, in memory like presence: a hold lost with a restart
+ * Places kept for agents whose turn a flock refused, in memory like presence: a hold lost with a restart
  * costs one retry. A hold that ran out stays known, so each agent gets one hold per turn of its own.
  */
 export interface TurnHolds {

@@ -19,9 +19,9 @@ beforeEach(async () => {
 
 afterEach(() => server?.close())
 
-const ANSWER = 'Frankfurt: the room found it the closest with the latency we need.'
+const ANSWER = 'Frankfurt: the flock found it the closest with the latency we need.'
 
-/** A suggestion Ana accepted, whose room closed with a result. */
+/** A suggestion Ana accepted, whose flock closed with a result. */
 const closedRoom = async () => {
   const suggestion = await suggestedByAna(server, cast)
   const room = await acceptedByAna(server, cast, suggestion.id)
@@ -29,8 +29,8 @@ const closedRoom = async () => {
   return { suggestion, room }
 }
 
-describe('drafting an answer from a suggested room', () => {
-  it('saves a draft that carries the room, waits for its person, and ends the ask', async () => {
+describe('drafting an answer from a suggested flock', () => {
+  it('saves a draft that carries the flock, waits for its person, and ends the ask', async () => {
     const { suggestion, room } = await closedRoom()
     const draft = await cast.anaAgent.api('POST', '/drafts', {
       inReplyTo: suggestion.inReplyTo,
@@ -52,7 +52,7 @@ describe('drafting an answer from a suggested room', () => {
     expect(again.status).toBe(409)
   })
 
-  it('rewrites the draft saved before the room, keeping the room on it', async () => {
+  it('rewrites the draft saved before the flock, keeping the flock on it', async () => {
     const question = await questionToAna(server, cast)
     const before = (
       await cast.anaAgent.api('POST', '/drafts', { inReplyTo: question.id, body: 'Frankfurt, probably.' })
@@ -82,7 +82,7 @@ describe('drafting an answer from a suggested room', () => {
     expect((await cast.anaAgent.api('GET', '/debate-asks')).json.answers).toEqual([])
   })
 
-  it('refuses a draft from a room that is still open, before anything is saved', async () => {
+  it('refuses a draft from a flock that is still open, before anything is saved', async () => {
     const suggestion = await suggestedByAna(server, cast)
     const room = await acceptedByAna(server, cast, suggestion.id)
     const early = await cast.anaAgent.api('POST', '/drafts', {
@@ -94,11 +94,11 @@ describe('drafting an answer from a suggested room', () => {
     expect((await storedRows(server, 'notes')).filter((note) => note.body === ANSWER)).toEqual([])
   })
 
-  it('refuses another agent, a person, another note, a room no suggestion opened, and a request as well', async () => {
+  it('refuses another agent, a person, another note, a flock no suggestion opened, and a request as well', async () => {
     const { suggestion, room } = await closedRoom()
     const other = await questionToAna(server, cast, 'And the backups?')
     const anotherOfAna = await connectAgent(server, cast.ana, { name: 'Ana phone' })
-    const plain = (await cast.ana.api('POST', '/debates', { question: 'Plain room?' })).json
+    const plain = (await cast.ana.api('POST', '/debates', { question: 'Plain flock?' })).json
     const attempts = [
       [cast.benAgent, { inReplyTo: suggestion.inReplyTo, debateId: room.id }, 403],
       [anotherOfAna, { inReplyTo: suggestion.inReplyTo, debateId: room.id }, 403],
@@ -121,7 +121,7 @@ describe('drafting an answer from a suggested room', () => {
     expect((await cast.anaAgent.api('GET', '/debate-asks')).json.answers).toHaveLength(1)
   })
 
-  it('answers 404 to a draft from a room while suggestions are off', async () => {
+  it('answers 404 to a draft from a flock while suggestions are off', async () => {
     const { suggestion, room } = await closedRoom()
     const settings = (await cast.ana.api('GET', '/admin/settings')).json
     await cast.ana.api('PUT', '/admin/settings', {

@@ -8,7 +8,7 @@ const ANA = MemberId.of('ana000000000')
 const BEN = MemberId.of('ben000000000')
 
 describe('the places kept for refused turns', () => {
-  it('keeps one hold per agent and room, the latest replacing the earlier', () => {
+  it('keeps one hold per agent and flock, the latest replacing the earlier', () => {
     const holds = makeTurnHolds(() => 0)
     expect(holds.of(ROOM)).toEqual([])
     holds.keep(ROOM, { memberId: ANA, turnsTaken: 0, until: 10 })
@@ -21,7 +21,7 @@ describe('the places kept for refused turns', () => {
     expect(holds.of(OTHER)).toEqual([])
   })
 
-  it('remembers a hold that ran out for an hour, so it is not given again, then forgets the room', () => {
+  it('remembers a hold that ran out for an hour, so it is not given again, then forgets the flock', () => {
     let now = 0
     const holds = makeTurnHolds(() => now)
     holds.keep(ROOM, { memberId: ANA, turnsTaken: 0, until: 100 })

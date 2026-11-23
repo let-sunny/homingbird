@@ -27,7 +27,7 @@ import {
 } from '../support/fixtures.ts'
 
 describe('tabsModel', () => {
-  it('marks the tab of the page shown, and offers Debates only where it is on', () => {
+  it('marks the tab of the page shown, and offers Flocks only where it is on', () => {
     const tabs = tabsModel({ name: 'conversation', id: ROOM, draft: null }, serverInfo())
     expect(tabs.map((tab) => tab.label)).toEqual([
       strings.navNotes,

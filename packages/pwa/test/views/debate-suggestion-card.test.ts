@@ -32,7 +32,7 @@ const shown = (fields: Parameters<typeof suggestion>[0] = {}) => {
 }
 
 describe('debateSuggestionCard', () => {
-  it('shows the agent’s reason, the question and the colleagues, and what the room is', () => {
+  it('shows the agent’s reason, the question and the colleagues, and what the flock is', () => {
     const { element } = shown()
     const text = textOf(element)
     expect(text).toContain('Desk would like to talk this over with Ben and Cy before answering.')
@@ -43,7 +43,7 @@ describe('debateSuggestionCard', () => {
     getByRole(element, 'button', { name: 'Remove Cy' })
   })
 
-  it('opens the room with the question and people as edited, and goes to the room', () => {
+  it('opens the flock with the question and people as edited, and goes to the flock', () => {
     const { element, called, page } = shown()
     fire.type(getByRole(element, 'textbox', { name: strings.debateSuggestion.questionLabel }), 'Ship Friday?')
     getByRole(element, 'button', { name: 'Remove Cy' }).click()
@@ -63,7 +63,7 @@ describe('debateSuggestionCard', () => {
     expect(called('acceptSuggestion')).toEqual([])
   })
 
-  it('answers alone without opening a room, and says so', () => {
+  it('answers alone without opening a flock, and says so', () => {
     const { element, called, context } = shown()
     getByRole(element, 'button', { name: strings.debateSuggestion.dismiss }).click()
     const [dismissed] = called('dismissSuggestion')
@@ -73,7 +73,7 @@ describe('debateSuggestionCard', () => {
     expect(called('acceptSuggestion')).toEqual([])
   })
 
-  it('names the agents that are not awake and links to a group note instead, keeping the room', () => {
+  it('names the agents that are not awake and links to a group note instead, keeping the flock', () => {
     const { element } = shown()
     const text = textOf(element)
     expect(text).toContain(strings.debateSuggestion.notAwake({ people: 'Ben and Cy' }))

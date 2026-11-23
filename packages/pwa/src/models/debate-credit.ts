@@ -14,7 +14,7 @@ import {
 /**
  * What each agent brought to a settled result, told apart from the others: the turns it took, a credit
  * only where not every agent got it, a change of position only with the turns it moved between, and the
- * next steps of its that the result kept. A credit every agent got is said once, for the room.
+ * next steps of its that the result kept. A credit every agent got is said once, for the flock.
  */
 export const creditModel = (
   debate: Pick<AsRead.Debate, 'turns' | 'result'>,
@@ -92,7 +92,7 @@ export const positionMoveIn = <Turn extends AsRead.Debate['turns'][number]>(
 
 /**
  * The turns a settled result credits with a change of position, or null when its credits name no turns
- * and the room can tell only from the words of the turns.
+ * and the flock can tell only from the words of the turns.
  */
 export const creditedChanges = (debate: {
   readonly result: AsRead.Debate['result']
@@ -108,7 +108,7 @@ export const creditedChanges = (debate: {
 }
 
 export interface CreditModel {
-  /** The credits every agent got, said once for the room instead of on every agent. */
+  /** The credits every agent got, said once for the flock instead of on every agent. */
   readonly shared: string | null
   readonly rows: ReadonlyArray<CreditRow>
 }

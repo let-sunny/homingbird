@@ -58,7 +58,7 @@ describe('taking turns', () => {
     ).toBe(400)
   })
 
-  it('refuses a person, an agent nobody opted in, and an agent that cannot see a private room', async () => {
+  it('refuses a person, an agent nobody opted in, and an agent that cannot see a private flock', async () => {
     const id = await openedRoom(cast)
     const secret = await openedRoom(cast, { visibility: 'private' })
     expect((await cast.ana.api('POST', `/debates/${id}/turns`, { body: 'Mine.' })).status).toBe(403)
@@ -86,14 +86,14 @@ describe('taking turns', () => {
     })
   })
 
-  it('refuses a turn written before the room moved on, saving nothing, and keeps the turn each agent read', async () => {
+  it('refuses a turn written before the flock moved on, saving nothing, and keeps the turn each agent read', async () => {
     const id = await openedRoom(cast)
     const readTo = (agent: Cast['anaAgent'], afterTurn: number) =>
       agent.api('POST', `/debates/${id}/turns`, { body: 'A point.', afterTurn })
     expect((await readTo(cast.anaAgent, 0)).status).toBe(200)
     const stale = await readTo(cast.benAgent, 0)
     expect(stale.status).toBe(409)
-    expect(stale.json.error.message).toMatch(/^The room moved on: turns 1 to 1 were taken after turn 0/)
+    expect(stale.json.error.message).toMatch(/^The flock moved on: turns 1 to 1 were taken after turn 0/)
     expect((await cast.ana.api('GET', `/debates/${id}`)).json.turns).toHaveLength(1)
     const room = (await readTo(cast.benAgent, 1)).json
     expect(room.turns.map((one: { afterTurn: number | null }) => one.afterTurn)).toEqual([0, 1])
@@ -110,13 +110,13 @@ describe('taking turns', () => {
     const long = await turn(cast.cyAgent, id, 'x'.repeat(LIMITS.turnCharacters + 21))
     expect(long.status).toBe(400)
     expect(long.json.error.message).toMatch(
-      /this one has 321, 21 over\. Your place in the room is kept until/,
+      /this one has 321, 21 over\. Your place in the flock is kept until/,
     )
     await server.clock.advance(TURN_HOLD_MS - 10_000)
     const kept = await turn(cast.anaAgent, id)
     expect(kept.status).toBe(409)
     expect(kept.json.error.message).toMatch(
-      new RegExp(`It is not your turn: the room asks ${cast.cy.me.member.id}’s agent`),
+      new RegExp(`It is not your turn: the flock asks ${cast.cy.me.member.id}’s agent`),
     )
     expect((await cast.anaAgent.api('GET', '/debate-asks')).json.upcoming).toHaveLength(1)
     expect((await turn(cast.cyAgent, id)).json.status).toBe('concluding')
@@ -228,7 +228,7 @@ describe('taking turns', () => {
     expect((await turn(cast.benAgent, id)).status).toBe(409)
   })
 
-  it('moves the other rooms on when one room fails in the per-minute pass', async () => {
+  it('moves the other flocks on when one flock fails in the per-minute pass', async () => {
     const broken = await openedRoom(cast)
     await turnsRunOut(cast, broken)
     await T.runPromise(
@@ -243,10 +243,10 @@ describe('taking turns', () => {
     const rows = await storedRows(server, 'debates')
     expect(rows.find((row) => row.id === healthy)?.status).toBe('concluding')
     expect(rows.find((row) => row.id === broken)?.status).toBe('concluding')
-    expect(server.logged.some((line) => line.includes(`debate room ${broken}`))).toBe(true)
+    expect(server.logged.some((line) => line.includes(`flock ${broken}`))).toBe(true)
   })
 
-  it('skips and logs a room that fails to settle in an agent’s asks, and still answers with the others', async () => {
+  it('skips and logs a flock that fails to settle in an agent’s asks, and still answers with the others', async () => {
     const [earlier, later] = [await openedRoom(cast), await openedRoom(cast)].sort()
     const broken = later!
     const healthy = earlier!
@@ -264,10 +264,10 @@ describe('taking turns', () => {
     expect(asks.json.upcoming.map((debate: { id: string }) => debate.id)).toContain(waiting)
     expect(asks.json.asks.map((ask: { debate: { id: string } }) => ask.debate.id)).toContain(healthy)
     expect((await storedRows(server, 'debates')).find((row) => row.id === healthy)?.status).toBe('concluding')
-    expect(server.logged.some((line) => line.includes(`debate room ${broken}`))).toBe(true)
+    expect(server.logged.some((line) => line.includes(`flock ${broken}`))).toBe(true)
   })
 
-  it('leaves a room’s updated_at alone when a read or a pass changes nothing', async () => {
+  it('leaves a flock’s updated_at alone when a read or a pass changes nothing', async () => {
     const id = await openedRoom(cast)
     await turn(cast.anaAgent, id)
     const before = (await storedRows(server, 'debates')).find((row) => row.id === id)?.updated_at
@@ -282,7 +282,7 @@ describe('taking turns', () => {
     )
   })
 
-  it('ends a room without a result when time runs out with fewer than two agents, or with no turn', async () => {
+  it('ends a flock without a result when time runs out with fewer than two agents, or with no turn', async () => {
     const lonely = (await cast.ana.api('POST', '/debates', { question: 'Alone?', limits: LIMITS })).json.id
     await cast.optIn(cast.ana, lonely, cast.anaAgent.id)
     const silent = await openedRoom(cast)
@@ -308,7 +308,7 @@ describe('taking turns', () => {
     expect(await storedRows(server, 'debate_credits')).toEqual([])
   })
 
-  it('records and announces a room’s stop once, however often it is asked to stop', async () => {
+  it('records and announces a flock’s stop once, however often it is asked to stop', async () => {
     const id = await openedRoom(cast)
     await turn(cast.anaAgent, id)
     const [row] = await storedRows(server, 'debates')
@@ -324,7 +324,7 @@ describe('taking turns', () => {
     expect((await cast.ana.api('GET', `/debates/${id}`)).json.status).toBe('concluding')
   })
 
-  it('leaves rooms as they are while debate rooms are switched off', async () => {
+  it('leaves flocks as they are while flocks are switched off', async () => {
     const id = await openedRoom(cast)
     const settings = (await cast.ana.api('GET', '/admin/settings')).json
     await cast.ana.api('PUT', '/admin/settings', { ...settings, features: { debateRooms: false } })
@@ -334,7 +334,7 @@ describe('taking turns', () => {
     expect([row!.id, row!.status]).toEqual([id, 'open'])
   })
 
-  it('ends a room that waited a day for its agents to draft a result, without one and without credits', async () => {
+  it('ends a flock that waited a day for its agents to draft a result, without one and without credits', async () => {
     const id = await openedRoom(cast)
     await turnsRunOut(cast, id)
     await server.clock.advance(RESULT_WINDOW_MS - 1)

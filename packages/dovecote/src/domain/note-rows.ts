@@ -98,7 +98,7 @@ export const hydrateNotes = (
 
 type DebateOrigin = NonNullable<Note['fromDebate']>
 
-/** The debate rooms some of these notes were posted from: their question and agents, by display name. */
+/** The flocks some of these notes were posted from: their question and agents, by display name. */
 const debatesBehind = (
   rows: ReadonlyArray<NoteRow>,
 ): T.Task<ReadonlyMap<DebateId, DebateOrigin>, never, AppEnv> =>

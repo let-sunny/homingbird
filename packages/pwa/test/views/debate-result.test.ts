@@ -7,7 +7,7 @@ import { usingFakeDom } from '../support/dom.ts'
 
 usingFakeDom()
 
-describe('the result of a room', () => {
+describe('the result of a flock', () => {
   it('shows a waiting result with its deadlines, and a settled one with who drafted it', () => {
     const waiting = resultSection({
       kind: 'waiting',

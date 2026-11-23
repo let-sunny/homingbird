@@ -12,7 +12,7 @@ import { strings } from '../strings.ts'
 import { schedulingStageOf } from './scheduling-room.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
-/** Debate rooms: loading, none yet, or the rooms that want something first, then the newest. */
+/** Flocks: loading, none yet, or the flocks that want something first, then the newest. */
 export const debateListModel = (input: DebateListInput): DebateListModel => {
   if (!input.loaded) return { kind: 'loading' }
   const shown = input.debates.filter((summary) => input.schedulingOn || summary.type !== 'scheduling')
@@ -92,7 +92,7 @@ export interface DebateListInput {
   readonly loaded: boolean
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
   readonly now: number
-  /** Whether scheduling rooms are on; when off, the list leaves them out. */
+  /** Whether scheduling flocks are on; when off, the list leaves them out. */
   readonly schedulingOn: boolean
 }
 
@@ -106,7 +106,7 @@ export interface DebateCard {
   readonly className: string
   readonly href: string
   readonly question: string
-  /** "Scheduling" for a scheduling room; null for a debate. */
+  /** "Scheduling" for a scheduling flock; null for a debate. */
   readonly kind: string | null
   readonly stage: string
   readonly isPrivate: boolean
@@ -114,7 +114,7 @@ export interface DebateCard {
   readonly time: TimeShown
 }
 
-/** Limits as a room shows them, or as a new room starts: without a total, which then follows the agents. */
+/** Limits as a flock shows them, or as a new flock starts: without a total, which then follows the agents. */
 export type ShownLimits = Readonly<Partial<Record<NumberLimit, number>>> & {
   readonly graceMinutes?: AsRead.Debate['limits']['graceMinutes']
   readonly totalFollowsAgents?: boolean

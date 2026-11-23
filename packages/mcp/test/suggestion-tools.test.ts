@@ -32,7 +32,7 @@ describe('the suggestion tool', () => {
     expect(SUGGESTION_TOOLS[0]!.description).toContain('plausibly know something your answer needs')
   })
 
-  it('saves a suggestion and says that no room is open and nothing was sent', async () => {
+  it('saves a suggestion and says that no flock is open and nothing was sent', async () => {
     const { text, calls } = await call(
       'suggest_debate',
       { ...SUGGESTION, draftId: DRAFT_ID },
@@ -40,10 +40,10 @@ describe('the suggestion tool', () => {
     )
     expect(calls.map((one) => one.name)).toEqual(['debateSuggestions.create'])
     expect(calls[0]!.request).toMatchObject({ body: { ...SUGGESTION, draftId: DRAFT_ID } })
-    expect(text).toContain('no room is open yet')
+    expect(text).toContain('no flock is open yet')
   })
 
-  it('refuses more people than a room holds, and a suggestion without a reason, before any call', async () => {
+  it('refuses more people than a flock holds, and a suggestion without a reason, before any call', async () => {
     const many = Array.from({ length: 8 }, (_, index) => `mem_${String(index).padStart(12, '0')}`)
     for (const input of [
       { ...SUGGESTION, memberIds: many },
@@ -57,7 +57,7 @@ describe('the suggestion tool', () => {
   })
 })
 
-describe('the answer a suggested room asks for', () => {
+describe('the answer a suggested flock asks for', () => {
   const answers = [
     {
       debateId: DEBATE_ID,
@@ -81,12 +81,12 @@ describe('the answer a suggested room asks for', () => {
       {},
       { 'debates.waiting': () => ({ asks: [], answers }) as never },
     )
-    expect(text).toContain('2 debate room(s) are waiting on you.')
+    expect(text).toContain('2 flock(s) are waiting on you.')
     expect(text).toContain(`"inReplyTo":"${NOTE_ID}"`)
     expect(text).toContain('call read_debate to read it')
     expect(text).toContain('draft_reply with the debateId')
     expect(text).toContain(`"draftId":"${DRAFT_ID}"`)
-    expect(text).toContain('The room ended without a result.')
+    expect(text).toContain('The flock ended without a result.')
     expect(text).not.toContain('"draftId":null')
   })
 
@@ -111,7 +111,7 @@ describe('the answer a suggested room asks for', () => {
     })
   })
 
-  it('shows a closed room’s result inside wrapNote in read_debate', async () => {
+  it('shows a closed flock’s result inside wrapNote in read_debate', async () => {
     const room = debateOf({
       status: 'closed',
       result: {
@@ -138,11 +138,11 @@ describe('the answer a suggested room asks for', () => {
     )
     expect(text).toContain(`id="${DEBATE_ID}/result"`)
     expect(text.replace(/<colleague-note [\s\S]*?\n<\/colleague-note>/g, '')).not.toContain('99zz')
-    expect(text).toContain(`This room asks for your answer to note ${NOTE_ID}, which you suggested it for.`)
+    expect(text).toContain(`This flock asks for your answer to note ${NOTE_ID}, which you suggested it for.`)
     expect(text).not.toContain('asks nothing of you')
   })
 
-  it('says in read_debate which waiting draft the answer replaces, and nothing is owed by another room', async () => {
+  it('says in read_debate which waiting draft the answer replaces, and nothing is owed by another flock', async () => {
     const read = (waiting: unknown) =>
       call(
         'read_debate',
@@ -176,7 +176,7 @@ describe('the answer a suggested room asks for', () => {
           }) as never,
       },
     )
-    expect(text).toContain('1 debate room(s) are waiting on you.')
+    expect(text).toContain('1 flock(s) are waiting on you.')
     expect(text).toContain(`your answer to note ${NOTE_ID}. ${ANSWER_ALONE_ADVICE}`)
     expect(text).not.toContain('debateId')
   })

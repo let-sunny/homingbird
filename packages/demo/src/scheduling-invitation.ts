@@ -14,9 +14,9 @@ import { changeRoom, roomById } from './debate-script.ts'
 import type { World } from './world.ts'
 
 /**
- * After a room settles, the agents do the rest as the desk does: the opener's agent sends one invitation,
+ * After a flock settles, the agents do the rest as the desk does: the opener's agent sends one invitation,
  * and a moment later each colleague's agent accepts it. A person without an agent, or who asked to click
- * first, is left to do their own part. Each step looks at the room again when it comes, so asking twice
+ * first, is left to do their own part. Each step looks at the flock again when it comes, so asking twice
  * does nothing twice.
  */
 export const agentsContinue = (world: World, debateId: string, adding: () => Adding): void => {
@@ -67,7 +67,7 @@ export const stepRoomAttendance = (
   return step.value
 }
 
-/** Everyone's part of a meeting the room just confirmed: the opener is asked for the invitation first. */
+/** Everyone's part of a meeting the flock just confirmed: the opener is asked for the invitation first. */
 export const confirmedAttendance = (
   debate: Debate,
   notInvited: ReadonlyArray<MemberId>,

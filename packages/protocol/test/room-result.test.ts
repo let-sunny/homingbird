@@ -7,7 +7,7 @@ import { MemberId } from '../src/ids.ts'
 import { RoomResult } from '../src/room-result.ts'
 import { ScheduleResult } from '../src/schedule-result.ts'
 
-describe('a room result', () => {
+describe('a flock result', () => {
   it('reads every debate result of before as it was', () => {
     fc.assert(
       fc.property(arbitrary(DebateResult), (result) => {

@@ -2,9 +2,9 @@ import { type ScheduleLimits, type TimeSpan, allowedStretches, hasNoLimits } fro
 import { locale, strings } from '../strings.ts'
 
 /**
- * The days and hours a room is limited to, read on the viewer's clock rather than the clock of whoever
+ * The days and hours a flock is limited to, read on the viewer's clock rather than the clock of whoever
  * opened it: the first allowed stretch of the window shows where the hours fall for the viewer, and the
- * days move with it. Null for a room with no limit.
+ * days move with it. Null for a flock with no limit.
  */
 export const limitsSummary = (
   schedule: ScheduleLimits & { readonly window: TimeSpan },

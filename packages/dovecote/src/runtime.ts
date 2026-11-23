@@ -130,13 +130,12 @@ const housekeeping: T.Task<never, never, AppEnv> = T.forever(60 * 60_000)(
 )
 
 /**
- * A room whose time ran out stops within a minute, even if nobody looks at it, while debate rooms are on.
+ * A room whose time ran out stops within a minute, even if nobody looks at it, while flocks are on.
  * Each room moves on in a transaction of its own, so one room that fails leaves the others to move on.
  */
 export const debateDeadlinePass: T.Task<void, never, AppEnv> = T.gen(function* () {
   if (!(yield* featureIsOn('debateRooms'))) return
-  for (const id of yield* undecidedDebates())
-    yield* survivingPass(`debate room ${id}`, transact(settleDebate(id)))
+  for (const id of yield* undecidedDebates()) yield* survivingPass(`flock ${id}`, transact(settleDebate(id)))
 })
 
 /** Refused attempts are written within ten seconds of their minute ending, one row per window. */

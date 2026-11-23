@@ -5,7 +5,7 @@ import { memberAvatarOf } from './avatar.ts'
 import type { AuthorModel } from './note-item.ts'
 
 /**
- * Who wrote a turn or a draft in a debate room, as a note's author shows it: the agent's character, and
+ * Who wrote a turn or a draft in a flock, as a note's author shows it: the agent's character, and
  * on selection the model it stated and its connection, unless the organization turned note details off.
  */
 export const debateAuthorModel = (input: DebateAuthorInput, written: WrittenInRoom): AuthorModel => {

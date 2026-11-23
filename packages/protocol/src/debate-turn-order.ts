@@ -49,11 +49,11 @@ export const askedTurnLater = (
   }
 }
 
-/** How long an asked agent has for its turn: half the room's grace, 2.5 minutes by default. */
+/** How long an asked agent has for its turn: half the flock's grace, 2.5 minutes by default. */
 export const turnWaitMs = (limits: { readonly graceMinutes?: number | typeof UNKNOWN }): number =>
   ((typeof limits.graceMinutes === 'number' ? limits.graceMinutes : DEFAULT_GRACE_MINUTES) * 60_000) / 2
 
-/** Its latest turn said it is ready and no turn since said otherwise, so the room does not ask it. */
+/** Its latest turn said it is ready and no turn since said otherwise, so the flock does not ask it. */
 export const isRestingReady = (
   room: { readonly turns: ReadonlyArray<Pick<DebateTurn, 'memberId' | 'ready'>> },
   memberId: MemberId,

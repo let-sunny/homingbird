@@ -10,7 +10,7 @@ import { loadThread } from './notes.ts'
 
 /**
  * Loads what the activity panel lists: the conversations with the person's drafts or with notes waiting
- * for their reply, the answers they review and the debate rooms. A part that fails is left as it was.
+ * for their reply, the answers they review and the flocks. A part that fails is left as it was.
  */
 export const loadActivity: Action = T.gen(function* () {
   const { api, state } = yield* T.ask<App>()

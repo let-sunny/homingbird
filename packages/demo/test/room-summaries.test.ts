@@ -5,14 +5,14 @@ import { VISITOR_ID } from '../src/team.ts'
 import { createWorld } from '../src/world.ts'
 import { NOW, demoApi } from './support/demo.ts'
 
-describe('room kind fields', () => {
+describe('flock kind fields', () => {
   const [open] = demoApi(VISITOR_ID, createWorld(makeTestClock(NOW))).world.records().debates
 
-  it('adds nothing for a plain debate room', () => {
+  it('adds nothing for a plain flock', () => {
     expect(roomKindFields(open!, VISITOR_ID)).toEqual({})
   })
 
-  it('says a room came from a suggestion', () => {
+  it('says a flock came from a suggestion', () => {
     expect(roomKindFields({ ...open!, fromSuggestion: true }, VISITOR_ID)).toEqual({ fromSuggestion: true })
   })
 

@@ -10,7 +10,7 @@ import { field } from './parts.ts'
 import { peoplePicker } from './people-picker.ts'
 
 /**
- * The form that opens a scheduling room: a title, the people who should come, each required unless marked
+ * The form that opens a scheduling flock: a title, the people who should come, each required unless marked
  * optional, how long the meeting is, and the days a time is looked for.
  */
 export const schedulingForm = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {

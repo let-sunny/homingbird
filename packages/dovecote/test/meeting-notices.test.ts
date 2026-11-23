@@ -23,7 +23,7 @@ const hours = (from: number, length: number) => ({
   endsAt: start + (from + length) * HOUR,
 })
 
-/** Ana opens a room asking Ben, required, and Cy, optional; Ana and Ben choose their times themselves. */
+/** Ana opens a flock asking Ben, required, and Cy, optional; Ana and Ben choose their times themselves. */
 const confirmed = async () => {
   const opened = await cast.ana.api('POST', '/scheduling-rooms', {
     title: 'Plan the launch',
@@ -46,7 +46,7 @@ const mineIn = async (as: Session, id: string) =>
   )?.mine
 
 describe('a meeting’s notices', () => {
-  it('are kept for the person they are for and listed with their own part of the room, newest first', async () => {
+  it('are kept for the person they are for and listed with their own part of the flock, newest first', async () => {
     const id = await confirmed()
     await cast.ana.api('POST', `/debates/${id}/attendance`)
     await server.clock.advance(60_000)
@@ -99,7 +99,7 @@ describe('a meeting’s notices', () => {
     })
   })
 
-  it('give a person in a debate room, and anyone not asked, no part of it', async () => {
+  it('give a person in a flock, and anyone not asked, no part of it', async () => {
     const debate = (await cast.ana.api('POST', '/debates', { question: 'Ship it?' })).json
     expect(await mineIn(cast.ana, debate.id)).toBeUndefined()
     const id = await confirmed()

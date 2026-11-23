@@ -36,8 +36,8 @@ const opened = (room: ReturnType<typeof ended>, schedulingRooms = true) => {
   return { ...kit, shown: mount(debateView(kit.context, lifetime(), me(), ID, null)) }
 }
 
-describe('the card to open a scheduling room again', () => {
-  it('opens a new room in the same window, then shows it', () => {
+describe('the card to open a scheduling flock again', () => {
+  it('opens a new flock in the same window, then shows it', () => {
     const { shown, called, page } = opened(ended())
     getByRole(shown, 'button', { name: strings.scheduling.retryAgain }).click()
     const [retry] = called('retrySchedulingRoom')
@@ -52,12 +52,12 @@ describe('the card to open a scheduling room again', () => {
     expect(called('retrySchedulingRoom')[0]!.args).toEqual([ID, { startsAt: NOW, endsAt: NOW + 9 * DAY }])
   })
 
-  it('is not shown to someone who did not open the room', () => {
+  it('is not shown to someone who did not open the flock', () => {
     const { shown } = opened(ended(BEN))
     expect(shown.querySelector('.scheduling-retry')).toBeNull()
   })
 
-  it('is not shown when scheduling rooms are off', () => {
+  it('is not shown when scheduling flocks are off', () => {
     const { shown } = opened(ended(), false)
     expect(shown.querySelector('.scheduling-retry')).toBeNull()
   })

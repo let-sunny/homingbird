@@ -99,7 +99,7 @@ export const noConclusionFields = {
 
 export const UNKNOWN_RESULT = { kind: UNKNOWN } as const
 
-/** The one result of a room: a conclusion when the agents agreed, else where and why they did not. */
+/** The one result of a flock: a conclusion when the agents agreed, else where and why they did not. */
 export const DebateResult = S.openVariants(
   'kind',
   { conclusion: conclusionFields, no_conclusion: noConclusionFields },

@@ -18,7 +18,7 @@ describe('scheduling tasks', () => {
     ])
   })
 
-  it('opens a room again, in the same window or the one given, and reloads the list', async () => {
+  it('opens a flock again, in the same window or the one given, and reloads the list', async () => {
     const { run, sent } = testApp({
       'scheduling.retry': () => debate(),
       'debates.list': () => ({ debates: [] }),

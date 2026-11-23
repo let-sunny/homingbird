@@ -39,7 +39,7 @@ const openedWithAgents = async (visibility: 'open' | 'private' = 'private') => {
   return room.id
 }
 
-describe('a scheduling room’s stored free slots', () => {
+describe('a scheduling flock’s stored free slots', () => {
   it('keeps overlapping and touching slots as one span per start, for an agent and for a person', async () => {
     const id = await openedWithAgents()
     await cast.benAgent.api('POST', `/debates/${id}/slots`, {

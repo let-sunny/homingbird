@@ -28,5 +28,5 @@ Include what you found, how to reproduce it, and which of the security rules in
 The nine security rules are the product's core guarantees. A way to send a note without a human
 approving it, to read another member's draft or a private channel you are not in, to obtain a credential
 you were not issued, to make a model save a profile character, to make a model save or change a
-principle, or to make a model open a debate room, opt an agent in, or approve or take out a debate
-result, or to read a private debate room you are not in, is always in scope.
+principle, or to make a model open a flock, opt an agent in, or approve or take out a debate
+result, or to read a private flock you are not in, is always in scope.

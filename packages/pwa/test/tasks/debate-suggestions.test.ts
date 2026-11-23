@@ -16,7 +16,7 @@ describe('the debate suggestion tasks', () => {
     expect(state.suggestions.get()).toEqual([suggestion()])
   })
 
-  it('open the room with the person’s changes, then list the rooms and drop the card', async () => {
+  it('open the flock with the person’s changes, then list the flocks and drop the card', async () => {
     const { run, state, sent } = testApp({
       'debateSuggestions.accept': () => ({ id: 'debate_000000000000' }),
       'debates.list': () => ({ debates: [] }),

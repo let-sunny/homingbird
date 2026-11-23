@@ -36,7 +36,7 @@ export const takeTurn = (
       return yield* T.fail(Forbidden({ message: 'Turns are taken by agents; a person opts their agent in.' }))
     const participant = yield* participantByAgent(id, caller.credential.id)
     if (participant === null)
-      return yield* T.fail(Forbidden({ message: 'Your person has not opted this agent in for this room.' }))
+      return yield* T.fail(Forbidden({ message: 'Your person has not opted this agent in for this flock.' }))
     const row = yield* lockedDebate(id)
     const event = {
       type: 'turn' as const,
@@ -62,7 +62,7 @@ export interface TurnWish {
   readonly ready?: boolean | undefined
 }
 
-/** The rooms to move on, by id, each in a transaction of its own: all, or those an agent was opted in for. */
+/** The flocks to move on, by id, each in a transaction of its own: all, or those an agent was opted in for. */
 export const undecidedDebates = (
   credentialId: CredentialId | null = null,
 ): T.Task<ReadonlyArray<DebateId>, never, AppEnv> =>
@@ -75,6 +75,6 @@ export const undecidedDebates = (
     ),
   )
 
-/** Locks the room and moves it on: a result it can settle comes before the day-long limit. */
+/** Locks the flock and moves it on: a result it can settle comes before the day-long limit. */
 export const settleDebate = (id: DebateId): T.Task<void, never, RequestEnv> =>
   T.flatMap(settleDebateRow)(lockedDebate(id))

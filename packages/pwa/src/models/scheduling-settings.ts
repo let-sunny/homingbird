@@ -10,7 +10,7 @@ import { strings } from '../strings.ts'
 import { zoneShown } from './schedule-result.ts'
 
 /**
- * "Your agent and meetings" in Settings: whether the agent joins scheduling rooms and adds settled
+ * "Your agent and meetings" in Settings: whether the agent joins scheduling flocks and adds settled
  * meetings for the person, which agent does it, and the limits that narrow it. It starts on with no
  * limit, so the first thing shown is that it is on and how to change it.
  */

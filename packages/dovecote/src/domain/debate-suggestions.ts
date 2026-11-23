@@ -29,7 +29,7 @@ import { featureIsOn } from './settings.ts'
 
 /**
  * Keeps an agent's suggestion to talk a received note over with colleagues' agents before it answers, as a
- * card for its person. It opens no room, invites nobody and tells no colleague: only `acceptSuggestion`,
+ * card for its person. It opens no flock, invites nobody and tells no colleague: only `acceptSuggestion`,
  * the person's click in the web client, opens one (rule 9).
  */
 export const suggestDebate = (
@@ -41,7 +41,7 @@ export const suggestDebate = (
     yield* requireDebateRooms
     if (isHuman(caller)) return yield* T.fail(Forbidden({ message: PEOPLE_OPEN_ROOMS }))
     if (caller.member.kind !== 'person')
-      return yield* T.fail(Forbidden({ message: 'A channel’s agent suggests no debate rooms.' }))
+      return yield* T.fail(Forbidden({ message: 'A channel’s agent suggests no flocks.' }))
     const memberId = caller.member.id
     const question = input.question.trim()
     const reason = input.reason.trim()
@@ -127,8 +127,8 @@ export const waitingSuggestions = (caller: Caller): T.Task<DebateSuggestion[], N
   })
 
 /**
- * Opens a short private room from the suggestion, with the person's edits, and opts in the agent that
- * suggested it, by the same path and checks as a room they open themself. Colleagues' agents join only
+ * Opens a short private flock from the suggestion, with the person's edits, and opts in the agent that
+ * suggested it, by the same path and checks as a flock they open themself. Colleagues' agents join only
  * when their own people opt them in. Only a person's own sign-in may: the route is `human`, and this
  * checks again.
  */
@@ -148,7 +148,7 @@ export const acceptSuggestion = (
       (memberId) => memberId !== caller.member.id,
     )
     if (memberIds.length === 0)
-      return yield* T.fail(Invalid({ message: 'Ask at least one colleague to the room.' }))
+      return yield* T.fail(Invalid({ message: 'Ask at least one colleague to the flock.' }))
     const asker = yield* first(
       sql`SELECT 1 AS present FROM notes WHERE id = ${suggestion.in_reply_to} AND author_id IN ${list(memberIds)}`,
     )
@@ -156,7 +156,7 @@ export const acceptSuggestion = (
       return yield* T.fail(
         Invalid({
           message:
-            'Leave out the person who asked the note: they would read the room before you approve its answer.',
+            'Leave out the person who asked the note: they would read the flock before you approve its answer.',
         }),
       )
     const opened = yield* createDebate(caller, {
@@ -174,7 +174,7 @@ export const acceptSuggestion = (
     return debate
   })
 
-/** The person answers without a room: the suggestion goes, and a draft its agent wrote stays on its card. */
+/** The person answers without a flock: the suggestion goes, and a draft its agent wrote stays on its card. */
 export const dismissSuggestion = (
   caller: Caller,
   id: string,
@@ -191,8 +191,8 @@ export const dismissSuggestion = (
   })
 
 /**
- * The rooms this agent's suggestions opened that ended in the last day and that it has not answered from,
- * then its suggestions its person turned down in the last day, with no room, while their person has no
+ * The flocks this agent's suggestions opened that ended in the last day and that it has not answered from,
+ * then its suggestions its person turned down in the last day, with no flock, while their person has no
  * reply to the note: only the credential that suggested is asked, never another of its person's agents.
  * Null while suggestions are off, so that the ask is left out.
  */
@@ -240,7 +240,7 @@ export const roomAnswerAsks = (caller: Caller): T.Task<DebateAnswerAsk[] | null,
   })
 
 /**
- * The suggestion whose room a draft answers from: the calling agent suggested it, the room has ended, no
+ * The suggestion whose flock a draft answers from: the calling agent suggested it, the flock has ended, no
  * draft answered from it yet, and the draft replies to the note it was about.
  */
 export const requireRoomToAnswer = (
@@ -253,7 +253,7 @@ export const requireRoomToAnswer = (
       return yield* T.fail(NotFound({ message: FEATURE_OFF_MESSAGE }))
     if (isHuman(caller))
       return yield* T.fail(
-        Forbidden({ message: 'Only the agent whose suggestion opened a room drafts its answer from it.' }),
+        Forbidden({ message: 'Only the agent whose suggestion opened a flock drafts its answer from it.' }),
       )
     const row = yield* first<{
       id: SuggestionId
@@ -265,18 +265,20 @@ export const requireRoomToAnswer = (
       SELECT s.id, s.credential_id, s.in_reply_to, s.answered_at, d.status FROM debate_suggestions s
       JOIN debates d ON d.id = s.debate_id WHERE s.debate_id = ${debateId}`)
     if (row === null)
-      return yield* T.fail(Invalid({ message: 'debateId must name a room your suggestion opened.' }))
+      return yield* T.fail(Invalid({ message: 'debateId must name a flock your suggestion opened.' }))
     if (row.credential_id !== caller.credential.id)
       return yield* T.fail(
-        Forbidden({ message: 'Only the agent whose suggestion opened this room drafts its answer from it.' }),
+        Forbidden({
+          message: 'Only the agent whose suggestion opened this flock drafts its answer from it.',
+        }),
       )
     if (row.status !== 'closed' && row.status !== 'ended')
-      return yield* T.fail(Conflict({ message: 'This room has not ended yet; answer once it has.' }))
+      return yield* T.fail(Conflict({ message: 'This flock has not ended yet; answer once it has.' }))
     if (row.answered_at !== null)
-      return yield* T.fail(Conflict({ message: 'A draft already answers from this room.' }))
+      return yield* T.fail(Conflict({ message: 'A draft already answers from this flock.' }))
     if (inReplyTo !== row.in_reply_to)
       return yield* T.fail(
-        Invalid({ message: 'A draft from this room replies to the note its suggestion was about.' }),
+        Invalid({ message: 'A draft from this flock replies to the note its suggestion was about.' }),
       )
     return row.id
   })
@@ -287,9 +289,9 @@ export const markRoomAnswered = (id: SuggestionId): T.Task<void, never, RequestE
     yield* run(sql`UPDATE debate_suggestions SET answered_at = ${env.clock.now()} WHERE id = ${id}`)
   })
 
-const PEOPLE_OPEN_ROOMS = 'A person opens a debate room in the web client; an agent only suggests one.'
+const PEOPLE_OPEN_ROOMS = 'A person opens a flock in the web client; an agent only suggests one.'
 const ASKER_LEFT_OUT =
-  'Leave out the person who asked the note: they would read the room before your human approves its answer.'
+  'Leave out the person who asked the note: they would read the flock before your human approves its answer.'
 const SUGGESTIONS_FULL = `Your human has ${SUGGESTIONS_PER_PERSON} suggestions waiting. Answer alone, or ask them to decide some in the web client first.`
 
 const requireDebateRooms: T.Task<void, NotFound, RequestEnv> = T.flatMap((on: boolean) =>
@@ -299,7 +301,7 @@ const requireDebateRooms: T.Task<void, NotFound, RequestEnv> = T.flatMap((on: bo
 const requirePerson = (caller: Caller): T.Task<void, Forbidden> =>
   isHuman(caller)
     ? T.unit
-    : T.fail(Forbidden({ message: 'Only a person can open a suggested room or answer without one.' }))
+    : T.fail(Forbidden({ message: 'Only a person can open a suggested flock or answer without one.' }))
 
 const receivedNote = (
   memberId: MemberId,

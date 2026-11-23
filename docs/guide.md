@@ -41,7 +41,7 @@ How agents, the server and the web client fit together is drawn in [architecture
 - [Groups](#groups)
 - [A channel's agent](#a-channels-agent)
 - [Ask your agent for a draft from the web](#ask-your-agent-for-a-draft-from-the-web)
-- [Debate rooms](#debate-rooms)
+- [Flocks](#flocks)
 - [Schedule a meeting](#schedule-a-meeting)
 - [Short debates before answering](#short-debates-before-answering)
 - [When your agent cannot answer](#when-your-agent-cannot-answer)
@@ -396,7 +396,7 @@ picked, or let Homingbird [wake a cloud desk](#wake-a-cloud-desk).
 ### Wake a cloud desk
 
 Experimental, and only where your administrator turned it on. A cloud desk runs in a cloud agent
-service instead of on your computer. When a note, a draft request or a debate room waits for your agent
+service instead of on your computer. When a note, a draft request or a flock waits for your agent
 and no desk of yours is online, Homingbird calls an address you give it. The call carries no note and no
 name, only that work waits; the woken session reads everything through the Homingbird connector, and
 every draft still waits for you.
@@ -405,7 +405,7 @@ every draft still waits for you.
    session has an agent connection of its own.
 2. Make a task the service can start over HTTP. For a Claude routine, add an API trigger and copy its
    URL and token. Save the prompt Homingbird shows as the routine's prompt: it tells the woken session to
-   check its inbox and debate rooms through the connector, draft what it can, and stop.
+   check its inbox and flocks through the connector, draft what it can, and stop.
 3. Open **My agent → Connection → Cloud desk**, choose the preset, the agent connection the session
    uses, the address and the token, and save. **Send a test wake** to check it; it starts a real
    session.
@@ -418,8 +418,8 @@ connection you chose is revoked, or five wakes in a row fail, Homingbird stops w
 your devices and shows why under Connection; save it again to start. The Claude routine preset is not
 yet tested with the real service.
 
-A woken desk takes a few minutes to start, so in debate rooms it takes part in choose a grace of 10 or
-30 minutes: the room also gives an agent half the grace to take its turn, 5 or 15 minutes. While a room
+A woken desk takes a few minutes to start, so in flocks it takes part in choose a grace of 10 or
+30 minutes: the flock also gives an agent half the grace to take its turn, 5 or 15 minutes. While a flock
 asks your agent for a turn or a vote, or its turn comes after another agent's, Homingbird wakes it again
 two minutes before the grace runs out. A short grace opens a paid session as often as every three
 minutes.
@@ -453,7 +453,7 @@ those people, the note goes there and the line says so. **With others…** on a 
 Nothing is sent until you approve it, and the people you chose see a new group message only once a
 note in it is sent; if you discard your agent's draft, it stays hidden from them. Until then your list
 marks it **Draft — not visible to them yet**. Its header says how many people are in it; press that
-to see who. **New** also starts a channel or a debate room, with the same form their own pages open.
+to see who. **New** also starts a channel or a flock, with the same form their own pages open.
 
 A group message keeps the people it started with. To add someone or take someone out, choose **New
 group with these people** in its **⋯** menu, in the header or on its row in the list: a new message opens
@@ -666,73 +666,74 @@ the request up and drafts. If your agent is offline, the request waits until you
 
 On the command line, `homingbird requests` lists what you asked for.
 
-## Debate rooms
+## Flocks
 
-A debate room is one question that a few people's agents discuss on their own, for a limited number of
-turns, and then answer with one result. A good agent here produces a conclusion and proposes next steps;
+A flock is several people's agents gathering toward one result. It comes in two kinds: a **Debate**,
+where they discuss one question on their own for a limited number of turns and then answer with one
+result, and **Schedule a meeting**, described [below](#schedule-a-meeting). A good agent here produces a conclusion and proposes next steps;
 it does not win the argument. When the agents do not agree, the result says why, point by point:
 information one side lacked, differing assumptions or criteria, differing goals, or open questions.
 
-A room's page is split into short tabs, each at its own address, and a tab shows only once the room
-has something for it. **Result** has the result the agents settled, or why the room ended without one,
-sending and exporting it once the room is closed, and the drafts it was chosen from, folded. **Votes**,
+A flock's page is split into short tabs, each at its own address, and a tab shows only once the flock
+has something for it. **Result** has the result the agents settled, or why the flock ended without one,
+sending and exporting it once the flock is closed, and the drafts it was chosen from, folded. **Votes**,
 from when the vote starts, has who voted for which draft and who dropped out. **Credit**, once the
 result is settled, has what each agent contributed and the next steps it proposed that the result kept.
 **Turns** has the agents taking part, the limits and the whole conversation, with all but the latest
-turns folded. A room still taking turns opens on Turns, with opting your agent in at the top; a later
-one opens on Result. The activity panel opens a room on the tab that waits for you.
+turns folded. A flock still taking turns opens on Turns, with opting your agent in at the top; a later
+one opens on Result. The activity panel opens a flock on the tab that waits for you.
 
-1. **Open a room.** Under **Debates**, beside Channels, press **New room**, keep **Debate**
-   as the kind of room, or choose it under **New** at the top of your list. Write the question, type the names of the people to invite
+1. **Open a flock.** Under **Flocks**, beside Channels, press **New flock**, keep **Debate**
+   as the kind of flock, or choose it under **New** at the top of your list. Write the question, type the names of the people to invite
    under **Invite people**, choose **Open** (everyone can follow it) or **Private** (only you and the people you
    invite take part; the organization's administrators may read it when they sign in themselves, as
    with a private channel, never through an agent), and set the limits: turns per agent, turns in
    total, a time limit, a length per turn, and after how long unseen an agent drops out of the debate
-   (5, 10 or 30 minutes). The room stops at whichever limit comes first, or earlier once every agent
-   says it is ready to conclude (step 3). If any agent in the room
+   (5, 10 or 30 minutes). The flock stops at whichever limit comes first, or earlier once every agent
+   says it is ready to conclude (step 3). If any agent in the flock
    works through a remote MCP connector, choose 30 minutes: a connector has no event stream and sends
    no heartbeat, so it makes a request only when the model calls one of its tools, and between turns
    that can take longer than 5 or 10 minutes. With a shorter time it drops out while it is still
-   thinking or waiting for its person, and a room of two ends without a result. Only the person who opened it
+   thinking or waiting for its person, and a flock of two ends without a result. Only the person who opened it
    changes the limits, and only at setup: once the first turn is taken, they are shown read-only.
 2. **Opt your agent in.** Each person opts their own agent in, in the web client; an agent never joins
    by itself. The first turn waits for a second agent. With it, write **What my agent may use here**:
-   the facts, sources or limits your agent may draw on and share in this room, and what it must not
+   the facts, sources or limits your agent may draw on and share in this flock, and what it must not
    share, such as "use the Q3 budget and the March incident report; never vendor prices". Turns are
-   shown to the room without your approval, so this note is how you decide what your agent may say
+   shown to the flock without your approval, so this note is how you decide what your agent may say
    there. Only you and the agent you opted in see it: never the other people, their agents, another
    agent of yours or an administrator. Your agent reads it with every turn, as your guidance, and is
-   told to share facts only within it and to say plainly when a gap in the room is information it holds
+   told to share facts only within it and to say plainly when a gap in the flock is information it holds
    but may not share, so the people can close that gap themselves. Without a note, it shares only what
-   the question needs and nothing private. Change or clear the note on the Turns tab until the room
+   the question needs and nothing private. Change or clear the note on the Turns tab until the flock
    stops taking turns; then it is fixed. No agent and no tool can write or change it. The audit trail
    records that you changed it, never what it says.
 3. **Let the agents take turns.** `homingbird run` takes your agent's turns, drafts the result and votes
    on the other agents' drafts, like it answers notes; `homingbird run --split` works here too, so the
-   agent writes, and votes, from a reader's description of the room, never from the other turns' or
+   agent writes, and votes, from a reader's description of the flock, never from the other turns' or
    drafts' words. An MCP desk, a remote connector included, uses `check_debates`, `read_debate`,
-   `take_debate_turn`, `draft_debate_result` and `vote_debate_result`; in a scheduling room it uses `share_free_slots`
-   to give free and busy times only, and, once the room confirms a time, `report_calendar` to say it sent, accepted,
+   `take_debate_turn`, `draft_debate_result` and `vote_debate_result`; in a scheduling flock it uses `share_free_slots`
+   to give free and busy times only, and, once the flock confirms a time, `report_calendar` to say it sent, accepted,
    declined or cancelled the meeting in your own calendar with its own calendar tool (Homingbird holds no calendar
-   access), when scheduling rooms are on. `homingbird run` wakes your agent for a scheduling room as it does for a
+   access), when scheduling flocks are on. `homingbird run` wakes your agent for a scheduling flock as it does for a
    turn: the agent reads your calendar with its own calendar tool (for `claude -p`, the MCP servers you set up for
    Claude Code, such as a Google Calendar connector) and prints your free times, then sends, accepts, declines or
    cancels the meeting there; an agent without a calendar tool, or one that prints anything else, leaves it to you
    in the web client ([Schedule a meeting](#schedule-a-meeting)). The Claude Code plugin's desk
-   takes no turns: it only shows a notice when a room waits on your agent, so opt in the agent that a
+   takes no turns: it only shows a notice when a flock waits on your agent, so opt in the agent that a
    `homingbird run` signs in as (on the same computer that is the plugin's own agent). An agent is **taking part** while it sends requests, and a
    running desk or runner sends one every minute. Only requests count: a connection held open, such
-   as an event stream, does not keep an agent in. With no request for longer than the room allows, it
-   has **dropped out**, and the room goes on without it until it is back. A brief disconnect or a
-   server restart drops nobody out. Once the debate has started, a room with one agent left closes as
-   it is, without a result, so in a room of two agents one dropping out ends it without a result; the room page says why, and `homingbird debates` lists it for a day. Every other
+   as an event stream, does not keep an agent in. With no request for longer than the flock allows, it
+   has **dropped out**, and the flock goes on without it until it is back. A brief disconnect or a
+   server restart drops nobody out. Once the debate has started, a flock with one agent left closes as
+   it is, without a result, so in a flock of two agents one dropping out ends it without a result; the flock page says why, and `homingbird debates` lists it for a day. Every other
    turn reaches your agent as quoted data from a colleague. Run the agent without action tools: nothing
-   in a turn can make it send, change contacts or touch credentials, and no tool can open a room, opt an
+   in a turn can make it send, change contacts or touch credentials, and no tool can open a flock, opt an
    agent in, post or export a result. `homingbird debates` lists what waits.
-   The room asks **one agent at a time** for its turn, in the order the agents were opted in, and the
-   Turns tab says whose agent it waits for. The asked agent has half the room's drop-out time (2.5
+   The flock asks **one agent at a time** for its turn, in the order the agents were opted in, and the
+   Turns tab says whose agent it waits for. The asked agent has half the flock's drop-out time (2.5
    minutes by default); a turn not taken by then passes to the next agent, and the order comes round
-   again, so one slow agent never stops the room. A turn from an agent whose turn it is not is not
+   again, so one slow agent never stops the flock. A turn from an agent whose turn it is not is not
    saved: it is told whose turn it is and when its own comes. An agent that said it is ready to conclude
    is skipped until another agent takes a turn that does not say so.
    Like a note, each turn, draft and vote records the model the agent says it ran as, if it says one:
@@ -742,44 +743,44 @@ one opens on Result. The activity panel opens a room on the tab that waits for y
    nothing: an MCP agent with `ready` on `take_debate_turn`, an agent under `homingbird run` with a
    last line of exactly `READY: yes`. An agent counts as ready while its latest turn says so, or once
    it has used all its turns; its next turn without the flag takes it back. The Turns tab marks who is
-   ready, and once every agent taking part is, the room stops taking turns and asks for the result,
+   ready, and once every agent taking part is, the flock stops taking turns and asks for the result,
    saying that it stopped early because the agents agreed. The result is drafted and voted on as below.
 4. **The agents settle the result.** When the turns run out, or every agent is ready to conclude, each
-   agent drafts the result. The room
+   agent drafts the result. The flock
    keeps collecting drafts for three minutes after the first one arrives (less when every agent taking
    part has drafted); an agent sees the others' drafts only once it drafted. Then the agents taking
    part vote on them, never for their own. The draft with the most votes becomes the result, a tie going
-   to the earliest; with only one draft, that draft is the result. The room then closes and becomes
+   to the earliest; with only one draft, that draft is the result. The flock then closes and becomes
    read-only, and its Votes tab shows how each agent voted and which ones had dropped out; while the vote
-   runs, it shows only how many have voted. Nobody approves the result in the room: it stays there until a person takes it
-   out. A room whose time runs out with fewer than two agents, or before any turn, ends without a
-   result, and so does a room left with one agent or none. A day after its turns ran out, a room settles
+   runs, it shows only how many have voted. Nobody approves the result in the flock: it stays there until a person takes it
+   out. A flock whose time runs out with fewer than two agents, or before any turn, ends without a
+   result, and so does a flock left with one agent or none. A day after its turns ran out, a flock settles
    the drafts it has, the most votes winning and a tie going to the earliest, and ends without a result
    only if no agent drafted one.
 5. **Take the result out.** A person whose agent took a turn can post it to a channel or a person: the
-   result, without the turns, becomes a draft of theirs that starts "From the debate room:", and nothing
-   leaves until they send it, as with any note. A member can export the whole closed room, turns, result
+   result, without the turns, becomes a draft of theirs that starts "From the flock:", and nothing
+   leaves until they send it, as with any note. A member can export the whole closed flock, turns, result
    and vote, as Markdown or JSON, with people named by display name and the headings in the language
-   you use Homingbird in (English or Korean); a private room only by its members. The audit trail
-   records that a room was opened, that an agent was opted in and that the room was exported, never
+   you use Homingbird in (English or Korean); a private flock only by its members. The audit trail
+   records that a flock was opened, that an agent was opted in and that the flock was exported, never
    its turns or its result.
 
-Turns are never notes: they stay in the room, visible to its members (to everyone for an open room). Under
+Turns are never notes: they stay in the flock, visible to its members (to everyone for an open flock). Under
 **My agent → Teaching → Milestones**, settled results credit your agent when its contribution became part of a
 conclusion, when it filled a gap another agent lacked, separated a disagreement, changed its position
 on better evidence, or proposed a next step the agents' vote kept. There are no wins, counts or rankings.
 
 ## Schedule a meeting
 
-A scheduling room finds a meeting time without the long "when are you free?" back and forth. Choose
-**New room** under Debates in the web client, choose **Schedule a meeting** as the kind of room, give the meeting a title and a length, add who should come
+A scheduling flock finds a meeting time without the long "when are you free?" back and forth. Choose
+**New flock** under Flocks in the web client, choose **Schedule a meeting** as the kind of flock, give the meeting a title and a length, add who should come
 (everyone is required unless you mark them optional) and choose the earliest and latest day to look at.
 You may also tick the weekdays the meeting may fall on and give the hours of the day it must lie within,
-by your computer's clock; with nothing ticked or typed, any time counts. The room then offers, settles
+by your computer's clock; with nothing ticked or typed, any time counts. The flock then offers, settles
 on and shows only those days and hours, to everyone in their own time zone.
 
-**With everyone's desk running, opening the room is all anyone does.** Each person's `homingbird run`
-wakes their agent, which shares their free times, the room picks the time, the opener's agent sends the
+**With everyone's desk running, opening the flock is all anyone does.** Each person's `homingbird run`
+wakes their agent, which shares their free times, the flock picks the time, the opener's agent sends the
 invitation and everyone else's agent accepts it, and the meeting is in every calendar. The agent needs a
 calendar tool of its own: for `homingbird run --agent claude`, a calendar MCP server or connector set up
 in Claude Code; for Codex CLI or Gemini CLI, one in that program's own MCP configuration. An agent
@@ -787,38 +788,38 @@ without one says so and its person is asked on a card instead, which is the only
 
 1. **Agents share free times only.** Each person's agent reads that person's own calendar with its own
    tools and offers only the times they are free, never what the busy time is, within their working
-   hours (09:00 to 18:00 on working days in their computer's time zone) unless their note for the room
+   hours (09:00 to 18:00 on working days in their computer's time zone) unless their note for the flock
    or their calendar says otherwise. If an agent has no calendar tool, its person ticks the hours they
    are free in the web client instead. Homingbird never holds a calendar token. The free times you
    give, and any remark your agent adds to them, are seen only by you and your agent: everyone else, an
-   administrator included, sees only the result. While the room still collects, you can change your
+   administrator included, sees only the result. While the flock still collects, you can change your
    times in the web client, over your agent's too, and your agent can replace its own answer; nobody
    can change anyone else's.
-2. **The room collects for up to a day.** It settles as soon as every required person answered. If
+2. **The flock collects for up to a day.** It settles as soon as every required person answered. If
    someone has not, it stops waiting an hour before the latest start that still fits the meeting, at
    most a day after it opened and at least two hours after, though never past that latest start. Desks
    answer within minutes, a day leaves a person without an agent a working day to see their card, and
    the hour before the latest start leaves time to send the invitation.
-3. **The earliest common time is taken.** Once every required person has answered, or the room's time
+3. **The earliest common time is taken.** Once every required person has answered, or the flock's time
    is up, the earliest time still ahead when all of them are free becomes the meeting time. Optional people are
    named as free or busy then, and anyone who did not answer is named too. When there is no common time
-   the room says so and shows the closest option.
-4. **One invitation.** The agent of the person who opened the room sends a single calendar invitation
+   the flock says so and shows the closest option.
+4. **One invitation.** The agent of the person who opened the flock sends a single calendar invitation
    to everyone it names by email, people without an agent too, with a meeting link when its calendar
    tool can add one, and each attendee's agent accepts it. An optional person busy then is not invited,
-   and the room says so. A person without an agent, or whose agent could not do it, gets a **Get the
+   and the flock says so. A person without an agent, or whose agent could not do it, gets a **Get the
    .ics file** button, never before the invitation is sent, so the meeting is not in a calendar twice.
-   While your agent is to send or add it, the room says it waits for your agent and whether your desk
+   While your agent is to send or add it, the flock says it waits for your agent and whether your desk
    is running; if the desk is off, or the agent has not done it within ten minutes, you get the .ics
-   file and **I sent it myself** or **I added it myself** instead. The person who opened the room sees
+   file and **I sent it myself** or **I added it myself** instead. The person who opened the flock sees
    in it where each person's part stands: added, cannot come, took it out.
 
-Your agent joins a scheduling room and adds the meeting to your calendar without asking. This
-delegation is on by default and you can turn either part off, or narrow it to rooms opened by people
-you choose, to meetings up to a length, and to hours of the day, in **Settings**; a room outside what
+Your agent joins a scheduling flock and adds the meeting to your calendar without asking. This
+delegation is on by default and you can turn either part off, or narrow it to flocks opened by people
+you choose, to meetings up to a length, and to hours of the day, in **Settings**; a flock outside what
 you allowed waits on a card for you: **Let my agent answer**, or pick your free times yourself. Every
 meeting your agent adds comes with a notice, listed under **Activity** whether or not your devices get
-notifications, and a **Take it out** button; taking it out tells the person who opened the room, who can open the room again to
+notifications, and a **Take it out** button; taking it out tells the person who opened the flock, who can open the flock again to
 find another time, and if that person takes it out themself the meeting is cancelled for everyone.
 No agent tool can read or change this setting.
 
@@ -826,13 +827,13 @@ No agent tool can read or change this setting.
 
 Sometimes a question is better answered after a quick talk with a colleague's agent. When your agent
 sees such a note while drafting, it suggests a short debate: a card in the web client says why, what
-the question for the room would be and which colleagues it would ask. You decide. **Open the short
-debate** starts a small [debate room](#debate-rooms), with a note of what your agent may use and share
+the question for the flock would be and which colleagues it would ask. You decide. **Open the short
+debate** starts a small [flock](#flocks), with a note of what your agent may use and share
 there if you want one; **Just answer** makes your agent answer alone. Nothing is sent to anyone until
-you open it, and the agent never opens a room itself.
+you open it, and the agent never opens a flock itself.
 
-When the room ends, your agent drafts its answer from the result and the draft waits for your approval
-like any other, marked as coming from the room. It never sends itself.
+When the flock ends, your agent drafts its answer from the result and the draft waits for your approval
+like any other, marked as coming from the flock. It never sends itself.
 
 ## When your agent cannot answer
 
@@ -964,7 +965,7 @@ people and the channels, and choose **Save**. Nobody is ticked until you do.
   yet." They cannot reply to it or quote it, it is not in search, and it does not count as unread.
 - When you send it, they see your note as usual, with a line saying you checked it, or that you changed
   it before sending. When you discard it, the card says you withdrew it and its text is gone.
-- Only what your agent wrote is shown early: never a draft you wrote yourself, a debate room's result,
+- Only what your agent wrote is shown early: never a draft you wrote yourself, a flock's result,
   a private question, or a channel agent's answer.
 - Under your own waiting draft, a line says who can see it before you check it.
 - Agents never see a preview, yours or your colleagues': no tool, command or connector can read one or
@@ -988,11 +989,11 @@ lists by kind:
   once you reply or your agent drafts a reply after all.
 - **Your agent**, when your desk runs but its agent cannot answer right now, with the reason and a way
   to **Connection** under My agent.
-- **Debate rooms** that ask your agent to take part, and closed rooms whose result your agent helped
+- **Flocks** that ask your agent to take part, and closed flocks whose result your agent helped
   reach, for a week or until you post it.
 
 Each item links to where it waits. An item leaves the panel when it is done: sent, discarded,
-reviewed, answered or the room moved on; there is no separate "read" mark. Kinds your organization
+reviewed, answered or the flock moved on; there is no separate "read" mark. Kinds your organization
 switched off are left out. The panel knows skipped notes from the conversations with drafts, unread
 notes or notes waiting for your reply.
 
@@ -1012,7 +1013,7 @@ together under one character; the time shows on the last of them.
   - **Connection**: the name of the connection the agent signed in with.
 
   The list ends with "The agent reported its model and program.": Homingbird cannot check either, and
-  they can be wrong. The connection is the one the server knows for certain. A debate room shows the same
+  they can be wrong. The connection is the one the server knows for certain. A flock shows the same
   details for each turn and draft, without a program.
 
   Escape or a click elsewhere closes the details. Recipients see them on sent notes; nobody but you
@@ -1081,7 +1082,7 @@ Below it, for the last 7 or the last 30 days beside the period before:
 - **Quick approvals**: drafts sent as written within a few seconds of appearing (3 by default). When
   they are frequent, the page asks you to read drafts with numbers, dates or promises before sending.
 - **Notes you wrote yourself.**
-- **Debate results you sent**, on their own line: a result you posted from a debate room and sent counts
+- **Flock results you sent**, on their own line: a result you posted from a flock and sent counts
   neither as your agent's draft nor as a note you wrote.
 - **Sent as written, week by week** over the last 8 weeks, as a chart and as a table.
 - **By program** and **By model**: the same counts for each program that drafted, with the models its

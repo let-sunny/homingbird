@@ -29,7 +29,7 @@ export const stepAttendance = (
   return Result.ok(event.type === 'remove' ? followed(step, cancelled(step.attendance)) : step)
 }
 
-/** The meeting as the room confirmed it: the opener is asked for its one invitation; a busy optional person is left out. */
+/** The meeting as the flock confirmed it: the opener is asked for its one invitation; a busy optional person is left out. */
 export const confirmAttendance = (
   openedBy: MemberId,
   memberIds: ReadonlyArray<MemberId>,
@@ -277,14 +277,14 @@ const refusalOf = (role: Role, state: AttendanceState, event: AttendanceEvent): 
     case 'report':
       return REPORTED[role][event.outcome] === undefined
         ? role === 'opener'
-          ? `The agent of whoever opened the room sends and cancels the invitation; it does not report ${event.outcome}.`
-          : `Only the agent of whoever opened the room reports the invitation ${event.outcome}.`
+          ? `The agent of whoever opened the flock sends and cancels the invitation; it does not report ${event.outcome}.`
+          : `Only the agent of whoever opened the flock reports the invitation ${event.outcome}.`
         : `Nothing waits for this agent to report ${event.outcome}: its person’s part of the meeting is ${state}.`
     case 'add':
       return `There is nothing for this person to add now: their part of the meeting is ${state}.`
     case 'decline':
       return role === 'opener'
-        ? 'Whoever opened the room takes the meeting out instead, which cancels it.'
+        ? 'Whoever opened the flock takes the meeting out instead, which cancels it.'
         : `This person can no longer say they cannot come: their part of the meeting is ${state}.`
     case 'remove':
       return `There is nothing for this person to take out: their part of the meeting is ${state}.`

@@ -32,7 +32,7 @@ describe('resultModel', () => {
     })
   })
 
-  it('names no drafter for a result the room computed itself', () => {
+  it('names no drafter for a result the flock computed itself', () => {
     const settled = resultModel(
       debate({
         status: 'closed',
@@ -48,7 +48,7 @@ describe('resultModel', () => {
     })
   })
 
-  it('says what the room waits for in each phase, and nothing about the turns once it is closed', () => {
+  it('says what the flock waits for in each phase, and nothing about the turns once it is closed', () => {
     const textIn = (stage: 'awaiting-result' | 'voting' | 'closed', fields: Parameters<typeof debate>[0]) =>
       resultModel(debate(fields), stage, someone)
     expect(textIn('awaiting-result', { status: 'concluding', draftsCloseAt: 3 })).toMatchObject({
@@ -191,7 +191,7 @@ describe('resultBody', () => {
 })
 
 describe('resultBody citing turns', () => {
-  it('passes every text the agents wrote through the room’s citation of turns', () => {
+  it('passes every text the agents wrote through the flock’s citation of turns', () => {
     const cite = (text: string) => [{ kind: 'turn' as const, text, href: `#${text}` }]
     const body = resultBody(
       {

@@ -23,7 +23,7 @@ beforeEach(async () => {
 
 afterEach(() => server?.close())
 
-describe('a room as it is shown', () => {
+describe('a flock as it is shown', () => {
   it('leaves out the model each agent stated while the organization keeps note details off', async () => {
     const hidden = await startTestServer({ HB_FEATURES: 'noteDetails=off' })
     const hiddenCast = await castOf(hidden)
@@ -73,7 +73,7 @@ describe('a room as it is shown', () => {
     ).toBe(false)
   })
 
-  it('shows which agents take part, from their requests within the room’s grace', async () => {
+  it('shows which agents take part, from their requests within the flock’s grace', async () => {
     const id = await openedRoom(cast)
     const takingPart = async () =>
       (await cast.cy.api('GET', `/debates/${id}`)).json.participants.map(
@@ -151,7 +151,7 @@ describe('a room as it is shown', () => {
     ).toBe(false)
   })
 
-  it('applies the grace the room chose at setup, 5, 10 or 30 minutes', async () => {
+  it('applies the grace the flock chose at setup, 5, 10 or 30 minutes', async () => {
     const id = await openedRoom(cast, { limits: { ...LIMITS, minutes: 60, graceMinutes: 30 } })
     expect((await cast.cy.api('GET', `/debates/${id}`)).json.limits.graceMinutes).toBe(30)
     cast.sleep('ben')
@@ -214,7 +214,7 @@ describe('a room as it is shown', () => {
     expect(ben.takingPart).toBe(true)
   })
 
-  it('tells everyone when an open room opens or ends, and only its members about each change in between', async () => {
+  it('tells everyone when an open flock opens or ends, and only its members about each change in between', async () => {
     const watching = new AbortController()
     const seen: string[] = []
     void (async () => {

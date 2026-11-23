@@ -37,7 +37,7 @@ export const RoomScheduleDetails = S.struct({
   ),
   /** The invitation once sent, to the people invited and their agents only. */
   invite: S.optional(S.nullable(MeetingInvite)),
-  /** The free times each attendee gave, to the people who see the room; to an agent, its own person's only. */
+  /** The free times each attendee gave, to the people who see the flock; to an agent, its own person's only. */
   freeSlots: S.optional(
     S.array(
       S.struct({
@@ -52,7 +52,7 @@ export type RoomScheduleDetails = S.Infer<typeof RoomScheduleDetails>
 
 export const SCHEDULE_WINDOW_MAX_DAYS = 14
 
-/** What a person opens a scheduling room with; they are always a required attendee themself. */
+/** What a person opens a scheduling flock with; they are always a required attendee themself. */
 export const ScheduleSetup = S.struct({
   title: DebateQuestion,
   minutes: S.int({ min: 15, max: 480 }),
@@ -118,7 +118,7 @@ export const DebateParticipant = S.struct({
 })
 export type DebateParticipant = S.Infer<typeof DebateParticipant>
 
-/** A turn is room content: shown to the room's members, never delivered as a note. */
+/** A turn is flock content: shown to the flock's members, never delivered as a note. */
 export const DebateTurn = S.struct({
   position: S.int({ min: 1 }),
   memberId: MemberId,
@@ -144,7 +144,7 @@ export type DebateConclusion = S.Infer<typeof DebateConclusion>
 
 export type DebateEndingDetail = Extract<DebateEnding, 'one_agent_left' | 'no_agent_left'>
 
-/** Shown once the room closed: who voted for whose draft, and who had dropped out. */
+/** Shown once the flock closed: who voted for whose draft, and who had dropped out. */
 export const DebateVoteRecord = S.struct({
   votes: S.array(
     S.struct({ voterId: MemberId, draftBy: MemberId, agentModel: S.optional(S.nullable(AgentLabel)) }),
@@ -154,7 +154,7 @@ export const DebateVoteRecord = S.struct({
 })
 export type DebateVoteRecord = S.Infer<typeof DebateVoteRecord>
 
-/** The one agent the room asks for a turn now, until when, and the agents it asks after it, in order. */
+/** The one agent the flock asks for a turn now, until when, and the agents it asks after it, in order. */
 export const DebateAskedTurn = S.struct({
   memberId: MemberId,
   until: Timestamp,

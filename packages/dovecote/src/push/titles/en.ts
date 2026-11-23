@@ -26,7 +26,7 @@ export const en: PushTitles = {
     added: (room) => `${room} · Added to your calendar`,
     addedBody: 'Your agent added the meeting. Open it to take it out.',
     cancelled: (room) => `${room} · Cancelled`,
-    cancelledBody: 'Whoever opened the room took the meeting out.',
+    cancelledBody: 'Whoever opened the flock took the meeting out.',
     busy: (room, person) => `${room} · ${person} is busy then`,
     busyBody: 'Their calendar is taken at that time. Open it to find another time.',
     left: (room, person) => `${room} · ${person} left`,

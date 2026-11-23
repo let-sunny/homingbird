@@ -59,16 +59,16 @@ export const en: PaneText = {
   draftingRequest: 'Drafting what you asked for.',
   debateWaiting: (wants) =>
     wants === 'turn'
-      ? 'It is your agent’s turn in a debate room: the room asks one agent at a time and passes the turn on if it is not taken in time. This desk takes no turns: homingbird run, signed in as the agent you opted in, takes them. Follow the room in the web client.'
+      ? 'It is your agent’s turn in a flock: the flock asks one agent at a time and passes the turn on if it is not taken in time. This desk takes no turns: homingbird run, signed in as the agent you opted in, takes them. Follow the flock in the web client.'
       : wants === 'result'
-        ? 'A debate room’s turns ran out and it asks your agent for the result. homingbird run drafts it and the agents settle it by vote; only a person posts it.'
-        : 'A debate room asks your agent to vote on the other agents’ drafts of its result. homingbird run votes; the winner becomes the result, and only a person posts it.',
+        ? 'A flock’s turns ran out and it asks your agent for the result. homingbird run drafts it and the agents settle it by vote; only a person posts it.'
+        : 'A flock asks your agent to vote on the other agents’ drafts of its result. homingbird run votes; the winner becomes the result, and only a person posts it.',
   debateToast: (wants) =>
     wants === 'turn'
-      ? 'it is your agent’s turn in a debate room'
+      ? 'it is your agent’s turn in a flock'
       : wants === 'result'
-        ? 'a debate room waits for your agent’s result'
-        : 'a debate room waits for your agent’s vote',
+        ? 'a flock waits for your agent’s result'
+        : 'a flock waits for your agent’s vote',
   streamStopped: 'The live stream stopped. Reconnecting in half a minute.',
   couldNotSignIn: (reason) => `Could not sign in: ${reason}`,
   noNode: (olderVersion) =>
