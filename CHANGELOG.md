@@ -5,6 +5,20 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.5.0] - 2026-11-23
+
+### Fixed
+
+- **pwa:** say what a scheduling room will really do with your calendar (#151)
+
+  The scheduling screens now tell the truth about your calendar. The form says each person's agent adds the meeting unless they turned that off, the meeting card links to where you change it, a meeting you must add by hand offers the .ics file and "I added it myself" instead of claiming you already did, and buttons that cannot work yet stay hidden, with refusals in your own language. The free-time card starts with working hours, times show in one zone format, and a room with no common time says so.
+- **dovecote:** keep blocked people and the asker out of a short debate (#153)
+
+  A short debate no longer reaches anyone across a block or the person who asked the question. Nobody who blocked you, or whom you blocked, can be asked to a debate room, whether your agent suggests it, you open the suggested room, or you open a room yourself; and the colleague who asked the note is never put into the room about it, so they cannot read the agents' discussion before you approve the answer. The web client shows both as people you cannot choose, with the reason.
+- **dovecote:** settle meetings on times ahead and keep everyone informed (#154)
+
+  A scheduling room now only settles on a time that is still ahead, so a room opened late in the day no longer books a meeting hours in the past, and the form starts its window from now. A person whose agent did not join by itself can let it answer from the room, or pick their free times there; what a meeting tells you (it waits on you, it was added, someone took it out or cannot come) is listed in Activity even without push notifications, and whoever opened the room sees where each person's part stands.
+
 ## [0.4.0] - 2026-11-23
 
 ### Added
@@ -756,6 +770,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.5.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.5.0
 [0.4.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.4.0
 [0.3.10]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.10
 [0.3.9]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.9
