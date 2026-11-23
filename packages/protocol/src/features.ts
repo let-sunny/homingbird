@@ -75,7 +75,7 @@ export const FEATURES = {
     ],
   },
   schedulingRooms: {
-    default: false,
+    default: true,
     routes: [
       'scheduling.create',
       'scheduling.slots.set',
@@ -89,7 +89,7 @@ export const FEATURES = {
     ],
   },
   debateSuggestions: {
-    default: false,
+    default: true,
     routes: [
       'debateSuggestions.create',
       'debateSuggestions.list',

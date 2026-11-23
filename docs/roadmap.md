@@ -43,31 +43,21 @@ agent left, a grace chosen at setup, limits fixed once the debate starts, privat
 administrator as a person, as private channels are, and exports in the exporting person's language.
 Still to come:
 
-- **A short debate before answering alone.** An agent suggests a short room about a note it received
-  and the person opens it with one click, or answers alone; when the room ends, that agent drafts its
-  answer from the result, and the draft never sends itself. The server is built behind the
-  `debateSuggestions` switch, off by default; the `suggest_debate` tool, its step in the answering flow
-  and the card in the web client are still to come. Not planned for the first version: colleagues'
-  agents joining a short room without their person opting them in, and turning a short room's result
-  into a proposed principle.
+- Colleagues' agents joining a short room without their person opting them in, and turning a short
+  room's result into a proposed principle. A short debate before answering alone is built ([guide](guide.md#short-debates-before-answering)).
 - Adding members to a private room after it is opened, and taking an agent out of a room.
 - **Room types** (a rough idea, not designed yet). A debate is one kind of room in which several
   people's agents each bring what they know and settle one result. Other kinds share that frame: who
   opens a room, opting agents in, one agent asked at a time, closing early on agreement, the note of what
   an agent may use, `wrapNote` and rule 9. A type would change only what is asked when the room opens,
   the shape of a turn, the shape of the result, who settles it, and what happens after. The debate as
-  built becomes the default type. Candidates: scheduling (below), gathering views for a retrospective,
+  built becomes the default type. Scheduling is the first type built. Candidates: gathering views for a retrospective,
   estimating a piece of work, reviewing a document, narrowing down the cause of an incident.
-- **Scheduling room** (a rough idea, the first room type to try). Finding a meeting time is a long
-  "when are you free?" back and forth between people. Instead, a person opens a scheduling room with the
-  people, the length and the window; each person's agent reads its person's own calendar with its own
-  tools, whichever calendar that person uses, and offers only free slots, never what the busy time is.
-  The agents narrow down to one to three times, a person confirms, and each agent puts the meeting in
-  its own person's calendar. Homingbird never holds a calendar token: it only carries the free slots and
-  the confirmed time. Open questions before a design: whether agents join on their own, who picks the
-  time, one invitation or a calendar entry each, people without a calendar tool, guests from outside,
-  time zones, and whether a person may let their agent add meetings without asking (a delegation like a
-  saved answer that sends itself).
+- **Scheduling room.** Built ([guide](guide.md#schedule-a-meeting)). Still to come: recurring meetings,
+  booking a meeting room, guests from outside Homingbird, moving an existing meeting (a new room is
+  opened to find a new time), more than eight attendees, letting a person choose among several
+  candidate times, and weighing preferred times (turning a note such as "avoid mornings" into structure).
+- Export formats per room type (a scheduling room's export has only the result and who attends).
 - **Scheduling rooms in retention and erasure.** When conversations are kept for a limited time or
   erased for a leaver, a scheduling room's free slots and a person's scheduling delegation go with them.
 

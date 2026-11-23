@@ -73,6 +73,7 @@ describe('drafting the result', () => {
     expect(room.drafts[0].votes).toBe(0)
     expect((await cast.anaAgent.api('PUT', `/debates/${id}/result`, resultFor(cast))).status).toBe(409)
     expect((await cast.anaAgent.api('GET', '/debate-asks')).json).toEqual({
+      answers: [],
       asks: [],
       upcoming: [],
       ballots: [],

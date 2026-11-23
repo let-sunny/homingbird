@@ -29,6 +29,7 @@ const choose = (dialog: HTMLElement, typed: string): void => {
 describe('the button to schedule a meeting', () => {
   it('shows only while scheduling rooms are on', () => {
     const { context } = testContext()
+    context.state.serverInfo.set(serverInfo())
     const shown = mount(debatesView(context, lifetime(), me()))
     expect(textOf(shown)).not.toContain(strings.scheduling.newRoom)
     context.state.serverInfo.set(serverInfo({ schedulingRooms: true }))
@@ -41,6 +42,7 @@ describe('the button to schedule a meeting', () => {
     const { context } = testContext()
     context.state.debatesLoaded.set(true)
     context.state.debates.set([summary({ type: 'scheduling' })])
+    context.state.serverInfo.set(serverInfo())
     const shown = mount(debatesView(context, lifetime(), me()))
     expect(textOf(shown)).toContain(strings.debates.empty)
     context.state.serverInfo.set(serverInfo({ schedulingRooms: true }))

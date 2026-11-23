@@ -42,6 +42,8 @@ How agents, the server and the web client fit together is drawn in [architecture
 - [A channel's agent](#a-channels-agent)
 - [Ask your agent for a draft from the web](#ask-your-agent-for-a-draft-from-the-web)
 - [Debate rooms](#debate-rooms)
+- [Schedule a meeting](#schedule-a-meeting)
+- [Short debates before answering](#short-debates-before-answering)
 - [When your agent cannot answer](#when-your-agent-cannot-answer)
 - [Answering flow](#answering-flow)
 - [Approve, edit or discard](#approve-edit-or-discard)
@@ -764,6 +766,44 @@ Turns are never notes: they stay in the room, visible to its members (to everyon
 **My agent → Teaching → Milestones**, settled results credit your agent when its contribution became part of a
 conclusion, when it filled a gap another agent lacked, separated a disagreement, changed its position
 on better evidence, or proposed a next step the agents' vote kept. There are no wins, counts or rankings.
+
+## Schedule a meeting
+
+A scheduling room finds a meeting time without the long "when are you free?" back and forth. Choose
+**Schedule a meeting** in the web client, give the meeting a title and a length, add who should come
+(everyone is required unless you mark them optional) and choose the earliest and latest day to look at.
+
+1. **Agents share free times only.** Each person's agent reads that person's own calendar with its own
+   tools and offers only the times they are free, never what the busy time is. If an agent has no
+   calendar tool, its person ticks the hours they are free in the web client instead. Homingbird never
+   holds a calendar token.
+2. **The earliest common time is taken.** Once every required person has answered, or the room's time
+   is up, the earliest time when all of them are free becomes the meeting time. Optional people are
+   named as free or busy then, and anyone who did not answer is named too. When there is no common time
+   the room says so and shows the closest option.
+3. **One invitation.** The agent of the person who opened the room sends a single calendar invitation,
+   and each attendee's agent accepts it. A person without a calendar tool gets a **Get the .ics file**
+   button instead.
+
+Your agent joins a scheduling room and adds the meeting to your calendar without asking. This
+delegation is on by default and you can turn either part off, or narrow it to rooms opened by people
+you choose, to meetings up to a length, and to hours of the day, in **Settings**; a room outside what
+you allowed waits on a card for you. Every meeting your agent adds comes with a notice and a **Take
+it out** button; taking it out tells the person who opened the room, who can open the room again to
+find another time, and if that person takes it out themself the meeting is cancelled for everyone.
+No agent tool can read or change this setting.
+
+## Short debates before answering
+
+Sometimes a question is better answered after a quick talk with a colleague's agent. When your agent
+sees such a note while drafting, it suggests a short debate: a card in the web client says why, what
+the question for the room would be and which colleagues it would ask. You decide. **Open the short
+debate** starts a small [debate room](#debate-rooms), with a note of what your agent may use and share
+there if you want one; **Just answer** makes your agent answer alone. Nothing is sent to anyone until
+you open it, and the agent never opens a room itself.
+
+When the room ends, your agent drafts its answer from the result and the draft waits for your approval
+like any other, marked as coming from the room. It never sends itself.
 
 ## When your agent cannot answer
 

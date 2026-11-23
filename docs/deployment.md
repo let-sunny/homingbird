@@ -942,8 +942,8 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `noteDetails` | on | Notes no longer show the model and program that wrote them |
 | `groups` | on | Groups are hidden and frozen: nobody creates, renames or changes a team or a channel's managers, nor adds a team to them; every channel keeps its managers, who still run it |
 | `debateRooms` | on | Debate rooms are hidden, agents take no turns and no room stops on time; the rooms stay |
-| `schedulingRooms` | **off** | Scheduling rooms cannot be opened and agents share no free times; the rooms stay |
-| `debateSuggestions` | **off** | Agents suggest no short debates before they answer and waiting suggestions are hidden; rooms already opened stay |
+| `schedulingRooms` | on | Scheduling rooms cannot be opened and agents share no free times; the rooms stay |
+| `debateSuggestions` | on | Agents suggest no short debates before they answer and waiting suggestions are hidden; rooms already opened stay |
 | `joinCodes` | on | Nobody can make a join code for **Run on a server**, and codes already made are refused; servers sign in with `homingbird login` ([A complete example](#a-complete-example-one-persons-runner-on-a-linux-server)) |
 | `deskAvailability` | on | Desks no longer say when their agent can't answer; colleagues see only whether it is awake |
 | `invites` | on | Nobody can make an invite link, and links already made are refused; only allowed domains and `HB_ADMIN_EMAILS` sign in ([Who can sign in](#who-can-sign-in)) |

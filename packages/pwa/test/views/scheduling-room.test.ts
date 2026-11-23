@@ -97,6 +97,7 @@ describe('debateView for a scheduling room', () => {
 
   it('hides a scheduling room while the feature is off, and a room of a type it does not know', () => {
     const { context } = testContext()
+    context.state.serverInfo.set(serverInfo())
     context.state.shownDebate.set(meeting())
     const shown = mount(debateView(context, lifetime(), me(), 'debate_000000000000', null))
     expect(textOf(shown)).toContain(strings.scheduling.off)
