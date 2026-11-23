@@ -9,6 +9,7 @@ import * as channelTeaching from './tasks/channel-teaching.ts'
 import * as channels from './tasks/channels.ts'
 import * as cloudDesk from './tasks/cloud-desk.ts'
 import * as conversationActions from './tasks/conversation-actions.ts'
+import * as debateSuggestions from './tasks/debate-suggestions.ts'
 import * as debates from './tasks/debates.ts'
 import * as drafts from './tasks/drafts.ts'
 import * as earlierAnswers from './tasks/earlier-answers.ts'
@@ -45,6 +46,9 @@ export const TASKS = {
   loadConversations: () => workspace.loadConversations,
   loadActivity: () => activity.loadActivity,
   loadDraftThreads: () => activity.loadDraftThreads,
+  loadSuggestions: () => debateSuggestions.loadSuggestions,
+  acceptSuggestion: debateSuggestions.acceptSuggestion,
+  dismissSuggestion: debateSuggestions.dismissSuggestion,
   loadPeople: () => workspace.loadPeople,
   loadKnownChannels: () => workspace.loadKnownChannels,
   openThread: notes.openThread,

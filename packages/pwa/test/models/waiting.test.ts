@@ -24,6 +24,7 @@ import {
   me,
   member,
   note,
+  suggestion,
   summary,
 } from '../support/fixtures.ts'
 
@@ -50,6 +51,7 @@ const input = (fields: Partial<ActivityInput> = {}): ActivityInput => ({
   reviews: [],
   reviewsRead: new Map(),
   debates: [],
+  suggestions: [],
   taught: null,
   agentReport: null,
   serverInfo: everything(),
@@ -95,6 +97,7 @@ const busy = (): ActivityInput => {
     ]),
     reviews: [review],
     debates: [summary({ createdAt: 30, participantIds: [BEN] })],
+    suggestions: [suggestion()],
   })
 }
 
@@ -103,7 +106,7 @@ describe('waitingOf', () => {
     const activity = activityModel(busy())
     const waiting = waitingOf(activity)
     expect(waiting.approvals).toBe(4)
-    expect(waiting.others).toBe(1)
+    expect(waiting.others).toBe(2)
     expect(waiting.approvals + waiting.others).toBe(activity.count)
     expect([...waiting.conversationIds].sort()).toEqual([CHANNEL_ROOM, ROOM, OTHER_ROOM].sort())
   })

@@ -10,6 +10,7 @@ import type {
   ServerInfo as ServerInfoSchema,
 } from './contract-schemas.ts'
 import type { DebateResult as DebateResultSchema } from './debate-result.ts'
+import type { DebateSuggestion as DebateSuggestionSchema } from './debate-suggestions.ts'
 import type {
   DebateAsk as DebateAskSchema,
   DebateExport as DebateExportSchema,
@@ -94,6 +95,7 @@ export type KnownEvent = StreamEvent & { readonly body: Exclude<EventBody, { rea
 export type Debate = S.Read<typeof DebateSchema>
 export type DebateStatus = S.Read<typeof DebateStatusSchema>
 export type DebateSummary = S.Read<typeof DebateSummarySchema>
+export type DebateSuggestion = S.Read<typeof DebateSuggestionSchema>
 export type DebateAsk = S.Read<typeof DebateAskSchema>
 export type MeetingAsk = S.Read<typeof MeetingAskSchema>
 export type DebateResult = S.Read<typeof DebateResultSchema>

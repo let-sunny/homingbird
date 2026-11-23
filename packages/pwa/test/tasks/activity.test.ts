@@ -3,7 +3,17 @@ import { Forbidden } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import * as tasks from '../../src/tasks/activity.ts'
 import { fail, testApp } from '../support/app.ts'
-import { BEN, ROOM, conversation, draft, everything, member, note, serverInfo } from '../support/fixtures.ts'
+import {
+  BEN,
+  ROOM,
+  conversation,
+  draft,
+  everything,
+  member,
+  note,
+  serverInfo,
+  suggestion,
+} from '../support/fixtures.ts'
 
 const AWAITS = 'conv_awaits000000' as ConversationId
 
@@ -29,6 +39,7 @@ const handlers = {
   }),
   'reviews.list': () => ({ reviews: [] }),
   'debates.list': () => ({ debates: [] }),
+  'debateSuggestions.list': () => ({ suggestions: [suggestion()] }),
 }
 
 describe('the activity tasks', () => {
@@ -52,6 +63,7 @@ describe('the activity tasks', () => {
     expect(state.draftsRead.get().has(draft('note_d1').id)).toBe(true)
     expect(routes()).toEqual(expect.arrayContaining(['inbox.list', 'reviews.list', 'debates.list']))
     expect(state.debatesLoaded.get()).toBe(true)
+    expect(state.suggestions.get()).toEqual([suggestion()])
     expect(state.threadsLoading.size).toBe(0)
   })
 
@@ -65,6 +77,7 @@ describe('the activity tasks', () => {
     await run(tasks.loadActivity)
     expect([...state.threads.get().keys()]).toEqual([ROOM])
     expect(routes()).not.toContain('debates.list')
+    expect(routes()).not.toContain('debateSuggestions.list')
   })
 
   it('load only the conversations that got drafts since, and none twice', async () => {
