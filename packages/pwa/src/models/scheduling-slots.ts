@@ -29,7 +29,7 @@ export const schedulingSlotsModel = (input: SchedulingSlotsInput): SchedulingSlo
   const slots = slotsFromCells(picked)
   return {
     title: strings.scheduling.pickTitle,
-    hint: strings.scheduling.pickHint({ zone: zoneShown(timeZone) }),
+    hint: strings.scheduling.pickHint({ zone: zoneShown(timeZone ?? browserZone()) }),
     workingHint:
       hasNonWorking && !showsAll
         ? strings.scheduling.pickWorkingHint({
@@ -182,3 +182,5 @@ const hourFormat = (timeZone: string | undefined): Intl.DateTimeFormat =>
 
 const hourLabel = (hour: number): string =>
   new Intl.DateTimeFormat(locale, { hour: 'numeric', timeZone: 'UTC' }).format(Date.UTC(2000, 0, 1, hour))
+
+const browserZone = (): string => new Intl.DateTimeFormat(locale).resolvedOptions().timeZone

@@ -59,15 +59,15 @@ export const rangeShown = (startsAt: number, endsAt: number, timeZone?: string):
   }).formatRange(new Date(startsAt), new Date(endsAt))
 
 /** A time zone as its short name in the viewer's language, such as GMT+9, the way a result shows it. */
-export const zoneShown = (timeZone?: string): string => {
+export const zoneShown = (timeZone: string): string => {
   try {
-    const parts = new Intl.DateTimeFormat(locale, {
-      timeZoneName: 'short',
-      ...(timeZone !== undefined && { timeZone }),
-    }).formatToParts(0)
-    return parts.find((part) => part.type === 'timeZoneName')?.value ?? timeZone ?? ''
+    return new Intl.DateTimeFormat(locale, { timeZoneName: 'short', timeZone })
+      .formatToParts(0)
+      .filter((part) => part.type === 'timeZoneName')
+      .map((part) => part.value)
+      .join('')
   } catch {
-    return timeZone ?? ''
+    return timeZone
   }
 }
 

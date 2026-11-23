@@ -53,6 +53,17 @@ describe('scheduleResultBody', () => {
     ])
   })
 
+  it('says you in lower case in the middle of the closest option sentence', () => {
+    const body = scheduleResultBody(
+      { kind: 'no_slot', closest: { startsAt: TEN, endsAt: ELEVEN, missing: [BEN, ANA] }, unanswered: [] },
+      people,
+      ZONE,
+    )
+    expect(plainSpaces(body.lines[1]!)).toBe(
+      'The closest option is Friday, November 20, 10:00 – 11:00 AM GMT+9, when you and Ben are busy.',
+    )
+  })
+
   it('says when no time suits every required attendee, with the closest option and who is busy then', () => {
     const none: NoSlot = {
       kind: 'no_slot',
@@ -91,6 +102,5 @@ describe('zoneShown', () => {
   it('names a zone the way a result shows it, and falls back to the name it was given', () => {
     expect(zoneShown('Asia/Seoul')).toBe('GMT+9')
     expect(zoneShown('Not/AZone')).toBe('Not/AZone')
-    expect(zoneShown()).not.toBe('')
   })
 })
