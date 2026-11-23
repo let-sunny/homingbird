@@ -3693,18 +3693,21 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
     const free = { startsAt: window.startsAt, endsAt: window.startsAt + HOUR_MS }
     const before = await everyStoredValue(server)
     const refused: ReadonlyArray<Readonly<Record<string, unknown>>> = [
-      { slots: [free], title: 'Board meeting: layoffs 4b2e' },
-      { slots: [free], location: 'Room 4b2e' },
-      { slots: [{ ...free, title: 'Dentist 4b2e' }] },
+      { slots: [free], title: 'Board meeting: layoffs zq-leak-marker' },
+      { slots: [free], location: 'Room zq-leak-marker' },
+      { slots: [{ ...free, title: 'Dentist zq-leak-marker' }] },
       { slots: [free], attendees: ['ceo@example.com'] },
-      { slots: [free], note: `Busy with 4b2e ${'x'.repeat(200)}` },
-      { slots: [{ startsAt: window.startsAt - HOUR_MS, endsAt: window.startsAt + HOUR_MS }], note: '4b2e' },
-      { slots: [{ startsAt: free.endsAt, endsAt: free.startsAt }], note: '4b2e' },
+      { slots: [free], note: `Busy with zq-leak-marker ${'x'.repeat(200)}` },
+      {
+        slots: [{ startsAt: window.startsAt - HOUR_MS, endsAt: window.startsAt + HOUR_MS }],
+        note: 'zq-leak-marker',
+      },
+      { slots: [{ startsAt: free.endsAt, endsAt: free.startsAt }], note: 'zq-leak-marker' },
     ]
     for (const body of refused)
       expect([body, (await benAgent.api('POST', `/debates/${id}/slots`, body)).status]).toEqual([body, 400])
     expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
-    expect(await everyStoredValue(server)).not.toContain('4b2e')
+    expect(await everyStoredValue(server)).not.toContain('zq-leak-marker')
     expect(await storedRows(server, 'room_free_slots')).toEqual([])
   })
 
