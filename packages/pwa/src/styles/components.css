@@ -7073,3 +7073,52 @@ textarea:disabled {
   font-size: var(--hb-text-title);
   font-weight: 600;
 }
+
+.scheduling-pick-days {
+  display: grid;
+  gap: var(--hb-space-3);
+  container-type: inline-size;
+}
+
+.scheduling-pick-day {
+  display: grid;
+  gap: var(--hb-space-2);
+  min-inline-size: 0;
+  border: 0;
+  padding: 0;
+}
+
+.scheduling-pick-cells {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  gap: var(--hb-space-2);
+}
+
+.scheduling-pick-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--hb-space-2);
+}
+
+.scheduling-pick-cell:has(input:checked) {
+  font-weight: 600;
+}
+
+.scheduling-pick-actions,
+.scheduling-attendance-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hb-space-2);
+}
+
+.scheduling-pick-count,
+.scheduling-pick-actions .hint {
+  flex-basis: 100%;
+}
+
+@container (inline-size < 24rem) {
+  .scheduling-pick-cells {
+    grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
+  }
+}

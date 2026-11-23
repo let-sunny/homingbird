@@ -49,6 +49,23 @@ export const createDebate = (wish: DebateWish): Action<AsRead.Debate> =>
 export const createSchedulingRoom = (setup: ScheduleSetup): Action<AsRead.Debate> =>
   withApp(({ api }) => T.tap((_: AsRead.Debate) => loadDebates)(api['scheduling.create']({ body: setup })))
 
+/** Gives the free times the person picked themself, none at all when they are busy throughout. */
+export const setMyFreeTimes = (
+  id: DebateId,
+  slots: ReadonlyArray<{ readonly startsAt: number; readonly endsAt: number }>,
+): Action =>
+  withApp(({ api, state }) =>
+    shown(state, api['scheduling.slots.set']({ params: { id }, body: { slots: [...slots] } })),
+  )
+
+/** The person's click to have the meeting added to their calendar, or to say they added it themself. */
+export const addMeeting = (id: DebateId): Action =>
+  withApp(({ api, state }) => shown(state, api['scheduling.attendance.add']({ params: { id } })))
+
+/** Takes the meeting out of the person's calendar; for whoever opened the room, cancels it for everyone. */
+export const removeMeeting = (id: DebateId): Action =>
+  withApp(({ api, state }) => shown(state, api['scheduling.attendance.remove']({ params: { id } })))
+
 /** Opts the person's agent in, with their note on what it may use here when they wrote one. */
 export const optInAgent = (id: DebateId, agentId: CredentialId, brief: string): Action =>
   withApp(({ api, state }) =>

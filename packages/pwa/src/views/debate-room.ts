@@ -1,5 +1,5 @@
 import type { AsRead, CredentialId, DebateExportFormat } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, lifetime, linkedText, region } from '@homingbird/ui'
+import { type Child, type Lifetime, h, lifetime, linkedText, region, signal } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
 import type { QuotedTurn } from '../models/debate-credit.ts'
 import {
@@ -28,7 +28,9 @@ import { citedBody } from './note-body.ts'
 import { participantsCount, participantsList } from './participants.ts'
 import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
 import { profileName } from './profile-card.ts'
+import { schedulingAttendanceCard } from './scheduling-attendance.ts'
 import { renderSchedulingRoom } from './scheduling-room.ts'
+import { schedulingSlotsCard } from './scheduling-slots.ts'
 
 /**
  * One debate room, one short tab at a time, each its own address: the result the agents settled, how they
@@ -50,21 +52,36 @@ export const debateView = (
   const drawn = lifetime()
   life.add(drawn.end)
   let focusPending = true
+  const pickedHours = signal<ReadonlySet<number> | null>(null)
   return region(
     life,
     [state.shownDebate, state.members, state.agentCredentials, state.serverInfo],
     () => {
       drawn.end()
       const current = state.shownDebate.get()
-      if (current !== null && current !== 'missing' && roomKindOf(current) !== 'debate')
+      if (current !== null && current !== 'missing' && roomKindOf(current) !== 'debate') {
+        const enabled = featureOn('schedulingRooms', state.serverInfo.get())
+        const room = schedulingRoomModel({
+          debate: current,
+          viewerId: me.member.id,
+          enabled,
+          members: state.members.get(),
+        })
+        const person = {
+          debate: current,
+          viewerId: me.member.id,
+          hasAgent: state.agentCredentials.get().length > 0,
+        }
         return renderSchedulingRoom(
-          schedulingRoomModel({
-            debate: current,
-            viewerId: me.member.id,
-            enabled: featureOn('schedulingRooms', state.serverInfo.get()),
-            members: state.members.get(),
-          }),
+          room,
+          room.kind === 'room'
+            ? [
+                schedulingSlotsCard(context, drawn, { ...person, picked: pickedHours }),
+                schedulingAttendanceCard(context, { ...person, members: state.members.get() }),
+              ]
+            : [],
         )
+      }
       const model = debateRoomModel({
         debate: state.shownDebate.get(),
         tab,
