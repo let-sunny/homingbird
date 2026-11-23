@@ -6750,6 +6750,15 @@ textarea:disabled {
     align-items: center;
   }
 
+  .scheduling-meeting-link,
+  .scheduling-delegation a,
+  .scheduling-optional-list label,
+  .scheduling-attendee-field li label {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: var(--hb-target-size);
+  }
+
   /* A touch keyboard sends with its own key; the hint about Enter and Shift+Enter does not apply. */
   .composer-hint {
     display: none;

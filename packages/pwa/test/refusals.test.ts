@@ -80,4 +80,14 @@ describe('refusalText', () => {
     useLanguage('ko')
     expect(refusalText({ _tag: 'RateLimited', message: 'Slow down.' })).toBe(strings.errors.RateLimited)
   })
+
+  it('says in whole sentences that a meeting cannot do that now, never the server English or a state name', () => {
+    for (const message of [
+      'There is nothing for this person to add now: their part of the meeting is waiting_invite.',
+      'This person is not invited to this meeting.',
+    ])
+      expect(refusalText(conflict(message), 'meeting')).toBe(strings.refusals.meetingNotNow)
+    useLanguage('ko')
+    expect(refusalText(conflict('x'), 'meeting')).toBe(strings.refusals.meetingNotNow)
+  })
 })

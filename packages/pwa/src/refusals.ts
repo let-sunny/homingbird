@@ -10,6 +10,7 @@ export type Attempt =
   | 'move'
   | 'request'
   | 'membership'
+  | 'meeting'
 
 export const refusalText = (error: ApiError, attempt?: Attempt): string => {
   if (error._tag === 'Conflict' && ARCHIVED.test(error.message)) return strings.refusals.roomArchived
@@ -39,4 +40,5 @@ const CONFLICTS: Readonly<Record<Attempt, () => string | null>> = {
   move: () => null,
   request: () => strings.refusals.requestNotWaiting,
   membership: () => null,
+  meeting: () => strings.refusals.meetingNotNow,
 }

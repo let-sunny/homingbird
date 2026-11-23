@@ -62,8 +62,8 @@ describe('schedulingAttendanceModel', () => {
   })
 
   it('offers a person without an agent to say they added it, and the time as a calendar file', () => {
-    const shown = as(BEN, settled(undefined, {}, { uid: 'abc@example.com', meetingUrl: null }), false)!
-    expect(shown.status).toBe(strings.scheduling.attendance.waiting_invite)
+    const shown = as(BEN, settled('by_hand', {}, { uid: 'abc@example.com', meetingUrl: null }), false)!
+    expect(shown.status).toBe(strings.scheduling.attendance.by_hand)
     expect(shown.actions.map((action) => action.label)).toEqual([
       strings.scheduling.addedMeetingMyself,
       strings.scheduling.cannotCome,
@@ -103,12 +103,55 @@ describe('schedulingAttendanceModel', () => {
   })
 
   it('offers to take the meeting out once it is in the calendar, and gives no second add', () => {
-    for (const state of ['adding', 'added', 'by_hand'] as const) {
+    for (const state of ['adding', 'added'] as const) {
       const shown = as(BEN, settled(state), true)!
       expect(shown.actions).toEqual([
         { name: 'remove', label: strings.scheduling.removeMeeting, emphasis: 'plain' },
       ])
     }
+  })
+
+  it('asks a person whose agent could not add the meeting to add it by hand, with the calendar file', () => {
+    const shown = as(BEN, settled('by_hand'), true)!
+    expect(shown.status).toBe(strings.scheduling.attendance.by_hand)
+    expect(shown.actions).toEqual([
+      { name: 'add', label: strings.scheduling.addedMeetingMyself, emphasis: 'primary' },
+      { name: 'remove', label: strings.scheduling.cannotCome, emphasis: 'plain' },
+    ])
+    expect(shown.calendarFile).not.toBeNull()
+  })
+
+  it('offers no add before the invitation is sent, only to say they cannot come', () => {
+    expect(as(BEN, settled('waiting_invite'), true)!.actions).toEqual([
+      { name: 'remove', label: strings.scheduling.cannotCome, emphasis: 'plain' },
+    ])
+    const opened = settled('asked')
+    const schedule = opened.schedule!
+    const waiting = {
+      ...opened,
+      schedule: {
+        ...schedule,
+        attendees: schedule.attendees.map((one) =>
+          one.memberId === ANA ? { ...one, attendance: 'waiting_invite' as const } : one,
+        ),
+      },
+    }
+    expect(as(ANA, waiting, true)!.actions).toEqual([])
+    expect(as(ANA, waiting, true)!.removeHint).toBeNull()
+  })
+
+  it('offers nothing to a person the meeting has no part for', () => {
+    const shown = as(BEN, settled(undefined), true)!
+    expect(shown.status).toBe(strings.scheduling.attendance.unknown)
+    expect(shown.actions).toEqual([])
+  })
+
+  it('tells a person with an agent that it adds meetings and where to change that', () => {
+    expect(as(BEN, settled('added'), true)!.delegation).toEqual({
+      text: strings.scheduling.delegationNote,
+      changeLabel: strings.scheduling.delegationChange,
+    })
+    expect(as(BEN, settled('added'), false)!.delegation).toBeNull()
   })
 
   it('says that whoever opened the room cancels the meeting for everyone by taking it out', () => {

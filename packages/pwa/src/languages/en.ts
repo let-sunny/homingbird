@@ -601,6 +601,8 @@ export const en = {
     managerStays:
       'A manager stays in the channel while others are here. Remove yourself as a manager first, after adding another manager if you are the only one.',
     requestNotWaiting: 'This request is no longer waiting.',
+    meetingNotNow:
+      'That cannot be done for this meeting right now. Open the room again to see what you can do.',
   },
   deskTitle: 'Keep one agent session open for Homingbird: your desk.',
   deskBody:
@@ -742,7 +744,8 @@ export const en = {
       'The bell lists your agent’s drafts, answers to review and notes your agent skipped. Approve and send, edit or discard each one right there.',
     activityPlace: 'the bell, top right',
     profileTitle: 'Your profile',
-    profileBody: 'Choose your language and your character here, and start this tour again.',
+    profileBody:
+      'Choose your language and your character here, and start this tour again. Meetings are the one exception to approving first: here you choose whether your agent adds settled meetings to your calendar without asking.',
     lookFor: 'Look for “{place}”.',
     showAgain: 'Show the tour again',
     legend: 'Tour of Homingbird',
@@ -1226,7 +1229,7 @@ export const en = {
     titlePlaceholder: 'Planning sync',
     attendees: 'Who should come',
     attendeesHint:
-      'Everyone you add is required unless you mark them optional. You are always required. Each person’s agent shares free times only; no meeting is created in anyone’s calendar.',
+      'Everyone you add is required unless you mark them optional. You are always required. Each person’s agent shares free times. Once a time is settled, each person’s agent adds the meeting to their calendar, unless they turned that off under “Your agent and meetings” in their profile.',
     optionalFor: 'Optional: {name}',
     length: 'Length',
     lengthChoice: '{minutes} minutes',
@@ -1246,6 +1249,7 @@ export const en = {
     stage: {
       collecting: 'Collecting free times',
       settled: 'Settled',
+      no_slot: 'No time found',
       ended: 'Ended without a time',
       unknown: 'Unknown',
     },
@@ -1266,6 +1270,14 @@ export const en = {
       by_person: 'Chose free times themself',
       unknown: 'Has not answered yet',
     },
+    ownAnswer: {
+      waiting: 'Not answered yet',
+      choosing: 'Choosing free times yourself',
+      by_agent: 'Your agent shared free times',
+      by_person: 'Chose free times yourself',
+      unknown: 'Not answered yet',
+    },
+    youInSentence: 'you',
     resultTitle: 'Result',
     waitingForResult:
       'The time is chosen once every required attendee has answered, or when the room’s time is up.',
@@ -1294,6 +1306,9 @@ export const en = {
     pickHint:
       'Tick the hours you are free. Times are shown in your time zone, {zone}. Only the result is shown to the others, not which hours you ticked.',
     pickNoTimes: 'The whole window has already passed.',
+    pickShowAll: 'Show all hours',
+    pickShowWorking: 'Show working hours only',
+    pickWorkingHint: 'Only working hours, {from} to {to}, are shown.',
     pickedCount: { one: '{count} hour picked', other: '{count} hours picked' },
     pickTooMany: 'Those hours split into more than {max} separate stretches. Pick fewer gaps.',
     pickSend: 'Share these times',
@@ -1304,7 +1319,7 @@ export const en = {
     attendance: {
       waiting_invite: 'The invitation has not been sent yet.',
       asked: 'Your agent was asked to add the meeting to your calendar.',
-      by_hand: 'You said you added the meeting yourself.',
+      by_hand: 'Add the meeting to your calendar yourself, then tell the room.',
       adding: 'Your agent is adding the meeting to your calendar.',
       added: 'The meeting is in your calendar.',
       declined: 'You said you cannot come.',
@@ -1314,6 +1329,8 @@ export const en = {
       unknown: 'The meeting is not in your calendar yet.',
     },
     meetingLink: 'Open the meeting link',
+    delegationNote: 'Your agent adds settled meetings to your calendar unless you turned that off.',
+    delegationChange: 'Change this in your profile',
     addMeeting: 'Add to my calendar',
     addedMeetingMyself: 'I added it myself',
     removeMeeting: 'Take it out',

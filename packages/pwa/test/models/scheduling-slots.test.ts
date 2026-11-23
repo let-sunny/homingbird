@@ -1,6 +1,7 @@
 import { FREE_SLOTS_MAX } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { freeTimeCells, schedulingSlotsModel, slotsFromCells } from '../../src/models/scheduling-slots.ts'
+import { strings } from '../../src/strings.ts'
 import { ANA, BEN, debate } from '../support/fixtures.ts'
 import { plainSpaces } from '../support/text.ts'
 
@@ -30,7 +31,7 @@ const room = (
 
 const model = (
   debateRoom: ReturnType<typeof room>,
-  extra: { hasAgent?: boolean; chosen?: ReadonlyArray<number>; now?: number } = {},
+  extra: { hasAgent?: boolean; chosen?: ReadonlyArray<number>; now?: number; workingOnly?: boolean } = {},
 ) =>
   schedulingSlotsModel({
     debate: debateRoom,
@@ -38,6 +39,7 @@ const model = (
     hasAgent: extra.hasAgent ?? true,
     now: extra.now ?? START,
     timeZone: 'Asia/Seoul',
+    showAllHours: extra.workingOnly !== true,
     ...(extra.chosen !== undefined && { chosen: extra.chosen }),
   })
 
@@ -54,8 +56,47 @@ describe('schedulingSlotsModel', () => {
     expect(shown.days[1]!.cells[0]!.startsAt).toBe(START + 3 * HOUR)
     expect(shown.count).toBe('0 hours picked')
     expect(shown.sendDisabled).toBe(true)
-    expect(shown.hint).toContain('Asia/Seoul')
+    expect(shown.hint).toContain('GMT+9')
+    expect(shown.hint).not.toContain('Asia/Seoul')
     expect(shown.answered).toBeNull()
+  })
+
+  it('shows the working hours only unless asked for all, and says so', () => {
+    const working = model(room(), { workingOnly: true })!
+    expect(working.days.map((day) => day.day)).toEqual(['Fri, Nov 20'])
+    expect(plainSpaces(working.days[0]!.cells.map((cell) => cell.label))).toEqual([
+      '8:00 AM',
+      '9:00 AM',
+      '10:00 AM',
+      '11:00 AM',
+      '12:00 PM',
+      '1:00 PM',
+      '2:00 PM',
+      '3:00 PM',
+      '4:00 PM',
+      '5:00 PM',
+      '6:00 PM',
+      '7:00 PM',
+    ])
+    expect(working.workingHint).toContain('8 AM')
+    expect(working.workingHint).toContain('8 PM')
+    expect(working.hoursToggle).toEqual({ label: strings.scheduling.pickShowAll, showsAll: true })
+    const all = model(room())!
+    expect(all.workingHint).toBeNull()
+    expect(all.hoursToggle).toEqual({ label: strings.scheduling.pickShowWorking, showsAll: false })
+  })
+
+  it('keeps an hour ticked before even when it is out of working hours', () => {
+    const shown = model(room(), { workingOnly: true, chosen: [START] })!
+    expect(shown.chosenStarts).toEqual([START])
+    expect(shown.slots).toEqual([{ startsAt: START, endsAt: START + HOUR }])
+  })
+
+  it('has no toggle when every hour shown is working time', () => {
+    const day = room({}, { window: { startsAt: START + 11 * HOUR, endsAt: START + 12 * HOUR } })
+    const shown = model(day, { workingOnly: true })!
+    expect(shown.hoursToggle).toBeNull()
+    expect(shown.workingHint).toBeNull()
   })
 
   it('is there for a person with no agent whatever they answered, and for a person choosing themself', () => {
