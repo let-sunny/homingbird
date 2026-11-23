@@ -21,6 +21,7 @@ export const schedulingSettingsModel = (input: SchedulingSettingsInput): Schedul
   const { scope } = delegation
   const inUse = input.agents.find((agent) => agent.id === view.agentInUse)
   const hours = scope.hours
+  const chosen = scope.people ?? []
   return {
     kind: 'ready',
     title: strings.scheduling.delegation.title,
@@ -50,11 +51,11 @@ export const schedulingSettingsModel = (input: SchedulingSettingsInput): Schedul
       limited: scope.people !== null,
       choices: input.directory
         .filter((entry) => isPerson(entry.member) && entry.member.id !== input.me.member.id)
-        .filter((entry) => entry.member.status === 'active' || (scope.people ?? []).includes(entry.member.id))
+        .filter((entry) => entry.member.status === 'active' || chosen.includes(entry.member.id))
         .map((entry) => ({
           value: entry.member.id as string,
           label: entry.member.name,
-          checked: (scope.people ?? []).includes(entry.member.id),
+          checked: chosen.includes(entry.member.id),
         }))
         .sort((a, b) => a.label.localeCompare(b.label)),
     },
@@ -90,8 +91,8 @@ export const delegationFrom = (
     return { problem: strings.scheduling.delegation.problems.noPeople }
   const from = minutesOf(typed.from)
   const to = minutesOf(typed.to)
-  if (typed.hoursLimited && (from === null || to === null))
-    return { problem: strings.scheduling.delegation.problems.noHours }
+  const hours = from !== null && to !== null ? { from, to, timeZone } : null
+  if (typed.hoursLimited && hours === null) return { problem: strings.scheduling.delegation.problems.noHours }
   return {
     delegation: {
       autoJoin: typed.autoJoin,
@@ -100,7 +101,7 @@ export const delegationFrom = (
       brief: typed.brief.trim(),
       scope: {
         people: typed.peopleLimited ? people : null,
-        hours: typed.hoursLimited ? { from: from ?? 0, to: to ?? 0, timeZone } : null,
+        hours: typed.hoursLimited ? hours : null,
         maxMinutes: typed.maxLimited ? lengthFrom(typed.maxMinutes) : null,
       },
     },
