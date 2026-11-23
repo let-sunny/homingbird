@@ -23,6 +23,7 @@ export const DebateSuggestion = S.struct({
   reason: S.string({ maxLength: SUGGESTION_REASON_MAX }),
   agentName: S.string({ maxLength: 200 }),
   createdAt: Timestamp,
+  askerId: S.optional(MemberId),
 })
 export type DebateSuggestion = S.Infer<typeof DebateSuggestion>
 
@@ -46,9 +47,9 @@ export const SuggestionAcceptance = S.closed(
 )
 export type SuggestionAcceptance = S.Infer<typeof SuggestionAcceptance>
 
-/** A suggested room ended: its agent drafts the answer with `debateId`, or alone without a result. */
+/** A suggested room ended, or with no `debateId` its person turned it down: its agent answers the note. */
 export const DebateAnswerAsk = S.struct({
-  debateId: DebateId,
+  debateId: S.nullable(DebateId),
   suggestionId: SuggestionId,
   inReplyTo: NoteId,
   draftId: S.nullable(NoteId),

@@ -12,7 +12,7 @@ import { type HeldLine, type HeldShown, heldLineFor } from '../held-decisions.ts
 import { deskUnavailableReason } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
 import type { Release, Thread } from '../state.ts'
-import { strings } from '../strings.ts'
+import { formats, strings } from '../strings.ts'
 import { conversationTitle, excerpt, isArchived, threadItems } from '../thread.ts'
 import { type ReviewCard, reviewCardModel } from './channel-agent.ts'
 import { type SuggestionCard, suggestionCardModel } from './debate-suggestion-card.ts'
@@ -283,7 +283,12 @@ const suggestionItems = (input: ActivityInput): ActivityItem[] =>
         label: strings.activity.openConversation,
         time: timeShown(suggestion.createdAt, input.now),
       },
-      card: suggestionCardModel({ suggestion, members: input.members }),
+      card: suggestionCardModel({
+        suggestion,
+        members: input.members,
+        directory: input.directory,
+        viewerId: input.me.member.id,
+      }),
     }
   })
 
@@ -342,6 +347,7 @@ const debateItems = (input: ActivityInput): ActivityItem[] => {
       room.status === 'closed' &&
       room.resultDrafted &&
       takesPart &&
+      (room.fromSuggestion !== true || room.createdBy === me) &&
       input.now - room.deadlineAt < RESULT_LISTED_MS &&
       !postedFrom.has(room.id)
     if (!asks && !result) return []
@@ -359,10 +365,21 @@ const debateItems = (input: ActivityInput): ActivityItem[] => {
           label: strings.activity.openRoom,
           time: timeShown(at, input.now),
         },
-        text: asks ? strings.activity.debateAsks : strings.activity.debateResult,
+        text: asks ? invitationText(input, room) : strings.activity.debateResult,
       },
     ]
   })
+}
+
+/** Who asks the person's agent to a room, why when an agent's suggestion opened it, and until when. */
+const invitationText = (input: ActivityInput, room: AsRead.DebateSummary): string => {
+  const words = {
+    person: input.members.get(room.createdBy)?.name ?? strings.formerMember,
+    time: formats.full.format(new Date(room.deadlineAt)),
+  }
+  return room.fromSuggestion === true
+    ? strings.activity.debateAsksSuggested(words)
+    : strings.activity.debateAsks(words)
 }
 
 /**

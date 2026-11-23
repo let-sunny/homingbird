@@ -186,6 +186,7 @@ const resultTab = (model: Room, context: ViewContext, drawn: Lifetime): Readonly
       ),
     ),
   model.closed !== null && h('p', { class: 'hint debate-closed-hint' }, strings.debates.closedHint),
+  model.closed?.answeredBy != null && h('p', { class: 'hint debate-answered-by' }, model.closed.answeredBy),
   model.closed?.mayPost === true &&
     section(strings.debates.sendTitle, 'debate-send', postForm(context, model.debate, model.closed)),
   model.closed !== null &&
@@ -434,6 +435,7 @@ const optInSection = (
   return section(
     strings.debates.optInTitle,
     'debate-opt-in',
+    optIn.notAwake !== null && h('p', { class: 'advice debate-not-awake' }, optIn.notAwake),
     h('p', { class: 'hint' }, strings.debates.optInHint),
     h(
       'details',

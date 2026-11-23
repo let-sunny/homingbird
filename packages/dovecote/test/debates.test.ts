@@ -55,6 +55,25 @@ describe('opening a debate room', () => {
     ).json
     expect([...room.memberIds].sort()).toEqual([cast.ana.me.member.id, cast.ben.me.member.id].sort())
   })
+
+  it('asks nobody blocked by its creator, nor anyone who blocked them, and opens nothing', async () => {
+    const asking = { question: QUESTION, memberIds: [cast.ben.me.member.id, cast.cy.me.member.id] }
+    for (const [blocker, blocked] of [
+      [cast.cy, cast.ana],
+      [cast.ana, cast.cy],
+    ] as const) {
+      await blocker.api('PUT', `/blocks/${blocked.me.member.id}`)
+      const refused = await cast.ana.api('POST', '/debates', asking)
+      expect([refused.status, refused.json.error.message]).toEqual([
+        403,
+        'You cannot ask Cy to a debate room.',
+      ])
+      await blocker.api('DELETE', `/blocks/${blocked.me.member.id}`)
+    }
+    expect(await storedRows(server, 'debates')).toEqual([])
+    await cast.ben.api('PUT', `/blocks/${cast.cy.me.member.id}`)
+    expect((await cast.ana.api('POST', '/debates', asking)).status).toBe(200)
+  })
 })
 
 describe('listing and reading rooms', () => {

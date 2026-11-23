@@ -6,21 +6,35 @@ import {
   SHORT_DEBATE_LIMITS,
   SUGGESTED_MEMBERS_MAX,
 } from '@homingbird/protocol'
+import { hrefFor } from '../routes.ts'
 import { listOf, strings } from '../strings.ts'
 
 /**
  * An agent's suggestion to talk a note over before answering, as a card: why, the question and the
- * colleagues it would ask, each still the person's to change. Nothing exists until they open the room.
+ * colleagues it would ask, each still the person's to change, whose agents are not awake, and, when fewer
+ * than two agents are awake to talk, that a group note may answer sooner. Nothing exists until they open
+ * the room.
  */
 export const suggestionCardModel = (input: {
   readonly suggestion: AsRead.DebateSuggestion
   readonly members: ReadonlyMap<MemberId, AsRead.Member>
+  readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
+  readonly viewerId: MemberId
 }): SuggestionCard => {
   const { suggestion } = input
-  const names = suggestion.memberIds.flatMap((id) => {
-    const name = input.members.get(id)?.name
-    return name === undefined ? [] : [name]
-  })
+  const namesOf = (ids: ReadonlyArray<MemberId>): string[] =>
+    ids.flatMap((id) => {
+      const name = input.members.get(id)?.name
+      return name === undefined ? [] : [name]
+    })
+  const names = namesOf(suggestion.memberIds)
+  const isAwake = (id: MemberId): boolean =>
+    input.directory.find((entry) => entry.member.id === id)?.presence.agentOnline ?? false
+  const asleepNames = namesOf(suggestion.memberIds.filter((id) => !isAwake(id)))
+  const mineAwake = input.directory.some((entry) => entry.member.id === input.viewerId)
+    ? isAwake(input.viewerId)
+    : true
+  const awake = suggestion.memberIds.filter(isAwake).length + (mineAwake ? 1 : 0)
   return {
     suggestion,
     heading:
@@ -36,7 +50,7 @@ export const suggestionCardModel = (input: {
     people: {
       label: strings.debateSuggestion.peopleLabel,
       placeholder: strings.debateSuggestion.peoplePlaceholder,
-      chosen: suggestion.memberIds,
+      chosen: suggestion.memberIds.filter((id) => id !== suggestion.askerId),
       limit: SUGGESTED_MEMBERS_MAX,
     },
     brief: {
@@ -45,6 +59,16 @@ export const suggestionCardModel = (input: {
       maxLength: DEBATE_BRIEF_MAX,
     },
     limits: strings.debateSuggestion.limits({ minutes: SHORT_DEBATE_LIMITS.minutes }),
+    notAwake:
+      asleepNames.length === 0 ? null : strings.debateSuggestion.notAwake({ people: listOf(asleepNames) }),
+    askInNote:
+      awake >= 2
+        ? null
+        : {
+            text: strings.debateSuggestion.askInNote,
+            label: strings.debateSuggestion.askInNoteLink,
+            href: hrefFor({ name: 'new', to: suggestion.memberIds }),
+          },
     labels: { open: strings.debateSuggestion.open, dismiss: strings.debateSuggestion.dismiss },
   }
 }
@@ -87,5 +111,9 @@ export interface SuggestionCard {
   }
   readonly brief: { readonly label: string; readonly hint: string; readonly maxLength: number }
   readonly limits: string
+  /** The colleagues whose agents are not awake now, who would take no turn until they are. */
+  readonly notAwake: string | null
+  /** Fewer than two agents awake to talk: a group note to the same colleagues may answer sooner. */
+  readonly askInNote: { readonly text: string; readonly label: string; readonly href: string } | null
   readonly labels: { readonly open: string; readonly dismiss: string }
 }

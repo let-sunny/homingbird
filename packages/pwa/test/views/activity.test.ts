@@ -11,7 +11,7 @@ import {
 } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { heldWordsFor } from '../../src/held-decisions.ts'
-import { strings } from '../../src/strings.ts'
+import { formats, strings } from '../../src/strings.ts'
 import { ACTIVITY_PANEL_ID, activityBell, activityPanel, activityView } from '../../src/views/activity.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
@@ -256,7 +256,12 @@ describe('activityPanel', () => {
     expect(getByRole(panel, 'link', { name: strings.activity.openConnection }).getAttribute('href')).toBe(
       '#/agent/connection',
     )
-    expect(textOf(panel)).toContain(strings.activity.debateAsks)
+    expect(textOf(panel)).toContain(
+      strings.activity.debateAsks({
+        person: state.members.get().get(ANA)?.name ?? strings.formerMember,
+        time: formats.full.format(new Date(2)),
+      }),
+    )
     getByRole(panel, 'link', { name: strings.activity.openRoom }).click()
     expect(isPopoverOpen(panel as never)).toBe(false)
   })

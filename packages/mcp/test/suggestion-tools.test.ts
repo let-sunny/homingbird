@@ -1,4 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
+import { ANSWER_ALONE_ADVICE } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { memberApiOf } from '../src/member-api.ts'
 import { SUGGESTION_TOOLS } from '../src/suggestion-tools.ts'
@@ -130,11 +131,53 @@ describe('the answer a suggested room asks for', () => {
       { debateId: DEBATE_ID },
       {
         'debates.get': () => room,
+        'debates.waiting': () => ({ asks: [], answers }) as never,
         'me.get': () => ({ member: ANA }) as never,
         'directory.list': () => ({ entries: [] }) as never,
       },
     )
     expect(text).toContain(`id="${DEBATE_ID}/result"`)
     expect(text.replace(/<colleague-note [\s\S]*?\n<\/colleague-note>/g, '')).not.toContain('99zz')
+    expect(text).toContain(`This room asks for your answer to note ${NOTE_ID}, which you suggested it for.`)
+    expect(text).not.toContain('asks nothing of you')
+  })
+
+  it('says in read_debate which waiting draft the answer replaces, and nothing is owed by another room', async () => {
+    const read = (waiting: unknown) =>
+      call(
+        'read_debate',
+        { debateId: DEBATE_ID },
+        {
+          'debates.get': () => debateOf({ status: 'ended' }),
+          'debates.waiting': () => waiting as never,
+          'me.get': () => ({ member: ANA }) as never,
+          'directory.list': () => ({ entries: [] }) as never,
+        },
+      )
+    expect((await read({ asks: [], answers: [answers[1]] })).text).toContain(
+      `in place of your waiting draft ${DRAFT_ID}`,
+    )
+    for (const waiting of [
+      { asks: [] },
+      { asks: [], answers: [{ ...answers[0], debateId: 'deb_other0000000' }] },
+    ])
+      expect((await read(waiting)).text).toContain('asks nothing of you')
+  })
+
+  it('tells the agent to answer alone when its person turned the suggestion down', async () => {
+    const { text } = await call(
+      'check_debates',
+      {},
+      {
+        'debates.waiting': () =>
+          ({
+            asks: [],
+            answers: [{ ...answers[0], debateId: null, hasResult: false }],
+          }) as never,
+      },
+    )
+    expect(text).toContain('1 debate room(s) are waiting on you.')
+    expect(text).toContain(`your answer to note ${NOTE_ID}. ${ANSWER_ALONE_ADVICE}`)
+    expect(text).not.toContain('debateId')
   })
 })

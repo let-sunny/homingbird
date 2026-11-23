@@ -24,7 +24,7 @@ import { type Caller, isHuman } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
 import { all, first, run } from '../sql/database.ts'
 import { insertInto, list, sql } from '../sql/query.ts'
-import { activeMembersAmong, createDebate, optInAgent } from './debates.ts'
+import { activeMembersAmong, createDebate, optInAgent, requireMayInvite } from './debates.ts'
 import { featureIsOn } from './settings.ts'
 
 /**
@@ -52,13 +52,23 @@ export const suggestDebate = (
     const people = yield* activeMembersAmong(input.memberIds.filter((id) => id !== memberId))
     if (people.length === 0)
       return yield* T.fail(Invalid({ message: 'Suggest at least one colleague other than your human.' }))
+    if (people.includes(note.author_id)) return yield* T.fail(Invalid({ message: ASKER_LEFT_OUT }))
+    yield* requireMayInvite(memberId, people)
     yield* run(sql`UPDATE members SET event_seq = event_seq WHERE id = ${memberId}`)
     const waiting = yield* waitingRows(memberId)
     if (waiting.length >= SUGGESTIONS_PER_PERSON)
       return yield* T.fail(Conflict({ message: SUGGESTIONS_FULL }))
-    if (waiting.some((row) => row.in_reply_to === input.inReplyTo))
+    const earlier = yield* first<{ decided_at: number | null }>(sql`
+      SELECT decided_at FROM debate_suggestions WHERE member_id = ${memberId} AND in_reply_to = ${input.inReplyTo}
+      ORDER BY decided_at IS NULL DESC`)
+    if (earlier !== null)
       return yield* T.fail(
-        Conflict({ message: 'A suggestion about this note already waits for your human.' }),
+        Conflict({
+          message:
+            earlier.decided_at === null
+              ? 'A suggestion about this note already waits for your human.'
+              : 'Your human already decided on a debate about this note: answer it yourself.',
+        }),
       )
     const suggestion: DebateSuggestion = {
       id: `sugg_${env.random.identifier()}` as SuggestionId,
@@ -70,6 +80,7 @@ export const suggestDebate = (
       reason,
       agentName: caller.credential.name,
       createdAt: env.clock.now(),
+      askerId: note.author_id,
     }
     yield* run(
       insertInto('debate_suggestions', {
@@ -111,6 +122,7 @@ export const waitingSuggestions = (caller: Caller): T.Task<DebateSuggestion[], N
       reason: row.reason,
       agentName: row.agent_name ?? '',
       createdAt: Number(row.created_at),
+      ...(row.asker_id != null && { askerId: row.asker_id }),
     }))
   })
 
@@ -137,6 +149,16 @@ export const acceptSuggestion = (
     )
     if (memberIds.length === 0)
       return yield* T.fail(Invalid({ message: 'Ask at least one colleague to the room.' }))
+    const asker = yield* first(
+      sql`SELECT 1 AS present FROM notes WHERE id = ${suggestion.in_reply_to} AND author_id IN ${list(memberIds)}`,
+    )
+    if (asker !== null)
+      return yield* T.fail(
+        Invalid({
+          message:
+            'Leave out the person who asked the note: they would read the room before you approve its answer.',
+        }),
+      )
     const opened = yield* createDebate(caller, {
       question: acceptance.question ?? suggestion.question,
       visibility: 'private',
@@ -169,9 +191,10 @@ export const dismissSuggestion = (
   })
 
 /**
- * The rooms this agent's suggestions opened that ended in the last day and that it has not answered from:
- * only the credential that suggested a room is asked, never another of its person's agents. Null while
- * suggestions are off, so that the ask is left out.
+ * The rooms this agent's suggestions opened that ended in the last day and that it has not answered from,
+ * then its suggestions its person turned down in the last day, with no room, while their person has no
+ * reply to the note: only the credential that suggested is asked, never another of its person's agents.
+ * Null while suggestions are off, so that the ask is left out.
  */
 export const roomAnswerAsks = (caller: Caller): T.Task<DebateAnswerAsk[] | null, never, RequestEnv> =>
   T.gen(function* () {
@@ -191,13 +214,29 @@ export const roomAnswerAsks = (caller: Caller): T.Task<DebateAnswerAsk[] | null,
       WHERE s.credential_id = ${caller.credential.id} AND s.answered_at IS NULL
       AND d.status IN ('closed', 'ended') AND d.closed_at >= ${env.clock.now() - RESULT_WINDOW_MS}
       ORDER BY d.closed_at, s.id`)
-    return rows.map((row) => ({
-      debateId: row.debate_id,
-      suggestionId: row.id,
-      inReplyTo: row.in_reply_to,
-      draftId: row.draft_id,
-      hasResult: row.result !== null,
-    }))
+    const dismissed = yield* all<{ id: SuggestionId; in_reply_to: NoteId }>(sql`
+      SELECT s.id, s.in_reply_to FROM debate_suggestions s
+      WHERE s.credential_id = ${caller.credential.id} AND s.decision = 'dismissed'
+      AND s.decided_at >= ${env.clock.now() - RESULT_WINDOW_MS}
+      AND NOT EXISTS (SELECT 1 FROM notes n WHERE n.author_id = s.member_id AND n.in_reply_to = s.in_reply_to
+        AND n.status IN ('draft', 'sent'))
+      ORDER BY s.decided_at, s.id`)
+    return [
+      ...rows.map((row) => ({
+        debateId: row.debate_id,
+        suggestionId: row.id,
+        inReplyTo: row.in_reply_to,
+        draftId: row.draft_id,
+        hasResult: row.result !== null,
+      })),
+      ...dismissed.map((row) => ({
+        debateId: null,
+        suggestionId: row.id,
+        inReplyTo: row.in_reply_to,
+        draftId: null,
+        hasResult: false,
+      })),
+    ]
   })
 
 /**
@@ -249,6 +288,8 @@ export const markRoomAnswered = (id: SuggestionId): T.Task<void, never, RequestE
   })
 
 const PEOPLE_OPEN_ROOMS = 'A person opens a debate room in the web client; an agent only suggests one.'
+const ASKER_LEFT_OUT =
+  'Leave out the person who asked the note: they would read the room before your human approves its answer.'
 const SUGGESTIONS_FULL = `Your human has ${SUGGESTIONS_PER_PERSON} suggestions waiting. Answer alone, or ask them to decide some in the web client first.`
 
 const requireDebateRooms: T.Task<void, NotFound, RequestEnv> = T.flatMap((on: boolean) =>
@@ -263,10 +304,10 @@ const requirePerson = (caller: Caller): T.Task<void, Forbidden> =>
 const receivedNote = (
   memberId: MemberId,
   id: NoteId,
-): T.Task<{ readonly conversation_id: ConversationId }, Invalid, RequestEnv> =>
+): T.Task<{ readonly conversation_id: ConversationId; readonly author_id: MemberId }, Invalid, RequestEnv> =>
   T.gen(function* () {
-    const row = yield* first<{ conversation_id: ConversationId }>(sql`
-      SELECT n.conversation_id FROM notes n
+    const row = yield* first<{ conversation_id: ConversationId; author_id: MemberId }>(sql`
+      SELECT n.conversation_id, n.author_id FROM notes n
       JOIN participants p ON p.conversation_id = n.conversation_id AND p.member_id = ${memberId}
       WHERE n.id = ${id} AND n.status = 'sent' AND n.author_id <> ${memberId}`)
     if (row === null)
@@ -307,8 +348,8 @@ const announceSuggestions = (memberId: MemberId): T.Task<void, never, RequestEnv
 
 const waitingRows = (memberId: MemberId): T.Task<ReadonlyArray<SuggestionRow>, never, RequestEnv> =>
   all<SuggestionRow>(sql`
-    SELECT s.*, c.name AS agent_name FROM debate_suggestions s
-    LEFT JOIN credentials c ON c.id = s.credential_id
+    SELECT s.*, c.name AS agent_name, n.author_id AS asker_id FROM debate_suggestions s
+    LEFT JOIN credentials c ON c.id = s.credential_id LEFT JOIN notes n ON n.id = s.in_reply_to
     WHERE s.member_id = ${memberId} AND s.decided_at IS NULL ORDER BY s.created_at, s.id`)
 
 interface SuggestionRow {
@@ -321,4 +362,5 @@ interface SuggestionRow {
   readonly reason: string
   readonly created_at: number
   readonly agent_name?: string | null
+  readonly asker_id?: MemberId | null
 }

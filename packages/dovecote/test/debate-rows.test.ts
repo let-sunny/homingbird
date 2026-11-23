@@ -85,8 +85,12 @@ describe('a room as it is shown', () => {
         [cast.ben.me.member.id, true],
       ]),
     )
+    const { participants } = (await cast.cy.api('GET', `/debates/${id}`)).json
+    const joinedAt = participants.find(
+      (one: { memberId: string }) => one.memberId === cast.ben.me.member.id,
+    ).joinedAt
     cast.sleep('ben')
-    await server.clock.advance(PAST_GRACE_MS - 2 - cast.elapsed())
+    await server.clock.advance(PAST_GRACE_MS - 2 - (server.clock.now() - joinedAt))
     expect(await takingPart()).toEqual(expect.arrayContaining([[cast.ben.me.member.id, true]]))
     await server.clock.advance(2)
     expect(await takingPart()).toEqual(
@@ -106,6 +110,20 @@ describe('a room as it is shown', () => {
       (one: { memberId: string }) => one.memberId === cast.ben.me.member.id,
     )
     expect(ben.takingPart).toBe(true)
+  })
+
+  it('counts an agent as taking part for one grace after its person opted it in, though it sent nothing since', async () => {
+    await server.clock.advance(PAST_GRACE_MS)
+    cast.sleep('ben')
+    await server.clock.advance(PAST_GRACE_MS)
+    const id = await openedRoom(cast)
+    const ben = async () =>
+      (await cast.cy.api('GET', `/debates/${id}`)).json.participants.find(
+        (one: { memberId: string }) => one.memberId === cast.ben.me.member.id,
+      ).takingPart
+    expect(await ben()).toBe(true)
+    await server.clock.advance(PAST_GRACE_MS)
+    expect(await ben()).toBe(false)
   })
 
   it('counts nobody as dropped out until one grace has passed since the server started', async () => {

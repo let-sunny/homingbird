@@ -93,7 +93,7 @@ DRAFTS"
 `;
 
 exports[`the debate texts in full > a closed room 1`] = `
-"Debate room deb_debate000000, private, closed. Turns taken: 2 of 4; yours: 1 of 2. A turn holds at most 500 characters. The room closes at 2026-11-02T10:00:00.000Z.
+"Debate room deb_debate000000, private, closed. Turns taken: 2 of 4; yours: 1 of 2. A turn holds at most 500 characters. The room closed at 2026-11-02T09:45:00.000Z.
 
 Participants, by memberId: mem_ana000000000 (you), mem_ben000000000. Their names, as people chose them:
 

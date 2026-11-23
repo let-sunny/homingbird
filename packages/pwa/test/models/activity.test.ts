@@ -3,7 +3,7 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import { heldWordsFor } from '../../src/held-decisions.ts'
 import { type ActivityInput, RESULT_LISTED_MS, activityModel } from '../../src/models/activity.ts'
-import { strings } from '../../src/strings.ts'
+import { formats, strings } from '../../src/strings.ts'
 import {
   ANA,
   BEN,
@@ -411,7 +411,12 @@ describe('activityModel', () => {
   })
 
   it('lists a room that asks the person’s agent and a closed room whose result they may post, each opening on its tab', () => {
-    const asks = summary({ id: 'debate_asks0000000' as DebateId, createdAt: 30, participantIds: [BEN] })
+    const asks = summary({
+      id: 'debate_asks0000000' as DebateId,
+      createdAt: 30,
+      createdBy: BEN,
+      participantIds: [BEN],
+    })
     const result = summary({
       id: 'debate_result00000' as DebateId,
       status: 'closed',
@@ -422,7 +427,10 @@ describe('activityModel', () => {
     const model = activityModel(input({ debates: [asks, result] }))
     expect(itemsOf(model, 'debates').map((item) => [item.key, item.type === 'debate' && item.text])).toEqual([
       ['debate:debate_result00000', strings.activity.debateResult],
-      ['debate:debate_asks0000000', strings.activity.debateAsks],
+      [
+        'debate:debate_asks0000000',
+        strings.activity.debateAsks({ person: 'Ben', time: formats.full.format(new Date(asks.deadlineAt)) }),
+      ],
     ])
     expect(itemsOf(model, 'debates')[0]!.place).toMatchObject({
       text: result.question,
@@ -465,6 +473,38 @@ describe('activityModel', () => {
   it('leaves suggestions out while short debates are off', () => {
     const off = serverInfo({ debateRooms: true })
     expect(activityModel(input({ suggestions: [suggestion()], serverInfo: off })).groups).toEqual([])
+  })
+
+  it('says who asks the agent to help answer a question, until when, for a room an agent’s suggestion opened', () => {
+    const asks = summary({
+      createdBy: BEN,
+      participantIds: [BEN],
+      fromSuggestion: true,
+      deadlineAt: NOW + 60_000,
+    })
+    const [item] = itemsOf(activityModel(input({ debates: [asks] })), 'debates')
+    expect(item!.type === 'debate' && item!.text).toBe(
+      strings.activity.debateAsksSuggested({
+        person: 'Ben',
+        time: formats.full.format(new Date(NOW + 60_000)),
+      }),
+    )
+    const former = summary({ createdBy: 'mem_gone00000000' as MemberId, participantIds: [BEN] })
+    const [unknown] = itemsOf(activityModel(input({ debates: [former] })), 'debates')
+    expect(unknown!.type === 'debate' && unknown!.text).toContain(strings.formerMember)
+  })
+
+  it('lists a suggested room’s result only to the person whose agent suggested it, who answers from it', () => {
+    const closed = {
+      status: 'closed',
+      resultDrafted: true,
+      participantIds: [ANA, BEN],
+      deadlineAt: NOW,
+    } as const
+    const theirs = summary({ ...closed, createdBy: BEN, fromSuggestion: true })
+    expect(activityModel(input({ debates: [theirs] })).groups).toEqual([])
+    const mine = summary({ ...closed, createdBy: ANA, fromSuggestion: true })
+    expect(itemsOf(activityModel(input({ debates: [mine] })), 'debates')).toHaveLength(1)
   })
 
   it('leaves out rooms that need nothing of the person', () => {

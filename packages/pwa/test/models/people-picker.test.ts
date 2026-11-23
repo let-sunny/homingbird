@@ -9,6 +9,7 @@ import {
   messageCandidates,
   peoplePickerModel,
   pickerKey,
+  roomCandidates,
   withChosen,
 } from '../../src/models/people-picker.ts'
 import { strings } from '../../src/strings.ts'
@@ -211,5 +212,26 @@ describe('candidatesAmong', () => {
   it('offers every person but those excluded, by name', () => {
     const listed = candidatesAmong([entry(CY, 'Cy'), entry(ANA, 'Ana'), entry(BEN, 'Ben')], new Set([ANA]))
     expect(listed).toEqual([candidate(BEN, 'Ben'), candidate(CY, 'Cy')])
+  })
+})
+
+describe('roomCandidates', () => {
+  it('lists the person who asked the note and anyone the viewer blocked with the reason, never the viewer', () => {
+    const directory = [
+      entry(ANA, 'Ana'),
+      entry(BEN, 'Ben'),
+      entry(CY, 'Cy', { relation: 'blocked' }),
+      entry(DEE, 'Dee'),
+    ]
+    expect(roomCandidates(directory, ANA, BEN)).toEqual([
+      { ...candidate(BEN, 'Ben'), reason: strings.debateSuggestion.askerLeftOut({ name: 'Ben' }) },
+      { ...candidate(CY, 'Cy'), reason: strings.debateSuggestion.blocked({ name: 'Cy' }) },
+      candidate(DEE, 'Dee'),
+    ])
+    expect(roomCandidates(directory, ANA, null).map((one) => one.reason)).toEqual([
+      null,
+      strings.debateSuggestion.blocked({ name: 'Cy' }),
+      null,
+    ])
   })
 })

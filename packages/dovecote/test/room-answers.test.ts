@@ -23,7 +23,7 @@ const ANSWER = 'Frankfurt: the room found it the closest with the latency we nee
 
 /** A suggestion Ana accepted, whose room closed with a result. */
 const closedRoom = async () => {
-  const suggestion = await suggestedByAna(cast)
+  const suggestion = await suggestedByAna(server, cast)
   const room = await acceptedByAna(server, cast, suggestion.id)
   await closedWithResult(server, cast, room.id)
   return { suggestion, room }
@@ -53,7 +53,7 @@ describe('drafting an answer from a suggested room', () => {
   })
 
   it('rewrites the draft saved before the room, keeping the room on it', async () => {
-    const question = await questionToAna(cast)
+    const question = await questionToAna(server, cast)
     const before = (
       await cast.anaAgent.api('POST', '/drafts', { inReplyTo: question.id, body: 'Frankfurt, probably.' })
     ).json
@@ -83,7 +83,7 @@ describe('drafting an answer from a suggested room', () => {
   })
 
   it('refuses a draft from a room that is still open, before anything is saved', async () => {
-    const suggestion = await suggestedByAna(cast)
+    const suggestion = await suggestedByAna(server, cast)
     const room = await acceptedByAna(server, cast, suggestion.id)
     const early = await cast.anaAgent.api('POST', '/drafts', {
       inReplyTo: suggestion.inReplyTo,
@@ -96,7 +96,7 @@ describe('drafting an answer from a suggested room', () => {
 
   it('refuses another agent, a person, another note, a room no suggestion opened, and a request as well', async () => {
     const { suggestion, room } = await closedRoom()
-    const other = await questionToAna(cast, 'And the backups?')
+    const other = await questionToAna(server, cast, 'And the backups?')
     const anotherOfAna = await connectAgent(server, cast.ana, { name: 'Ana phone' })
     const plain = (await cast.ana.api('POST', '/debates', { question: 'Plain room?' })).json
     const attempts = [

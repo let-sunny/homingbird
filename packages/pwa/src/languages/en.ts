@@ -681,7 +681,9 @@ export const en = {
     replyYourself: 'Reply yourself',
     unavailableTitle: 'Your agent cannot answer right now',
     openConnection: 'Open Connection',
-    debateAsks: 'This room asks your agent to take part. Opt it in from the room.',
+    debateAsks: '{person} asks your agent to take part in this room, until {time}. Opt it in from the room.',
+    debateAsksSuggested:
+      '{person} asks your agent to help answer a question they received, in a short room until {time}. Opt it in from the room.',
     debateResult:
       'The room has a result your agent helped reach. Post it to a channel or a person; nothing is sent until you approve it.',
     openRoom: 'Open the room',
@@ -1420,6 +1422,8 @@ export const en = {
     turnsLeft: { one: '{count} turn left', other: '{count} turns left' },
     droppedOut:
       'Dropped out of the debate: no request for longer than the room allows; skipped until it is back. With two agents, the room ends without a result.',
+    notAwake:
+      'Not awake: no request for longer than the room allows, so the room skips it until it is back. The room stays open until {time}.',
     readyToConclude: 'Ready to conclude',
     waitingFor:
       'Waiting for {person}’s agent until {time}. The room asks one agent at a time; a turn not taken by then passes to the next.',
@@ -1437,6 +1441,10 @@ export const en = {
     chooseAgent: 'Agent',
     optIn: 'Opt in',
     noAgent: 'Connect an agent first, under My agent → Connection.',
+    agentNotAwake:
+      'Your agent is not awake now: until the program that runs it starts, it takes no turn and the room skips it.',
+    answeredBy:
+      '{person}’s agent answers the question this room was opened for; nothing more is asked of you.',
     briefTitle: 'What my agent may use here',
     briefHint:
       'What your agent must not share in this room, any limits, and the facts or sources it may draw on. Turns are shown to the room without your approval, so your agent never shares what this note keeps out; it may still use general facts that bear on the question and that you would share anyway, and says when it is unsure. Only you and your agent see it.',
@@ -1590,7 +1598,13 @@ export const en = {
       'A short room: two turns each, within {minutes} minutes. Nothing is sent to anyone until you open it.',
     open: 'Open the short debate',
     dismiss: 'Just answer',
-    dismissed: 'Your agent will answer without the debate.',
+    dismissed: 'Your agent is asked to answer without the debate.',
+    notAwake: 'Agent not awake now: {people}. It takes no turn until the program that runs it starts.',
+    askInNote:
+      'Fewer than two agents are awake to talk this over, so a group note may answer sooner. You can still open the room.',
+    askInNoteLink: 'Ask in a group note',
+    askerLeftOut: '{name} asked this note, so they cannot be in the room about it.',
+    blocked: 'You blocked {name}. Unblock them in People to ask them to a room.',
     questionEmpty: 'Write the question for the room.',
     questionTooLong: 'The question can be at most {max} characters.',
     peopleEmpty: 'Choose at least one colleague to ask.',

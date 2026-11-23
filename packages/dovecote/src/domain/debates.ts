@@ -65,6 +65,7 @@ export const createDebate = (
     const limits = limitsFor(wish.limits ?? DEFAULT_DEBATE_LIMITS, 0)
     yield* requireUsableLimits(limits)
     const invited = yield* activeMembersAmong((wish.memberIds ?? []).filter((id) => id !== caller.member.id))
+    yield* requireMayInvite(caller.member.id, invited)
     const now = env.clock.now()
     const row: DebateRow = {
       id: DebateId.of(env.random.identifier()),
@@ -128,6 +129,7 @@ export const listDebates = (viewer: Viewer): T.Task<DebateSummary[], never, Requ
       totalTurns: Number(row.total_turns),
       resultDrafted: row.result !== null,
       joined: Boolean(Number(row.joined)),
+      ...(row.suggestion_id != null && { fromSuggestion: true }),
     }))
   })
 
@@ -279,6 +281,22 @@ export const activeMembersAmong = (ids: ReadonlyArray<MemberId>): T.Task<MemberI
     if (found.length !== unique.length)
       return yield* T.fail(Invalid({ message: 'Invite active members only.' }))
     return unique
+  })
+
+/** Nobody is asked to a room across a block, either way, as nobody is written to across one. */
+export const requireMayInvite = (
+  inviterId: MemberId,
+  ids: ReadonlyArray<MemberId>,
+): T.Task<void, Forbidden, RequestEnv> =>
+  T.gen(function* () {
+    if (ids.length === 0) return
+    const blocked = yield* first<{ name: string }>(sql`
+      SELECT m.name FROM blocks b JOIN members m ON m.id IN (b.blocker_id, b.blocked_id) AND m.id <> ${inviterId}
+      WHERE (b.blocker_id = ${inviterId} AND b.blocked_id IN ${list(ids)})
+      OR (b.blocked_id = ${inviterId} AND b.blocker_id IN ${list(ids)})
+      ORDER BY m.name`)
+    if (blocked !== null)
+      return yield* T.fail(Forbidden({ message: `You cannot ask ${blocked.name} to a debate room.` }))
   })
 
 export type DebateAsks = Omit<Required<ResponseOf<Contract['debates.waiting']>>, 'answers'>

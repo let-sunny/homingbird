@@ -117,6 +117,26 @@ export const candidatesAmong = (
     .sort((a, b) => a.member.name.localeCompare(b.member.name))
     .map((entry) => candidateOf(entry, null))
 
+/**
+ * The people who may be asked to a debate room, in name order: every person but the viewer, listed with
+ * the reason when the viewer blocked them, or when they asked the note the room is about, since they would
+ * read the room before its answer is approved.
+ */
+export const roomCandidates = (
+  directory: ReadonlyArray<AsRead.DirectoryEntry>,
+  viewerId: MemberId,
+  askerId: MemberId | null,
+): ReadonlyArray<PickerCandidate> =>
+  candidatesAmong(directory, new Set([viewerId])).map((candidate) => {
+    const name = candidate.name
+    if (candidate.memberId === askerId)
+      return { ...candidate, reason: strings.debateSuggestion.askerLeftOut({ name }) }
+    const blocked = directory.some(
+      (entry) => entry.member.id === candidate.memberId && entry.relation === 'blocked',
+    )
+    return blocked ? { ...candidate, reason: strings.debateSuggestion.blocked({ name }) } : candidate
+  })
+
 export interface PickerCandidate {
   readonly memberId: MemberId
   readonly name: string

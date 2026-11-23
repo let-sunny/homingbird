@@ -4,22 +4,31 @@ import type { Session, TestServer } from './harness.ts'
 
 export const SUGGESTED_QUESTION = 'Which region should the billing database move to?'
 
-/** Ben asks Ana a question, sent; the note her agent will suggest a room about. */
-export const questionToAna = async (cast: Cast, body = 'Where should the billing database live?') => {
-  const draft = (await cast.ben.api('POST', '/drafts', { to: [cast.ana.me.member.id], body })).json
-  const sent = await cast.ben.api('POST', `/drafts/${draft.id}/send`, {
+/**
+ * Dee asks Ana a question, sent; the note her agent will suggest a room about. Dee is never asked to that
+ * room, since she would read it before Ana approves its answer.
+ */
+export const questionToAna = async (
+  server: TestServer,
+  cast: Cast,
+  body = 'Where should the billing database live?',
+) => {
+  const dee = await server.signIn('dee@example.com', 'Dee')
+  const draft = (await dee.api('POST', '/drafts', { to: [cast.ana.me.member.id], body })).json
+  const sent = await dee.api('POST', `/drafts/${draft.id}/send`, {
     expected: { body: draft.body, conversationId: draft.conversationId },
   })
   if (sent.status !== 200) throw new Error(JSON.stringify(sent.json))
   return sent.json as { id: string; conversationId: string }
 }
 
-/** Ana's agent suggests talking Ben's question over with Ben's and Cy's agents. */
+/** Ana's agent suggests talking Dee's question over with Ben's and Cy's agents. */
 export const suggestedByAna = async (
+  server: TestServer,
   cast: Cast,
   overrides: Readonly<Record<string, unknown>> = {},
 ): Promise<{ id: string; inReplyTo: string; conversationId: string }> => {
-  const question = await questionToAna(cast)
+  const question = await questionToAna(server, cast)
   const made = await cast.anaAgent.api('POST', '/debate-suggestions', {
     inReplyTo: question.id,
     question: SUGGESTED_QUESTION,
