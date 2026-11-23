@@ -24,6 +24,7 @@ import {
   roomRulesOf,
   touchDebate,
 } from './debate-rows.ts'
+import { confirmMeeting } from './meeting-invitations.ts'
 import { keepAgentSlots } from './scheduling-rows.ts'
 
 /**
@@ -238,7 +239,8 @@ const close = (
 
 /**
  * Closes a scheduling room on the time it computed, which nobody drafted and earns no credits; the time is
- * kept for the invitation, and the audit says only how it settled and how many answered.
+ * kept and the meeting started for the invitation, and the audit says only how it settled and how many
+ * answered.
  */
 const closeComputed = (
   row: DebateRow,
@@ -253,10 +255,12 @@ const closeComputed = (
       updated_at = ${now}
       WHERE id = ${row.id} AND status = 'concluding' AND result_round = ${effect.round} AND result IS NULL`)
     if (closed !== 1) return
-    if (result.kind === 'slot')
+    if (result.kind === 'slot') {
       yield* run(
         sql`UPDATE scheduling_rooms SET slot_starts_at = ${result.startsAt} WHERE debate_id = ${row.id}`,
       )
+      yield* confirmMeeting(row, result)
+    }
     const asked = yield* first<{ attendees: number }>(
       sql`SELECT COUNT(*) AS attendees FROM scheduling_attendees WHERE debate_id = ${row.id}`,
     )

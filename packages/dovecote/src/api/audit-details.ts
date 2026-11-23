@@ -6,6 +6,7 @@ import {
   type AuditedRoute,
   type Channel,
   type Contract,
+  type Debate,
   type Group,
   type GroupId,
   type Member,
@@ -224,6 +225,26 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
     afterwards((debate) => ({ targetId: debate.id, detail: { visibility: debate.visibility } })),
   'scheduling.create': () =>
     afterwards((debate) => ({ targetId: debate.id, detail: { visibility: debate.visibility } })),
+  'scheduling.attendance.add': ({ params }, caller) =>
+    afterwards((debate) => ({
+      targetId: params.id,
+      detail: {
+        by: attendanceIn(debate, caller) === 'added' ? 'person' : 'agent',
+        byDelegation: false,
+      },
+    })),
+  'scheduling.attendance.remove': ({ params }, caller) =>
+    afterwards((debate) => ({
+      targetId: params.id,
+      detail: {
+        because:
+          debate.createdBy === caller.member.id
+            ? 'cancelled'
+            : attendanceIn(debate, caller) === 'declined'
+              ? 'declined'
+              : 'took_out',
+      },
+    })),
   'debates.optIn': ({ params, body }) =>
     afterwards(() => ({ targetId: params.id, detail: { credentialId: body.agentId } })),
   'debates.brief.set': ({ params, body }) =>
@@ -311,6 +332,10 @@ export type Describe<N extends AuditedRoute> = (
 ) => T.Task<(response: ResponseOf<Contract[N]>) => AuditFacts<AuditedEventOf<N>>, never, RequestEnv>
 
 const PROFILE_FIELDS = ['name', 'profile', 'locale'] as const
+
+/** The caller's own part of the meeting as the response shows it. */
+const attendanceIn = (debate: Debate, caller: Caller): string | undefined =>
+  debate.schedule?.attendees.find((attendee) => attendee.memberId === caller.member.id)?.attendance
 const PRINCIPLE_FIELDS = ['kind', 'topic', 'rule', 'source', 'enabled', 'publicText'] as const
 const CHANNEL_FIELDS = ['slug', 'description'] as const
 const CHANNEL_PRINCIPLE_FIELDS = ['kind', 'topic', 'rule', 'source', 'enabled'] as const

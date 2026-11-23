@@ -229,6 +229,13 @@ export const AUDIT_EVENTS = {
     unanswered: S.int({ min: 0 }),
     droppedOut: S.array(MemberId, { maxItems: 100 }),
   }),
+  'scheduling.meeting_added': event('full', 'debate', {
+    by: S.tolerant(S.literal('agent', 'person'), UNKNOWN),
+    byDelegation: S.boolean,
+  }),
+  'scheduling.meeting_removed': event('full', 'debate', {
+    because: S.tolerant(S.literal('took_out', 'declined', 'cancelled'), UNKNOWN),
+  }),
   'debate.closed': event('full', 'debate', {
     round: S.int({ min: 0 }),
     draftedBy: MemberId,

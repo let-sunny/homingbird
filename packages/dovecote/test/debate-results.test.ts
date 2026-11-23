@@ -77,6 +77,7 @@ describe('drafting the result', () => {
       upcoming: [],
       ballots: [],
       ended: [],
+      meetings: [],
     })
   })
 

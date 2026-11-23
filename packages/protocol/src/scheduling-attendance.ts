@@ -1,6 +1,7 @@
 import { Result } from '@homingbird/kernel'
 import { Conflict } from './errors.ts'
 import type { MemberId } from './ids.ts'
+import type { ATTENDANCE_STATES, CalendarOutcome } from './meeting.ts'
 
 /** A click or report moves its own person's part; the opener's also reaches or cancels everyone else's. */
 export const stepAttendance = (
@@ -17,7 +18,11 @@ export const stepAttendance = (
   const step: AttendanceStep = {
     attendance: withStates(attendance, [own.attendee]),
     asks: own.asks,
-    notices: [...own.notices, ...leavingNotices(attendance, role, attendee, event)],
+    notices: [
+      ...own.notices,
+      ...unremovedNotices(attendee, event),
+      ...leavingNotices(attendance, role, attendee, event),
+    ],
   }
   if (role === 'attendee') return Result.ok(step)
   if (state === 'added') return Result.ok(followed(step, invited(step.attendance, addingOf)))
@@ -51,6 +56,14 @@ export const confirmAttendance = (
   }
 }
 
+/** What the person's agent is asked to do in their calendar now, if anything. */
+export const askWaitingOn = (attendance: Attendance, memberId: MemberId): AttendanceAsk['ask'] | null => {
+  const state = attendance.attendees.find((one) => one.memberId === memberId)?.state
+  const role: Role = memberId === attendance.openedBy ? 'opener' : 'attendee'
+  if (state === 'adding') return ADDING_ASK[role]
+  return state === 'removing' ? REMOVING_ASK[role] : null
+}
+
 /** For the opener, `added` means the invitation was sent; for anyone else, that it is in their calendar. */
 export interface Attendance {
   readonly openedBy: MemberId
@@ -63,16 +76,7 @@ export interface AttendeeAttendance {
 }
 
 /** `asked` waits for the person's click, `by_hand` for them to do it, `adding` or `removing` for their agent. */
-export type AttendanceState =
-  | 'waiting_invite'
-  | 'asked'
-  | 'by_hand'
-  | 'adding'
-  | 'added'
-  | 'declined'
-  | 'removing'
-  | 'removed'
-  | 'cancelled'
+export type AttendanceState = (typeof ATTENDANCE_STATES)[number]
 
 /** Their agent adds at once as their delegation allows, after their click, or the person does it themself. */
 export type Adding = 'agent' | 'agent_after_click' | 'person'
@@ -82,9 +86,6 @@ export type AttendanceEvent =
   | { readonly type: 'add'; readonly memberId: MemberId }
   | { readonly type: 'decline'; readonly memberId: MemberId }
   | { readonly type: 'remove'; readonly memberId: MemberId }
-
-/** What an agent says it did in its person's calendar. */
-export type CalendarOutcome = 'sent' | 'accepted' | 'declined' | 'cancelled' | 'conflict' | 'failed'
 
 export interface AttendanceStep {
   readonly attendance: Attendance
@@ -102,6 +103,7 @@ export type AttendanceNotice =
   | { readonly to: MemberId; readonly notice: 'waits' }
   | { readonly to: MemberId; readonly notice: 'added' }
   | { readonly to: MemberId; readonly notice: 'cancelled' }
+  | { readonly to: MemberId; readonly notice: 'remove_by_hand' }
   | { readonly to: MemberId; readonly notice: 'busy'; readonly memberId: MemberId }
   | {
       readonly to: MemberId
@@ -112,22 +114,31 @@ export type AttendanceNotice =
 
 type Role = 'opener' | 'attendee'
 
-/** The state each agent's report moves its own person from, and to. */
+/**
+ * The states each agent's report moves its own person from, and to. An agent that fails to take the
+ * meeting out leaves it to its person: Homingbird counts it out and tells them.
+ */
 const REPORTED: Record<
   Role,
-  Partial<Record<CalendarOutcome, readonly [AttendanceState, AttendanceState]>>
+  Partial<Record<CalendarOutcome, ReadonlyArray<readonly [AttendanceState, AttendanceState]>>>
 > = {
   opener: {
-    sent: ['adding', 'added'],
-    conflict: ['adding', 'asked'],
-    failed: ['adding', 'by_hand'],
-    cancelled: ['removing', 'removed'],
+    sent: [['adding', 'added']],
+    conflict: [['adding', 'asked']],
+    failed: [
+      ['adding', 'by_hand'],
+      ['removing', 'removed'],
+    ],
+    cancelled: [['removing', 'removed']],
   },
   attendee: {
-    accepted: ['adding', 'added'],
-    conflict: ['adding', 'asked'],
-    failed: ['adding', 'by_hand'],
-    declined: ['removing', 'removed'],
+    accepted: [['adding', 'added']],
+    conflict: [['adding', 'asked']],
+    failed: [
+      ['adding', 'by_hand'],
+      ['removing', 'removed'],
+    ],
+    declined: [['removing', 'removed']],
   },
 }
 
@@ -138,10 +149,8 @@ const nextStateOf = (
   adding: Adding,
 ): AttendanceState | null => {
   switch (event.type) {
-    case 'report': {
-      const move = REPORTED[role][event.outcome]
-      return move?.[0] === state ? move[1] : null
-    }
+    case 'report':
+      return REPORTED[role][event.outcome]?.find(([from]) => from === state)?.[1] ?? null
     case 'add':
       return state === 'asked' ? 'adding' : state === 'by_hand' ? 'added' : null
     case 'decline':
@@ -183,6 +192,11 @@ const moved = (
 const ADDING_ASK = { opener: 'send_invite', attendee: 'accept_invite' } as const
 
 const REMOVING_ASK = { opener: 'cancel_invite', attendee: 'decline_invite' } as const
+
+const unremovedNotices = (attendee: AttendeeAttendance, event: AttendanceEvent): AttendanceNotice[] =>
+  event.type === 'report' && event.outcome === 'failed' && attendee.state === 'removing'
+    ? [{ to: attendee.memberId, notice: 'remove_by_hand' }]
+    : []
 
 /** Someone other than the opener leaving, or finding the time taken, is told to the opener. */
 const leavingNotices = (

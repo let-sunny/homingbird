@@ -3382,6 +3382,7 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
       upcoming: [],
       ballots: [],
       ended: [],
+      meetings: [],
     })
   })
 
@@ -3469,7 +3470,12 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
 
   it('marks every scheduling route that opens a room or chooses a person’s free times as one only a person may call, behind its feature, and no model-facing route list reaches it', () => {
     const personal = (Object.keys(contract) as RouteName[]).filter((name) => name.startsWith('scheduling.'))
-    expect(personal.sort()).toEqual(['scheduling.create', 'scheduling.slots.set'])
+    expect(personal.sort()).toEqual([
+      'scheduling.attendance.add',
+      'scheduling.attendance.remove',
+      'scheduling.create',
+      'scheduling.slots.set',
+    ])
     for (const name of personal) {
       expect([name, contract[name].access]).toEqual([name, 'human'])
       expect([name, featureOfRoute(name)]).toEqual([name, 'schedulingRooms'])
@@ -3502,6 +3508,123 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
     expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
     expect(await everyStoredValue(server)).not.toContain('4b2e')
     expect(await storedRows(server, 'room_free_slots')).toEqual([])
+  })
+
+  /**
+   * Ben's room with Cy: both agents share free slots, so it settles; Ben's agent sends the invitation
+   * after his click and Cy's adds it after hers.
+   */
+  const meetingInCalendars = async () => {
+    const { id, window } = await schedulingRoom()
+    const cyAgent = await connectAgent(server, cy, { name: 'Cy agent' })
+    keepAwake(server, cy.me.member.id, cyAgent)
+    await server.clock.advance(1)
+    await cy.api('PUT', `/debates/${id}/agent`, { agentId: await agentIdOf(cyAgent) })
+    await benAgent.api('POST', `/debates/${id}/slots`, { slots: [window] })
+    await cyAgent.api('POST', `/debates/${id}/slots`, { slots: [window] })
+    await ben.api('POST', `/debates/${id}/attendance`)
+    await benAgent.api('POST', `/debates/${id}/calendar`, { outcome: 'sent', ...MEETING_INVITE })
+    await cy.api('POST', `/debates/${id}/attendance`)
+    await cyAgent.api('POST', `/debates/${id}/calendar`, { outcome: 'accepted' })
+    const parts = await meetingPartsOf(id)
+    expect(parts).toEqual({ [ben.me.member.id]: 'added', [cy.me.member.id]: 'added' })
+    return { id, cyAgent }
+  }
+
+  const MEETING_INVITE = {
+    inviteUid: 'evt-5c1d@calendar.example.com',
+    meetingUrl: 'https://meet.example.com/5c1d?pwd=5c1dpass',
+  }
+
+  const meetingPartsOf = async (id: string) =>
+    Object.fromEntries(
+      (await ben.api('GET', `/debates/${id}`)).json.schedule.attendees.map(
+        (attendee: { memberId: string; attendance?: string }) => [attendee.memberId, attendee.attendance],
+      ),
+    )
+
+  const meetingAsksOf = async (agent: Agent) =>
+    ((await agent.api('GET', '/debate-asks')).json.meetings as Array<{ ask: string }>).map((one) => one.ask)
+
+  it('refuses an agent credential that tries to add or take out a meeting, changing nothing', async () => {
+    const { id } = await meetingInCalendars()
+    const before = await everyStoredValue(server)
+    for (const method of ['POST', 'DELETE'])
+      for (const agent of [anaAgent, benAgent])
+        expect([method, (await agent.api(method, `/debates/${id}/attendance`)).status]).toEqual([method, 403])
+    expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
+  })
+
+  it('asks only the person’s own agent to decline when they take a meeting out, and tells whoever opened the room', async () => {
+    const { id, cyAgent } = await meetingInCalendars()
+    const told: Array<{ to: string; notice: unknown }> = []
+    ;(server.env as { meetingPushSink: unknown }).meetingPushSink = (
+      to: string,
+      meeting: { notice: unknown },
+    ) => told.push({ to, notice: meeting.notice })
+    expect((await cy.api('DELETE', `/debates/${id}/attendance`)).status).toBe(200)
+    expect(await meetingPartsOf(id)).toEqual({ [ben.me.member.id]: 'added', [cy.me.member.id]: 'removing' })
+    expect(await meetingAsksOf(cyAgent)).toEqual(['decline_invite'])
+    expect(await meetingAsksOf(benAgent)).toEqual([])
+    expect(await meetingAsksOf(anaAgent)).toEqual([])
+    expect(told).toEqual([
+      {
+        to: ben.me.member.id,
+        notice: { to: ben.me.member.id, notice: 'left', memberId: cy.me.member.id, because: 'took_out' },
+      },
+    ])
+  })
+
+  it('changes no other person’s attendance by any agent’s calendar report', async () => {
+    const { id, cyAgent } = await meetingInCalendars()
+    await cy.api('DELETE', `/debates/${id}/attendance`)
+    const before = await everyStoredValue(server)
+    const outcomes = ['sent', 'accepted', 'declined', 'cancelled', 'conflict', 'failed']
+    for (const outcome of outcomes)
+      expect([outcome, (await benAgent.api('POST', `/debates/${id}/calendar`, { outcome })).status]).toEqual([
+        outcome,
+        409,
+      ])
+    for (const outcome of ['sent', 'accepted', 'cancelled', 'conflict'])
+      expect([outcome, (await cyAgent.api('POST', `/debates/${id}/calendar`, { outcome })).status]).toEqual([
+        outcome,
+        409,
+      ])
+    const forSomeoneElse = { outcome: 'declined', memberId: cy.me.member.id }
+    expect((await benAgent.api('POST', `/debates/${id}/calendar`, forSomeoneElse)).status).toBe(400)
+    expect((await anaAgent.api('POST', `/debates/${id}/calendar`, { outcome: 'declined' })).status).toBe(404)
+    expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
+    expect(await meetingPartsOf(id)).toEqual({ [ben.me.member.id]: 'added', [cy.me.member.id]: 'removing' })
+  })
+
+  it('stores no calendar token and nothing an agent sent beyond slots, its short note, the invitation’s id and meeting link', async () => {
+    const { id, cyAgent } = await meetingInCalendars()
+    const beyond = [
+      { outcome: 'declined', accessToken: 'ya29.9f0e' },
+      { outcome: 'declined', refreshToken: '1//9f0e' },
+      { outcome: 'declined', title: 'Dentist 9f0e' },
+      { outcome: 'declined', location: 'Room 9f0e' },
+      { outcome: 'declined', attendees: ['ceo-9f0e@example.com'] },
+      { outcome: 'declined', meetingUrl: 'https://meet.example.com/9f0e' },
+      { outcome: 'declined', inviteUid: 'evt-9f0e' },
+    ]
+    await cy.api('DELETE', `/debates/${id}/attendance`)
+    for (const body of beyond)
+      expect([body, (await cyAgent.api('POST', `/debates/${id}/calendar`, body)).status]).toEqual([body, 400])
+    const stored = await everyStoredValue(server)
+    expect(stored).not.toContain('9f0e')
+    const meeting = await storedRows(server, 'scheduling_rooms')
+    expect(meeting).toMatchObject([
+      { invite_uid: MEETING_INVITE.inviteUid, meeting_url: MEETING_INVITE.meetingUrl, invite_state: 'sent' },
+    ])
+    const elsewhere = stored
+      .split('\n')
+      .filter((line) => !line.startsWith('scheduling_rooms:'))
+      .join('\n')
+    for (const secret of ['5c1d', 'meet.example.com']) {
+      expect(elsewhere).not.toContain(secret)
+      expect(server.logged.join('\n')).not.toContain(secret)
+    }
   })
 })
 

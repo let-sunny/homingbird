@@ -4,6 +4,7 @@ import { DEBATE_GRACE_MINUTES } from './debate-grace.ts'
 import { DEBATE_PARTICIPANTS_MAX, DebateResult } from './debate-result.ts'
 import { FREE_SLOTS_MAX } from './free-slots.ts'
 import { CredentialId, DebateId, MemberId, Timestamp } from './ids.ts'
+import { MeetingAttendance, MeetingInvite } from './meeting.ts'
 import { AgentLabel } from './model.ts'
 import { RoomResult } from './room-result.ts'
 
@@ -24,9 +25,16 @@ export const RoomScheduleDetails = S.struct({
   minutes: S.int({ min: 15, max: 480 }),
   window: S.struct({ startsAt: Timestamp, endsAt: Timestamp }),
   attendees: S.array(
-    S.struct({ memberId: MemberId, required: S.boolean, answer: S.optional(AttendeeAnswer) }),
+    S.struct({
+      memberId: MemberId,
+      required: S.boolean,
+      answer: S.optional(AttendeeAnswer),
+      attendance: S.optional(MeetingAttendance),
+    }),
     { maxItems: DEBATE_PARTICIPANTS_MAX },
   ),
+  /** The invitation once sent, to the people invited and their agents only. */
+  invite: S.optional(S.nullable(MeetingInvite)),
   /** The free times each attendee gave, to the people who see the room; to an agent, its own person's only. */
   freeSlots: S.optional(
     S.array(
@@ -216,6 +224,12 @@ export const DebateAsk = S.struct({
   ask: S.tolerant(S.literal('turn', 'result', 'slots'), UNKNOWN),
 })
 export type DebateAsk = S.Infer<typeof DebateAsk>
+
+export const MeetingAsk = S.struct({
+  debate: Debate,
+  ask: S.tolerant(S.literal('send_invite', 'accept_invite', 'decline_invite', 'cancel_invite'), UNKNOWN),
+})
+export type MeetingAsk = S.Infer<typeof MeetingAsk>
 
 /** A room that ended without a result, as its agent learns of it: no words of the room, only why. */
 export const DebateEnded = S.struct({ id: DebateId, endedBecause: DebateEnding, closedAt: Timestamp })

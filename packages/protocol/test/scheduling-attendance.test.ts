@@ -2,13 +2,14 @@ import { Result } from '@homingbird/kernel'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import { MemberId } from '../src/ids.ts'
+import type { CalendarOutcome } from '../src/meeting.ts'
 import {
   type Adding,
   type Attendance,
   type AttendanceEvent,
   type AttendanceState,
   type AttendanceStep,
-  type CalendarOutcome,
+  askWaitingOn,
   confirmAttendance,
   stepAttendance,
 } from '../src/scheduling-attendance.ts'
@@ -197,12 +198,44 @@ describe('an invited person', () => {
     )
   })
 
+  it('whose agent fails to take the meeting out is counted out and told to take it out themself', () => {
+    const added = accepted(sent(), report(BEN, 'accepted')).attendance
+    const removing = accepted(added, { type: 'remove', memberId: BEN }).attendance
+    const step = accepted(removing, report(BEN, 'failed'))
+    expect(statesOf(step.attendance)).toEqual({ [ANA]: 'added', [BEN]: 'removed', [CY]: 'adding' })
+    expect(step.asks).toEqual([])
+    expect(step.notices).toEqual([{ to: BEN, notice: 'remove_by_hand' }])
+    expect(accepted(sent(), report(BEN, 'failed')).notices).toEqual([{ to: BEN, notice: 'waits' }])
+  })
+
   it('who added the meeting by hand takes it out by hand', () => {
     const byHand = () => 'person' as const
     const added = accepted(sent(byHand), { type: 'add', memberId: BEN }, byHand).attendance
     const step = accepted(added, { type: 'remove', memberId: BEN }, byHand)
     expect(statesOf(step.attendance)[BEN]).toBe('removed')
     expect(step.asks).toEqual([])
+  })
+})
+
+describe('what an agent is asked now', () => {
+  it('is to send or cancel the invitation for the opener, and to accept or decline it for anyone else', () => {
+    const opened = confirmAttendance(ANA, PEOPLE, byAgents).attendance
+    expect([ANA, BEN, DAN].map((memberId) => askWaitingOn(opened, memberId))).toEqual([
+      'send_invite',
+      null,
+      null,
+    ])
+    const added = accepted(sent(), report(BEN, 'accepted')).attendance
+    expect([ANA, BEN, CY].map((memberId) => askWaitingOn(added, memberId))).toEqual([
+      null,
+      null,
+      'accept_invite',
+    ])
+    const leaving = accepted(added, { type: 'remove', memberId: BEN }).attendance
+    expect(askWaitingOn(leaving, BEN)).toBe('decline_invite')
+    const cancelling = accepted(leaving, { type: 'remove', memberId: ANA }).attendance
+    expect(askWaitingOn(cancelling, ANA)).toBe('cancel_invite')
+    expect(askWaitingOn(cancelling, BEN)).toBeNull()
   })
 })
 
@@ -251,6 +284,14 @@ describe('the opener taking the meeting out', () => {
     const step = accepted(removed, { type: 'remove', memberId: ANA })
     expect(statesOf(step.attendance)).toEqual({ [ANA]: 'removing', [BEN]: 'removed', [CY]: 'cancelled' })
     expect(step.notices).toEqual([{ to: CY, notice: 'cancelled' }])
+  })
+
+  it('leaves cancelling the invitation to them when their agent fails to', () => {
+    const cancelling = accepted(sent(), { type: 'remove', memberId: ANA }).attendance
+    const step = accepted(cancelling, report(ANA, 'failed'))
+    expect(statesOf(step.attendance)).toEqual({ [ANA]: 'removed', [BEN]: 'cancelled', [CY]: 'cancelled' })
+    expect(step.asks).toEqual([])
+    expect(step.notices).toEqual([{ to: ANA, notice: 'remove_by_hand' }])
   })
 
   it('before sending it by hand cancels it with nothing for an agent to do', () => {
@@ -352,6 +393,21 @@ describe('any run of clicks and reports', () => {
             }
           }
           for (const ask of step.asks) expect(['adding', 'removing']).toContain(now[ask.memberId])
+        })
+      }),
+    )
+  })
+
+  it('asks an agent for what its person’s state waits on, and for nothing while it waits on no agent', () => {
+    fc.assert(
+      fc.property(run, ({ addings, events }) => {
+        walk(addings, events, (_, __, step) => {
+          if (step === null) return
+          for (const ask of step.asks) expect(askWaitingOn(step.attendance, ask.memberId)).toBe(ask.ask)
+          for (const one of step.attendance.attendees)
+            expect(askWaitingOn(step.attendance, one.memberId) !== null).toBe(
+              one.state === 'adding' || one.state === 'removing',
+            )
         })
       }),
     )

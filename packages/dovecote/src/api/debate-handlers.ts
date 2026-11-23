@@ -13,6 +13,7 @@ import {
   setDebateBrief,
   setDebateLimits,
 } from '../domain/debates.ts'
+import { addMeeting, reportCalendar, takeOutMeeting } from '../domain/meeting-invitations.ts'
 import { chooseFreeSlots, openSchedulingRoom, shareFreeSlots } from '../domain/scheduling-rooms.ts'
 import { isHuman, viewerOf } from '../environment.ts'
 import { transact } from '../events/events.ts'
@@ -21,7 +22,8 @@ import { identifier } from './route-parameters.ts'
 
 /**
  * Debate rooms: opening one, the agents' turns, and the result a person posts or exports; and scheduling
- * rooms, where agents and people give free times and the room settles the time itself.
+ * rooms, where agents and people give free times, the room settles the time itself, and each person's
+ * agent puts the meeting in their own calendar.
  */
 export const debateHandlers = {
   'debates.list': (_, caller) =>
@@ -33,7 +35,7 @@ export const debateHandlers = {
       if (!isHuman(caller))
         for (const id of yield* undecidedDebates(caller.credential.id))
           yield* survivingPass(`debate room ${id}`, transact(settleDebate(id)))
-      const { asks, upcoming, ballots, ended } = yield* transact(debateAsks(caller))
+      const { asks, upcoming, ballots, ended, meetings } = yield* transact(debateAsks(caller))
       return {
         asks: yield* T.forEach(asks, (ask) =>
           T.map((debate: Debate) => ({ ...ask, debate }))(shownTo(caller)(ask.debate)),
@@ -41,6 +43,9 @@ export const debateHandlers = {
         upcoming: yield* T.forEach(upcoming, (debate) => shownTo(caller)(debate)),
         ballots: yield* T.forEach(ballots, (debate) => shownTo(caller)(debate)),
         ended,
+        meetings: yield* T.forEach(meetings, (ask) =>
+          T.map((debate: Debate) => ({ ...ask, debate }))(shownTo(caller)(ask.debate)),
+        ),
       }
     }),
   'debates.get': ({ params }, caller) =>
@@ -85,6 +90,18 @@ export const debateHandlers = {
     ),
   'debates.slots.post': ({ params, body }, caller) =>
     T.flatMap((id: DebateId) => T.flatMap(shownTo(caller))(shareFreeSlots(caller, id, body)))(
+      identifier(DebateId, params.id),
+    ),
+  'debates.calendar.report': ({ params, body }, caller) =>
+    T.flatMap((id: DebateId) => T.flatMap(shownTo(caller))(reportCalendar(caller, id, body)))(
+      identifier(DebateId, params.id),
+    ),
+  'scheduling.attendance.add': ({ params }, caller) =>
+    T.flatMap((id: DebateId) => T.flatMap(shownTo(caller))(addMeeting(caller, id)))(
+      identifier(DebateId, params.id),
+    ),
+  'scheduling.attendance.remove': ({ params }, caller) =>
+    T.flatMap((id: DebateId) => T.flatMap(shownTo(caller))(takeOutMeeting(caller, id)))(
       identifier(DebateId, params.id),
     ),
 } satisfies Partial<Handlers>

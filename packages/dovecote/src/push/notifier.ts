@@ -10,6 +10,7 @@ import {
   noticeTag,
 } from '@homingbird/protocol'
 import type { Fetch } from '../auth/identity-provider.ts'
+import type { MeetingNotice } from '../domain/meeting-rows.ts'
 import { chosenLocaleOf, membersByIds } from '../domain/members.ts'
 import { featureIsOn } from '../domain/settings.ts'
 import type { AppEnv } from '../environment.ts'
@@ -20,7 +21,7 @@ import { encryptPushPayload } from './payload-encryption.ts'
 import { type PushWindow, makePushWindow } from './push-window.ts'
 import { reviewWaitingFor } from './review-notice.ts'
 import { type PushSubscription, pushSubscriptionsOf, removePushSubscription } from './subscriptions.ts'
-import { type PushTitles, pushTitlesIn } from './titles.ts'
+import { type MeetingPushTitles, type PushTitles, pushTitlesIn } from './titles.ts'
 import { type VapidKeys, vapidAuthorization, vapidKeys } from './vapid.ts'
 import { wantsPushAbout } from './wants-push.ts'
 
@@ -41,6 +42,7 @@ export interface PushNotice {
     | { readonly kind: 'test'; readonly title: string }
     | { readonly kind: 'deskStopped'; readonly title: string }
     | { readonly kind: 'deskUnavailable'; readonly title: string }
+    | { readonly kind: 'meeting'; readonly title: string }
   readonly body: string
   readonly url: string
   readonly tag?: string
@@ -49,12 +51,14 @@ export interface PushNotice {
 export interface PushNotifier {
   /** `isNewReview` marks the review event a channel's agent's new answer sends its reviewers. */
   readonly consider: (memberId: MemberId, event: StreamEvent, isNewReview: boolean) => void
+  /** A scheduling room's meeting changed for this person: told on their devices unless they are looking. */
+  readonly considerMeeting: (memberId: MemberId, notice: MeetingNotice) => void
   readonly run: T.Task<never, never, AppEnv>
   readonly settled: T.Task<void>
 }
 
 export const makePushNotifier = (fetch: Fetch): PushNotifier => {
-  const pending = makeQueue<{ memberId: MemberId; event: StreamEvent; isNewReview: boolean }>(PENDING_LIMIT)
+  const pending = makeQueue<Pending>(PENDING_LIMIT)
   const work = makeWorkTally()
   const reviewWindow = makePushWindow(REVIEW_PUSH_WINDOW_MS)
   return {
@@ -62,10 +66,20 @@ export const makePushNotifier = (fetch: Fetch): PushNotifier => {
       if (!isPushable(event.body, isNewReview)) return
       if (pending.tryOffer({ memberId, event, isNewReview })) work.started()
     },
+    considerMeeting: (memberId, meeting) => {
+      if (pending.tryOffer({ memberId, meeting })) work.started()
+    },
     run: T.gen(function* () {
       for (;;) {
-        const { memberId, event, isNewReview } = yield* T.orDie(pending.take)
+        const item = yield* T.orDie(pending.take)
+        const { memberId } = item
         try {
+          if ('meeting' in item) {
+            const notice = yield* meetingPushFor(memberId, item.meeting)
+            if (notice !== null) yield* T.asUnit(deliverToMember(fetch, memberId, notice))
+            continue
+          }
+          const { event, isNewReview } = item
           const notice = isNewReview
             ? yield* reviewNoticeFor(memberId, event, reviewWindow)
             : yield* pushNoticeFor(memberId, event)
@@ -85,6 +99,10 @@ export const makePushNotifier = (fetch: Fetch): PushNotifier => {
 
 /** How long a reviewer hears nothing more about a channel after one of its answers notified them. */
 export const REVIEW_PUSH_WINDOW_MS = 2 * 60 * 1000
+
+type Pending =
+  | { readonly memberId: MemberId; readonly event: StreamEvent; readonly isNewReview: boolean }
+  | { readonly memberId: MemberId; readonly meeting: MeetingNotice }
 
 const isPushable = (body: StreamEvent['body'], isNewReview: boolean): boolean =>
   isNewReview
@@ -139,6 +157,55 @@ const notPostedPush = (
       ? null
       : { about: { kind: 'notPosted', channel: told.channel }, body: preview(note.body), url: told.url },
   )(notPostedNoticeFor(memberId, note))
+
+/**
+ * A meeting notice in the person's own language, titled by the room, with the name of whoever it is
+ * about; it opens the room. It says nothing of the time, the invitation or its link.
+ */
+const meetingPushFor = (
+  memberId: MemberId,
+  meeting: MeetingNotice,
+): T.Task<PushNotice | null, never, AppEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<AppEnv>()
+    if (env.hub.isLooking(memberId)) return null
+    const titles = pushTitlesIn(yield* chosenLocaleOf(memberId)).meeting
+    const { notice } = meeting
+    const other =
+      'memberId' in notice ? (yield* membersByIds([notice.memberId])).get(notice.memberId)?.name : undefined
+    const message = meetingMessage(titles, preview(meeting.title), meeting, other ?? titles.colleague)
+    return {
+      about: { kind: 'meeting', title: message.title },
+      body: message.body,
+      url: `/#/debate/${encodeURIComponent(meeting.debateId)}`,
+    }
+  })
+
+const meetingMessage = (
+  titles: MeetingPushTitles,
+  room: string,
+  meeting: MeetingNotice,
+  other: string,
+): { readonly title: string; readonly body: string } => {
+  const { notice } = meeting
+  switch (notice.notice) {
+    case 'waits':
+      return {
+        title: titles.waits(room),
+        body: meeting.toOpener ? titles.waitsBody.send : titles.waitsBody.add,
+      }
+    case 'added':
+      return { title: titles.added(room), body: titles.addedBody }
+    case 'cancelled':
+      return { title: titles.cancelled(room), body: titles.cancelledBody }
+    case 'remove_by_hand':
+      return { title: titles.removeByHand(room), body: titles.removeByHandBody }
+    case 'busy':
+      return { title: titles.busy(room, other), body: titles.busyBody }
+    case 'left':
+      return { title: titles.left(room, other), body: titles.leftBody[notice.because] }
+  }
+}
 
 interface NoticeAbout {
   readonly conversationId: ConversationId
@@ -278,7 +345,12 @@ const titleOf = (titles: PushTitles, about: PushNotice['about']): string => {
   if (about.kind === 'draft') return titles.draftWaiting
   if (about.kind === 'review') return titles.reviewWaiting(`#${about.channel}`)
   if (about.kind === 'notPosted') return titles.notPosted(`#${about.channel}`)
-  if (about.kind === 'test' || about.kind === 'deskStopped' || about.kind === 'deskUnavailable')
+  if (
+    about.kind === 'test' ||
+    about.kind === 'deskStopped' ||
+    about.kind === 'deskUnavailable' ||
+    about.kind === 'meeting'
+  )
     return about.title
   return about.author === null ? titles.noteFromColleague : titles.noteFrom(about.author)
 }

@@ -16,6 +16,24 @@ export interface PushTitles {
   readonly deskStoppedBody: string
   readonly deskUnavailable: string
   readonly deskUnavailableBody: Readonly<Record<DeskUnavailableKind, string>>
+  readonly meeting: MeetingPushTitles
+}
+
+/** A scheduling room's meeting, titled by the room and, when it is about someone else, their name. */
+export interface MeetingPushTitles {
+  readonly colleague: string
+  readonly waits: (room: string) => string
+  readonly waitsBody: { readonly send: string; readonly add: string }
+  readonly added: (room: string) => string
+  readonly addedBody: string
+  readonly cancelled: (room: string) => string
+  readonly cancelledBody: string
+  readonly busy: (room: string, person: string) => string
+  readonly busyBody: string
+  readonly left: (room: string, person: string) => string
+  readonly leftBody: { readonly took_out: string; readonly declined: string }
+  readonly removeByHand: (room: string) => string
+  readonly removeByHandBody: string
 }
 
 const PUSH_TITLES: Readonly<Record<Locale, PushTitles>> = { en, ko }

@@ -153,6 +153,7 @@ describe('taking turns', () => {
       upcoming: [],
       ballots: [],
       ended: [],
+      meetings: [],
     })
     await server.clock.advance(WAIT)
     expect((await cast.benAgent.api('GET', '/debate-asks')).json.asks).toHaveLength(1)
