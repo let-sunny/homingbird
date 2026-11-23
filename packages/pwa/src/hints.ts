@@ -35,6 +35,8 @@ export const HINT_CONCEPTS = [
   'draftPreviews',
   'autoSend',
   'tagging',
+  'newMessage',
+  'newChannel',
 ] as const
 
 export interface HintRecord {

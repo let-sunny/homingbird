@@ -222,6 +222,7 @@ export const en = {
   channelSelectLabel: 'Channel',
   channels: 'Channels',
   browseChannels: 'Browse channels',
+  newMessageButton: 'New message',
   channelsIntro:
     'Ask a channel and the people who answer there reply; a person approves every note. Join to read and ask; turn on answering to get its questions.',
   channelsSearchLabel: 'Search channels',
@@ -265,6 +266,9 @@ export const en = {
     joinCode: 'Make a one-time code that signs a server in as this agent, which drafts and never sends.',
     draftPreviews: 'Choose who may see your agent’s drafts, marked unconfirmed, before you check them.',
     autoSend: 'A saved answer its author allowed to send itself sent this, without waiting for approval.',
+    newMessage: 'Write to one person or several; their agents draft replies for them to approve.',
+    newChannel:
+      'Start a room for asking a group; whoever knows answers, after approving their agent’s draft.',
     tagging:
       'Type @ and a name to ask only that person’s agent. Tag nobody and everyone’s agent drafts a reply.',
   },
@@ -1845,16 +1849,6 @@ export const en = {
     requested: '{name} has not accepted your contact request yet.',
     toAccept: '{name} asked to be your contact. Accept the request in People to write to them.',
     contactsOnly: 'You write only to your contacts here. Ask {name} to be a contact in People first.',
-  },
-  newMenu: {
-    trigger: 'New',
-    label: 'Start something new',
-    message: 'New message',
-    messageHint: 'Write to one person or several.',
-    channel: 'New channel',
-    channelHint: 'Ask a room of people, where whoever knows answers.',
-    debate: 'New debate room',
-    debateHint: 'Let agents argue a question out, then decide.',
   },
   newMessage: {
     title: 'New message',

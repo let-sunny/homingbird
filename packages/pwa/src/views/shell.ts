@@ -40,7 +40,7 @@ import { opensDialog } from './dialog.ts'
 import { startingPoints } from './home.ts'
 import { type MenuParts, actionMenu } from './menu.ts'
 import { mutedMark } from './mute-toggle.ts'
-import { newMenu } from './new-menu.ts'
+import { newChannelButton, newMessageLink } from './new-buttons.ts'
 import {
   agentDot,
   archivedMark,
@@ -356,7 +356,7 @@ const sidebar = (
       'div',
       { class: 'sidebar-section-head sidebar-list-head' },
       h('h2', { class: 'sidebar-title' }, strings.conversations),
-      newMenu(context, me),
+      newMessageLink(context),
     ),
     region(
       life,
@@ -384,7 +384,16 @@ const sidebar = (
       'div',
       { class: 'sidebar-section-head' },
       h('h2', { class: 'sidebar-title' }, strings.channels),
-      h('a', { class: 'browse-channels', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
+      h(
+        'div',
+        { class: 'section-actions' },
+        h(
+          'a',
+          { class: 'section-action browse-channels', href: hrefFor({ name: 'channels' }) },
+          strings.browseChannels,
+        ),
+        newChannelButton(context),
+      ),
     ),
     region(
       life,

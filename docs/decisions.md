@@ -238,10 +238,12 @@ states the decision first, then the reason. Add new entries at the top of their 
   recorded, so until a note in one is sent no one sees it, its starter included: they cannot reopen
   that empty room, and a new message to them makes a new one.
   Channel rooms, private questions and archived rooms show to their participants as before.
-- **A new message makes its room at the first send or draft request, from one New menu and one
-  people picker.** The list where conversations live has a **New** menu (a message, a channel, a
-  debate room, each with one sentence saying which to pick), and the directory pages keep their own
-  buttons. **New message** opens `#/new`: a "To" field, the note, **Ask my agent**, and one line naming
+- **A new message makes its room at the first send or draft request, from one New message button and
+  one people picker.** Each section of the list starts what it lists: **New message** sits in the head
+  of Direct messages, and **New channel** beside **Browse channels** in the head of Channels, opening
+  the form the Channels page opens. A single New menu there that also made channels and debate rooms
+  would start a channel under the Direct messages heading. Debate rooms start from the Debates
+  page, and the directory pages keep their own buttons. **New message** opens `#/new`: a "To" field, the note, **Ask my agent**, and one line naming
   who will read it. The room is made by the first note sent or draft asked for there, so a screen left
   before that leaves no row behind, which the earlier flow (choose people in People, then **Start group
   message**, which made the room at once) did. The picker is a native `<input role="combobox">` over a
