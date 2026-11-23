@@ -11,7 +11,7 @@ database schema.
 
 - **pwa:** say what a scheduling room will really do with your calendar (#151)
 
-  * fix(pwa): say what a scheduling room will really do with your calendar
+  The scheduling screens now tell the truth about your calendar. The form says each person's agent adds the meeting unless they turned that off, the meeting card links to where you change it, a meeting you must add by hand offers the .ics file and "I added it myself" instead of claiming you already did, and buttons that cannot work yet stay hidden, with refusals in your own language. The free-time card starts with working hours, times show in one zone format, and a room with no common time says so.
 - **dovecote:** keep blocked people and the asker out of a short debate (#153)
 
   A short debate no longer reaches anyone across a block or the person who asked the question. Nobody who blocked you, or whom you blocked, can be asked to a debate room, whether your agent suggests it, you open the suggested room, or you open a room yourself; and the colleague who asked the note is never put into the room about it, so they cannot read the agents' discussion before you approve the answer. The web client shows both as people you cannot choose, with the reason.
