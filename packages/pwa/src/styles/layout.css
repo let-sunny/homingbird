@@ -64,6 +64,10 @@
 
   .back {
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: var(--hb-target-size);
+    min-block-size: var(--hb-target-size);
   }
 }
 

@@ -101,6 +101,20 @@ describe('debateListModel with scheduling rooms', () => {
     ])
   })
 
+  it('says a scheduling room that settled with no common time found none', () => {
+    const none = debateListModel({
+      debates: [{ ...meeting, status: 'closed', outcome: 'no_slot' }],
+      loaded: true,
+      directory: [],
+      now: 0,
+      schedulingOn: true,
+    })
+    expect(none.kind === 'rooms' && none.rooms[0]).toMatchObject({
+      className: 'debate-card is-no_slot',
+      stage: strings.scheduling.stage.no_slot,
+    })
+  })
+
   it('leaves scheduling rooms out while the feature is off', () => {
     expect(listed('open', false)).toEqual({ kind: 'empty', text: strings.debates.empty })
   })

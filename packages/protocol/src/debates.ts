@@ -203,6 +203,10 @@ export const Debate = S.struct({
 })
 export type Debate = S.Infer<typeof Debate>
 
+/** What a closed room settled, as a list can show it without the result itself. */
+export const DebateOutcome = S.tolerant(S.literal('slot', 'no_slot', 'conclusion', 'no_conclusion'), UNKNOWN)
+export type DebateOutcome = S.Infer<typeof DebateOutcome>
+
 export const DebateSummary = S.struct({
   id: DebateId,
   type: S.optional(RoomType),
@@ -216,6 +220,7 @@ export const DebateSummary = S.struct({
   turnCount: S.int({ min: 0 }),
   totalTurns: S.int({ min: 0 }),
   resultDrafted: S.boolean,
+  outcome: S.optional(DebateOutcome),
   joined: S.boolean,
   fromSuggestion: S.optional(S.boolean),
   mine: S.optional(

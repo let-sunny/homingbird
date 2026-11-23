@@ -50,7 +50,7 @@ const stageShown = (
   awake: ReadonlySet<string>,
 ): { readonly name: string; readonly text: string } => {
   if (summary.type === 'scheduling') {
-    const name = schedulingStageOf(summary.status)
+    const name = schedulingStageOf(summary.status, summary.outcome)
     return { name, text: strings.scheduling.stage[name] }
   }
   const name = listedStage(summary, (memberId) => awake.has(memberId))

@@ -6750,6 +6750,8 @@ textarea:disabled {
     align-items: center;
   }
 
+  .suggestion-ask-in-note a,
+  .debate-question a,
   .scheduling-meeting-link,
   .scheduling-delegation a,
   .scheduling-optional-list label,
@@ -6773,6 +6775,7 @@ textarea:disabled {
   }
 
   .people-picker-chip .icon,
+  .dialog-head .icon,
   .hint-close,
   .answering-help {
     display: inline-grid;
@@ -6785,6 +6788,11 @@ textarea:disabled {
   .group-chip {
     display: inline-flex;
     align-items: center;
+  }
+
+  .chance button.link {
+    min-block-size: var(--hb-target-size);
+    padding-inline: var(--hb-space-2);
   }
 
   .choice {
