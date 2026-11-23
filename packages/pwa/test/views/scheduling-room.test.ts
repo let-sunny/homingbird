@@ -84,7 +84,13 @@ describe('renderSchedulingRoom', () => {
   it('says why a room it cannot show is not shown', () => {
     const shown = mount(
       renderSchedulingRoom(
-        schedulingRoomModel({ debate: meeting(), viewerId: ANA, enabled: false, members }),
+        schedulingRoomModel({
+          debate: meeting(),
+          viewerId: ANA,
+          enabled: false,
+          members,
+          timeZone: 'Asia/Seoul',
+        }),
       ),
     )
     expect(textOf(shown)).toContain(strings.scheduling.off)
