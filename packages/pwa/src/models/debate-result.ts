@@ -1,4 +1,11 @@
-import { type AsRead, type MemberId, UNKNOWN, creditKindOf, creditTurnOf } from '@homingbird/protocol'
+import {
+  type AsRead,
+  type MemberId,
+  UNKNOWN,
+  creditKindOf,
+  creditTurnOf,
+  isDebateResult,
+} from '@homingbird/protocol'
 import { type DebateStage, type VoteRecordLine, draftsOf, voteRecordLines } from '../debates.ts'
 import { formats, strings } from '../strings.ts'
 
@@ -25,9 +32,11 @@ export const resultModel = (debate: AsRead.Debate, stage: ResultStage, people: R
   return {
     kind: 'settled',
     draftedBy:
-      debate.result.draftedBy === viewerId
-        ? strings.debates.mine.draftedBy
-        : strings.debates.draftedBy({ person: nameOf(debate.result.draftedBy) }),
+      debate.result.draftedBy === null
+        ? null
+        : debate.result.draftedBy === viewerId
+          ? strings.debates.mine.draftedBy
+          : strings.debates.draftedBy({ person: nameOf(debate.result.draftedBy) }),
     body: resultBody(debate.result.result, people),
     voteRecord:
       debate.voteRecord == null
@@ -51,10 +60,10 @@ export const resultModel = (debate: AsRead.Debate, stage: ResultStage, people: R
 }
 
 /** A result's words: a conclusion with its reasons, or the points of disagreement, then next steps. */
-export const resultBody = (result: AsRead.DebateResult, people: RoomPeople): ResultBody => {
+export const resultBody = (result: AsRead.RoomResult, people: RoomPeople): ResultBody => {
   const { nameOf, viewerId } = people
   const cite = people.cite ?? asPlainText
-  if (result.kind === UNKNOWN) return { kind: 'unknown', text: strings.debates.unknownResult }
+  if (!isDebateResult(result)) return { kind: 'unknown', text: strings.debates.unknownResult }
   const conclusion = result.kind === 'conclusion'
   return {
     kind: 'known',
@@ -162,7 +171,7 @@ export type ResultModel =
     }
   | {
       readonly kind: 'settled'
-      readonly draftedBy: string
+      readonly draftedBy: string | null
       readonly body: ResultBody
       readonly voteRecord: {
         readonly none: string | null

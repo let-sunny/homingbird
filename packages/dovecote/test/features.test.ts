@@ -92,6 +92,7 @@ describe('feature switches', () => {
       cloudDesk: false,
       autoSend: false,
       draftPreviews: false,
+      schedulingRooms: false,
       slack: false,
     })
     await switchTo({ teaching: false })

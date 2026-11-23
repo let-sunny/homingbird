@@ -14,6 +14,7 @@ import {
   debateJson,
   debateMarkdown,
   debateResultText,
+  draftedResultOf,
   exportLabelsIn,
   limitsFor,
   limitsProblem,
@@ -166,7 +167,7 @@ export const debateHandlers = (world: World): Handlers => ({
       return saveDraft(world, {
         conversationId: room.id,
         authorId: viewerId,
-        body: debateResultText(debate, debate.result.result, nameOf),
+        body: debateResultText(debate, draftedResultOf(debate.result)!.result, nameOf),
         inReplyTo: null,
         agentName: null,
         basis: null,

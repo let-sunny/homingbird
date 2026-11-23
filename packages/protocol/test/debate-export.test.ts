@@ -11,7 +11,7 @@ import {
 } from '../src/debate-export.ts'
 import { DebateResult } from '../src/debate-result.ts'
 import type { Locale } from '../src/model.ts'
-import { ANA, BEN, GONE, NO_CONCLUSION, nameOf, roomOf } from './debate-fixtures.ts'
+import { ANA, BEN, GONE, NO_CONCLUSION, nameOf, resultOf, roomOf } from './debate-fixtures.ts'
 
 /** The text a Markdown reader acts on: every backslash-escaped mark replaced by an inert letter. */
 const unescaped = (text: string): string => text.replace(/\\[\s\S]/g, 'x')
@@ -66,7 +66,7 @@ describe('exporting a debate room', () => {
   it('writes what changed minds, what is still open and where the agents differed, with the turn of each credit', () => {
     const settled = roomOf().result!
     const result = {
-      ...settled.result,
+      ...resultOf(roomOf()),
       kind: 'conclusion' as const,
       conclusion: 'Ship on Thursday.',
       reasons: ['The rollback is tested.'],
@@ -125,8 +125,8 @@ describe('exporting a debate room', () => {
         agentModel: turn.memberId === ANA ? 'claude-opus-5-5' : null,
       })),
       drafts: [
-        { draftedBy: ANA, draftedAt: 3, result: room.result!.result, votes: 1, agentModel: 'gpt-6' },
-        { draftedBy: BEN, draftedAt: 4, result: room.result!.result, votes: 0, agentModel: 'model-b' },
+        { draftedBy: ANA, draftedAt: 3, result: resultOf(room), votes: 1, agentModel: 'gpt-6' },
+        { draftedBy: BEN, draftedAt: 4, result: resultOf(room), votes: 0, agentModel: 'model-b' },
       ],
       voteRecord: { votes: [{ voterId: BEN, draftBy: ANA, agentModel: 'gemini 4' }], droppedOut: [] },
     })
@@ -358,7 +358,7 @@ describe('exporting a debate room', () => {
 
   it('writes the result alone as plain text that says where it came from, without the turns or the vote', () => {
     const room = roomOf({ question: 'Ship *now*?' })
-    const text = debateResultText(room, room.result!.result, nameOf)
+    const text = debateResultText(room, resultOf(room), nameOf)
     expect(text).toMatch(/^From the debate room: Ship \*now\*\?\n\nResult: conclusion\n\nShip on Thursday\./)
     expect(text).not.toContain('The March report')
     expect(text).not.toMatch(/voted/i)

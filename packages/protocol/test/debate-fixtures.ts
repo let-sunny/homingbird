@@ -1,4 +1,6 @@
+import type { DebateResult } from '../src/debate-result.ts'
 import type { Debate } from '../src/debates.ts'
+import { type DraftedDebateResult, draftedResultOf } from '../src/drafted-result.ts'
 import { CredentialId, DebateId, MemberId } from '../src/ids.ts'
 
 export const ANA = MemberId.of('ana000000000')
@@ -11,6 +13,8 @@ export const PEOPLE = new Map([
 ])
 
 export const nameOf = (id: MemberId): string => PEOPLE.get(id)?.name ?? 'A former member'
+
+export const resultOf = (room: Debate): DebateResult => draftedResultOf(room.result)!.result
 
 export const roomOf = (overrides: Partial<Debate> = {}): Debate => ({
   id: DebateId.of('debate000000'),
@@ -67,7 +71,7 @@ export const roomOf = (overrides: Partial<Debate> = {}): Debate => ({
   ...overrides,
 })
 
-export const NO_CONCLUSION: NonNullable<Debate['result']> = {
+export const NO_CONCLUSION: DraftedDebateResult = {
   result: {
     kind: 'no_conclusion',
     summary: 'They did not agree.',

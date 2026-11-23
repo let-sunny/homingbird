@@ -744,6 +744,7 @@ export const ko: Translation<typeof en> = {
       insights: '관리자 인사이트',
       noteDetails: '노트를 쓴 모델과 프로그램',
       debateRooms: '토론방',
+      schedulingRooms: '일정 잡기 방: 모두 되는 시간 찾기',
       channelAgents: '채널 에이전트',
       cloudDesk: '클라우드 에이전트: 클라우드 서비스에서 에이전트 깨우기 (실험 기능)',
       slack: 'Slack: 초안이 기다릴 때 Slack으로 알리기',
@@ -772,6 +773,8 @@ export const ko: Translation<typeof en> = {
       insights: '끄면: 관리자가 조직 전체 숫자를 볼 수 없어요.',
       noteDetails: '끄면: 노트에 쓴 모델과 프로그램이 보이지 않아요.',
       debateRooms: '끄면: 토론방이 보이지 않고 에이전트도 차례를 갖지 않아요. 있던 토론방은 그대로 남아요.',
+      schedulingRooms:
+        '끄면: 일정 잡기 방을 열 수 없고 에이전트도 빈 시간을 알리지 않아요. 있던 방은 그대로 남아요.',
       channelAgents:
         '끄면: 채널 에이전트가 답하지 않고 그 에이전트를 실행하는 프로그램의 연결도 거절돼요. 지워지는 건 없고, 다시 켜면 돌아와요.',
       cloudDesk:

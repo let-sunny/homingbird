@@ -61,6 +61,7 @@ import type {
   PrincipleOffer as PrincipleOfferSchema,
   Principle as PrincipleSchema,
 } from './principles.ts'
+import type { RoomResult as RoomResultSchema } from './room-result.ts'
 import type {
   AdminSlack as AdminSlackSchema,
   MeSlack as MeSlackSchema,
@@ -94,6 +95,7 @@ export type DebateStatus = S.Read<typeof DebateStatusSchema>
 export type DebateSummary = S.Read<typeof DebateSummarySchema>
 export type DebateAsk = S.Read<typeof DebateAskSchema>
 export type DebateResult = S.Read<typeof DebateResultSchema>
+export type RoomResult = S.Read<typeof RoomResultSchema>
 export type DebateExport = S.Read<typeof DebateExportSchema>
 export type MyPrinciples = S.Read<typeof MyPrinciplesSchema>
 export type Principle = S.Read<typeof PrincipleSchema>

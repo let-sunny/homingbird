@@ -90,6 +90,13 @@ describe('the audit event catalogue', () => {
     expect(AUDIT_EVENTS['group.created'].target).toBe('group')
   })
 
+  it('records a computed close by its outcome and who answered, never by a drafter, a time or a link', () => {
+    const detail = AUDIT_EVENTS['debate.settled'].detail
+    expect(detail.is({ outcome: 'slot', answered: 2, unanswered: 1, droppedOut: [] })).toBe(true)
+    expect(detail.is({ outcome: 'no_slot', answered: 0, unanswered: 3, droppedOut: [] })).toBe(true)
+    expect(AUDIT_EVENTS['debate.settled'].target).toBe('debate')
+  })
+
   it('tells a catalogue name from anything else', () => {
     expect(isAuditEventName('note.approved')).toBe(true)
     expect(isAuditEventName('drafts.send')).toBe(false)

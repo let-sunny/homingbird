@@ -7,6 +7,7 @@ import {
   creditTurnOf,
 } from './debate-result.ts'
 import type { Debate, DebateVoteRecord } from './debates.ts'
+import { type DraftedDebateResult, draftedResultOf } from './drafted-result.ts'
 import type { MemberId } from './ids.ts'
 
 /**
@@ -19,6 +20,7 @@ export const debateMarkdown = (
   nameOf: (id: MemberId) => string,
   labels: ExportLabels = exportLabelsIn(null),
 ): string => {
+  const settled = draftedResultOf(debate.result)
   const name = (id: MemberId) => MARKDOWN.inline(nameOf(id))
   const model = (stated: string | null | undefined) =>
     stated == null ? labels.modelNotStated : MARKDOWN.inline(stated)
@@ -47,9 +49,9 @@ export const debateMarkdown = (
           (turn) =>
             `### ${labels.turnHeading(turn.position, name(turn.memberId), MARKDOWN.inline(turn.agentName), model(turn.agentModel), isoOf(turn.at))}\n\n${MARKDOWN.block(turn.body)}`,
         )),
-    ...(debate.result === null
+    ...(settled === null
       ? [`## ${labels.result}`, labels.noResult]
-      : draftedResultIn(debate, debate.result, nameOf, labels, model)),
+      : draftedResultIn(debate, settled, nameOf, labels, model)),
     ...(debate.voteRecord == null
       ? []
       : [
@@ -85,8 +87,9 @@ export const voteLines = (
   return [...voted, ...silent].join('\n')
 }
 
-export const debateJson = (debate: Debate, nameOf: (id: MemberId) => string): string =>
-  JSON.stringify(
+export const debateJson = (debate: Debate, nameOf: (id: MemberId) => string): string => {
+  const settled = draftedResultOf(debate.result)
+  return JSON.stringify(
     {
       question: debate.question,
       visibility: debate.visibility,
@@ -107,12 +110,12 @@ export const debateJson = (debate: Debate, nameOf: (id: MemberId) => string): st
         text: turn.body,
       })),
       result:
-        debate.result === null
+        settled === null
           ? null
           : {
-              draftedBy: nameOf(debate.result.draftedBy),
-              model: winningDraftOf(debate, debate.result)?.agentModel ?? null,
-              ...namedResult(debate.result.result, nameOf),
+              draftedBy: nameOf(settled.draftedBy),
+              model: winningDraftOf(debate, settled)?.agentModel ?? null,
+              ...namedResult(settled.result, nameOf),
             },
       vote:
         debate.voteRecord == null
@@ -129,6 +132,7 @@ export const debateJson = (debate: Debate, nameOf: (id: MemberId) => string): st
     null,
     2,
   )
+}
 
 export const debateResultText = (
   debate: Debate,
@@ -250,7 +254,7 @@ const creditText = (labels: ExportLabels, credit: NamedCredit): string => {
 /** The result's sections, its heading first and then which agent drafted it with the model it stated. */
 const draftedResultIn = (
   debate: Debate,
-  settled: NonNullable<Debate['result']>,
+  settled: DraftedDebateResult,
   nameOf: (id: MemberId) => string,
   labels: ExportLabels,
   model: (stated: string | null | undefined) => string,
@@ -264,7 +268,7 @@ const draftedResultIn = (
 }
 
 /** The draft the result was chosen from, among this round's drafts. */
-const winningDraftOf = (debate: Debate, settled: NonNullable<Debate['result']>) =>
+const winningDraftOf = (debate: Debate, settled: DraftedDebateResult) =>
   (debate.drafts ?? []).find((draft) => draft.draftedBy === settled.draftedBy)
 
 const namedResult = (result: DebateResult, nameOf: (id: MemberId) => string) => ({

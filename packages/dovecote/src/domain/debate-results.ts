@@ -19,6 +19,7 @@ import {
   debateJson,
   debateMarkdown,
   debateResultText,
+  draftedResultOf,
   exportLabelsIn,
   resultOfDraft,
 } from '@homingbird/protocol'
@@ -96,7 +97,7 @@ export const postResult = (
       return yield* T.fail(
         Invalid({ message: 'Say where the result goes: one conversation, person or channel.' }),
       )
-    const body = debateResultText(debate, debate.result!.result, yield* namesFor(debate))
+    const body = debateResultText(debate, draftedResultOf(debate.result)!.result, yield* namesFor(debate))
     if (body.length > NOTE_BODY_MAX)
       return yield* T.fail(
         Invalid({

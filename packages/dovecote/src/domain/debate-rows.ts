@@ -18,6 +18,7 @@ import {
   RESULT_VOTING_WINDOW_MS,
   type TurnHold,
   askedTurnOf,
+  draftedResultOf,
 } from '@homingbird/protocol'
 import { type AppEnv, type Caller, isHuman } from '../environment.ts'
 import { EVERYONE, type RequestEnv } from '../events/events.ts'
@@ -376,12 +377,13 @@ const stageOf = (row: DebateRow, debate: Debate): DebateStage => {
     case 'open':
       return debate.turns.length === 0 ? { stage: 'setup' } : { stage: 'open' }
     case 'concluding':
-      if (debate.result !== null) return { stage: 'approving', concludedAt, result: debate.result }
+      if (debate.result !== null)
+        return { stage: 'approving', concludedAt, result: draftedResultOf(debate.result)! }
       return row.votes_open_at === null
         ? { stage: 'drafting', concludedAt }
         : { stage: 'voting', concludedAt, votesOpenAt: Number(row.votes_open_at) }
     case 'closed':
-      return { stage: 'closed', result: debate.result! }
+      return { stage: 'closed', result: draftedResultOf(debate.result)! }
     default:
       return { stage: 'ended', because: row.ended_because! }
   }

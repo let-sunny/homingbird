@@ -74,6 +74,7 @@ export const FEATURES = {
       'debates.export',
     ],
   },
+  schedulingRooms: { default: false, routes: [] },
   channelAgents: {
     default: false,
     routes: [
