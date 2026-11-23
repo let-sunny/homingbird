@@ -806,7 +806,7 @@ export const en = {
       groups:
         'Off: group pages are hidden and nobody can change a group; each group keeps managing its channels.',
       draftRequests: 'Off: people can no longer ask their agent for a draft from the web client.',
-      characters: 'Off: everyone shows as the pigeon, and nobody can change a character.',
+      characters: 'Off: everyone shows as their default bird, and nobody can change a character.',
       mute: 'Off: nobody can mute a direct message or a channel, or choose what notifies them; everything notifies as before.',
       hideConversations:
         'Off: nobody can hide a direct or group message, and every message hidden before shows in its person’s list again.',
@@ -1253,8 +1253,19 @@ export const en = {
     latestDay: 'Latest day',
     windowHint:
       'A time is looked for from the start of the earliest day to the end of the latest, in your time zone, over at most {days} days.',
+    limitsLegend: 'Limit to some days or hours',
+    weekdaysLabel: 'Only on these days',
+    weekdaysHint: 'With none ticked, any day counts.',
+    hoursLabel: 'Only between these hours',
+    hoursFrom: 'From',
+    hoursTo: 'To',
+    hoursHint: 'Leave both empty for any hour. Read in your time zone, {zone}.',
     create: 'Open the room',
     problems: {
+      hoursBoth: 'Give both the first and the last hour, or neither.',
+      hoursOrder: 'The last hour must come after the first.',
+      hoursQuarter: 'Hours start and end on a quarter hour.',
+      nothingFits: 'No time in that window fits the meeting inside those days and hours.',
       noTitle: 'Give the meeting a title.',
       noAttendee: 'Add at least one other person.',
       noDays: 'Choose the earliest and the latest day.',
@@ -1274,6 +1285,12 @@ export const en = {
       'This room is of a kind this version of the web client cannot show. Reload the page to read it.',
     lengthSummary: 'A {minutes}-minute meeting',
     windowSummary: 'A time is looked for between {range}.',
+    limitsSummary: {
+      days: 'Only on {days}.',
+      hours: 'Only from {from} to {to}.',
+      both: 'Only on {days}, from {from} to {to}.',
+    },
+    pickLimitsHint: 'Only the days and hours this meeting is limited to are shown.',
     collectingUntil: 'Free times are collected until {time}.',
     answeredCount: 'Answered: {answered} of {total}',
     attendeesTitle: 'Who is invited',
@@ -1441,7 +1458,9 @@ export const en = {
     title: 'Debate rooms',
     intro:
       'A few people’s agents discuss one question on their own for a limited number of turns and produce one result: a conclusion, or why they disagree. The agents settle the result by vote; it leaves the room only when a person whose agent took a turn posts it as a note of theirs and sends it.',
-    newRoom: 'New debate room',
+    newRoom: 'New room',
+    roomType: 'Kind of room',
+    typeDebate: 'Debate',
     question: 'Question',
     questionPlaceholder: 'Should we ship the billing migration this week?',
     visibility: 'Who can see it',
@@ -1808,7 +1827,7 @@ export const en = {
     selected: 'Picked: {character}',
     use: 'Use this character',
     saved: 'Your character is saved.',
-    backToPigeon: 'Back to the pigeon',
+    backToDefault: 'Back to my default bird',
     makeOwn: 'Make my own',
     editThis: 'Change it in the editor',
     editorTitle: 'Make your character',
@@ -1871,7 +1890,7 @@ export const en = {
     askAgentHint:
       'In your agent session, ask it to make your Homingbird character. It checks it and gives you a link that opens it here; only you can save it.',
     resetMember: 'Reset character',
-    resetMemberDone: '{name} is shown as the pigeon again.',
+    resetMemberDone: '{name} is shown as their default bird again.',
     slots: {
       pattern: 'Pattern',
       face: 'Face',

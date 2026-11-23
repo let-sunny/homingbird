@@ -1,6 +1,7 @@
-import { type AsRead, type MemberId, UNKNOWN } from '@homingbird/protocol'
+import { type AsRead, type MemberId, type ScheduleLimits, type TimeSpan, UNKNOWN } from '@homingbird/protocol'
 import { locale, strings } from '../strings.ts'
 import { type ScheduleResultBody, scheduleResultBody } from './schedule-result.ts'
+import { limitsSummary } from './scheduling-limits.ts'
 
 /** Whether a room is one this client shows as a scheduling room, a debate, or a kind it does not know. */
 export const roomKindOf = (debate: Pick<AsRead.Debate, 'type'>): 'debate' | 'scheduling' | 'unknown' =>
@@ -31,6 +32,7 @@ export const schedulingRoomModel = (input: SchedulingRoomInput): SchedulingRoomM
       strings.scheduling.windowSummary({
         range: windowShown(schedule.window.startsAt, schedule.window.endsAt, timeZone),
       }),
+      ...limitsLines(schedule, timeZone),
     ],
     deadline:
       debate.status === 'open'
@@ -135,6 +137,11 @@ const resultOf = (
   if (settled.kind === 'slot' || settled.kind === 'no_slot')
     return { kind: 'settled', body: scheduleResultBody(settled, people, timeZone) }
   return { kind: 'unknown', text: strings.debates.unknownResult }
+}
+
+const limitsLines = (schedule: ScheduleLimits & { readonly window: TimeSpan }, timeZone: string) => {
+  const summary = limitsSummary(schedule, timeZone)
+  return summary === null ? [] : [summary]
 }
 
 const windowShown = (startsAt: number, endsAt: number, timeZone: string): string =>

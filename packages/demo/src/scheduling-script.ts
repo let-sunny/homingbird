@@ -1,33 +1,37 @@
 import {
-  type AttendanceState,
+  type Adding,
   type Debate,
   type DebateRoom,
   type MemberId,
   SCHEDULING_RULES,
   type TimeSpan,
-  confirmAttendance,
+  clippedToLimits,
   scheduleOf,
   windowAheadOf,
 } from '@homingbird/protocol'
 import { changeRoom, roomById } from './debate-script.ts'
 import { memberById } from './reads.ts'
+import { agentsContinue, confirmedAttendance } from './scheduling-invitation.ts'
 import type { World } from './world.ts'
 
 /**
- * A scheduling room the visitor opened: a few seconds apart, each colleague's agent joins and gives the
- * free times a scripted calendar leaves, and nothing else about it. The visitor chooses their own.
+ * A scheduling room the visitor opened: a moment after it opens the visitor's own agent gives their free
+ * times from a scripted calendar, and a few seconds later each colleague's agent joins and does the same.
+ * The visitor may replace their own times until the room settles; opening it is the only click.
  */
-export const colleaguesAnswerLater = (world: World, debateId: string): void => {
+export const agentsAnswerLater = (world: World, debateId: string, adding: () => Adding): void => {
   const room = roomById(world, debateId)!
   const colleagues = room.schedule!.attendees.filter((attendee) => attendee.memberId !== room.createdBy)
+  if (room.participants.some((participant) => participant.memberId === room.createdBy))
+    world.after(OWN_ANSWER_AFTER_MS, () => answerForOpener(world, debateId, adding))
   for (const [index, attendee] of colleagues.entries())
     world.after(ANSWER_AFTER_MS + index * ANSWER_GAP_MS, () =>
-      answer(world, debateId, attendee.memberId, index),
+      answer(world, debateId, attendee.memberId, index, adding),
     )
 }
 
 /** The room settles once every required person answered: at the earliest common time, or the closest. */
-export const settleWhenAnswered = (world: World, debateId: string): void => {
+export const settleWhenAnswered = (world: World, debateId: string, adding: () => Adding): void => {
   const debate = roomById(world, debateId)
   if (debate === null || debate.status !== 'open') return
   const room = ruleRoomOf(debate)
@@ -44,9 +48,12 @@ export const settleWhenAnswered = (world: World, debateId: string): void => {
     schedule: {
       ...current.schedule!,
       attendees:
-        settled.kind === 'slot' ? withAttendance(current, settled.optionalBusy) : current.schedule!.attendees,
+        settled.kind === 'slot'
+          ? confirmedAttendance(current, settled.optionalBusy, adding, now)
+          : current.schedule!.attendees,
     },
   }))
+  agentsContinue(world, debateId, adding)
 }
 
 /** A person's or an agent's free times kept in the room, and who gave them marked answered. */
@@ -88,6 +95,9 @@ export const ruleRoomOf = (debate: Debate): DebateRoom => {
     schedule: {
       minutes: schedule.minutes,
       window: schedule.window,
+      ...(schedule.weekdays !== undefined && { weekdays: schedule.weekdays }),
+      ...(schedule.hours !== undefined && { hours: schedule.hours }),
+      ...(schedule.timeZone !== undefined && { timeZone: schedule.timeZone }),
       attendees: schedule.attendees.map(({ memberId, required }) => ({ memberId, required })),
       chosenByPeople: given.filter((one) => isByPerson(one.memberId)),
     },
@@ -96,23 +106,53 @@ export const ruleRoomOf = (debate: Debate): DebateRoom => {
 
 export type RoomSchedule = NonNullable<Debate['schedule']>
 
-/** How long the first colleague's agent takes to answer, and each next one after it. */
-export const ANSWER_AFTER_MS = 3_000
-export const ANSWER_GAP_MS = 1_500
+/** How long the visitor's own agent takes to answer, then the first colleague's agent, and each next one after it. */
+export const OWN_ANSWER_AFTER_MS = 2_000
+export const ANSWER_AFTER_MS = 6_000
+export const ANSWER_GAP_MS = 2_500
 
-const answer = (world: World, debateId: string, memberId: MemberId, index: number): void => {
+const answerForOpener = (world: World, debateId: string, adding: () => Adding): void => {
+  const room = roomById(world, debateId)
+  const participant = room?.participants.find((one) => one.memberId === room.createdBy)
+  if (room === null || participant === undefined || room.status !== 'open') return
+  give(world, debateId, room.createdBy, participant.agentName, OWN_BUSY_HOURS, adding)
+}
+
+const answer = (
+  world: World,
+  debateId: string,
+  memberId: MemberId,
+  index: number,
+  adding: () => Adding,
+): void => {
   const room = roomById(world, debateId)
   const colleague = memberById(world.records(), memberId)
   if (room === null || colleague === null || room.status !== 'open') return
+  give(
+    world,
+    debateId,
+    memberId,
+    `${colleague.name.split(' ')[0]}'s laptop`,
+    BUSY_HOURS[index % BUSY_HOURS.length]!,
+    adding,
+  )
+}
+
+/** An agent joins if it has not, and takes its turn with the free times its person's scripted calendar leaves. */
+const give = (
+  world: World,
+  debateId: string,
+  memberId: MemberId,
+  agentName: string,
+  busy: BusyHours,
+  adding: () => Adding,
+): void => {
   const now = world.clock.now()
-  const busy = BUSY_HOURS[index % BUSY_HOURS.length]!
-  const agentName = `${colleague.name.split(' ')[0]}'s laptop`
   changeRoom(world, debateId, (current) => ({
     ...current,
-    participants: [
-      ...current.participants,
-      { memberId, agentId: null, agentName, joinedAt: now, takingPart: true },
-    ],
+    participants: current.participants.some((participant) => participant.memberId === memberId)
+      ? current.participants
+      : [...current.participants, { memberId, agentId: null, agentName, joinedAt: now, takingPart: true }],
     turns: [
       ...current.turns,
       {
@@ -127,10 +167,14 @@ const answer = (world: World, debateId: string, memberId: MemberId, index: numbe
       current.schedule!,
       memberId,
       'by_agent',
-      freeSlotsOf(busy, windowAheadOf(current.schedule!.window, now)),
+      clippedToLimits(
+        freeSlotsOf(busy, windowAheadOf(current.schedule!.window, now)),
+        windowAheadOf(current.schedule!.window, now),
+        current.schedule!,
+      ),
     ),
   }))
-  settleWhenAnswered(world, debateId)
+  settleWhenAnswered(world, debateId, adding)
 }
 
 /** Everything in the window but one busy stretch each UTC day: all an agent says of its person's calendar. */
@@ -149,28 +193,13 @@ const freeSlotsOf = (busy: BusyHours, window: TimeSpan): TimeSpan[] => {
     .filter((span) => span.endsAt > span.startsAt)
 }
 
-const withAttendance = (debate: Debate, notInvited: ReadonlyArray<MemberId>): RoomSchedule['attendees'] => {
-  const attendees = debate.schedule!.attendees
-  const step = confirmAttendance(
-    debate.createdBy,
-    attendees
-      .filter((attendee) => attendee.required || !notInvited.includes(attendee.memberId))
-      .map((attendee) => attendee.memberId),
-    () => 'person',
-    notInvited,
-  )
-  return attendees.map((attendee) => {
-    const state: AttendanceState | undefined = step.attendance.attendees.find(
-      (one) => one.memberId === attendee.memberId,
-    )?.state
-    return state === undefined ? attendee : { ...attendee, attendance: state }
-  })
-}
-
 interface BusyHours {
   readonly from: number
   readonly to: number
 }
+
+/** When the visitor's own calendar is busy, in UTC hours. */
+const OWN_BUSY_HOURS: BusyHours = { from: 3, to: 5 }
 
 /** When each colleague's calendar is busy, in UTC hours, by the order they were asked. */
 const BUSY_HOURS: ReadonlyArray<BusyHours> = [

@@ -1,8 +1,8 @@
 import {
-  BUILT_IN_CHARACTERS,
   type CharacterSpec,
   ConversationId,
   CredentialId,
+  DEFAULT_CHARACTERS,
   GroupId,
   type Member,
   MemberId,
@@ -651,7 +651,7 @@ const PLATFORM_TEAM = GroupId.of('demoplatform')
 const CUSTOMER_TEAM = GroupId.of('democustomer')
 const COMPLIANCE_TEAM = GroupId.of('democomplian')
 
-const characterAt = (index: number): CharacterSpec | null => BUILT_IN_CHARACTERS[index] ?? null
+const characterAt = (index: number): CharacterSpec | null => DEFAULT_CHARACTERS[index] ?? null
 
 const memberOf = (
   id: MemberId,

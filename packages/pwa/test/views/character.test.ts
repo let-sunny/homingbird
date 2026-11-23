@@ -14,7 +14,7 @@ describe('myCharacterSection', () => {
   it('picks a built-in character, previews it, and uses it', () => {
     const { context, called } = testContext()
     const shown = myCharacterSection(context, lifetime(), me())
-    expect(queryByRole(shown, 'button', { name: strings.character.backToPigeon })).toBeNull()
+    expect(queryByRole(shown, 'button', { name: strings.character.backToDefault })).toBeNull()
     const owl = getByRole(shown, 'button', { name: /Owl/ })
     owl.click()
     expect(owl.getAttribute('aria-pressed')).toBe('true')
@@ -28,17 +28,15 @@ describe('myCharacterSection', () => {
     expect(context.state.notice.get()).toEqual({ kind: 'info', text: strings.character.saved })
   })
 
-  it('goes back to the pigeon, and cannot use the character already in use', () => {
+  it('goes back to the default, and cannot use the character already in use', () => {
     const { context, called } = testContext()
     const shown = myCharacterSection(context, lifetime(), me({}, { character: presetById('owl')! }))
-    getByRole(shown, 'button', { name: strings.character.backToPigeon }).click()
+    getByRole(shown, 'button', { name: strings.character.backToDefault }).click()
     expect(called('useCharacter')[0]!.args).toEqual([null])
     getByRole(shown, 'button', { name: /Owl/ }).click()
     expect((getByRole(shown, 'button', { name: strings.character.use }) as HTMLButtonElement).disabled).toBe(
       true,
     )
-    getByRole(shown, 'button', { name: /Pigeon/ }).click()
-    expect(queryByRole(shown, 'link', { name: strings.character.editThis })).toBeNull()
   })
 })
 

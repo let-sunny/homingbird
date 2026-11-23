@@ -168,7 +168,7 @@ const shareFreeSlots = <R extends DeskServices>(
       nonce: env.nonce,
     })
     const output = yield* desk.run('agent', prompt, what)
-    const answer = output === null ? null : freeSlotsIn(output, debate.schedule.window)
+    const answer = output === null ? null : freeSlotsIn(output, debate.schedule.window, debate.schedule)
     if (answer === null || 'cannotReadCalendar' in answer) {
       if (output !== null && answer === null)
         yield* desk.warn(`The agent command did not print free times in the expected form for ${what}.`)

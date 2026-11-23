@@ -36,7 +36,7 @@ describe('scheduling script', () => {
     )
     await clock.advance(ANSWER_AFTER_MS)
     const asked = ruleRoomOf(world.records().debates.find((each) => each.id === room.id)!)
-    expect(asked.turns.map((turn) => turn.memberId)).toEqual([ana])
+    expect(asked.turns.map((turn) => turn.memberId)).toEqual([VISITOR_ID, ana])
     expect(asked.schedule?.chosenByPeople).toEqual([])
   })
 })

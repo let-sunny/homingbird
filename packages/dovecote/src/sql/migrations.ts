@@ -21,6 +21,7 @@ import { MUTE } from './migrations/mute-step.ts'
 import { NOTE_TAGS } from './migrations/note-tags-step.ts'
 import { RESULT_VOTES } from './migrations/result-votes-step.ts'
 import { SCHEDULING_DELEGATIONS } from './migrations/scheduling-delegations-step.ts'
+import { SCHEDULING_LIMITS } from './migrations/scheduling-limits-step.ts'
 import { SCHEDULING_ROOMS } from './migrations/scheduling-rooms-step.ts'
 import { SLACK_CHANNELS } from './migrations/slack-channels-step.ts'
 import { SLACK_CREDENTIALS } from './migrations/slack-credentials-step.ts'
@@ -65,6 +66,7 @@ export const MIGRATIONS: ReadonlyArray<Migration> = [
   DEBATE_SUGGESTIONS,
   SCHEDULING_DELEGATIONS,
   MEETING_NOTICES,
+  SCHEDULING_LIMITS,
 ]
 
 /** The step that added the audit trail; when it runs, the first audit table's old rows go. */

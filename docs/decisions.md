@@ -423,6 +423,12 @@ states the decision first, then the reason. Add new entries at the top of their 
   or thread headers, beside unread counts, in notices and banners, in the sidebar's empty states or
   in a "no match" result, because a face repeated on every surface stops telling the reader anything
   and pushes the content down. `emptyWithPip` takes no size, so a page cannot pick another one.
+  Pip is only ever the brand, and no person is ever drawn as Pip: a person with no saved character
+  gets a default chosen from their member id among the built-in characters except Pip's look and the
+  robot (a hash, so it is stable on every device and spread evenly, and looks random to people), the
+  server refuses to save Pip's exact look as a character, and a stored copy of it reads as no
+  character. Before this, a new member was the pigeon, so the logo in the title bar and the person's own
+  button beside it were the same bird.
 - **Korean says 데스크 for the desk; this replaces the entry below that renders desk session as
   전용 세션, which stays as history.** One short term is used across the web client, the plugin
   pane and the docs, matching "desk" in English; 전용 세션 read as a description rather than a name
@@ -691,7 +697,7 @@ states the decision first, then the reason. Add new entries at the top of their 
   approval. Dovecote signs VAPID tokens and encrypts payloads itself; there is no push library.
 - **The code is MIT; the name, the logo and Pip are not.** `TRADEMARKS.md` lets anyone refer to,
   self-host and redistribute Homingbird unmodified, and asks forks to choose their own name and art.
-  The 24 built-in characters are CC BY 4.0 so people can reuse them with credit; the `pigeon`
+  The built-in characters are CC BY 4.0 so people can reuse them with credit; the `pigeon`
   character is Pip and stays with the brand. Without this, a fork could ship as "Homingbird" with
   our logo and nobody could tell them apart.
 - **Members pick or make a profile character; Pip stays the brand.** Characters share Pip's body,
@@ -2543,6 +2549,12 @@ token (rule 9).
   them, are shown only to that person and their own agent; the other attendees, an administrator and
   the other agents see the result alone (rules 6 and 9). A note could otherwise carry calendar details
   between agents that no person sees.
+- **Days and hours are limits of the room.** A room may carry `weekdays` (ISO, Monday is 1), `hours`
+  (`from` and `to` in minutes of the day, quarter hours) and the opener's IANA `timeZone`, all
+  optional and strictly validated; omitted means no limit. A meeting lies whole inside one chosen
+  day's hours by the opener's clock, so a clock change shifts the instants, not the hours
+  (`allowedStretches`). The room, not an agent, enforces them when it picks the time; agents are
+  also told and their answer is cut to them. Stored in four columns of `scheduling_rooms`.
 - **Notices are kept.** What a meeting tells a person (it waits on them, it was added, someone left)
   is stored in `meeting_notices` and listed in the web client's Activity; web push only repeats it.
 

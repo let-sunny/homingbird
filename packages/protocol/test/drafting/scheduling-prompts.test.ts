@@ -104,6 +104,53 @@ describe('the prompt for a scheduling room’s free times', () => {
   })
 })
 
+describe('the days and hours a room is limited to', () => {
+  const limitedRoom = () =>
+    scheduled({
+      schedule: {
+        ...scheduled().schedule,
+        weekdays: [2],
+        hours: { from: 600, to: 720 },
+        timeZone: 'Asia/Seoul',
+      },
+    } as never)
+
+  it('tells the agent to offer no free time outside them, in the zone of whoever opened the room', () => {
+    const prompt = freeSlotsPrompt({
+      debate: limitedRoom(),
+      viewerId: ANA,
+      authors: PEOPLE,
+      timeZone: 'America/New_York',
+      now: START - HOUR,
+      nonce: counter(),
+    })
+    expect(prompt).toContain(
+      'The meeting must lie on Tuesday, from 10:00 to 12:00, by the clock in Asia/Seoul (the time zone of whoever opened the room)',
+    )
+  })
+
+  it('says nothing of them for a room without limits', () => {
+    const prompt = freeSlotsPrompt({
+      debate: scheduled(),
+      viewerId: ANA,
+      authors: PEOPLE,
+      timeZone: 'Asia/Seoul',
+      now: START - HOUR,
+      nonce: counter(),
+    })
+    expect(prompt).not.toContain('The meeting must lie')
+  })
+
+  it('cuts the printed free times to them', () => {
+    const printed = JSON.stringify({
+      free: [{ startsAt: '2026-11-24T00:00:00Z', endsAt: '2026-11-26T00:00:00Z' }],
+    })
+    expect(freeSlotsIn(printed, WINDOW, limitedRoom().schedule)).toEqual({
+      slots: [{ startsAt: Date.UTC(2026, 10, 24, 1), endsAt: Date.UTC(2026, 10, 24, 3) }],
+    })
+  })
+})
+
 describe('the free times an agent prints', () => {
   const iso = (hours: number) => new Date(START + hours * HOUR).toISOString()
 
