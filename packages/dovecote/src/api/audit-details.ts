@@ -14,13 +14,16 @@ import {
   type MemberId,
   type RequestOf,
   type ResponseOf,
+  type SchedulingDelegationView,
   type Settings,
+  delegationChanges,
   membershipChange,
 } from '@homingbird/protocol'
 import { type ChannelRow, channelAgentOf, channelRow } from '../domain/channel-rows.ts'
 import { teamToCopy } from '../domain/group-membership.ts'
 import { lockGroups } from '../domain/group-rows.ts'
 import { memberById } from '../domain/members.ts'
+import { delegationViewOf } from '../domain/scheduling-delegations.ts'
 import { readSettings } from '../domain/settings.ts'
 import { type Caller, viewerOf } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
@@ -226,6 +229,16 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
     afterwards((debate) => ({ targetId: debate.id, detail: { visibility: debate.visibility } })),
   'scheduling.create': () =>
     afterwards((debate) => ({ targetId: debate.id, detail: { visibility: debate.visibility } })),
+  'scheduling.retry': () =>
+    afterwards((debate) => ({ targetId: debate.id, detail: { visibility: debate.visibility } })),
+  'me.scheduling.set': (_, caller) =>
+    T.map(
+      (before: SchedulingDelegationView) =>
+        (after: SchedulingDelegationView): AuditFacts<'scheduling.delegation_changed'> => ({
+          targetId: caller.member.id,
+          detail: { fields: delegationChanges(before.delegation, after.delegation) },
+        }),
+    )(delegationViewOf(caller.member.id)),
   'scheduling.attendance.add': ({ params }, caller) =>
     afterwards((debate) => ({
       targetId: params.id,

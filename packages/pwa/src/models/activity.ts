@@ -15,6 +15,7 @@ import type { Release, Thread } from '../state.ts'
 import { strings } from '../strings.ts'
 import { conversationTitle, excerpt, isArchived, threadItems } from '../thread.ts'
 import { type ReviewCard, reviewCardModel } from './channel-agent.ts'
+import { type SuggestionCard, suggestionCardModel } from './debate-suggestion-card.ts'
 import { type DraftsItemModel, draftsItemModel } from './drafts-item.ts'
 import { type TeachSeed, teachSeedOf } from './teaching.ts'
 import type { ThreadInput } from './thread-room.ts'
@@ -31,6 +32,7 @@ export const activityModel = (input: ActivityInput): ActivityModel => {
   const groups = [
     group('drafts', draftItems(input)),
     group('reviews', featureOn('channelAgents', input.serverInfo) ? reviewItems(input) : []),
+    group('suggestions', featureOn('debateSuggestions', input.serverInfo) ? suggestionItems(input) : []),
     group('skipped', skippedItems(input)),
     group('debates', featureOn('debateRooms', input.serverInfo) ? debateItems(input) : []),
   ].filter((shown) => shown.items.length > 0)
@@ -82,6 +84,7 @@ export interface ActivityInput {
   readonly reviews: ReadonlyArray<AsRead.Review>
   readonly reviewsRead: ReadonlyMap<NoteId, DraftAsShown>
   readonly debates: ReadonlyArray<AsRead.DebateSummary>
+  readonly suggestions: ReadonlyArray<AsRead.DebateSuggestion>
   readonly taught: AsRead.MyPrinciples | 'failed' | null
   readonly agentReport: AsRead.AgentReport | 'failed' | null
   readonly serverInfo: AsRead.ServerInfo | null
@@ -107,7 +110,7 @@ export interface AgentNotice {
   readonly label: string
 }
 
-export type ActivityKind = 'drafts' | 'reviews' | 'skipped' | 'debates'
+export type ActivityKind = 'drafts' | 'reviews' | 'suggestions' | 'skipped' | 'debates'
 
 export interface ActivityGroup {
   readonly kind: ActivityKind
@@ -144,6 +147,7 @@ export type ActivityItem =
         readonly teach: { readonly label: string; readonly seed: TeachSeed } | null
       }
     >
+  | ActivityEntry<'suggestion', { readonly card: SuggestionCard }>
   | ActivityEntry<'debate', { readonly text: string }>
   | ActivityEntry<'held', { readonly line: HeldLine }>
 
@@ -263,6 +267,25 @@ const reviewItems = (input: ActivityInput): ActivityItem[] =>
         },
       }
     })
+
+const suggestionItems = (input: ActivityInput): ActivityItem[] =>
+  input.suggestions.map((suggestion): ActivityItem => {
+    const room = input.conversations.find((candidate) => candidate.id === suggestion.conversationId)
+    return {
+      type: 'suggestion',
+      key: `suggestion:${suggestion.id}`,
+      at: suggestion.createdAt,
+      weight: 1,
+      place: {
+        conversationId: suggestion.conversationId,
+        text: room === undefined ? strings.debateSuggestion.forNote : placeText(input, room),
+        href: hrefFor({ name: 'conversation', id: suggestion.conversationId, draft: suggestion.draftId }),
+        label: strings.activity.openConversation,
+        time: timeShown(suggestion.createdAt, input.now),
+      },
+      card: suggestionCardModel({ suggestion, members: input.members }),
+    }
+  })
 
 const skippedItems = (input: ActivityInput): ActivityItem[] =>
   [...input.releases].flatMap(([noteId, release]): ActivityItem[] => {

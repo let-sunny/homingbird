@@ -359,6 +359,14 @@ describe('liveEvents', () => {
     expect(routes().filter((route) => route === 'principleProposals.list')).toHaveLength(1)
   })
 
+  it('reads the person’s debate suggestions again when they change', async () => {
+    const { apply, state, routes } = live()
+    state.serverInfo.set(serverInfo({ debateSuggestions: true }))
+    apply(event({ type: 'suggestions.changed' }))
+    await settle()
+    expect(routes()).toContain('debateSuggestions.list')
+  })
+
   it('reads again the previews of a conversation this page holds, or of every one when none is named', async () => {
     const { apply, state, sent } = live()
     state.serverInfo.set(serverInfo({ draftPreviews: true }))

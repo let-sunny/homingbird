@@ -29,6 +29,7 @@ import {
   me,
   member,
   note,
+  suggestion,
   summary,
 } from '../support/fixtures.ts'
 import { heldDecision } from '../support/held.ts'
@@ -258,6 +259,19 @@ describe('activityPanel', () => {
     expect(textOf(panel)).toContain(strings.activity.debateAsks)
     getByRole(panel, 'link', { name: strings.activity.openRoom }).click()
     expect(isPopoverOpen(panel as never)).toBe(false)
+  })
+
+  it('lists a short debate the agent suggested as a card, counted by the bell, which opens the room from the panel', () => {
+    const { panel, state, called, link } = shown()
+    state.suggestions.set([suggestion()])
+    expect(link().getAttribute('aria-label')).toContain('2 things')
+    panel.showPopover()
+    expect(textOf(panel)).toContain(strings.activity.groups.suggestions)
+    getByRole(panel, 'button', { name: strings.debateSuggestion.open }).click()
+    const [opened] = called('acceptSuggestion')
+    opened!.then!.done!({ id: 'debate_000000000000' })
+    state.suggestions.set([])
+    expect(panel.querySelector('.suggestion-card')).toBeNull()
   })
 
   it('closes before “Reply yourself” opens the conversation, with the note as the reply target', () => {

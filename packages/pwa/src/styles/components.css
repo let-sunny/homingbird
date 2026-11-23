@@ -236,7 +236,7 @@
   min-inline-size: 0;
 }
 
-.activity-item:not(.pending, .review-card, .held-line) {
+.activity-item:not(.pending, .review-card, .held-line, .suggestion-card) {
   display: grid;
   gap: var(--hb-space-2);
   padding: var(--hb-space-3);
@@ -5056,6 +5056,18 @@ textarea:disabled {
 
 .chance.proposal {
   border-style: solid;
+}
+
+.chance.suggestion-card {
+  border-style: solid;
+}
+
+.suggestion-card textarea {
+  inline-size: 100%;
+}
+
+.suggestion-reason small {
+  color: var(--hb-color-muted);
 }
 
 .proposal-edit {

@@ -19,6 +19,7 @@ import {
   member,
   note,
   serverInfo,
+  suggestion,
   summary,
 } from '../support/fixtures.ts'
 
@@ -45,6 +46,7 @@ const input = (fields: Partial<ActivityInput> = {}): ActivityInput => ({
   reviews: [],
   reviewsRead: new Map(),
   debates: [],
+  suggestions: [],
   taught: null,
   agentReport: null,
   serverInfo: everything(),
@@ -430,6 +432,41 @@ describe('activityModel', () => {
     expect(itemsOf(model, 'debates')[1]!.place.href).toBe('#/debate/debate_asks0000000/turns')
   })
 
+  it('lists a short debate the agent suggested, newest first, counted once and opening where its note is', () => {
+    const model = activityModel(
+      input({
+        suggestions: [
+          suggestion({ createdAt: 3 }),
+          suggestion({ id: 'sugg_111111111111' as never, createdAt: 9, draftId: 'note_d1' as NoteId }),
+        ],
+      }),
+    )
+    expect(kinds(model)).toEqual(['suggestions'])
+    expect(model.count).toBe(2)
+    const items = itemsOf(model, 'suggestions')
+    expect(items.map((item) => item.key)).toEqual([
+      'suggestion:sugg_111111111111',
+      'suggestion:sugg_000000000000',
+    ])
+    expect(items[0]!.place).toMatchObject({
+      conversationId: ROOM,
+      href: '#/c/conv_room00000000?draft=note_d1',
+    })
+    expect(items[0]!.type === 'suggestion' && items[0]!.card.heading).toContain('Desk')
+  })
+
+  it('names a suggestion’s place by its conversation, or by its note when the conversation is not known', () => {
+    const known = activityModel(input({ suggestions: [suggestion()] }))
+    expect(itemsOf(known, 'suggestions')[0]!.place.text).toBe(strings.activity.withPeople({ names: 'Ben' }))
+    const unknown = activityModel(input({ conversations: [], suggestions: [suggestion()] }))
+    expect(itemsOf(unknown, 'suggestions')[0]!.place.text).toBe(strings.debateSuggestion.forNote)
+  })
+
+  it('leaves suggestions out while short debates are off', () => {
+    const off = serverInfo({ debateRooms: true })
+    expect(activityModel(input({ suggestions: [suggestion()], serverInfo: off })).groups).toEqual([])
+  })
+
   it('leaves out rooms that need nothing of the person', () => {
     const rooms = [
       summary({ participantIds: [ANA, BEN] }),
@@ -470,14 +507,16 @@ describe('activityModel', () => {
           [OTHER_ROOM, thread(newer)],
         ]),
         reviews: [review()],
+        suggestions: [suggestion()],
         debates: [summary({ participantIds: [BEN] })],
       }),
     )
-    expect(kinds(model)).toEqual(['drafts', 'reviews', 'debates'])
+    expect(kinds(model)).toEqual(['drafts', 'reviews', 'suggestions', 'debates'])
     expect(itemsOf(model, 'drafts').map((item) => item.at)).toEqual([8, 2])
     expect(model.groups.map((group) => group.title)).toEqual([
       strings.activity.groups.drafts,
       strings.activity.groups.reviews,
+      strings.activity.groups.suggestions,
       strings.activity.groups.debates,
     ])
   })

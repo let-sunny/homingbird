@@ -19,7 +19,7 @@ import {
 } from '@homingbird/protocol'
 import { type Caller, isHuman, viewerOf } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
-import { first, run } from '../sql/database.ts'
+import { all, first, run } from '../sql/database.ts'
 import { insertInto, sql } from '../sql/query.ts'
 import {
   type DebateRow,
@@ -34,6 +34,7 @@ import {
 } from './debate-rows.ts'
 import { moveDebate, settleDebateRow } from './debate-settling.ts'
 import { activeMembersAmong } from './debates.ts'
+import { joinByDelegation } from './delegated-joins.ts'
 import { keepChosenSlots } from './scheduling-rows.ts'
 import { featureIsOn } from './settings.ts'
 
@@ -45,7 +46,7 @@ import { featureIsOn } from './settings.ts'
 export const openSchedulingRoom = (
   caller: Caller,
   setup: ScheduleSetup,
-): T.Task<Debate, NotFound | Forbidden | Invalid, RequestEnv> =>
+): T.Task<Debate, NotFound | Forbidden | Conflict | Invalid, RequestEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     yield* requireDebateRooms
@@ -108,8 +109,52 @@ export const openSchedulingRoom = (
         }),
       )
     }
+    for (const attendee of attendees) yield* joinByDelegation(row, attendee.memberId, setup.minutes)
     yield* announceDebate(row, 'everyone')
-    return yield* describeDebate(row)
+    return yield* describeDebate(yield* lockedDebate(row.id))
+  })
+
+/**
+ * Opens a new room asking the same people for a meeting of the same title and length, in the window
+ * given or the same one; only whoever opened the room retries it, once it has settled or ended.
+ */
+export const retrySchedulingRoom = (
+  caller: Caller,
+  id: DebateId,
+  window: TimeSpan | undefined,
+): T.Task<Debate, NotFound | Forbidden | Conflict | Invalid, RequestEnv> =>
+  T.gen(function* () {
+    yield* requireDebateRooms
+    if (!isHuman(caller))
+      return yield* T.fail(Forbidden({ message: 'Only a person can open a scheduling room.' }))
+    yield* visibleDebate(viewerOf(caller), id)
+    const row = yield* lockedSchedulingRoom(id)
+    if (row.created_by !== caller.member.id)
+      return yield* T.fail(Forbidden({ message: 'Only the person who opened this room can open it again.' }))
+    if (row.status === 'open' || row.status === 'concluding')
+      return yield* T.fail(Conflict({ message: 'This room still takes answers.' }))
+    const asked = (yield* first<{ minutes: number; window_starts_at: number; window_ends_at: number }>(
+      sql`SELECT minutes, window_starts_at, window_ends_at FROM scheduling_rooms WHERE debate_id = ${id}`,
+    ))!
+    const attendees = yield* all<{ member_id: MemberId; required: number }>(sql`
+      SELECT a.member_id, a.required FROM scheduling_attendees a
+      JOIN debate_members m ON m.debate_id = a.debate_id AND m.member_id = a.member_id
+      JOIN members p ON p.id = a.member_id
+      WHERE a.debate_id = ${id} AND a.member_id <> ${row.created_by} AND p.status = 'active'
+      ORDER BY m.created_at, a.member_id`)
+    return yield* openSchedulingRoom(caller, {
+      title: row.question,
+      minutes: Number(asked.minutes),
+      window: window ?? {
+        startsAt: Number(asked.window_starts_at),
+        endsAt: Number(asked.window_ends_at),
+      },
+      attendees: attendees.map((attendee) => ({
+        memberId: attendee.member_id,
+        required: Number(attendee.required) === 1,
+      })),
+      visibility: row.visibility === 'private' ? 'private' : 'open',
+    })
   })
 
 /**

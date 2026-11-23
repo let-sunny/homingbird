@@ -27,7 +27,14 @@ import {
   setDebateLimits,
 } from '../domain/debates.ts'
 import { addMeeting, reportCalendar, takeOutMeeting } from '../domain/meeting-invitations.ts'
-import { chooseFreeSlots, openSchedulingRoom, shareFreeSlots } from '../domain/scheduling-rooms.ts'
+import { delegationViewOf, setDelegation } from '../domain/scheduling-delegations.ts'
+import {
+  chooseFreeSlots,
+  openSchedulingRoom,
+  requireDebateRooms,
+  retrySchedulingRoom,
+  shareFreeSlots,
+} from '../domain/scheduling-rooms.ts'
 import { isHuman, viewerOf } from '../environment.ts'
 import { transact } from '../events/events.ts'
 import type { Handlers } from './handlers.ts'
@@ -120,6 +127,12 @@ export const debateHandlers = {
     T.flatMap((id: DebateId) => T.flatMap(shownTo(caller))(takeOutMeeting(caller, id)))(
       identifier(DebateId, params.id),
     ),
+  'scheduling.retry': ({ params, body }, caller) =>
+    T.flatMap((id: DebateId) => T.flatMap(shownTo(caller))(retrySchedulingRoom(caller, id, body.window)))(
+      identifier(DebateId, params.id),
+    ),
+  'me.scheduling.get': (_, caller) => T.flatMap(() => delegationViewOf(caller.member.id))(requireDebateRooms),
+  'me.scheduling.set': ({ body }, caller) => T.flatMap(() => setDelegation(caller, body))(requireDebateRooms),
   'debateSuggestions.create': ({ body }, caller) => suggestDebate(caller, body),
   'debateSuggestions.list': (_, caller) =>
     T.map((suggestions: DebateSuggestion[]) => ({ suggestions }))(waitingSuggestions(caller)),

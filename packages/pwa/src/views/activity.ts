@@ -20,6 +20,7 @@ import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { reviewCard } from './channel-agent.ts'
 import type { ViewContext } from './context.ts'
+import { debateSuggestionCard } from './debate-suggestion-card.ts'
 import { renderDraftsItem, reportWhenSeen } from './drafts-item.ts'
 import { heldToastInPanel, placeHeldToast, renderHeldLine } from './held-toast.ts'
 import { hinted } from './hint.ts'
@@ -182,6 +183,7 @@ export const activityInputOf = ({ state, clock }: ViewContext, me: AsRead.Me): A
   held: state.held.get(),
   reviewsRead: state.reviewsRead.get(),
   debates: state.debates.get(),
+  suggestions: state.suggestions.get(),
   taught: state.taught.get(),
   agentReport: state.agentReport.get(),
   serverInfo: state.serverInfo.get(),
@@ -201,6 +203,7 @@ export const activitySources = ({ state }: ViewContext) => [
   state.reviews,
   state.reviewsRead,
   state.debates,
+  state.suggestions,
   state.taught,
   state.agentReport,
   state.serverInfo,
@@ -249,7 +252,7 @@ const activityContent = (context: ViewContext, life: Lifetime, me: AsRead.Me): H
         keyedRegion(life, h('ul', { class: 'activity-list' }), sources, items, {
           key: (item) => item.key,
           signature: (item) => JSON.stringify(item),
-          render: (item) => renderItem(context, item),
+          render: (item) => renderItem(context, life, me, item),
         }),
       )
       const showWhenAny = (): void => {
@@ -262,7 +265,7 @@ const activityContent = (context: ViewContext, life: Lifetime, me: AsRead.Me): H
   )
 }
 
-const ACTIVITY_KINDS: ReadonlyArray<ActivityKind> = ['drafts', 'reviews', 'skipped', 'debates']
+const ACTIVITY_KINDS: ReadonlyArray<ActivityKind> = ['drafts', 'reviews', 'suggestions', 'skipped', 'debates']
 
 /** A group's heading, with a hint for the kinds other messengers lack: skipped notes and debate rooms. */
 const activityHeading = (context: ViewContext, kind: ActivityKind): Child => {
@@ -272,7 +275,7 @@ const activityHeading = (context: ViewContext, kind: ActivityKind): Child => {
   return heading
 }
 
-const renderItem = (context: ViewContext, item: ActivityItem): HTMLElement => {
+const renderItem = (context: ViewContext, life: Lifetime, me: AsRead.Me, item: ActivityItem): HTMLElement => {
   const head = placeLine(item.place)
   switch (item.type) {
     case 'drafts': {
@@ -286,6 +289,12 @@ const renderItem = (context: ViewContext, item: ActivityItem): HTMLElement => {
       element.classList.add('activity-item')
       element.prepend(head)
       reportWhenSeen(context, element, item.card.review.note)
+      return element
+    }
+    case 'suggestion': {
+      const element = debateSuggestionCard(context, life, me, item.card)
+      element.classList.add('activity-item')
+      element.prepend(head)
       return element
     }
     case 'held': {

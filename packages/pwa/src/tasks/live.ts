@@ -10,6 +10,7 @@ import { strings } from '../strings.ts'
 import { isMuted, withAgentPresence, withPresence, withReceipts } from '../thread.ts'
 import { loadReviews } from './channel-agents.ts'
 import { applyLeft } from './conversation-actions.ts'
+import { loadSuggestions } from './debate-suggestions.ts'
 import { loadDebate, loadDebates } from './debates.ts'
 import { loadGroups } from './groups.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
@@ -152,6 +153,9 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         break
       case 'proposals.changed':
         if (state.interview.get() !== null) reloadInterviewSoon()
+        break
+      case 'suggestions.changed':
+        launch(loadSuggestions)
         break
       case 'preview.changed':
         if (body.conversationId === null) launch(reloadPreviews)

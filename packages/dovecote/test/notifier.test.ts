@@ -229,6 +229,8 @@ describe('push notifications', () => {
     told({ notice: 'busy', memberId: about })
     told({ notice: 'left', memberId: about, because: 'took_out' })
     told({ notice: 'left', memberId: 'mem_gone000000000', because: 'declined' })
+    told({ notice: 'joined', agentName: 'Ben laptop' })
+    told({ notice: 'joined', agentName: null })
     await server.settled()
     expect(deliveries.map((delivery) => JSON.parse(decrypt(delivery.body, benDevice)))).toEqual(
       [
@@ -246,6 +248,11 @@ describe('push notifications', () => {
         ],
         ['Plan the launch · Ana left', 'They took the meeting out. Open it to find another time.'],
         ['Plan the launch · A colleague left', 'They cannot come. Open it to find another time.'],
+        [
+          'Plan the launch · Your agent is finding a time',
+          'Ben laptop joined for you to share your free times. You can change this in Settings.',
+        ],
+        ['Plan the launch · Your agent is finding a time', 'It joined for you to share your free times.'],
       ].map(([title, body]) => ({ title, body, url: `/#/debate/${debateId}` })),
     )
   })

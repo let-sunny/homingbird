@@ -124,6 +124,7 @@ import {
   PrincipleTopic,
 } from './principles.ts'
 import { type ReadResponseOf, type RequestOf, type Route, route } from './route.ts'
+import { SchedulingDelegation, SchedulingDelegationView } from './scheduling-delegation.ts'
 import { DeskSession } from './session-health.ts'
 import { AdminSlack, MeSlack, SlackCodeView, SlackCredentialsInput, SlackLinkCode } from './slack.ts'
 import { NoteTags } from './tags.ts'
@@ -225,6 +226,19 @@ export const contract = {
     access: 'human',
     body: DraftPreviewAllowance,
     response: DraftPreviewAllowance,
+  }),
+  'me.scheduling.get': route({
+    method: 'GET',
+    path: '/me/scheduling',
+    access: 'human',
+    response: SchedulingDelegationView,
+  }),
+  'me.scheduling.set': route({
+    method: 'PUT',
+    path: '/me/scheduling',
+    access: 'human',
+    body: SchedulingDelegation,
+    response: SchedulingDelegationView,
   }),
 
   'directory.list': route({
@@ -1007,6 +1021,14 @@ export const contract = {
     path: '/debates/:id/attendance',
     access: 'human',
     /** Takes the meeting out, or says they cannot come; whoever opened the room cancels it for everyone. */
+    response: Debate,
+  }),
+  'scheduling.retry': route({
+    method: 'POST',
+    path: '/debates/:id/retry',
+    access: 'human',
+    /** Opens a new room with the same title, length and people, in this window or the same one. */
+    body: S.closed(S.struct({ window: S.optional(S.struct({ startsAt: Timestamp, endsAt: Timestamp })) })),
     response: Debate,
   }),
 

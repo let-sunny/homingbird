@@ -121,7 +121,7 @@ export interface WaitingFilter {
 
 export const NOTHING_WAITS: Waiting = { approvals: 0, others: 0, places: [], conversationIds: new Set() }
 
-const KIND_ORDER: ReadonlyArray<ActivityKind> = ['drafts', 'reviews', 'skipped', 'debates']
+const KIND_ORDER: ReadonlyArray<ActivityKind> = ['drafts', 'reviews', 'suggestions', 'skipped', 'debates']
 
 const APPROVALS: ReadonlyArray<ActivityKind> = ['drafts', 'reviews']
 

@@ -20,4 +20,11 @@ describe('English push titles', () => {
     expect(en.meeting.busy('Plan', 'Ben')).toBe('Plan · Ben is busy then')
     expect(en.meeting.left('Plan', 'Ben')).toBe('Plan · Ben left')
   })
+
+  it('tells a person their agent joined a scheduling room for them, naming it the first time', () => {
+    expect(en.meeting.joined('Plan')).toBe('Plan · Your agent is finding a time')
+    expect(en.meeting.joinedFirstBody('Ben laptop')).toBe(
+      'Ben laptop joined for you to share your free times. You can change this in Settings.',
+    )
+  })
 })

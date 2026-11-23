@@ -3560,6 +3560,7 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
       'scheduling.attendance.add',
       'scheduling.attendance.remove',
       'scheduling.create',
+      'scheduling.retry',
       'scheduling.slots.set',
     ])
     for (const name of personal) {
@@ -3820,6 +3821,109 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
       expect(elsewhere).not.toContain(secret)
       expect(server.logged.join('\n')).not.toContain(secret)
     }
+  })
+
+  const DELEGATION_ONLY_FROM = (memberId: string) => ({
+    autoJoin: true,
+    autoAdd: true,
+    agentId: null,
+    brief: '',
+    scope: { people: [memberId], hours: null, maxMinutes: null },
+  })
+
+  /**
+   * Ben opens a room asking Cy, whose agent is connected before it opens; both share free slots in the
+   * order the room asks, and Ben's agent sends the invitation.
+   */
+  const delegatedMeeting = async (cyAgent: Agent) => {
+    const { id, window } = await schedulingRoom()
+    const joined = (await ben.api('GET', `/debates/${id}`)).json.participants.map(
+      (participant: { memberId: string }) => participant.memberId,
+    )
+    if (!joined.includes(cy.me.member.id))
+      await cy.api('PUT', `/debates/${id}/agent`, { agentId: await agentIdOf(cyAgent) })
+    for (const agent of [benAgent, cyAgent, benAgent])
+      await agent.api('POST', `/debates/${id}/slots`, { slots: [window] })
+    await benAgent.api('POST', `/debates/${id}/calendar`, { outcome: 'sent', ...MEETING_INVITE })
+    return { id, joined }
+  }
+
+  it('adds a meeting without a click only for a person whose delegation is on and the room within its scope, and tells that person with a way to take it out', async () => {
+    const told: Array<{ to: string; notice: { notice: string } }> = []
+    ;(server.env as { meetingPushSink: unknown }).meetingPushSink = (
+      to: string,
+      meeting: { notice: { notice: string } },
+    ) => told.push({ to, notice: meeting.notice })
+    const cyAgent = await connectAgent(server, cy, { name: 'Cy agent' })
+    keepAwake(server, cy.me.member.id, cyAgent)
+    await server.clock.advance(1)
+
+    const covered = await delegatedMeeting(cyAgent)
+    expect([...covered.joined].sort()).toEqual([ben.me.member.id, cy.me.member.id].sort())
+    expect(await meetingPartsOf(covered.id)).toEqual({
+      [ben.me.member.id]: 'added',
+      [cy.me.member.id]: 'adding',
+    })
+    expect(await meetingAsksOf(cyAgent)).toEqual(['accept_invite'])
+    await cyAgent.api('POST', `/debates/${covered.id}/calendar`, { outcome: 'accepted' })
+    expect(told.filter((one) => one.to === cy.me.member.id).map((one) => one.notice.notice)).toEqual([
+      'joined',
+      'added',
+    ])
+    expect((await cy.api('DELETE', `/debates/${covered.id}/attendance`)).status).toBe(200)
+    expect(await meetingPartsOf(covered.id)).toEqual({
+      [ben.me.member.id]: 'added',
+      [cy.me.member.id]: 'removing',
+    })
+    await cyAgent.api('POST', `/debates/${covered.id}/calendar`, { outcome: 'declined' })
+
+    expect((await cy.api('PUT', '/me/scheduling', DELEGATION_ONLY_FROM(ana.me.member.id))).status).toBe(200)
+    told.length = 0
+    const outside = await delegatedMeeting(cyAgent)
+    expect(outside.joined).toEqual([ben.me.member.id])
+    expect(await meetingPartsOf(outside.id)).toEqual({
+      [ben.me.member.id]: 'added',
+      [cy.me.member.id]: 'asked',
+    })
+    expect(await meetingAsksOf(cyAgent)).toEqual([])
+    expect(told.filter((one) => one.to === cy.me.member.id).map((one) => one.notice.notice)).toEqual([
+      'waits',
+    ])
+    const delegatedAdds = (await storedRows(server, 'audit_events'))
+      .filter((row) => row.event === 'scheduling.meeting_added')
+      .map((row) => [row.actor_id, row.target_id, JSON.parse(String(row.detail))])
+    expect(delegatedAdds).toEqual([
+      [ben.me.member.id, covered.id, { by: 'agent', byDelegation: true }],
+      [cy.me.member.id, covered.id, { by: 'agent', byDelegation: true }],
+      [ben.me.member.id, outside.id, { by: 'agent', byDelegation: true }],
+    ])
+  })
+
+  it('refuses an agent credential that tries to read or change the scheduling delegation, or open a room again, changing nothing', async () => {
+    const { id } = await schedulingRoom()
+    const before = await everyStoredValue(server)
+    const tries: ReadonlyArray<readonly [string, string, unknown]> = [
+      ['GET', '/me/scheduling', undefined],
+      ['PUT', '/me/scheduling', { ...DELEGATION_ONLY_FROM(ana.me.member.id), autoAdd: true }],
+      ['POST', `/debates/${id}/retry`, {}],
+    ]
+    for (const [method, path, body] of tries)
+      for (const agent of [anaAgent, benAgent])
+        expect([method, path, (await agent.api(method, path, body)).status]).toEqual([method, path, 403])
+    expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
+  })
+
+  it('lets only a person read, set or widen the scheduling delegation, in the web client, behind its feature, and no model-facing route or tool reaches it', () => {
+    const delegation: RouteName[] = ['me.scheduling.get', 'me.scheduling.set', 'scheduling.retry']
+    for (const name of delegation) {
+      expect([name, contract[name].access]).toEqual([name, 'human'])
+      expect([name, featureOfRoute(name)]).toEqual([name, 'schedulingRooms'])
+      expect(humanOnlyRoutes).toContain(name)
+    }
+    for (const routes of [MCP_ROUTES, A2A_ROUTES])
+      expect(routes.filter((name: string) => delegation.includes(name as RouteName))).toEqual([])
+    const names = toolDefinitions().map((tool) => String(tool.name))
+    expect(names.filter((name) => /delegat|retry|auto_?(join|add)/i.test(name))).toEqual([])
   })
 })
 

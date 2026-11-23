@@ -111,6 +111,23 @@ const PROBES: Readonly<Partial<Record<RouteName, { readonly status: number; read
       })
     },
   },
+  'me.scheduling.set': {
+    status: 400,
+    probe: async ({ ana, root }, id) => {
+      const settings = (await root.api('GET', '/admin/settings')).json
+      await root.api('PUT', '/admin/settings', {
+        ...settings,
+        features: { ...settings.features, schedulingRooms: true },
+      })
+      return status(ana, 'PUT', '/me/scheduling', {
+        autoJoin: true,
+        autoAdd: true,
+        agentId: null,
+        brief: '',
+        scope: { people: [id], hours: null, maxMinutes: null },
+      })
+    },
+  },
 }
 
 const YEAR_2100 = Date.UTC(2100, 0, 1)
