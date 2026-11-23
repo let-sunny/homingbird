@@ -395,6 +395,23 @@ describe('debateView', () => {
     expect(shown.querySelector('.debate-export')).not.toBeNull()
   })
 
+  it('shows a first-visit hint under the row of tabs, never between two tabs', () => {
+    const { context, page } = testContext()
+    page.state.coarsePointer = true
+    const shown = mount(debateView(context, lifetime(), me(), 'debate_1', null))
+    context.state.shownDebate.set(
+      debate({
+        status: 'closed',
+        createdBy: BEN,
+        result: { result: conclusion, draftedBy: BEN, draftedAt: 4 },
+        voteRecord: { votes: [], droppedOut: [] },
+      }),
+    )
+    const tabs = getByRole(shown, 'navigation', { name: strings.debates.tabsLabel })
+    expect(tabs.querySelector('.hint-inline')).toBeNull()
+    expect(shown.querySelectorAll('.hint-inline').length).toBeGreaterThan(0)
+  })
+
   it('keeps the flock drawn when another tab is chosen, and focuses that tab once', () => {
     const { context, page, called } = testContext()
     context.state.shownDebate.set(debate({ status: 'ended', createdBy: BEN }))

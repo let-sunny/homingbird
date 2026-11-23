@@ -347,13 +347,13 @@ describe('a scheduling flock’s time', () => {
     })
   })
 
-  it('settles on a time still ahead in a window that has already begun', async () => {
+  it('settles on a time a lead time ahead in a window that has already begun', async () => {
     const now = server.clock.now()
     const window = { startsAt: now - 2 * HOUR, endsAt: now + 6 * HOUR }
     const room = await opened({ window })
     await cast.ben.api('PUT', `/debates/${room.id}/slots/mine`, { slots: [window] })
     const settled = (await cast.ana.api('PUT', `/debates/${room.id}/slots/mine`, { slots: [window] })).json
-    const ahead = Math.ceil(now / (15 * 60_000)) * 15 * 60_000
+    const ahead = Math.ceil((now + 30 * 60_000) / (15 * 60_000)) * 15 * 60_000
     expect(settled.result.result).toMatchObject({ kind: 'slot', startsAt: ahead, endsAt: ahead + HOUR })
   })
 

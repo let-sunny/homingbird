@@ -25,5 +25,6 @@
   },
   "concurrency": 2,
   "timeoutMS": 10000,
+  "ignorePatterns": [".claude", "site-dist", "reports"],
   "tempDirName": ".stryker-tmp"
 }

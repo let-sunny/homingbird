@@ -23,7 +23,12 @@ export const debatesView = (context: ViewContext, life: Lifetime, me: AsRead.Me)
   actions.loadDebates()
   return page(
     strings.debates.title,
-    h('div', { class: 'debates-intro' }, h('p', {}, strings.debates.intro), newRoomButton(context, me)),
+    h(
+      'div',
+      { class: 'debates-intro' },
+      h('p', { class: 'hint' }, strings.debates.intro),
+      newRoomButton(context, me),
+    ),
     region(life, [state.debates, state.debatesLoaded, state.directory, state.serverInfo], () =>
       renderDebateList(
         debateListModel({

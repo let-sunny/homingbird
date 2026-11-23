@@ -254,7 +254,7 @@ export const ko: Translation<typeof en> = {
     channelAgent: '이 채널에 답하는 에이전트를 열어요. 답마다 채널 운영자가 승인해요.',
     channelManagers: '운영자는 이 채널의 에이전트를 돌리고, 그 답을 읽은 뒤 보내요.',
     privateQuestion: '나와 채널 운영자만 보는 곳에서 이 채널의 에이전트에게 물어요.',
-    debateRoom: '몇 사람의 에이전트가 한 질문을 차례대로 토론하는 플록이에요. 열어서 따라가 보세요.',
+    debateRoom: '에이전트들이 한 질문을 토론하거나 회의 시간을 찾는 플록이에요. 열어서 따라가 보세요.',
     debateTurns: '에이전트마다 한 말을 읽어요. 차례는 승인 없이 보이고 플록 안에만 남아요.',
     debateResult: '에이전트들이 투표로 정한 결론이에요. 사람이 보내야만 플록 밖으로 나가요.',
     skippedDraft: '에이전트가 초안을 쓰지 않기로 한 노트예요. 직접 답하거나 어떻게 할지 가르쳐 주세요.',
@@ -681,7 +681,7 @@ export const ko: Translation<typeof en> = {
       joinedFirst: '이 플록에 대신 참여한 에이전트: {agent}. 설정에서 바꿀 수 있어요.',
       unknown: '회의에 바뀐 점이 있어요.',
     },
-    openSchedulingRoom: '일정 플록 열기',
+    openSchedulingRoom: '플록 열기',
     debateResult:
       '내 에이전트가 함께 낸 결과가 있어요. 채널이나 사람에게 게시하세요. 승인하기 전에는 아무것도 보내지 않아요.',
     openRoom: '플록 열기',
@@ -766,7 +766,7 @@ export const ko: Translation<typeof en> = {
       insights: '관리자 인사이트',
       noteDetails: '노트를 쓴 모델과 프로그램',
       debateRooms: '플록',
-      schedulingRooms: '일정 잡기 플록: 모두 되는 시간 찾기',
+      schedulingRooms: '회의 시간 잡기: 모두 되는 시간 찾기',
       debateSuggestions: '답하기 전에 에이전트가 제안하는 짧은 토론',
       channelAgents: '채널 에이전트',
       cloudDesk: '클라우드 에이전트: 클라우드 서비스에서 에이전트 깨우기 (실험 기능)',
@@ -797,7 +797,7 @@ export const ko: Translation<typeof en> = {
       noteDetails: '끄면: 노트에 쓴 모델과 프로그램이 보이지 않아요.',
       debateRooms: '끄면: 플록이 보이지 않고 에이전트도 차례를 갖지 않아요. 있던 플록은 그대로 남아요.',
       schedulingRooms:
-        '끄면: 일정 잡기 플록을 열 수 없고 에이전트도 빈 시간을 알리지 않아요. 있던 플록은 그대로 남아요.',
+        '끄면: 회의 시간 잡기를 열 수 없고 에이전트도 빈 시간을 알리지 않아요. 있던 플록은 그대로 남아요.',
       debateSuggestions:
         '끄면: 에이전트가 짧은 토론을 제안하지 않고 기다리던 제안도 보이지 않아요. 이미 열린 플록은 그대로 남아요.',
       channelAgents:
@@ -1185,9 +1185,9 @@ export const ko: Translation<typeof en> = {
       '★ 완성은 최근 30일 동안 이곳에서 결정한 초안 10개 중 7개 이상을 고치지 않고 보냈다는 뜻이에요. 앞의 세 단계는 원칙을 지우지 않는 한 그대로예요. 마지막 단계는 최근 30일을 따라요.',
   },
   scheduling: {
-    off: '이 조직에서는 일정 플록이 꺼져 있어요.',
+    off: '이 조직에서는 회의 시간 잡기가 꺼져 있어요.',
     newRoom: '회의 시간 잡기',
-    kind: '일정',
+    kind: '회의 시간 잡기',
     titleLabel: '회의 제목',
     titlePlaceholder: '기획 싱크',
     attendees: '참석자',
@@ -1349,19 +1349,19 @@ export const ko: Translation<typeof en> = {
     delegation: {
       title: '내 에이전트와 회의',
       summary: {
-        both: '초대받은 일정 잡기 플록에는 에이전트가 대신 들어가고, 시간이 정해진 회의는 묻지 않고 내 캘린더에 넣어요. 넣을 때마다 알려 드리고, 회의는 뺄 수 있어요. 끄거나 좁히려면 아래 설정을 바꾸세요.',
+        both: '초대받은 회의 시간 잡기에는 에이전트가 대신 들어가고, 시간이 정해진 회의는 묻지 않고 내 캘린더에 넣어요. 넣을 때마다 알려 드리고, 회의는 뺄 수 있어요. 끄거나 좁히려면 아래 설정을 바꾸세요.',
         joinOnly:
-          '초대받은 일정 잡기 플록에는 에이전트가 대신 들어가요. 회의는 내가 정할 때만 캘린더에 들어가요.',
+          '초대받은 회의 시간 잡기에는 에이전트가 대신 들어가요. 회의는 내가 정할 때만 캘린더에 들어가요.',
         addOnly:
           '플록에서 정해진 회의는 묻지 않고 에이전트가 내 캘린더에 넣어요. 각 플록에서 내 답은 내가 직접 해요.',
         neither: '내가 시키기 전에는 에이전트가 회의와 관련해 아무것도 하지 않아요.',
       },
       limited: '일부 제한이 있어요.',
-      join: '일정 잡기 플록에 대신 들어가기',
+      join: '회의 시간 잡기에 대신 들어가기',
       joinHint: '초대받은 플록에서 에이전트가 내 빈 시간을 알려 줘요.',
       add: '정해진 회의를 내 캘린더에 넣기',
       addHint: '에이전트가 초대장을 보내거나 수락해요. 그때마다 알려 드려요.',
-      agentInUse: '일정에 쓰는 에이전트: {name}',
+      agentInUse: '회의 시간 잡기에 쓰는 에이전트: {name}',
       agentNone: '연결된 에이전트가 없어서 대신 해 주는 일이 없어요.',
       agentChange: '바꾸기',
       agentLabel: '에이전트',
@@ -1378,7 +1378,7 @@ export const ko: Translation<typeof en> = {
       hoursSavedZone: '이 시간은 {saved} 기준으로 저장돼 있어요. 저장하면 {timeZone} 기준이 돼요.',
       maxLimited: '이 길이까지의 회의만',
       briefLabel: '에이전트에게 남기는 메모',
-      briefHint: '일정 잡기 플록에서 에이전트가 쓰고 알려도 되는 것이에요. 비워 두어도 돼요.',
+      briefHint: '회의 시간 잡기에서 에이전트가 쓰고 알려도 되는 것이에요. 비워 두어도 돼요.',
       save: '저장',
       saved: '저장했어요.',
       problems: {
@@ -1389,8 +1389,7 @@ export const ko: Translation<typeof en> = {
   },
   debates: {
     title: '플록',
-    intro:
-      '플록은 여러 사람의 에이전트가 하나의 결과를 향해 모이는 곳이에요. 토론에서는 질문 하나를 정해진 차례 동안 스스로 토론하고 결과 하나를 내요. 결론이거나, 왜 합의하지 못했는지예요. 결과는 에이전트들이 투표로 정하고, 차례를 가진 에이전트의 사람이 내 노트로 게시해 직접 보낼 때만 플록 밖으로 나가요.',
+    intro: '에이전트들이 함께 결론을 내거나 회의 시간을 찾아요.',
     newRoom: '새 플록',
     roomType: '플록 종류',
     typeDebate: '토론',

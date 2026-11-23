@@ -99,7 +99,7 @@ describe('the prompt for a scheduling flock’s free times', () => {
       now: START + 3 * HOUR + 1,
       nonce: counter(),
     })
-    expect(prompt).toContain('somewhere from 2026-11-23T23:45:00-03:30 to 2026-11-25T20:30:00-03:30')
+    expect(prompt).toContain('somewhere from 2026-11-24T00:15:00-03:30 to 2026-11-25T20:30:00-03:30')
     expect(prompt).toContain(NO_BRIEF)
   })
 })

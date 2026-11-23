@@ -1,6 +1,7 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
+  MINIMUM_LEAD_MS,
   type Meeting,
   QUARTER_HOUR_MS,
   type TimeSpan,
@@ -212,11 +213,30 @@ const bruteForce = (meeting: Meeting, free: ReadonlyArray<ReadonlyArray<TimeSpan
 const startOf = (slot: TimeSpan | null): number => slot?.startsAt ?? Number.POSITIVE_INFINITY
 
 describe('what is left of a window from now', () => {
-  it('starts at the next quarter hour once the window has begun, and is the window before then', () => {
-    expect(windowAheadOf(WINDOW, at(8))).toEqual(WINDOW)
-    expect(windowAheadOf(WINDOW, at(9))).toEqual(WINDOW)
-    expect(windowAheadOf(WINDOW, at(10, 1))).toEqual(span(at(10, 15), at(17)))
-    expect(windowAheadOf(WINDOW, at(10, 15))).toEqual(span(at(10, 15), at(17)))
+  it('starts a lead time ahead, at the next quarter hour, and is the window before then', () => {
+    expect(windowAheadOf(WINDOW, at(7))).toEqual(WINDOW)
+    expect(windowAheadOf(WINDOW, at(8, 30))).toEqual(WINDOW)
+    expect(windowAheadOf(WINDOW, at(9))).toEqual(span(at(9, 30), at(17)))
+    expect(windowAheadOf(WINDOW, at(10, 1))).toEqual(span(at(10, 45), at(17)))
+    expect(windowAheadOf(WINDOW, at(10, 15))).toEqual(span(at(10, 45), at(17)))
+  })
+
+  it('starts at the first quarter hour on or after the lead time, never before the window', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: 600 * MINUTE }),
+        fc.integer({ min: 0, max: 720 * MINUTE }),
+        (nowOffset, windowOffset) => {
+          const now = at(0) + nowOffset
+          const window = span(at(0) + windowOffset, at(0) + windowOffset + 60 * MINUTE)
+          const earliest = Math.max(window.startsAt, now + MINIMUM_LEAD_MS)
+          const ahead = windowAheadOf(window, now)
+          expect(ahead.startsAt).toBeGreaterThanOrEqual(earliest)
+          expect(ahead.startsAt - earliest).toBeLessThan(QUARTER_HOUR_MS)
+          expect(ahead.endsAt).toBe(window.endsAt)
+        },
+      ),
+    )
   })
 })
 
