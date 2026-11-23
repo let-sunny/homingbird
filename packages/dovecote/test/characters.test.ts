@@ -69,7 +69,7 @@ const directoryCharacterOf = async (viewer: Session, memberId: string): Promise<
   ).member.character
 
 describe('a member with no saved character', () => {
-  it('is shown as the pigeon: null on the profile, in the directory and in the members list', async () => {
+  it('is shown as their default: null on the profile, in the directory and in the members list', async () => {
     expect((await ben.api('GET', '/me')).json.member.character).toBeNull()
     expect(await directoryCharacterOf(ana, ben.me.member.id)).toBeNull()
     const listed = (await ana.api('GET', '/admin/members')).json.members
@@ -93,9 +93,8 @@ describe('saving a character', () => {
     expect(characterProblems(JSON.parse(stored as string))).toEqual([])
   })
 
-  it('saves a built-in character exactly as it ships, the pigeon included', async () => {
+  it('saves a built-in character exactly as it ships', async () => {
     expect((await ben.api('PUT', '/me/character', CAT)).json.character).toEqual(CAT)
-    expect((await ben.api('PUT', '/me/character', PIGEON)).json.character).toEqual(PIGEON)
   })
 
   it('refuses a character that breaks a rule, listing every problem, and keeps the one saved before', async () => {
@@ -121,7 +120,10 @@ describe('saving a character', () => {
     expect(await storedCharacterOf(ben.me.member.id)).toBeNull()
   })
 
-  it('refuses a copy of the pigeon, under its own id or another', async () => {
+  it('refuses Pip’s own look, under its own id or another, because Pip is the brand', async () => {
+    const exact = await ben.api('PUT', '/me/character', PIGEON)
+    expect(exact.status).toBe(400)
+    expect(exact.json.error.message).toContain('Pip is the brand')
     const renamed = await ben.api('PUT', '/me/character', { ...PIGEON, id: 'my-pigeon', name: 'Pidge' })
     expect(renamed.json.error.message).toContain('Pip is the brand')
     const changed = await ben.api('PUT', '/me/character', { ...PIGEON, marks: [[6, 3, 1, 1, '#6D86B0']] })
@@ -144,7 +146,20 @@ describe('saving a character', () => {
     expect(await storedCharacterOf(ben.me.member.id)).toBeNull()
   })
 
-  it('shows a stored character that no longer decodes as the pigeon', async () => {
+  it('shows a stored copy of Pip as no character, so the client draws the default', async () => {
+    await T.runPromise(
+      run(
+        raw(
+          `UPDATE members SET character_spec = '${JSON.stringify(PIGEON)}' WHERE id = '${ben.me.member.id}'`,
+        ),
+      ),
+      server.env,
+    )
+    expect((await ben.api('GET', '/me')).json.member.character).toBeNull()
+    expect(await directoryCharacterOf(ana, ben.me.member.id)).toBeNull()
+  })
+
+  it('shows a stored character that no longer decodes as none', async () => {
     await T.runPromise(
       run(raw(`UPDATE members SET character_spec = '{"version":0}' WHERE id = '${ben.me.member.id}'`)),
       server.env,
@@ -153,7 +168,7 @@ describe('saving a character', () => {
   })
 })
 
-describe('going back to the pigeon', () => {
+describe('going back to the default', () => {
   it('lets a person clear their own character', async () => {
     await ben.api('PUT', '/me/character', OTTER)
     const cleared = await ben.api('DELETE', '/me/character')
@@ -162,7 +177,7 @@ describe('going back to the pigeon', () => {
     expect(await storedCharacterOf(ben.me.member.id)).toBeNull()
   })
 
-  it('lets an administrator reset any member’s character to the pigeon', async () => {
+  it('lets an administrator reset any member’s character to their default', async () => {
     await ben.api('PUT', '/me/character', OTTER)
     const reset = await ana.api('DELETE', `/admin/members/${ben.me.member.id}/character`)
     expect(reset.status).toBe(200)

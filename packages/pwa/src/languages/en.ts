@@ -806,7 +806,7 @@ export const en = {
       groups:
         'Off: group pages are hidden and nobody can change a group; each group keeps managing its channels.',
       draftRequests: 'Off: people can no longer ask their agent for a draft from the web client.',
-      characters: 'Off: everyone shows as the pigeon, and nobody can change a character.',
+      characters: 'Off: everyone shows as their default bird, and nobody can change a character.',
       mute: 'Off: nobody can mute a direct message or a channel, or choose what notifies them; everything notifies as before.',
       hideConversations:
         'Off: nobody can hide a direct or group message, and every message hidden before shows in its person’s list again.',
@@ -1808,7 +1808,7 @@ export const en = {
     selected: 'Picked: {character}',
     use: 'Use this character',
     saved: 'Your character is saved.',
-    backToPigeon: 'Back to the pigeon',
+    backToDefault: 'Back to my default bird',
     makeOwn: 'Make my own',
     editThis: 'Change it in the editor',
     editorTitle: 'Make your character',
@@ -1871,7 +1871,7 @@ export const en = {
     askAgentHint:
       'In your agent session, ask it to make your Homingbird character. It checks it and gives you a link that opens it here; only you can save it.',
     resetMember: 'Reset character',
-    resetMemberDone: '{name} is shown as the pigeon again.',
+    resetMemberDone: '{name} is shown as their default bird again.',
     slots: {
       pattern: 'Pattern',
       face: 'Face',

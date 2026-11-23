@@ -1,5 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
-import { ANSWER_RULE, BUILT_IN_CHARACTERS, teachingInterviewPrompt } from '@homingbird/protocol'
+import { ANSWER_RULE, CHOOSABLE_CHARACTERS, teachingInterviewPrompt } from '@homingbird/protocol'
 import { CHARACTER_SAVED_ONLY_BY_A_PERSON } from './character-tools.ts'
 import { type RpcFailure, invalidParams } from './json-rpc.ts'
 
@@ -84,7 +84,7 @@ export const PROMPTS: ReadonlyArray<Prompt> = [
         'Ask what to change and repeat. Keep replies plain and short.',
         CHARACTER_RULES,
         CHARACTER_SAVED_ONLY_BY_A_PERSON,
-        `Built-in characters, one CharacterSpec per line:\n${BUILT_IN_CHARACTERS.map((preset) => JSON.stringify(preset)).join('\n')}`,
+        `Built-in characters, one CharacterSpec per line:\n${CHOOSABLE_CHARACTERS.map((preset) => JSON.stringify(preset)).join('\n')}`,
       ].join('\n\n'),
   },
   {

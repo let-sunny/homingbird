@@ -2,6 +2,7 @@ import { SLOTS } from '@homingbird/sprites'
 import { lifetime } from '@homingbird/ui'
 import { fire, getByRole, queryByRole } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
+import { characterOf } from '../../src/characters.ts'
 import { strings } from '../../src/strings.ts'
 import { characterEditorView } from '../../src/views/character-editor.ts'
 import { testContext } from '../support/context.ts'
@@ -54,8 +55,8 @@ describe('characterEditorView', () => {
     characterEditorView(context, lifetime(), me(), 'not-a-link', null)
     expect(context.state.notice.get()).toEqual({ kind: 'error', text: strings.character.badLink })
     const plain = characterEditorView(context, lifetime(), me(), null, null)
-    const keep = control(plain, 'keep-layer')
-    keep.click()
-    expect((plain.querySelector('.character-layer') as HTMLElement).hidden).toBe(true)
+    expect((plain.querySelector('.character-layer') as HTMLElement).hidden).toBe(
+      characterOf(me().member, true).marks.length === 0,
+    )
   })
 })

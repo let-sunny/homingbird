@@ -90,7 +90,7 @@ test('/homingbird character starts the conversation the make-character skill des
   ])
     expect(prompt).toContain(step)
   expect(prompt.indexOf('check_character')).toBeLessThan(prompt.indexOf('preview_character'))
-  expect(prompt.match(/^\{"version":1,"base":"bubble-16"/gm)).toHaveLength(24)
+  expect(prompt.match(/^\{"version":1,"base":"bubble-16"/gm)).toHaveLength(23)
   expect(seen.opened.count).toBe(0)
   expect(characterPromptFor('')).toContain('First ask me')
 })

@@ -3,8 +3,10 @@ import {
   BUILT_IN_CHARACTERS,
   type CharacterSpec,
   builtInCharacterOf,
+  characterForMember,
   characterProblems,
   decodeCharacter,
+  isPipLook,
 } from '@homingbird/protocol'
 import {
   type EditorState,
@@ -26,17 +28,24 @@ import { strings } from './strings.ts'
 
 /**
  * The character a member is drawn as: the one they saved while characters are on, else the robot for a
- * channel's agent, so its answers never look like a person's, else the pigeon. With characters off,
- * everyone is the pigeon.
+ * channel's agent, so its answers never look like a person's, else a default chosen from their id. Pip is
+ * the logo and never stands for anyone: a saved copy of Pip's look counts as none. With characters off,
+ * everyone is drawn as their default.
  */
 export const characterOf = (
-  member: (Pick<AsRead.Member, 'character'> & Partial<Pick<AsRead.Member, 'kind'>>) | undefined,
+  member: (Pick<AsRead.Member, 'id' | 'character'> & Partial<Pick<AsRead.Member, 'kind'>>) | undefined,
   charactersOn: boolean,
 ): CharacterSpec => {
-  if (!charactersOn) return PIGEON
-  return member?.character ?? (member?.kind === 'channel_agent' ? ROBOT : PIGEON)
+  if (charactersOn && member !== undefined && hasSavedCharacter(member)) return member.character!
+  if (charactersOn && member?.kind === 'channel_agent') return ROBOT
+  return characterForMember({ id: member?.id ?? FORMER_MEMBER, character: null })
 }
 
+/** Whether a member saved a character of their own, as opposed to being drawn as their default. */
+export const hasSavedCharacter = (member: Pick<AsRead.Member, 'character'>): boolean =>
+  member.character !== null && !isPipLook(member.character)
+
+/** Pip's look: the blank start of the editor. Nobody is drawn as it. */
 export const PIGEON: CharacterSpec = BUILT_IN_CHARACTERS[0]!
 
 export const ROBOT: CharacterSpec = BUILT_IN_CHARACTERS.find((each) => each.id === 'robot')!
@@ -238,6 +247,7 @@ const framesOf = (spec: CharacterSpec) => {
   return states
 }
 
+const FORMER_MEMBER = 'former-member'
 const PIXELS = new Map<string, Pixels>()
 const PIXELS_CACHED = 2000
 const STATES = new Map<string, ReturnType<typeof statesFor>>()

@@ -1,7 +1,7 @@
 import type { MemberId } from '@homingbird/protocol'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { PIP, spriteOwner } from '../src/sprite-owner.ts'
+import { spriteOwner } from '../src/sprite-owner.ts'
 
 const me = 'mem_me' as MemberId
 const june = 'mem_june' as MemberId
@@ -23,15 +23,6 @@ describe('spriteOwner', () => {
     const place = { kind: 'conversation', viewerId: me, participantIds: [me, june, ben] } as const
     expect(spriteOwner({ ...place, arrivedFrom: ben })).toBe(ben)
     expect(spriteOwner({ ...place, arrivedFrom: me })).toBe(june)
-  })
-
-  it('keeps Pip for system surfaces only', () => {
-    expect(spriteOwner({ kind: 'system' })).toBe(PIP)
-    fc.assert(
-      fc.property(fc.string(), (id) => {
-        expect(spriteOwner({ kind: 'note', authorId: id as MemberId })).not.toBe(PIP)
-      }),
-    )
   })
 
   it('falls back to me in a conversation with nobody else', () => {

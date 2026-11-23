@@ -2766,6 +2766,8 @@ describe('Rule 7: no tool exposed to a model can save or change a profile charac
     expect(refused.status).toBe(400)
     expect(refused.json.error.message).toMatch(/^This character cannot be used: /)
     expect((await ana.api('PUT', '/me/character', { ...OTTER, id: 'owl' })).status).toBe(400)
+    const pip = { version: 1, base: 'bubble-16', id: 'pigeon', name: 'Pigeon', palette: {}, marks: [] }
+    expect((await ana.api('PUT', '/me/character', pip)).status).toBe(400)
     expect((await ana.api('GET', '/me')).json.member.character).toBeNull()
   })
 })

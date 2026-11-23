@@ -1,7 +1,7 @@
 import type { ToolSpec } from 'claude-code'
 
 import {
-  BUILT_IN_CHARACTERS,
+  CHOOSABLE_CHARACTERS,
   type CharacterSpec,
   characterLink,
   characterProblems,
@@ -62,7 +62,7 @@ export const characterPromptFor = (idea: string): string =>
     'Ask what to change and repeat. Keep replies plain and short.',
     RULES,
     SAVED_ONLY_BY_A_PERSON,
-    `Built-in characters, one CharacterSpec per line:\n${BUILT_IN_CHARACTERS.map((preset) => JSON.stringify(preset)).join('\n')}`,
+    `Built-in characters, one CharacterSpec per line:\n${CHOOSABLE_CHARACTERS.map((preset) => JSON.stringify(preset)).join('\n')}`,
   ].join('\n\n')
 
 export const SAVED_ONLY_BY_A_PERSON =

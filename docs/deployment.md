@@ -928,7 +928,7 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | --- | --- | --- |
 | `channels` | on | People can no longer create channels; existing channels stay |
 | `draftRequests` | on | People can no longer ask their agent for a draft from the web client |
-| `characters` | on | Everyone shows as the pigeon; nobody can change a character |
+| `characters` | on | Everyone shows as their default character; nobody can change a character |
 | `webPush` | on | No notifications reach phones or computers |
 | `mute` | on | Nobody can mute a direct message or a channel or choose what notifies them; stored choices are kept and ignored |
 | `hideConversations` | on | Nobody can hide a direct or group message; rooms hidden before show in their person's list again, and the hides are kept |

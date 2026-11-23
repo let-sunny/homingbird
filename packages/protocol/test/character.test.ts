@@ -4,8 +4,11 @@ import { describe, expect, it } from 'vitest'
 import {
   BUILT_IN_CHARACTERS,
   CHARACTER_BYTES_MAX,
+  CHOOSABLE_CHARACTERS,
   CharacterSpec,
+  DEFAULT_CHARACTERS,
   builtInCharacterOf,
+  characterForMember,
   characterProblems,
   isSameCharacter,
 } from '../src/character.ts'
@@ -30,8 +33,18 @@ const pigeon = presetById('pigeon')!
 const cat = presetById('cat')!
 
 describe('characterProblems', () => {
-  it('passes every built-in character exactly as it ships', () => {
-    for (const preset of PRESETS) expect([preset.id, characterProblems(preset)]).toEqual([preset.id, []])
+  it('passes every built-in character a person may use exactly as it ships', () => {
+    for (const preset of CHOOSABLE_CHARACTERS)
+      expect([preset.id, characterProblems(preset)]).toEqual([preset.id, []])
+  })
+
+  it('refuses Pip’s own look, under its id or any other, because Pip is the brand', () => {
+    const refusal = ['palette: B, D and O all match Pip; Pip is the brand, make it your own']
+    expect(characterProblems(pigeon)).toEqual(refusal)
+    expect(characterProblems({ ...pigeon, id: 'my-pip', name: 'Mine' })).toEqual(refusal)
+    expect(
+      characterProblems({ ...pigeon, id: 'my-pip', palette: { B: '#8da4cb', D: '#6d86b0', O: '#f4a259' } }),
+    ).toEqual(refusal)
   })
 
   it('passes a character someone made under an id of their own', () => {
@@ -116,6 +129,50 @@ describe('BUILT_IN_CHARACTERS', () => {
   it('offers the 24 built-in characters, the pigeon first', () => {
     expect(BUILT_IN_CHARACTERS).toHaveLength(24)
     expect(BUILT_IN_CHARACTERS[0]).toEqual(pigeon)
+  })
+})
+
+describe('CHOOSABLE_CHARACTERS and DEFAULT_CHARACTERS', () => {
+  it('leave out Pip, and the defaults also leave out the channel agent’s robot', () => {
+    expect(CHOOSABLE_CHARACTERS).toHaveLength(23)
+    expect(CHOOSABLE_CHARACTERS.map((each) => each.id)).not.toContain('pigeon')
+    expect(CHOOSABLE_CHARACTERS.map((each) => each.id)).toContain('robot')
+    expect(DEFAULT_CHARACTERS).toHaveLength(22)
+    expect(DEFAULT_CHARACTERS.map((each) => each.id)).not.toContain('robot')
+  })
+})
+
+const PINNED = ['penguin', 'duck', 'penguin', 'bear', 'sheep']
+
+describe('characterForMember', () => {
+  it('keeps a saved character', () => {
+    expect(characterForMember({ id: 'mem_a', character: OTTER })).toBe(OTTER)
+  })
+
+  it('gives a person with no character, or only Pip’s look, a stable default that is not Pip', () => {
+    fc.assert(
+      fc.property(fc.string(), (id) => {
+        const given = characterForMember({ id, character: null })
+        expect(DEFAULT_CHARACTERS).toContain(given)
+        expect(characterForMember({ id, character: pigeon })).toBe(given)
+        expect(characterForMember({ id, character: null })).toBe(given)
+      }),
+    )
+  })
+
+  it('gives the same person the same character on every device, pinned by their id', () => {
+    const idOf = (id: string) => characterForMember({ id, character: null }).id
+    expect(['mem_ana', 'mem_ben', 'mem_cy', '', 'a'].map(idOf)).toEqual(PINNED)
+  })
+
+  it('spreads a team over the characters rather than piling onto a few', () => {
+    const seen = new Set(
+      Array.from(
+        { length: 400 },
+        (_, index) => characterForMember({ id: `mem_${index}x`, character: null }).id,
+      ),
+    )
+    expect(seen.size).toBe(DEFAULT_CHARACTERS.length)
   })
 })
 

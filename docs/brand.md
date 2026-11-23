@@ -60,10 +60,11 @@ Pip.
 ## Profile characters
 
 Pip is the brand: the logo, the app icon, the tour, the sign-in page and empty screens. Members pick a
-**profile character** for their avatar: one of 24 built-ins (`pigeon`, `cat`, `dog`, `rabbit`, `bear`,
+**profile character** for their avatar: one of 23 built-ins (`cat`, `dog`, `rabbit`, `bear`,
 `fox`, `penguin`, `duck`, `frog`, `owl`, `panda`, `hamster`, `goldfish`, `pufferfish`, `octopus`,
 `whale`, `turtle`, `hedgehog`, `pig`, `sheep`, `ladybug`, `bee`, `robot`, `dinosaur`), or one they
-make. New members start as `pigeon`, which wears Pip's colors. A character is never the logo, the app
+make. The `pigeon` is Pip's own look and is never a person's character: a member with none gets a default
+chosen from their id among the others, and nobody can save Pip's look. A character is never the logo, the app
 icon or a marketing image.
 
 Every character is Pip's body with another palette and markings, so all 22 states work for every
