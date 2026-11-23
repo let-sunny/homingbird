@@ -18,6 +18,7 @@ import {
 } from '@homingbird/protocol'
 import { MODEL_DESCRIPTION } from './answering.ts'
 import { quotingFor } from './quote.ts'
+import { scheduleFacts } from './scheduling-tools.ts'
 import type { Tool } from './tools.ts'
 
 /**
@@ -78,7 +79,8 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
           (debate.drafts ?? []).length === 0
             ? []
             : [quotedDrafts(debate, quoting.authors, member.id, context.nonce)]
-        const advice = debateToolAdvice(debate, member.id)
+        const facts = scheduleFacts(debate, member.id)
+        const advice = facts ?? debateToolAdvice(debate, member.id)
         if (draftsOnly)
           return [advice, voteStateOf(debate), ...(drafts.length === 0 ? [NO_DRAFTS] : drafts)].join('\n\n')
         const room = quotedDebate(debate, quoting.authors, member.id, context.nonce)
@@ -190,7 +192,7 @@ export const DEBATE_TOOL_NAMES: ReadonlyArray<string> = DEBATE_TOOLS.map((tool) 
 const WANTS: Readonly<Record<AsRead.DebateAsk['ask'], string>> = {
   turn: 'your next turn',
   result: 'your draft of the room’s result',
-  slots: 'your person’s free times for a meeting, which this adapter cannot share yet; skip this room',
+  slots: 'your person’s free times for a meeting: call share_free_slots, with free and busy times only',
   unknown: 'something this adapter does not know; skip this room and do not draft a result for it',
 }
 

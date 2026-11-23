@@ -41,6 +41,7 @@ import { DEBATE_TOOLS } from './debate-tools.ts'
 import { type RpcFailure, invalidParams } from './json-rpc.ts'
 import type { MemberApi } from './member-api.ts'
 import { quotingFor as quotingOf } from './quote.ts'
+import { SCHEDULING_TOOLS } from './scheduling-tools.ts'
 import { TEACHING_TOOLS } from './teaching-tools.ts'
 import {
   type AnnouncedRequests,
@@ -485,6 +486,7 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
       ),
   }),
   ...DEBATE_TOOLS,
+  ...SCHEDULING_TOOLS,
   ...CHARACTER_TOOLS,
   ...TEACHING_TOOLS,
 ]

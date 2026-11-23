@@ -42,6 +42,7 @@ export const answerDebates = <R extends { readonly nonce: () => string }>(
       desk.tried.add(attempt)
       if (ask.ask === 'turn') yield* takeTurn(desk, ask.debate, authors)
       else if (ask.ask === 'result') yield* draftResult(desk, ask.debate, authors)
+      else if (ask.ask === 'slots') yield* declineCalendar(desk, ask.debate)
       else
         desk.report(
           outcome({ step: 'debate-skipped', debateId: ask.debate.id }, unknownAskText(ask.debate.id)),
@@ -119,6 +120,28 @@ const takeTurn = <R extends { readonly nonce: () => string }>(
       outcome(
         { step: 'debate-turn', debateId: debate.id, position: taken.turns.length },
         `Took turn ${taken.turns.length} in ${what}. Turns are shown to the room’s members and never sent as notes.`,
+      ),
+    )
+  })
+
+/** The runner has no calendar to read: it says so, and the person is asked to choose their times. */
+const declineCalendar = <R>(desk: DebateDesk<R>, debate: AsRead.Debate): T.Task<void, CliFailure, R> =>
+  T.gen(function* () {
+    const what = `the scheduling room ${debate.id}`
+    const posted = yield* T.result(
+      desk.session.api['debates.slots.post']({
+        params: { id: debate.id },
+        body: { slots: [], cannotReadCalendar: true },
+      }),
+    )
+    if (posted._tag === 'Err')
+      return yield* desk.warn(
+        `Saying the calendar cannot be read in ${what} was refused: ${posted.error.message}`,
+      )
+    desk.report(
+      outcome(
+        { step: 'debate-slots', debateId: debate.id },
+        `This desk cannot read a calendar, so ${what} asks your person to choose their free times in the web client.`,
       ),
     )
   })
