@@ -11,6 +11,7 @@ const REVIEWED_WITHOUT_AN_EVENT = [
   'answers.used',
   'channels.askPrivately',
   'conversations.create',
+  'debateSuggestions.dismiss',
   'draftRequests.cancel',
   'draftRequests.create',
   'drafts.seen',

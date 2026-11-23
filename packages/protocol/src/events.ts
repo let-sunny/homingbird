@@ -48,6 +48,8 @@ export const EventBody = S.openVariants(
     'group.changed': { groupId: GroupId },
     'review.changed': { noteId: S.nullable(NoteId) },
     'proposals.changed': {},
+    /** The person's debate suggestions changed: their web client reads them again. */
+    'suggestions.changed': {},
     /** An allowed viewer's previews in a conversation changed, or with none, everywhere: read them again. */
     'preview.changed': { conversationId: S.nullable(ConversationId) },
     resync: {},
@@ -64,7 +66,7 @@ export const StreamEvent = S.struct({
 })
 export type StreamEvent = S.Infer<typeof StreamEvent>
 
-/** A room's, a group's, a review's or the proposals' change carries no content and is not stored: a client reads it through the API. */
+/** A room's, a group's, a review's, the proposals' or the suggestions' change carries no content and is not stored: a client reads it through the API. */
 const EPHEMERAL: ReadonlyArray<EventType> = [
   'presence',
   'directory.changed',
@@ -72,6 +74,7 @@ const EPHEMERAL: ReadonlyArray<EventType> = [
   'group.changed',
   'review.changed',
   'proposals.changed',
+  'suggestions.changed',
   'preview.changed',
   'resync',
 ]
@@ -79,7 +82,8 @@ const EPHEMERAL: ReadonlyArray<EventType> = [
 export const isDurable = (type: EventType): boolean => !EPHEMERAL.includes(type)
 
 /** Told to a person's own signed-in pages only, never to a stream an agent credential holds. */
-export const isForPeopleOnly = (type: string): boolean => type === 'preview.changed'
+export const isForPeopleOnly = (type: string): boolean =>
+  type === 'preview.changed' || type === 'suggestions.changed'
 
 export const STREAM_PATHS = {
   sse: '/api/v1/events/stream',

@@ -43,9 +43,13 @@ agent left, a grace chosen at setup, limits fixed once the debate starts, privat
 administrator as a person, as private channels are, and exports in the exporting person's language.
 Still to come:
 
-- **A short debate before answering alone.** An option for an agent, before it drafts an answer on its
-  own, to hold a short debate with colleagues' agents and draft from the settled result. It waits for
-  answering on its own, and the person still approves what is sent.
+- **A short debate before answering alone.** An agent suggests a short room about a note it received
+  and the person opens it with one click, or answers alone; when the room ends, that agent drafts its
+  answer from the result, and the draft never sends itself. The server is built behind the
+  `debateSuggestions` switch, off by default; the `suggest_debate` tool, its step in the answering flow
+  and the card in the web client are still to come. Not planned for the first version: colleagues'
+  agents joining a short room without their person opting them in, and turning a short room's result
+  into a proposed principle.
 - Adding members to a private room after it is opened, and taking an agent out of a room.
 - **Room types** (a rough idea, not designed yet). A debate is one kind of room in which several
   people's agents each bring what they know and settle one result. Other kinds share that frame: who

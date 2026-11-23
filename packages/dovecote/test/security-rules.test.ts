@@ -17,6 +17,7 @@ import {
   featureOfRoute,
   fillPath,
   humanOnlyRoutes,
+  isForPeopleOnly,
   principlesInstructions,
   wrapNote,
 } from '@homingbird/protocol'
@@ -598,6 +599,50 @@ describe('Rule 1: a saved answer its person switched to send automatically is th
     await server.clock.advance(5 * 60_000 + 1_000)
     expect((await ana.api('POST', `/notes/${late.id}/recall`)).status).toBe(409)
     expect((await ben.api('GET', `/notes/${late.id}`)).json.status).toBe('sent')
+  })
+  it('1: never sends a draft drawn from a room automatically, even when its text is exactly a saved answer switched on there', async () => {
+    const { room } = await officeHoursForBen()
+    const asked = await questionFromBen('When is the office open?', room)
+    const before = (
+      await anaAgent.api('POST', '/drafts', { inReplyTo: asked.id, body: 'Let me ask Cy.', basis: APPLIED })
+    ).json
+    expect(before.status).toBe('draft')
+    const revisedRoom = await endedSuggestedRoom(asked.id, before.id)
+    const revised = (
+      await anaAgent.api('PATCH', `/drafts/${before.id}`, {
+        body: OFFICE_HOURS.rule,
+        basis: APPLIED,
+        debateId: revisedRoom,
+      })
+    ).json
+    expect(revised).toMatchObject({
+      status: 'draft',
+      conversationId: room,
+      fromDebate: { debateId: revisedRoom },
+    })
+    const again = await questionFromBen('And on Fridays?', room)
+    const createdRoom = await endedSuggestedRoom(again.id)
+    const created = (
+      await anaAgent.api('POST', '/drafts', {
+        inReplyTo: again.id,
+        body: OFFICE_HOURS.rule,
+        basis: APPLIED,
+        debateId: createdRoom,
+      })
+    ).json
+    expect(created).toMatchObject({ status: 'draft', fromDebate: { debateId: createdRoom } })
+    for (const draft of [revised, created]) {
+      expect((await ben.api('GET', `/notes/${draft.id}`)).status).toBe(404)
+      expect((await storedRows(server, 'notes')).find((note) => note.id === draft.id)).toMatchObject({
+        status: 'draft',
+        approved_by: null,
+        auto_principle_id: null,
+      })
+    }
+    expect(JSON.stringify((await ben.api('GET', '/inbox')).json)).not.toContain(OFFICE_HOURS.rule)
+    const events = (await storedRows(server, 'audit_events')).map((entry) => entry.event)
+    expect(events.filter((event) => event === 'note.auto_sent')).toEqual([])
+    expect((await agentDraftToBen(OFFICE_HOURS.rule)).status).toBe('sent')
   })
 })
 
@@ -3006,6 +3051,47 @@ const schedulingRoom = async (visibility: 'open' | 'private' = 'private') => {
   return { id, window }
 }
 
+/** Ana, the administrator, switches debate suggestions on; Ben asks Ana a question, sent. */
+const questionFromBen = async (body = 'Which region should billing move to?', conversationId?: string) => {
+  const settings = (await ana.api('GET', '/admin/settings')).json
+  await ana.api('PUT', '/admin/settings', {
+    ...settings,
+    features: { ...settings.features, debateSuggestions: true },
+  })
+  const draft = (
+    await ben.api('POST', '/drafts', {
+      ...(conversationId === undefined ? { to: [ana.me.member.id] } : { conversationId }),
+      body,
+    })
+  ).json
+  return (await ben.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).json as {
+    id: string
+    conversationId: string
+  }
+}
+
+/** Ana's agent suggests a room about the note, naming the colleagues; the suggestion's id. */
+const suggestedByAnaAgent = async (inReplyTo: string, memberIds: ReadonlyArray<string>, draftId?: string) => {
+  const made = await anaAgent.api('POST', '/debate-suggestions', {
+    inReplyTo,
+    question: 'Which region should billing move to? 5d2c',
+    memberIds,
+    reason: 'Ben ran the last migration.',
+    ...(draftId !== undefined && { draftId }),
+  })
+  expect(made.status).toBe(200)
+  return made.json.id as string
+}
+
+/** Ana opens the suggested room asking Cy, and its half hour passes with no turn, so it ends. */
+const endedSuggestedRoom = async (inReplyTo: string, draftId?: string) => {
+  const suggestion = await suggestedByAnaAgent(inReplyTo, [cy.me.member.id], draftId)
+  const room = (await ana.api('POST', `/debate-suggestions/${suggestion}/accept`, {})).json
+  await server.clock.advance(31 * 60_000)
+  expect((await ana.api('GET', `/debates/${room.id}`)).json.status).toBe('ended')
+  return room.id as string
+}
+
 const debateWithTurn = async (
   visibility: 'open' | 'private' = 'open',
   limits = { turnsPerAgent: 2, totalTurns: 4, minutes: 30, turnCharacters: 400 },
@@ -3502,6 +3588,112 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
     expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
     expect(await everyStoredValue(server)).not.toContain('4b2e')
     expect(await storedRows(server, 'room_free_slots')).toEqual([])
+  })
+
+  it('9: lets an agent suggest a room only as a card: no room, no member invited and no room event until its person accepts, and no agent can accept or dismiss', async () => {
+    const asked = await questionFromBen()
+    const watching = new AbortController()
+    const seen = new Map<string, string[]>()
+    const watch = (key: string, memberId: string, kind: 'hidden') => {
+      const types: string[] = []
+      seen.set(key, types)
+      void (async () => {
+        for await (const event of server.env.hub.subscribe(memberId as never, kind, watching.signal))
+          types.push(event.body.type)
+      })()
+    }
+    watch('ana', ana.me.member.id, 'hidden')
+    watch('ben', ben.me.member.id, 'hidden')
+    watch('cy', cy.me.member.id, 'hidden')
+    const suggestion = await suggestedByAnaAgent(asked.id, [ben.me.member.id, cy.me.member.id])
+    await server.clock.flush()
+    expect(await storedRows(server, 'debates')).toEqual([])
+    expect(await storedRows(server, 'debate_members')).toEqual([])
+    expect(await storedRows(server, 'debate_participants')).toEqual([])
+    expect(seen.get('ana')).toContain('suggestions.changed')
+    expect(isForPeopleOnly('suggestions.changed')).toBe(true)
+    for (const key of ['ben', 'cy'])
+      expect([key, seen.get(key)!.filter((type) => /^(suggestions|debate)\./.test(type))]).toEqual([key, []])
+    for (const who of [ben, cy, benAgent]) {
+      expect(JSON.stringify((await who.api('GET', '/debates')).json)).not.toContain('5d2c')
+      expect(JSON.stringify((await who.api('GET', '/debate-asks')).json)).not.toContain('5d2c')
+    }
+    const before = await everyStoredValue(server)
+    for (const agent of [anaAgent, benAgent]) {
+      expect((await agent.api('GET', '/debate-suggestions')).status).toBe(403)
+      expect((await agent.api('POST', `/debate-suggestions/${suggestion}/accept`, {})).status).toBe(403)
+      expect((await agent.api('DELETE', `/debate-suggestions/${suggestion}`)).status).toBe(403)
+    }
+    expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
+    const routes = (Object.keys(contract) as RouteName[]).filter((name) =>
+      name.startsWith('debateSuggestions.'),
+    )
+    const personal: RouteName[] = routes.filter((name) => name !== 'debateSuggestions.create')
+    expect(personal.sort()).toEqual([
+      'debateSuggestions.accept',
+      'debateSuggestions.dismiss',
+      'debateSuggestions.list',
+    ])
+    expect(personal.filter((name) => !humanOnlyRoutes.includes(name))).toEqual([])
+    for (const name of routes) expect([name, featureOfRoute(name)]).toEqual([name, 'debateSuggestions'])
+    for (const list of [MCP_ROUTES, A2A_ROUTES])
+      expect(list.filter((name: string) => personal.includes(name as RouteName))).toEqual([])
+    watching.abort()
+    const room = (await ana.api('POST', `/debate-suggestions/${suggestion}/accept`, {})).json
+    expect(room).toMatchObject({ status: 'open', visibility: 'private', createdBy: ana.me.member.id })
+    expect((await storedRows(server, 'debates')).map((row) => row.id)).toEqual([room.id])
+    expect(room.participants.map((one: { memberId: string }) => one.memberId)).toEqual([ana.me.member.id])
+  })
+
+  it('9: gives the room’s result only to the agent whose suggestion opened it, inside wrapNote, and its answer waits on the approval card marked as from the room', async () => {
+    const asked = await questionFromBen()
+    const suggestion = await suggestedByAnaAgent(asked.id, [ben.me.member.id])
+    const id = (await ana.api('POST', `/debate-suggestions/${suggestion}/accept`, {})).json.id as string
+    await server.clock.advance(1)
+    await ben.api('PUT', `/debates/${id}/agent`, { agentId: await agentIdOf(benAgent) })
+    for (const body of ['Frankfurt.', 'Latency is fine there.'])
+      for (const agent of [anaAgent, benAgent]) await agent.api('POST', `/debates/${id}/turns`, { body })
+    await draftedByAna(id)
+    expect((await ana.api('GET', `/debates/${id}`)).json.status).toBe('closed')
+    const anotherOfAna = await connectAgent(server, ana, { name: 'Ana phone' })
+    const asks = (await anaAgent.api('GET', '/debate-asks')).json.answers
+    expect(asks).toMatchObject([{ debateId: id, inReplyTo: asked.id, hasResult: true }])
+    expect(JSON.stringify(asks)).not.toContain('Ship on Thursday')
+    for (const agent of [benAgent, anotherOfAna])
+      expect((await agent.api('GET', '/debate-asks')).json.answers).toEqual([])
+    const read = (await callMcp(anaAgent, 'read_debate', { debateId: id })).content.map((part) => part.text)
+    const text = read.join('\n')
+    expect(text.replace(/<colleague-note [\s\S]*?\n<\/colleague-note>/g, '')).not.toContain(
+      'Ship on Thursday',
+    )
+    for (const agent of [benAgent, anotherOfAna])
+      expect(
+        (await agent.api('POST', '/drafts', { inReplyTo: asked.id, body: 'Frankfurt.', debateId: id }))
+          .status,
+      ).toBe(403)
+    const answer = (
+      await anaAgent.api('POST', '/drafts', {
+        inReplyTo: asked.id,
+        body: 'Ship on Thursday, Frankfurt.',
+        debateId: id,
+      })
+    ).json
+    expect(answer).toMatchObject({
+      status: 'draft',
+      authorId: ana.me.member.id,
+      fromDebate: { debateId: id },
+    })
+    expect((await ana.api('GET', '/drafts')).json.drafts).toMatchObject([
+      { id: answer.id, fromDebate: { debateId: id } },
+    ])
+    expect((await ben.api('GET', `/notes/${answer.id}`)).status).toBe(404)
+    expect(JSON.stringify((await ben.api('GET', '/inbox')).json)).not.toContain(answer.id)
+    expect(
+      (await anaAgent.api('POST', `/drafts/${answer.id}/send`, { expected: asRead(answer) })).status,
+    ).toBe(403)
+    expect(
+      (await ana.api('POST', `/drafts/${answer.id}/send`, { expected: asRead(answer) })).json.status,
+    ).toBe('sent')
   })
 })
 

@@ -279,7 +279,7 @@ export const activeMembersAmong = (ids: ReadonlyArray<MemberId>): T.Task<MemberI
     return unique
   })
 
-export type DebateAsks = Required<ResponseOf<Contract['debates.waiting']>>
+export type DebateAsks = Omit<Required<ResponseOf<Contract['debates.waiting']>>, 'answers'>
 
 const LISTED_ROOMS = 100
 

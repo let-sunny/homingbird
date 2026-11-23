@@ -22,6 +22,12 @@ import {
 } from './contract-schemas.ts'
 import { DraftedResult } from './debate-result.ts'
 import {
+  DebateAnswerAsk,
+  DebateSuggestion,
+  SuggestionAcceptance,
+  SuggestionInput,
+} from './debate-suggestions.ts'
+import {
   DEBATE_INVITEES_MAX,
   DEBATE_TURN_MAX,
   Debate,
@@ -49,7 +55,16 @@ import type { ApiError } from './errors.ts'
 import { StreamEvent } from './events.ts'
 import { FREE_SLOTS_MAX, FreeSlot, FreeSlotsTurn } from './free-slots.ts'
 import { GROUP_MEMBERS_MAX, Group, GroupName } from './groups.ts'
-import { ConversationId, CredentialId, DraftRequestId, GroupId, MemberId, NoteId, Timestamp } from './ids.ts'
+import {
+  ConversationId,
+  CredentialId,
+  DebateId,
+  DraftRequestId,
+  GroupId,
+  MemberId,
+  NoteId,
+  Timestamp,
+} from './ids.ts'
 import { AgentReport, ChannelAgentReport, OrganizationInsights, PlaceName } from './insights.ts'
 import { Invite, InviteEmail, InviteLink } from './invites.ts'
 import {
@@ -582,6 +597,8 @@ export const contract = {
       client: S.optional(AgentLabel),
       model: S.optional(AgentLabel),
       session: S.optional(DeskSession),
+      /** The room the agent's suggestion opened, whose end this draft answers: it waits for its person. */
+      debateId: S.optional(DebateId),
     }),
     response: Note,
   }),
@@ -598,6 +615,7 @@ export const contract = {
         readonly basis?: string
         readonly sources?: ReadonlyArray<DraftSource>
         readonly model?: string
+        readonly debateId?: DebateId
       }) =>
         change.body !== undefined ||
         change.channel !== undefined ||
@@ -614,6 +632,7 @@ export const contract = {
         basis: S.optional(NoteBasis),
         sources: S.optional(DraftSources),
         model: S.optional(AgentLabel),
+        debateId: S.optional(DebateId),
       }),
     ),
     response: Note,
@@ -824,6 +843,8 @@ export const contract = {
       ballots: S.optional(S.array(Debate)),
       /** Rooms of this agent that closed as they were, without a result, in the last day. */
       ended: S.optional(S.array(DebateEnded)),
+      /** Rooms this agent's suggestions opened that have ended, so that it drafts its answer now. */
+      answers: S.optional(S.array(DebateAnswerAsk)),
     }),
   }),
   'debates.get': route({
@@ -934,6 +955,33 @@ export const contract = {
     /** An agent's free slots as its turn, empty when busy throughout; or that it cannot read the calendar. */
     body: FreeSlotsTurn,
     response: Debate,
+  }),
+  'debateSuggestions.create': route({
+    method: 'POST',
+    path: '/debate-suggestions',
+    access: 'member',
+    /** Only a suggestion: it waits as a card until its person opens the room or answers alone. */
+    body: SuggestionInput,
+    response: DebateSuggestion,
+  }),
+  'debateSuggestions.list': route({
+    method: 'GET',
+    path: '/debate-suggestions',
+    access: 'human',
+    response: S.struct({ suggestions: S.array(DebateSuggestion) }),
+  }),
+  'debateSuggestions.accept': route({
+    method: 'POST',
+    path: '/debate-suggestions/:id/accept',
+    access: 'human',
+    body: SuggestionAcceptance,
+    response: Debate,
+  }),
+  'debateSuggestions.dismiss': route({
+    method: 'DELETE',
+    path: '/debate-suggestions/:id',
+    access: 'human',
+    response: Empty,
   }),
 
   'credentials.list': route({

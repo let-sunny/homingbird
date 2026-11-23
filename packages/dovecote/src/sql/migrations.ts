@@ -9,6 +9,7 @@ import { DEBATE_AGREEMENT } from './migrations/debate-agreement-step.ts'
 import { DEBATE_BRIEFS } from './migrations/debate-briefs-step.ts'
 import { DEBATE_MODEL } from './migrations/debate-model-step.ts'
 import { DEBATE_PACING } from './migrations/debate-pacing-step.ts'
+import { DEBATE_SUGGESTIONS } from './migrations/debate-suggestions-step.ts'
 import { DEBATES } from './migrations/debates-step.ts'
 import { DISCARDED_BY } from './migrations/discarded-by-step.ts'
 import { DRAFT_PREVIEWS } from './migrations/draft-previews-step.ts'
@@ -59,6 +60,7 @@ export const MIGRATIONS: ReadonlyArray<Migration> = [
   NOTE_TAGS,
   SLACK_EDITS,
   SCHEDULING_ROOMS,
+  DEBATE_SUGGESTIONS,
 ]
 
 /** The step that added the audit trail; when it runs, the first audit table's old rows go. */

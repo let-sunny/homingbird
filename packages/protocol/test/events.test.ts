@@ -30,6 +30,7 @@ const types: EventType[] = [
   'group.changed',
   'review.changed',
   'proposals.changed',
+  'suggestions.changed',
   'preview.changed',
   'note.released',
   'note.withdrawn',
@@ -51,7 +52,7 @@ describe('stream events', () => {
     expect([...seen].sort()).toEqual([...types].sort())
   })
 
-  it('treats presence, directory, debate room, group, review, proposal and preview changes and resync as ephemeral, and everything else as durable', () => {
+  it('treats presence, directory, debate room, group, review, proposal, suggestion and preview changes and resync as ephemeral, and everything else as durable', () => {
     expect(types.filter((type) => !isDurable(type))).toEqual([
       'presence',
       'directory.changed',
@@ -59,13 +60,14 @@ describe('stream events', () => {
       'group.changed',
       'review.changed',
       'proposals.changed',
+      'suggestions.changed',
       'preview.changed',
       'resync',
     ])
   })
 
-  it('keeps a preview change for a person’s own pages, and every other event for any stream', () => {
-    expect(types.filter(isForPeopleOnly)).toEqual(['preview.changed'])
+  it('keeps a preview or suggestion change for a person’s own pages, and every other event for any stream', () => {
+    expect(types.filter(isForPeopleOnly)).toEqual(['suggestions.changed', 'preview.changed'])
     expect(isForPeopleOnly('unknown')).toBe(false)
   })
 

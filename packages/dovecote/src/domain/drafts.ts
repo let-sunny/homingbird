@@ -63,6 +63,8 @@ export interface DraftChange {
   readonly basis?: string
   readonly sources?: ReadonlyArray<DraftSource>
   readonly model?: string
+  /** The room this draft now answers from; once set, it stays. */
+  readonly fromDebate?: DebateId
 }
 
 export type NoteFailure = NotFound | Forbidden | Conflict | Invalid
@@ -148,8 +150,9 @@ export const updateDraft = (
             inReplyTo: draft.in_reply_to,
             tags: change.tags,
           })
+    const debateId = change.fromDebate ?? draft.debate_id
     yield* run(
-      sql`UPDATE notes SET body = ${body}, conversation_id = ${conversationId}, tags = ${tags}, origin = ${origin}, basis = ${basis}, sources = ${sources}, agent_body = ${agentBody}, agent_model = ${model}, updated_at = ${env.clock.now()} WHERE id = ${id} AND status = 'draft'`,
+      sql`UPDATE notes SET body = ${body}, conversation_id = ${conversationId}, tags = ${tags}, origin = ${origin}, basis = ${basis}, sources = ${sources}, agent_body = ${agentBody}, agent_model = ${model}, debate_id = ${debateId}, updated_at = ${env.clock.now()} WHERE id = ${id} AND status = 'draft'`,
     )
     if (!isHuman(caller)) yield* recordApplications(caller.member.id, id, basis)
     const sent = yield* sendIfSavedAnswer(caller, yield* ownDraft(caller.member.id, id))

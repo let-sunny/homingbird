@@ -78,6 +78,15 @@ export const FEATURES = {
     default: false,
     routes: ['scheduling.create', 'scheduling.slots.set', 'debates.slots.post'],
   },
+  debateSuggestions: {
+    default: false,
+    routes: [
+      'debateSuggestions.create',
+      'debateSuggestions.list',
+      'debateSuggestions.accept',
+      'debateSuggestions.dismiss',
+    ],
+  },
   channelAgents: {
     default: false,
     routes: [

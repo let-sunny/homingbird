@@ -6,6 +6,8 @@ import {
   type AuditedRoute,
   type Channel,
   type Contract,
+  type CredentialId,
+  type Debate,
   type Group,
   type GroupId,
   type Member,
@@ -224,6 +226,18 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
     afterwards((debate) => ({ targetId: debate.id, detail: { visibility: debate.visibility } })),
   'scheduling.create': () =>
     afterwards((debate) => ({ targetId: debate.id, detail: { visibility: debate.visibility } })),
+  'debateSuggestions.accept': ({ params }, caller) =>
+    T.map(
+      (row: { credential_id: CredentialId } | null) =>
+        (debate: Debate): AuditFacts<'debate.suggestion_accepted'> => ({
+          targetId: debate.id,
+          detail: { credentialId: row!.credential_id, invited: debate.memberIds.length - 1 },
+        }),
+    )(
+      first<{ credential_id: CredentialId }>(
+        sql`SELECT credential_id FROM debate_suggestions WHERE id = ${params.id} AND member_id = ${caller.member.id}`,
+      ),
+    ),
   'debates.optIn': ({ params, body }) =>
     afterwards(() => ({ targetId: params.id, detail: { credentialId: body.agentId } })),
   'debates.brief.set': ({ params, body }) =>

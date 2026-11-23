@@ -122,6 +122,9 @@ const ALLOWED: Readonly<Partial<Record<RouteName, string>>> = {
   'debates.result.draft': 'Names only the members of a debate room, which no channel’s agent can join.',
   'debates.result.vote': 'Names only the members of a debate room, which no channel’s agent can join.',
   'debates.result.post': 'Its `to` goes through the same draft destination as drafts.create.',
+  'debateSuggestions.create':
+    'Its colleagues pass the same check of active people as debates.create, probed above, before anything is kept.',
+  'debateSuggestions.accept': 'It opens the room through debates.create, probed above, with the same check.',
   'drafts.update': 'Its tags name only people in a group message, which no channel’s agent can be in.',
   'drafts.send': 'Its tags are only compared with the draft’s, which name only people in a group message.',
 }
