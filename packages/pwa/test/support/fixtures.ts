@@ -144,6 +144,7 @@ export const everything = (): AsRead.ServerInfo =>
         'groups',
         'characters',
         'debateRooms',
+        'debateSuggestions',
         'slack',
         'insights',
         'answeringFlow',
@@ -256,5 +257,18 @@ export const summary = (fields: Partial<AsRead.DebateSummary> = {}): AsRead.Deba
   totalTurns: 4,
   resultDrafted: false,
   joined: true,
+  ...fields,
+})
+
+export const suggestion = (fields: Partial<AsRead.DebateSuggestion> = {}): AsRead.DebateSuggestion => ({
+  id: 'sugg_000000000000' as AsRead.DebateSuggestion['id'],
+  inReplyTo: 'note_question000' as AsRead.DebateSuggestion['inReplyTo'],
+  conversationId: ROOM,
+  draftId: null,
+  question: 'Can we ship the refund change on Friday?',
+  memberIds: [BEN, CY],
+  reason: 'Billing and support both touch the refund flow.',
+  agentName: 'Desk',
+  createdAt: 5,
   ...fields,
 })

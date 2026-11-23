@@ -4,6 +4,7 @@ import { threadsForActivity } from '../activity.ts'
 import { type Action, type App, withApp } from '../app.ts'
 import { featureOn } from '../features.ts'
 import { loadReviews } from './channel-agents.ts'
+import { loadSuggestions } from './debate-suggestions.ts'
 import { loadDebates } from './debates.ts'
 import { loadThread } from './notes.ts'
 
@@ -20,6 +21,7 @@ export const loadActivity: Action = T.gen(function* () {
     loadThreads(awaiting),
     T.result(loadReviews),
     featureOn('debateRooms', state.serverInfo.get()) ? T.result(loadDebates) : T.unit,
+    T.result(loadSuggestions),
   ])
 })
 
