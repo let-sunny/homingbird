@@ -55,6 +55,12 @@
   --hb-color-hover: color-mix(in srgb, var(--hb-color-accent) 30%, transparent);
   --hb-color-divider: color-mix(in srgb, var(--hb-color-line) 25%, transparent);
   --hb-color-pending-wash: color-mix(in srgb, var(--hb-color-pending) 35%, var(--hb-color-surface));
+  /* Orange means an action to take. Where you are, what is chosen and how many wait each look different. */
+  --hb-color-current: var(--hb-color-line);
+  --hb-color-current-on-titlebar: var(--hb-envelope);
+  --hb-color-selected: var(--hb-color-sunken);
+  --hb-color-badge: var(--hb-color-pending);
+  --hb-color-on-badge: var(--hb-color-on-pending);
   --hb-color-switch-off: var(--hb-color-surface);
   --hb-color-switch-off-edge: var(--hb-color-muted);
   --hb-color-switch-on: var(--hb-color-success);
@@ -82,11 +88,20 @@
   --hb-font-body: "Inter", system-ui, sans-serif;
   --hb-font-display: "Bricolage Grotesque", "Inter", system-ui, sans-serif;
   --hb-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --hb-text-code: 0.875em;
-  --hb-text-tiny: 0.6875rem;
-  --hb-text-small: 0.8125rem;
+  /* Five sizes, each with one meaning: a screen's title is 1.6 times its body text. */
+  --hb-text-meta: 0.8125rem;
   --hb-text-body: 0.9375rem;
-  --hb-text-title: 1.125rem;
+  --hb-text-lead: 1.0625rem;
+  --hb-text-heading: 1.125rem;
+  --hb-text-page: 1.5rem;
+  --hb-text-page-compact: 1.25rem;
+  --hb-text-label: var(--hb-text-meta);
+  --hb-text-code: 0.875em;
+  --hb-text-wordmark: 1.25rem;
+  --hb-text-wordmark-large: 2rem;
+  --hb-weight-body: 400;
+  --hb-weight-label: 600;
+  --hb-weight-heading: 800;
   --hb-tracking-display: -0.02em;
 
   --hb-pixel: 2px;
@@ -106,10 +121,13 @@
   --hb-shadow-raised: 8px 8px 0 var(--hb-color-line);
   --hb-shadow-hover: 3px 3px 0 var(--hb-color-line);
   --hb-shadow-pressed: 1px 1px 0 var(--hb-color-line);
-  --hb-shadow-mine: -4px 4px 0 var(--hb-color-line);
   --hb-shadow-live: 4px 4px 0 var(--hb-color-success);
   --hb-shadow-on-pending: 2px 2px 0 var(--hb-color-on-pending);
-  --hb-shadow-current: inset 4px 0 0 var(--hb-color-action);
+  --hb-shadow-current: inset 4px 0 0 var(--hb-color-current);
+  --hb-shadow-current-tab: inset 0 -4px 0 var(--hb-color-current-on-titlebar);
+  --hb-shadow-current-tab-top: inset 0 4px 0 var(--hb-color-current-on-titlebar);
+  --hb-shadow-current-subtab: inset 0 4px 0 var(--hb-color-current);
+  --hb-shadow-selected: 4px 4px 0 var(--hb-color-line);
   --hb-shadow-under: 0 4px 0 var(--hb-color-line);
 
   --hb-texture-select-chevron:
@@ -127,6 +145,13 @@
   --hb-space-3: 0.75rem;
   --hb-space-4: 1rem;
   --hb-space-6: 1.5rem;
+  --hb-space-8: 2rem;
+  /* Space groups what belongs together: the gap between sections is far wider than between items. */
+  --hb-gap-inline: var(--hb-space-2);
+  --hb-gap-item: var(--hb-space-3);
+  --hb-gap-group: var(--hb-space-4);
+  --hb-gap-section: var(--hb-space-8);
+  --hb-gap-under-heading: var(--hb-space-2);
   --hb-target-size: 2.75rem;
   /* Three heights for every button, field, chip and menu item; a touch screen raises the two lower ones to a fingertip. */
   --hb-control-height-small: 1.75rem;
@@ -134,7 +159,7 @@
   --hb-control-height-large: var(--hb-target-size);
   --hb-control-padding-inline-small: var(--hb-space-2);
   --hb-control-padding-inline: var(--hb-space-3);
-  --hb-control-text: var(--hb-text-small);
+  --hb-control-text: var(--hb-text-label);
   --hb-control-text-field: var(--hb-text-body);
   /* A checkbox or radio a finger can hit without zooming. */
   --hb-control-size-touch: 1.5rem;
@@ -188,5 +213,9 @@
     --hb-color-backdrop: light-dark(rgb(27 35 51 / 0.55), rgb(0 0 0 / 0.65));
     --hb-color-focus: light-dark(#b45309, var(--hb-envelope));
     --hb-color-tour: light-dark(#0f766e, var(--hb-sparkle));
+    --hb-color-pending-wash: light-dark(
+      color-mix(in srgb, var(--hb-color-pending) 35%, var(--hb-color-surface)),
+      color-mix(in srgb, var(--hb-color-pending) 12%, var(--hb-color-surface))
+    );
   }
 }

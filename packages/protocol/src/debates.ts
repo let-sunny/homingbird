@@ -15,7 +15,6 @@ export const DebateQuestion = S.string({ minLength: 1, maxLength: DEBATE_QUESTIO
 export const DebateVisibility = S.tolerant(S.literal('open', 'private'), UNKNOWN)
 export type DebateVisibility = S.Infer<typeof DebateVisibility>
 
-/** Closed has the result the agents settled; ended has none: too few agents came, none spoke or they left. */
 export const RoomType = S.tolerant(S.literal('debate', 'scheduling'), UNKNOWN)
 export type RoomType = S.Infer<typeof RoomType>
 

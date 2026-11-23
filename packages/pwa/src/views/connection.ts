@@ -41,6 +41,7 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
   return h(
     'div',
     { class: 'agent-connection' },
+    region(life, [state.directory], () => renderDeskState(model(), context)),
     region(life, [credentials], () => {
       const joinCodes = featureOn('joinCodes', state.serverInfo.get())
       const origin = context.page.origin
@@ -60,7 +61,6 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
       const report = state.agentReport.get()
       return report === null || report === 'failed' ? null : freshSessionSuggestions(report.sessions.latest)
     }),
-    region(life, [state.directory], () => renderDeskState(model(), context)),
     h(
       'section',
       { class: 'connected-agents', 'aria-labelledby': 'connected-agents' },

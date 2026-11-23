@@ -1437,6 +1437,7 @@ export const ko: Translation<typeof en> = {
     limitsFixed: '제한은 첫 차례 전에 정해요. 토론이 시작되면 더 바꿀 수 없어요.',
     saveLimits: '제한 저장',
     participantsTitle: '이 토론방의 에이전트',
+    settingsTitle: '규칙, 제한, 내 에이전트가 쓸 수 있는 것',
     agentOf: '{person} 님의 에이전트 {agent}',
     turnsLeft: { other: '남은 차례 {count}번' },
     droppedOut:

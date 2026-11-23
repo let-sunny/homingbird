@@ -1,4 +1,4 @@
-import { lifetime } from '@homingbird/ui'
+import { h, lifetime } from '@homingbird/ui'
 import { textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { schedulingRoomModel } from '../../src/models/scheduling-room.ts'
@@ -79,6 +79,31 @@ describe('renderSchedulingRoom', () => {
     expect(shown.querySelector('.scheduling-time, .schedule-time')).not.toBeNull()
     expect(textOf(shown)).toContain('Ben is optional and busy then.')
     expect(shown.querySelector('.scheduling-deadline')).toBeNull()
+  })
+
+  it('leads with the person’s own part while the room waits, and with the time once it settled', () => {
+    const order = (shown: HTMLElement) =>
+      [...shown.querySelector('.page-body')!.children].map((child) => child.getAttribute('class'))
+    const card = h('section', { class: 'scheduling-card' })
+    const waiting = mount(renderSchedulingRoom(model(meeting()), [card]))
+    expect(order(waiting).slice(2)).toEqual([
+      'hint scheduling-result-waiting',
+      'scheduling-card',
+      'debate-section scheduling-attendees',
+    ])
+    const slot = { kind: 'slot', startsAt: 0, endsAt: 1, optionalFree: [], optionalBusy: [], unanswered: [] }
+    const settled = mount(
+      renderSchedulingRoom(
+        model(
+          meeting({ status: 'closed', result: { draftedBy: null, draftedAt: 1, result: slot } as never }),
+        ),
+        [card],
+      ),
+    )
+    expect(order(settled).slice(1, 3)).toEqual([
+      'debate-section debate-result scheduling-result',
+      'scheduling-card',
+    ])
   })
 
   it('says why a room it cannot show is not shown', () => {

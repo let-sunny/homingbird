@@ -1508,6 +1508,7 @@ export const en = {
     limitsFixed: 'Limits are set before the first turn; they no longer change once the debate has started.',
     saveLimits: 'Save limits',
     participantsTitle: 'Agents in this room',
+    settingsTitle: 'Rules, limits and what my agent may use',
     agentOf: '{agent}, agent of {person}',
     turnsLeft: { one: '{count} turn left', other: '{count} turns left' },
     droppedOut:

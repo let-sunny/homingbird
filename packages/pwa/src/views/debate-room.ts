@@ -299,12 +299,17 @@ const movedBetween = (move: { readonly from: QuotedTurn; readonly to: QuotedTurn
     [move.from, move.to].map((turn) => [h('dt', {}, turn.label), h('dd', {}, turn.excerpt)]),
   )
 
+/**
+ * Opting in first when the person may, then who is in the room and whose turn it is, then the turns; the
+ * room's rules and the person's note for their agent come last, folded away.
+ */
 const turnsTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyArray<Child> => [
   model.optIn !== null && optInSection(context, model.debate, model.optIn),
-  model.brief !== null && briefSection(context, model.debate, model.brief),
   section(
     strings.debates.participantsTitle,
     'debate-participants',
+    model.waitingFor !== null && h('p', { class: 'debate-waiting-for' }, model.waitingFor),
+    model.agreedEarly !== null && h('p', { class: 'debate-agreed-early' }, model.agreedEarly),
     model.participants.length === 0
       ? h('p', {}, strings.debates.noParticipants)
       : h(
@@ -322,13 +327,6 @@ const turnsTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyA
             ),
           ),
         ),
-    model.waitingFor !== null && h('p', { class: 'debate-waiting-for' }, model.waitingFor),
-    model.readyHint !== null && h('p', { class: 'hint debate-ready-hint' }, model.readyHint),
-    model.agreedEarly !== null && h('p', { class: 'debate-agreed-early' }, model.agreedEarly),
-    h('p', { class: 'debate-limits-summary' }, model.limits),
-    h('p', { class: 'debate-grace-summary' }, model.grace),
-    model.mayChangeLimits && limitsForm(context, model.debate),
-    model.limitsFixed && h('p', { class: 'hint debate-limits-fixed' }, strings.debates.limitsFixed),
   ),
   section(
     strings.debates.turnsTitle,
@@ -348,6 +346,21 @@ const turnsTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyA
             model.turns.groups.map((group) => turnGroup(group, context, drawn)),
           ),
         ]),
+  ),
+  h(
+    'details',
+    { class: 'debate-settings' },
+    h('summary', {}, strings.debates.settingsTitle),
+    model.brief !== null && briefSection(context, model.debate, model.brief),
+    h(
+      'div',
+      { class: 'debate-rules' },
+      model.readyHint !== null && h('p', { class: 'debate-ready-hint' }, model.readyHint),
+      h('p', { class: 'debate-limits-summary' }, model.limits),
+      h('p', { class: 'debate-grace-summary' }, model.grace),
+      model.mayChangeLimits && limitsForm(context, model.debate),
+      model.limitsFixed && h('p', { class: 'debate-limits-fixed' }, strings.debates.limitsFixed),
+    ),
   ),
 ]
 
@@ -493,7 +506,13 @@ const briefSection = (context: ViewContext, debate: AsRead.Debate, brief: NonNul
           },
         },
       },
-      field(brief.field.label, box, brief.field.hint),
+      h(
+        'label',
+        { class: 'field' },
+        h('span', { class: 'field-label visually-hidden' }, brief.field.label),
+        box,
+        h('small', {}, brief.field.hint),
+      ),
       h('button', { type: 'submit' }, brief.save),
     ),
   )
