@@ -15,7 +15,8 @@ const shared = { bundle: true, minify: true, sourcemap: true, target: 'es2022', 
 const relativeUrls = (css: string): string => css.replace(/url\((["']?)\/(fonts|pip|icons)\//g, 'url($1$2/')
 
 await rm(output, { recursive: true, force: true })
-for (const directory of ['icons', 'fonts', 'pip']) await mkdir(join(output, directory), { recursive: true })
+for (const directory of ['icons', 'fonts/pretendard', 'pip'])
+  await mkdir(join(output, directory), { recursive: true })
 
 const pipSheet = JSON.parse(await readFile(join(assets, 'pip', 'pip-sheet.json'), 'utf8')) as PipSheet
 const brandFiles: ReadonlyArray<readonly [string, string]> = [
@@ -23,11 +24,6 @@ const brandFiles: ReadonlyArray<readonly [string, string]> = [
   ['brand/homingbird-icon-180.png', 'icons/icon-180.png'],
   ['brand/favicon.ico', 'favicon.ico'],
   ['pip/pip-sheet@1x.png', 'pip/pip-sheet.png'],
-  ['fonts/inter-latin-wght-normal.woff2', 'fonts/inter-latin-wght-normal.woff2'],
-  ['fonts/inter-latin-ext-wght-normal.woff2', 'fonts/inter-latin-ext-wght-normal.woff2'],
-  ['fonts/bricolage-grotesque-latin-wght-normal.woff2', 'fonts/bricolage-grotesque-latin-wght-normal.woff2'],
-  ['fonts/Inter-LICENSE.txt', 'fonts/Inter-LICENSE.txt'],
-  ['fonts/BricolageGrotesque-LICENSE.txt', 'fonts/BricolageGrotesque-LICENSE.txt'],
 ]
 
 const [, styles] = await Promise.all([
@@ -48,6 +44,7 @@ const [, styles] = await Promise.all([
   writeFile(join(output, 'pip.css'), pipStylesheet(pipSheet, 'pip/pip-sheet.png')),
   cp(join(here, 'src', 'demo.css'), join(output, 'demo.css')),
   cp(join(here, 'src', 'index.html'), join(output, 'index.html')),
+  cp(join(assets, 'fonts', 'pretendard'), join(output, 'fonts', 'pretendard'), { recursive: true }),
   ...brandFiles.map(([from, to]) => cp(join(assets, from), join(output, to))),
 ])
 await writeFile(join(output, 'app.css'), relativeUrls(styles.outputFiles[0]!.text))
