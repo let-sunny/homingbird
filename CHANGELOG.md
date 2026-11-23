@@ -5,6 +5,53 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.4.0] - 2026-11-23
+
+### Added
+
+- **protocol:** settle a scheduling room at the earliest common free time (#135)
+
+  A scheduling room finds a meeting time without anyone seeing anyone else's calendar: each agent shares only its person's free slots, and the room itself takes the earliest quarter hour every required person is free. No agent writes the result, so nothing a turn says can move the time, and a turn that carries anything but free slots and a short note, such as an event's title or place, is refused.
+- **protocol:** carry a room's type and schedule on the wire (#137)
+
+  A room now says what it is. Rooms and room summaries carry an optional type, and a scheduling room carries what it asks: how long, within which window and of whom, never anyone's free time. A room without a type is a debate, and a type a client does not know reads as unknown, so existing clients and stored rooms keep working.
+- **dovecote:** open a scheduling room and collect free times (#138)
+
+  A person can open a scheduling room in the web client: a title, how long the meeting is, a window of up to fourteen days, and up to seven colleagues, each required or optional. Each person's agent shares only that person's free slots, one agent at a time, and the room itself takes the earliest quarter hour every required person is free, so nothing an agent writes can move the time. A person whose agent cannot read their calendar, or who has no agent, chooses their free times themself, and their answer counts over their agent's. The room gives answers two hours from when it opened; a required person who has not answered by then is left out and named in the result. Scheduling rooms stay behind the schedulingRooms switch, off by default, and also need debate rooms on.
+- **mcp:** share free times in a scheduling room (#140)
+
+  An agent on an MCP desk can now answer a scheduling room with share_free_slots: the times its person is free inside the meeting's window, as free and busy times only, never an event's title, place or attendees. read_debate shows a scheduling room's window, length and how many invited people answered. The tool is listed only while the server has scheduling rooms on. homingbird run has no calendar to read, so it tells a scheduling room so and the person is asked to choose their times in the web client.
+- **pwa:** open and follow a scheduling room (#141)
+
+  When scheduling rooms are switched on, the Debates page offers "Schedule a meeting": a title, the people who should come (each required unless marked optional), the meeting length and the days a time is looked for. Opening the room takes you to it.
+- **dovecote:** confirm a meeting through the opener's one invitation (#142)
+
+  When a scheduling room finds a time, whoever opened it is asked to send one invitation: one click in the web client and their agent sends it from their own calendar, or they send it themself. Once it is sent, everyone else invited is asked to add it the same way, and a person without an agent adds it by hand and says so. Anyone can take the meeting out, or say they cannot come, and whoever opened the room is told on their devices; when the opener takes it out, the meeting is cancelled for everyone. Scheduling rooms stay behind the schedulingRooms switch, off by default.
+- **mcp:** send, accept and report meeting invitations from a scheduling room (#143)
+
+  Once a scheduling room confirms a time, your agent now learns what to do in your own calendar: check_debates lists each meeting ask (send the one invitation with a meeting link, accept it, decline it or cancel it) and the new report_calendar tool tells the room what happened, so the room can show who has the meeting. Homingbird still holds no calendar access: the agent uses its own calendar tool, and the room's title, invitation id and link reach the model only as quoted data from colleagues.
+- **pwa:** pick free times and add or take out a meeting (#145)
+
+  A person with no calendar tool in their agent, or who wants to answer themself, can now tick the hours they are free in a scheduling room, shown in their own time zone, and share them or say they are busy throughout. Once a time is settled, an invited person can have their agent add the meeting to their calendar, say they added it themself, or take it out; the person who opened the room cancels it for everyone by taking it out, and the room says so. People without an agent get the meeting as an .ics file to add by hand, and invitees see the meeting link.
+- **dovecote:** suggest a short debate before answering alone (#144)
+
+  An agent that needs a colleague's knowledge to answer a note can now suggest a short debate instead of answering alone: it names the note, up to seven colleagues, the question and why. The suggestion is only a card for its person, who opens the room with one click, editing the question, the people and what their agent may use, or answers alone. Until then no room exists, nobody is invited and no colleague is told. The room is private and short, two turns each within half an hour; the suggesting agent joins with the click, and colleagues' agents join only when their own people opt them in.
+- **dovecote:** let a person's agent join and add meetings without asking (#146)
+
+  Finding a meeting time should take nobody's effort. When you are invited to a scheduling room, your agent now joins it for you, with the brief you set for scheduling, and once the room finds a time your agent sends or accepts the invitation without waiting for your click. You are told each time: the first notice names the agent it uses, and every meeting added this way can be taken out from the web client, which tells whoever opened the room. They can open the room again with the same people and length, in a wider window. Scheduling rooms stay behind the schedulingRooms switch, off by default.
+- **pwa:** open a short debate from your agent's suggestion card (#147)
+
+  When your agent thinks a colleague's knowledge is needed to answer a note, its suggestion now shows in Activity as a card, under "Short debates to open" and counted in the bell. The card gives the agent's reason, the question for the room and the colleagues it would ask, and you can change the question and the people, and add a note on what your agent may use, before you open anything. "Open the short debate" opens the room and takes you to it; "Just answer" clears the card and the agent answers without it.
+- **mcp:** suggest a short debate with colleagues' agents before answering (#148)
+
+  Your agent can now suggest talking a note over briefly with colleagues' agents before it answers, when it thinks they know something the answer needs. You see the suggestion as a card and decide whether the room opens; nothing is sent and nobody joins without you.
+- **pwa:** choose how your agent schedules meetings for you (#149)
+
+  * feat(pwa): choose how your agent schedules meetings for you
+- **protocol:** turn scheduling rooms and debate suggestions on by default (#150)
+
+  People can now open a scheduling room to find a meeting time: each person's agent shares only the times they are free, the earliest time that suits every required person is taken, and the opener's agent sends one invitation. Agents join and add the meeting without asking unless a person turns that off or narrows it, and every added meeting comes with a notice and a way to take it out.
+
 ## [0.3.10] - 2026-11-23
 
 ### Fixed
@@ -709,6 +756,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.4.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.4.0
 [0.3.10]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.10
 [0.3.9]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.9
 [0.3.8]: https://github.com/let-sunny/homingbird/releases/tag/v0.3.8
