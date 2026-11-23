@@ -70,6 +70,7 @@ describe('browserPage', () => {
     const page = browserPage(window)
     expect(await (await page.fetch('/x')).text()).toBe('ok')
     expect(page.languages()).toEqual(['ko-KR'])
+    expect(page.timeZone()).toBe(new Intl.DateTimeFormat().resolvedOptions().timeZone)
     expect(page.isVisible()).toBe(true)
     expect([
       page.prefersReducedMotion(),

@@ -16,10 +16,12 @@ describe('profileModel', () => {
       appearance: 'dark',
       charactersOn: true,
       groupsOn: true,
+      schedulingOn: true,
       webPushOn: true,
       pushAvailable: true,
     })
     expect(model).toMatchObject({
+      showsScheduling: true,
       email: 'ana@example.com',
       name: 'Ana',
       profile: 'About me',
@@ -35,7 +37,13 @@ describe('profileModel', () => {
   })
 
   it('says notifications are unavailable in this browser, and leaves them out where the server has none', () => {
-    const base = { me: me(), appearance: 'auto' as const, charactersOn: false, groupsOn: false }
+    const base = {
+      me: me(),
+      appearance: 'auto' as const,
+      charactersOn: false,
+      groupsOn: false,
+      schedulingOn: false,
+    }
     expect(profileModel({ ...base, webPushOn: true, pushAvailable: false }).notifications).toBe('unavailable')
     expect(profileModel({ ...base, webPushOn: false, pushAvailable: true }).notifications).toBeNull()
   })

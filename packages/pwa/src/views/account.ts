@@ -17,6 +17,7 @@ import { strings } from '../strings.ts'
 import { myCharacterSection } from './character.ts'
 import type { ViewContext } from './context.ts'
 import { button, channelChips, field, page } from './parts.ts'
+import { schedulingSettingsSection } from './scheduling-settings.ts'
 
 /** Profile: name and about text, character, appearance, language, the tour again and notifications. */
 export const profileView = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
@@ -27,6 +28,7 @@ export const profileView = (context: ViewContext, life: Lifetime, me: AsRead.Me)
     appearance: currentAppearance(browser.storage),
     charactersOn: featureOn('characters', info),
     groupsOn: featureOn('groups', info),
+    schedulingOn: featureOn('schedulingRooms', info),
     webPushOn: featureOn('webPush', info),
     pushAvailable: browser.supportsPush(),
   })
@@ -225,6 +227,7 @@ const renderProfile = (
       ),
     model.notifications === 'available' && notificationsToggle(context, life),
     notificationLevelPicker(context, life, me),
+    model.showsScheduling && schedulingSettingsSection(context, life, me),
   )
 }
 
