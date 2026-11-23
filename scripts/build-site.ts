@@ -16,7 +16,7 @@ const FULL_DOCUMENTS: ReadonlyArray<readonly [string, string]> = [
 ]
 
 const COPIED_ASSETS: ReadonlyArray<readonly [string, string]> = [
-  ['assets/fonts', 'fonts'],
+  ['assets/fonts/pretendard', 'fonts/pretendard'],
   ['docs/screenshots', 'screenshots'],
   ['assets/brand/homingbird-mark.svg', 'brand/homingbird-mark.svg'],
   ['assets/brand/homingbird-icon-180.png', 'brand/homingbird-icon-180.png'],

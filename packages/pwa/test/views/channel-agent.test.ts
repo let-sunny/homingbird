@@ -255,6 +255,11 @@ describe('the agent panel', () => {
     expect(called('undoHeld')).toHaveLength(1)
     context.state.held.set([])
     expect(shown.querySelector('.review-card')).not.toBeNull()
+    const order = [...shown.querySelector('.review-card')!.children].map((child) =>
+      child.getAttribute('class'),
+    )
+    expect(order.indexOf('review-body')).toBeLessThan(order.indexOf('review-actions'))
+    expect(order.at(-1)).toBe('review-why hint')
   })
 
   it('opens Edit with a kept edit and says the card holds one', () => {

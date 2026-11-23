@@ -26,7 +26,7 @@ import {
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { replyTargetIn } from '../tasks/notes.ts'
-import { type ThreadItem, threadItems } from '../thread.ts'
+import { type ThreadItem, hasDraftWaiting, threadItems } from '../thread.ts'
 import { reviewCard } from './channel-agent.ts'
 import { composer } from './composer.ts'
 import type { ViewContext } from './context.ts'
@@ -223,7 +223,7 @@ export const threadView = (
       if (top.kind === 'loading') return loading()
       if (top.kind === 'older')
         return button(top.label, () => actions.loadOlderNotes(id), { class: 'load-older' })
-      return top.kind === 'empty' && emptyWithPip('waving', top.text)
+      return top.kind === 'empty' && emptyWithPip(top.text)
     }),
     region(life, [settledLine], () => {
       const settled = settledLine.get()
@@ -283,6 +283,7 @@ export const threadView = (
     focusedDraft === null &&
     focusedReview === null &&
     focusedNote === null &&
+    !hasDraftWaiting(state.conversations.get().find((conversation) => conversation.id === id)) &&
     !context.page.isCoarsePointer()
   )
     state.composerFocus.set(id)
@@ -334,7 +335,6 @@ const renderDivider = (divider: ThreadDivider): HTMLElement =>
 
 const missingConversation = (): HTMLElement =>
   emptyWithPip(
-    'failed',
     strings.conversationMissing,
     h('a', { class: 'button', href: hrefFor({ name: 'home' }) }, strings.backHome),
   )

@@ -50,6 +50,25 @@ const fakeWindow = (fields: Partial<Record<keyof BrowserWindow, unknown>> = {}) 
 }
 
 describe('browserPage', () => {
+  it('draws pixels on a canvas and hands back a PNG address', () => {
+    const drawn: unknown[] = []
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: () => ({ putImageData: (image: unknown) => drawn.push(image) }),
+      toDataURL: (type: string) => `data:${type};base64,AAAA`,
+    }
+    const { window } = fakeWindow({
+      document: { ...fakeDocument(), createElement: () => canvas },
+      ImageData: function ImageData(data: Uint8ClampedArray, width: number, height: number) {
+        return { data, width, height }
+      },
+    })
+    const url = browserPage(window).pngUrlOf({ width: 2, height: 1, data: new Uint8ClampedArray(8) })
+    expect(url).toBe('data:image/png;base64,AAAA')
+    expect([canvas.width, canvas.height, drawn.length]).toEqual([2, 1, 1])
+  })
+
   it('reads and changes the address', () => {
     const { window, location } = fakeWindow()
     const page = browserPage(window)

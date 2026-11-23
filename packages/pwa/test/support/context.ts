@@ -145,6 +145,7 @@ export const fakePage = (hash = '#/') => {
       return Promise.resolve(state.clipboard)
     },
     readText: (file) => file.text(),
+    pngUrlOf: (image) => `data:image/png;fake,${image.width}x${image.height}`,
     watchInView: (root, onChange): InViewWatch => {
       const watch = { root, observed: new Set<HTMLElement>(), onChange, disconnected: false }
       watches.push(watch)

@@ -22,7 +22,7 @@ form {
 
 h1 {
   margin: 0;
-  font: 800 1.5rem var(--hb-font-display);
+  font: var(--hb-weight-heading) var(--hb-text-page) var(--hb-font-display);
   letter-spacing: var(--hb-tracking-display);
 }
 
@@ -32,14 +32,14 @@ p {
   border: var(--hb-border);
   background: var(--hb-color-pending);
   color: var(--hb-color-on-pending);
-  font-size: var(--hb-text-small);
+  font-size: var(--hb-text-meta);
 }
 
 label {
   display: grid;
   gap: var(--hb-space-1);
-  font-weight: 600;
-  font-size: var(--hb-text-small);
+  font-weight: var(--hb-weight-label);
+  font-size: var(--hb-text-label);
 }
 
 input {
@@ -56,6 +56,6 @@ button {
   background: var(--hb-color-action);
   color: var(--hb-color-on-action);
   box-shadow: var(--hb-shadow-pressed);
-  font: 700 var(--hb-text-body) var(--hb-font-body);
+  font: var(--hb-weight-label) var(--hb-text-body) var(--hb-font-body);
   cursor: pointer;
 }

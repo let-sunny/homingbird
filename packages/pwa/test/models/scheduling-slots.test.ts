@@ -137,6 +137,7 @@ describe('schedulingSlotsModel', () => {
   it('is not there while an agent of theirs is still to answer, when the flock is not collecting, or for someone not invited', () => {
     expect(model(room({}, {}, 'waiting'), { joined: true })).toBeNull()
     expect(model(room({}, {}, 'unknown' as never), { joined: true })).toBeNull()
+    expect(model(room({}, { attendees: [{ memberId: ANA, required: true }] }), { joined: true })).toBeNull()
     expect(model(room({ status: 'closed' }))).toBeNull()
     expect(model(debate())).toBeNull()
     expect(

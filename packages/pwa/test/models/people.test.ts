@@ -173,6 +173,8 @@ describe('peopleModel', () => {
       contactMode: 'contacts',
       directory: [entry(BEN, 'Ben', { canMessage: false })],
     })[0]!.actions
+    const message = list({ directory: [entry(BEN, 'Ben')] })[0]!.actions[0]
+    expect(message?.style).toBeNull()
     expect(request).toEqual({
       kind: 'request',
       label: strings.addContact,

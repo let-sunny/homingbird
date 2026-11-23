@@ -17,6 +17,26 @@ states the decision first, then the reason. Add new entries at the top of their 
   `read_debate`, the command `homingbird debates`, and the tables and columns. A tool description says "a
   flock (debate room)" once, where a model might look for the old name.
 
+- **Pip and each person's character turn in fake 3D where the bird is the subject.** Pip turns on the
+  sign-in page, while the page loads before sign-in, in a page's main empty state, and in the header in
+  place of the mark when the organization set no logo of its own; a person's own character turns in the
+  character editor's preview, on their profile card, and while their workspace loads after sign-in.
+  Everywhere else the flat 16-pixel characters stay, because a turning face beside every note would
+  stop telling the reader anything. The technique is sprite stacking, after Daniel White's MIT-licensed
+  `sprite-stacking`: `packages/sprites` draws Pip's body from four sides (`bird-model.ts`), carves them
+  into 26 slices of 34 × 26 voxels (`carve.ts`), paints the eyes, the wing patches and the tail
+  feathers onto the surface afterwards so that they hold still from every direction, and renders 16
+  directions by turning each slice, squashing it to 0.8 for a view from above and lifting each one 0.88
+  pixels over the one below, with one ink outline around the stack. The body is shared, as with the
+  flat characters: a character differs only in palette and markings, so its markings are painted on
+  both flanks where its side view puts them and its palette recolours the voxels. The carved body ships
+  to every client as `BIRD_SLICES`, about 5.5 KB of text, from which the web client draws a member's
+  sheet (16 cells of 39 × 39 pixels) in the browser, once per look, and hands it to the stylesheet as
+  a `data:` image; Pip's sheet is the checked-in `assets/pip/pip-turn@1x.png` (about 7 KB) with golden
+  tests, like the other brand assets. The turn is CSS `steps(16)` over 2.24 seconds
+  (`--hb-duration-bird-turn`), no script; with `prefers-reduced-motion` the bird faces the viewer and
+  holds still. A canvas per frame or a WebGL model would have needed script for every bird on the page
+  or a dependency, for no gain at this size.
 - **A debate room asks one agent at a time for a turn.** Until now the room asked every agent with
   turns left at once: all of them wrote, the first to post won, and the others were refused as stale
   and rewrote. Evaluation round 3 saw 96 of 149 turn attempts refused, 79 of them as stale, and in a
@@ -409,8 +429,9 @@ states the decision first, then the reason. Add new entries at the top of their 
   of the administrator's member list, and the composer while one's own note is sending, all at 2×
   (32 px). A group conversation's row shows two people side by side at 1×. Larger only where the
   character is the subject: 4× for one's own character in the profile, 3× for the editor's previews
-  of each state. Pip, the brand, appears in a page's main empty state ("nothing here yet") at 3×, on
-  the sign-in and connection result pages at 4×, and in the tour. Nowhere else: no character in page
+  of each state. Pip, the brand, appears in a page's main empty state ("nothing here yet") and on
+  the sign-in page, turning at 2× (78 px, see the entry on fake 3D), on the connection result pages at
+  4×, and in the tour. Nowhere else: no character in page
   or thread headers, beside unread counts, in notices and banners, in the sidebar's empty states or
   in a "no match" result, because a face repeated on every surface stops telling the reader anything
   and pushes the content down. `emptyWithPip` takes no size, so a page cannot pick another one.
@@ -701,7 +722,7 @@ states the decision first, then the reason. Add new entries at the top of their 
   and `assets/characters` come from one TypeScript package, which also renders characters at run
   time in the web client and the plugin and validates them in Dovecote. Keeping the generator in the
   repository means a changed pixel changes everywhere, and golden tests catch accidental changes.
-  `assets/fonts` holds Inter and Bricolage Grotesque under the Open Font License.
+  `assets/fonts/pretendard` holds Pretendard under the Open Font License.
 - **The README shows the characters as GIFs that are checked in.** `assets/characters/gif` holds one
   `<id>.gif` per built-in character, waving at 6×, about 50 KB together. GitHub cannot scale pixel art with nearest-neighbour sampling, so the files are made
   at their final size, and a README can only show files that are in the repository. They come from the
@@ -2569,3 +2590,21 @@ tool can read, set or widen it (rules 3 and 9), since knowing its scope would he
   own time zone. A room outside the scope waits on their card as before. Changing it is audited as
   `scheduling.delegation_changed` with the names of the parts that changed, never their values.
 - **Gone with the person.** Deactivating a member deletes their delegation.
+
+## Typeface
+
+- **Pretendard Variable sets every screen, in Korean and English.** One typeface for both languages
+  means a screen reads the same whichever one a person uses, and Korean no longer falls back to
+  whatever the device has. `--hb-font-body` and `--hb-font-display` are the same stack: Pretendard
+  first, then the system fonts. The three weights of the hierarchy (400, 600, 800) come from the
+  variable font. Inter and Bricolage Grotesque are gone from the web client, the demo and the
+  project site.
+- **Self-hosted, in the dynamic subsets Pretendard ships.** The 92 woff2 files and the unicode-range
+  rules come unchanged from the `pretendard` 1.3.9 package, under `assets/fonts/pretendard` with its
+  Open Font License text; they are an asset, not a dependency. No CDN, so a self-hoster's page makes
+  no request to a third party. `font-display: swap` shows text at once and swaps the font in.
+- **Cost, measured on `pnpm build:demo`, first visit, cold cache.** The notes screen fetches 195 KB
+  of fonts in English (7 files) and 343 KB in Korean (13 files), against 90 KB before (2 files), so
+  +105 KB and +253 KB. A conversation fetches no more; the debates list adds one file of 28 KB.
+  Browsers keep the files, so a later visit costs nothing. A screen that uses other characters
+  fetches only the pieces for them.

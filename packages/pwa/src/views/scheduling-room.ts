@@ -7,8 +7,8 @@ import { profileName } from './profile-card.ts'
 import { renderScheduleResult } from './schedule-result.ts'
 
 /**
- * A scheduling flock: who has answered, the deadline, and the time the flock settled on. The cards that act on
- * the flock (picking free times, adding the meeting) come after it, drawn by the caller.
+ * A scheduling flock, leading with one thing: the time it settled on, or while it waits, what the person can
+ * do about it (picking free times, adding the meeting), drawn by the caller. Who has answered comes after.
  */
 export const renderSchedulingRoom = (
   model: SchedulingRoomModel,
@@ -26,6 +26,10 @@ export const renderSchedulingRoom = (
       model.summary.map((line) => h('span', {}, line)),
     ),
     model.deadline !== null && h('p', { class: 'scheduling-deadline' }, model.deadline),
+    model.result.kind === 'settled'
+      ? section(model.resultTitle, 'debate-result scheduling-result', renderScheduleResult(model.result.body))
+      : h('p', { class: 'hint scheduling-result-waiting' }, model.result.text),
+    cards,
     section(
       model.attendeesTitle,
       'scheduling-attendees',
@@ -45,13 +49,5 @@ export const renderSchedulingRoom = (
         ),
       ),
     ),
-    section(
-      model.resultTitle,
-      'debate-result scheduling-result',
-      model.result.kind === 'settled'
-        ? renderScheduleResult(model.result.body)
-        : h('p', { class: 'hint' }, model.result.text),
-    ),
-    cards,
   )
 }

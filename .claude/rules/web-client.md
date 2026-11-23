@@ -32,3 +32,28 @@ paths:
 - Note bodies are rendered as text. Only `http:` and `https:` URLs, addresses that start with `www.`
   (opened with `https:`) and plain mail addresses (opened with `mailto:`) become links, all with
   `rel="noopener noreferrer"`. Never assign note content to `innerHTML`.
+
+## Hierarchy
+
+Every screen leads with one thing. The brand look stays (pixel art, hard shadows, brand colours); what
+changes is how loudly each part speaks. `test/stylesheets.test.ts` checks the first four.
+
+- **One focus.** Each screen decides its first thing: the waiting draft, the result, whose turn it is,
+  the time to pick. Only that and buttons cast a hard shadow (`--hb-shadow`, `--hb-shadow-raised`
+  for floating layers). Repeated rows and cards (people, turns, notes, characters) lie flat, divided
+  by `--hb-border-divider`.
+- **One primary action, and orange means action.** `--hb-color-action` paints only `primary` buttons,
+  one per screen, never one per row. Where you are is `--hb-color-current` (`--hb-shadow-current*`),
+  what is chosen is `--hb-shadow-selected`, and every count is the one badge, `.count`
+  (`--hb-color-badge`); a glyph, not a colour, tells a draft from an unread note.
+- **Five sizes with a meaning.** `--hb-text-meta` (times, counts, explanations), `-body`, `-lead` (the
+  words a person decides on: a draft, a conclusion, whose turn it is), `-heading` (h2) and `-page` (h1).
+  Labels are `--hb-text-label` in `--hb-weight-label`, in the text colour, in sentence case. Weights are
+  `--hb-weight-body`, `-label` and `-heading` only.
+- **No capitals, no monospace for labels.** Monospace is for code and commands a person copies.
+- **Space groups.** `--hb-gap-item` between items, `--hb-gap-group` between groups,
+  `--hb-gap-section` (or a divider with `--hb-space-6`) before a section heading; the space above a
+  heading is at least three times the space below it.
+- **One border layer, each title once.** No 2px border inside a bordered container: use
+  `--hb-color-sunken` or a divider. A heading that repeats its tab stays for assistive technology only.
+  Rules and long help go into one `--hb-text-meta` line or a closed `<details>`.

@@ -78,6 +78,28 @@ describe('debateView', () => {
     ])
   })
 
+  it('leads a participant with whose turn it is and the turns, and folds the rules and their note away', () => {
+    const { context } = testContext()
+    const shown = debateView(context, lifetime(), me(), 'debate_1', 'turns')
+    context.state.shownDebate.set(
+      debate({ participants: [participant(ANA), participant(BEN)], brief: 'Q3 budget only.' }),
+    )
+    const tab = shown.querySelector('.debate-tab.is-turns')!
+    expect([...tab.children].map((child) => child.getAttribute('class')?.split(' ').at(-1))).toEqual([
+      'debate-participants',
+      'debate-turns',
+      'debate-settings',
+    ])
+    const settings = tab.querySelector('details.debate-settings')!
+    expect(settings.hasAttribute('open')).toBe(false)
+    expect(settings.querySelector('summary')?.textContent).toBe(strings.debates.settingsTitle)
+    expect(settings.querySelector('.debate-brief')).not.toBeNull()
+    expect(settings.querySelector('.debate-limits-summary')).not.toBeNull()
+    expect(settings.querySelector('.debate-brief .field-label')?.classList.contains('visually-hidden')).toBe(
+      true,
+    )
+  })
+
   it('lets a participant change their note while turns go on, and shows it fixed once they stop', () => {
     const { context, called } = testContext()
     const shown = debateView(context, lifetime(), me(), 'debate_1', 'turns')

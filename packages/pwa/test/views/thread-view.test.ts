@@ -131,6 +131,13 @@ describe('threadView', () => {
     expect(touch.context.state.composerFocus.get()).toBeNull()
   })
 
+  it('leaves the composer alone on opening while a draft there waits for a decision', () => {
+    const test = testContext()
+    test.context.state.conversations.set([conversation({ draftCount: 1 })])
+    threadView(test.context, lifetime(), me(), ROOM, null)
+    expect(test.context.state.composerFocus.get()).toBeNull()
+  })
+
   it('goes back to the bottom when the person sends while scrolled up', () => {
     const { context, shown } = open()
     withNotes(context, [note('n1')])

@@ -4,7 +4,9 @@ import { describe, expect, it } from 'vitest'
 
 const STYLES = join(import.meta.dirname, '..', 'src', 'styles')
 
-const COMPONENT_SHEETS = readdirSync(STYLES).filter((name) => name.endsWith('.css') && name !== 'tokens.css')
+const COMPONENT_SHEETS = readdirSync(STYLES).filter(
+  (name) => name.endsWith('.css') && name !== 'tokens.css' && name !== 'fonts.css',
+)
 
 interface Declaration {
   readonly sheet: string
@@ -34,6 +36,15 @@ const offenders = (accepts: (declaration: Declaration) => boolean): string[] =>
 describe('component stylesheets', () => {
   it('finds the stylesheets to check', () => {
     expect(COMPONENT_SHEETS).toEqual(expect.arrayContaining(['components.css', 'base.css', 'layout.css']))
+  })
+
+  it('set the text in Pretendard, self-hosted and swapped in', () => {
+    const fonts = readFileSync(join(STYLES, 'fonts.css'), 'utf8')
+    const tokens = readFileSync(join(STYLES, 'tokens.css'), 'utf8')
+    expect(fonts).not.toMatch(/https?:/)
+    expect(fonts.match(/font-display: swap/g)?.length).toBe(fonts.match(/@font-face/g)?.length)
+    expect(tokens).toMatch(/--hb-font-body: "Pretendard Variable"/)
+    expect(tokens).not.toMatch(/Inter|Bricolage/)
   })
 
   it('write no colour outside tokens.css', () => {
@@ -83,6 +94,80 @@ describe('component stylesheets', () => {
     expect(rule.get('overflow')).toBe('clip')
   })
 })
+
+describe('the hierarchy rules in the stylesheets', () => {
+  const SIZE =
+    /var\(--hb-(?:text-(?:meta|body|lead|heading|page|page-compact|label|code|wordmark|wordmark-large)|control-text(?:-field)?)\)/
+  const WEIGHT = /^var\(--hb-weight-(?:body|label|heading)\)$/
+  const MONO_ALLOWED = ['code', 'pre', 'code-input', 'cloud-desk-prompt']
+
+  it('size every text from the five-step scale', () => {
+    expect(
+      offenders(
+        (declaration) =>
+          !(declaration.property === 'font-size' || declaration.property === 'font') ||
+          declaration.value === 'inherit' ||
+          SIZE.test(declaration.value),
+      ),
+    ).toEqual([])
+  })
+
+  it('weigh every text as body, label or heading', () => {
+    expect(
+      offenders(
+        (declaration) =>
+          (declaration.property !== 'font-weight' || WEIGHT.test(declaration.value)) &&
+          (declaration.property !== 'font' || !/^\d/.test(declaration.value)),
+      ),
+    ).toEqual([])
+  })
+
+  it('write no label in capitals: only a code a person types back keeps them', () => {
+    expect(
+      offenders(
+        (declaration) => declaration.property !== 'text-transform' || declaration.value !== 'uppercase',
+      ),
+    ).toEqual(['components.css: text-transform: uppercase'])
+  })
+
+  it('keep the monospace font for code and commands', () => {
+    const rules = COMPONENT_SHEETS.flatMap((sheet) =>
+      [
+        ...readFileSync(join(STYLES, sheet), 'utf8')
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .matchAll(/([^{}]+)\{([^{}]*)\}/g),
+      ]
+        .filter((match) => match[2]!.includes('--hb-font-mono'))
+        .map((match) => match[1]!.trim()),
+    )
+    expect(rules.length).toBeGreaterThan(0)
+    for (const selector of rules)
+      expect(MONO_ALLOWED.some((allowed) => selector.includes(allowed))).toBe(true)
+  })
+
+  it('set a page title well above its body text, and above a section heading', () => {
+    const tokens = declaredIn(firstRootBlock())
+    const rem = (name: string): number => Number.parseFloat(tokens.get(name)!)
+    expect(rem('--hb-text-page') / rem('--hb-text-body')).toBeGreaterThanOrEqual(1.6)
+    expect(rem('--hb-text-page')).toBeGreaterThan(rem('--hb-text-heading'))
+    expect(rem('--hb-text-heading')).toBeGreaterThan(rem('--hb-text-lead'))
+    expect(rem('--hb-text-lead')).toBeGreaterThan(rem('--hb-text-body'))
+    expect(rem('--hb-text-body')).toBeGreaterThan(rem('--hb-text-meta'))
+    expect(rem('--hb-space-8')).toBeGreaterThanOrEqual(3 * rem('--hb-space-2'))
+  })
+
+  it('keep orange for actions: neither a current tab nor a count is painted with it', () => {
+    const sheet = readFileSync(join(STYLES, 'components.css'), 'utf8')
+    for (const selector of ['.tab[aria-current="page"]', '.subtabs a[aria-current="page"]', '.count'])
+      expect(ruleBody(sheet, selector)).not.toContain('--hb-color-action')
+  })
+})
+
+const ruleBody = (sheet: string, selector: string): string => {
+  const at = sheet.indexOf(`\n${selector} {`)
+  if (at === -1) throw new Error(`${selector} is not styled`)
+  return sheet.slice(at, sheet.indexOf('}', at))
+}
 
 const appRule = (): Array<[string, string]> => {
   const text = readFileSync(join(STYLES, 'base.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
@@ -180,6 +265,9 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ['on-pending', 'pending'],
   ['on-success', 'success'],
   ['on-success', 'switch-on'],
+  ['on-badge', 'badge'],
+  ['text', 'pending-wash'],
+  ['muted', 'pending-wash'],
 ]
 
 const BOUNDARY_PAIRS: ReadonlyArray<readonly [string, string]> = [
@@ -200,6 +288,9 @@ const BOUNDARY_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ['tour', 'surface'],
   ['tour', 'sunken'],
   ['tour-on-titlebar', 'titlebar'],
+  ['current-on-titlebar', 'titlebar'],
+  ['current', 'page'],
+  ['current', 'surface'],
 ]
 
 describe.each(['light', 'dark'] as const)('colour tokens in the %s scheme', (scheme) => {

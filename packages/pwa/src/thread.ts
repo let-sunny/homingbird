@@ -164,6 +164,10 @@ export const isMuted = (conversation: Pick<AsRead.Conversation, 'muted'>): boole
 export const isHidden = (conversation: Pick<AsRead.Conversation, 'hidden'>): boolean =>
   conversation.hidden === true
 
+/** Whether a draft here waits for the person's decision: then the draft, not the composer, takes the eye. */
+export const hasDraftWaiting = (conversation: Pick<AsRead.Conversation, 'draftCount'> | undefined): boolean =>
+  conversation !== undefined && conversation.draftCount > 0
+
 export const isArchived = (conversation: AsRead.Conversation | undefined): boolean =>
   conversation !== undefined && conversation.archivedAt !== null
 

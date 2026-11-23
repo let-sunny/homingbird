@@ -52,8 +52,8 @@ export const fakeDovecote = (world: World, viewerId: MemberId = VISITOR_ID): Fet
   }
 }
 
-/** What the page shows as the organization: Homingbird's own name and mark, from beside the page. */
-export const BRANDING = { name: 'Homingbird', logo: 'icons/mark.svg' } as const
+/** What the page shows as the organization: Homingbird's own name, and no logo, so Pip turns in its place. */
+export const BRANDING = { name: 'Homingbird', logo: null } as const
 
 interface RawRequest {
   readonly params: Readonly<Record<string, string>>

@@ -70,6 +70,12 @@ describe('homingbird-sprites', () => {
     expect(run.built).toEqual(['out'])
   })
 
+  it('writes the shared slices as a module', () => {
+    const run = fakeIo()
+    expect(runCli(['slices', 'slices.ts'], run.io)).toBe(0)
+    expect(new TextDecoder().decode(run.written['slices.ts'])).toContain('export const BIRD_SLICES')
+  })
+
   it('prints usage for anything else', () => {
     const run = fakeIo()
     expect(runCli(['dance'], run.io)).toBe(2)
