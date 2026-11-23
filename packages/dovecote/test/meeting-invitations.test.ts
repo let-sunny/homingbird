@@ -206,6 +206,31 @@ describe('the opener’s one invitation', () => {
     expect(JSON.parse(String(audited.at(-1)!.detail))).toEqual({ by: 'person', byDelegation: false })
   })
 
+  it('is sent by the opener themself once their agent left it waiting, never while it may still pick it up', async () => {
+    const id = await confirmed()
+    await cast.ana.api('POST', `/debates/${id}/attendance`)
+    expect((await partsOf(id))[cast.ana.me.member.id]).toBe('adding')
+    expect((await cast.anaAgent.api('GET', `/debates/${id}`)).json.schedule.attendees[0]).toMatchObject({
+      attendance: 'adding',
+      attendanceSince: server.clock.now(),
+    })
+    expect((await cast.ana.api('POST', `/debates/${id}/attendance`)).status).toBe(409)
+    await server.clock.advance(10 * 60_000)
+    const byHand = await cast.ana.api('POST', `/debates/${id}/attendance`)
+    expect(byHand.status).toBe(200)
+    expect(byHand.json.schedule.invite).toEqual({ uid: null, meetingUrl: null })
+    expect((await partsOf(id))[cast.ana.me.member.id]).toBe('added')
+    expect(await meetingsOf(cast.anaAgent)).toEqual([])
+  })
+
+  it('is sent by the opener themself at once while their desk is not running', async () => {
+    const id = await confirmed()
+    await cast.ana.api('POST', `/debates/${id}/attendance`)
+    cast.sleep('ana')
+    expect((await cast.ana.api('POST', `/debates/${id}/attendance`)).status).toBe(200)
+    expect((await partsOf(id))[cast.ana.me.member.id]).toBe('added')
+  })
+
   it('waits on the opener’s card again when their agent found the time taken', async () => {
     const id = await confirmed()
     await cast.ana.api('POST', `/debates/${id}/attendance`)

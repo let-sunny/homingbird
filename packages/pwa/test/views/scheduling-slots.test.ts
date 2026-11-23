@@ -14,7 +14,7 @@ const START = Date.UTC(2026, 10, 19, 12)
 const WORK = START + 11 * HOUR
 const ID = 'debate_000000000000'
 
-const collecting = (anaAnswer: 'choosing' | 'by_agent' = 'choosing') =>
+const collecting = (anaAnswer: 'choosing' | 'by_agent' | 'waiting' = 'choosing') =>
   debate({
     type: 'scheduling',
     question: 'Planning sync',
@@ -134,8 +134,8 @@ describe('the card to pick free times', () => {
     expect(called('setMyFreeTimes')[0]!.args).toEqual([ID, []])
   })
 
-  it('is left out when the person has an agent that answers for them', () => {
-    const answered = collecting('by_agent')
+  it('is left out while the person has an agent still to answer for them', () => {
+    const answered = collecting('waiting')
     const { shown } = opened(
       { ...answered, participants: [{ memberId: ANA, agentId: null, agentName: 'Laptop', joinedAt: 1 }] },
       true,

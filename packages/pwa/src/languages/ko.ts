@@ -1240,6 +1240,7 @@ export const ko: Translation<typeof en> = {
       by_person: '직접 비는 시간을 골랐어요',
       unknown: '아직 답하지 않았어요',
     },
+    youNamed: '{name} (나)',
     youInSentence: '나',
     resultTitle: '결과',
     waitingForResult: '필수 참석자가 모두 답하거나 방의 시간이 끝나면 시간이 정해져요.',
@@ -1264,7 +1265,23 @@ export const ko: Translation<typeof en> = {
     pickSend: '이 시간 공유하기',
     pickBusy: '내내 바빠요',
     pickBusyHint: '이 중에 비는 시간이 없다고 알려요.',
+    pickAnsweredByAgent: '에이전트가 이 시간을 공유했어요. 다시 공유하면 내가 고른 시간으로 바뀌어요.',
     pickAnswered: '이미 시간을 공유했어요. 다시 공유하면 바뀌어요.',
+    waitingOnAgent: {
+      opener: {
+        awake:
+          '내 에이전트가 내 캘린더에서 초대장을 보내기를 기다리고 있어요. 데스크가 켜져 있으니 1~2분이면 돼요.',
+        slow: '내 에이전트가 아직 초대장을 보내지 않았어요. 캘린더 파일로 직접 보내고 여기서 알려 주세요.',
+        asleep:
+          '데스크가 꺼져 있어서 에이전트가 지금 초대장을 보낼 수 없어요. homingbird run으로 켜거나 캘린더 파일로 직접 보내 주세요.',
+      },
+      attendee: {
+        awake: '내 에이전트가 회의를 캘린더에 넣기를 기다리고 있어요. 데스크가 켜져 있으니 1~2분이면 돼요.',
+        slow: '내 에이전트가 아직 회의를 넣지 않았어요. 직접 넣고 여기서 알려 주세요.',
+        asleep:
+          '데스크가 꺼져 있어서 에이전트가 지금 회의를 넣을 수 없어요. homingbird run으로 켜거나 직접 넣어 주세요.',
+      },
+    },
     attendanceTitle: '내 캘린더',
     attendance: {
       waiting_invite: '아직 초대장이 가지 않았어요.',
@@ -1300,6 +1317,7 @@ export const ko: Translation<typeof en> = {
     delegationNote: '내 에이전트가 정해진 회의를 캘린더에 넣어요. 끄지 않았다면요.',
     delegationChange: '프로필에서 바꾸기',
     addMeeting: '내 캘린더에 넣기',
+    sentInviteMyself: '직접 보냈어요',
     addedMeetingMyself: '직접 넣었어요',
     removeMeeting: '빼기',
     cannotCome: '안 돼요',

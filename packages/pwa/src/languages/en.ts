@@ -1294,6 +1294,7 @@ export const en = {
       by_person: 'Chose free times yourself',
       unknown: 'Not answered yet',
     },
+    youNamed: '{name} (you)',
     youInSentence: 'you',
     resultTitle: 'Result',
     waitingForResult:
@@ -1331,7 +1332,24 @@ export const en = {
     pickSend: 'Share these times',
     pickBusy: 'I am busy throughout',
     pickBusyHint: 'Say you are free at none of these times.',
+    pickAnsweredByAgent: 'Your agent shared these times. Sharing again replaces them with yours.',
     pickAnswered: 'You already shared times. Sharing again replaces them.',
+    waitingOnAgent: {
+      opener: {
+        awake:
+          'Waiting for your agent to send the invitation from your calendar. Your desk is running, so this takes a minute or two.',
+        slow: 'Your agent has not sent the invitation yet. Send it yourself with the calendar file, then say so here.',
+        asleep:
+          'Your desk is not running, so your agent cannot send the invitation now. Start it with homingbird run, or send it yourself with the calendar file.',
+      },
+      attendee: {
+        awake:
+          'Waiting for your agent to add the meeting to your calendar. Your desk is running, so this takes a minute or two.',
+        slow: 'Your agent has not added the meeting yet. Add it yourself, then say so here.',
+        asleep:
+          'Your desk is not running, so your agent cannot add the meeting now. Start it with homingbird run, or add it yourself.',
+      },
+    },
     attendanceTitle: 'In your calendar',
     attendance: {
       waiting_invite: 'The invitation has not been sent yet.',
@@ -1367,6 +1385,7 @@ export const en = {
     delegationNote: 'Your agent adds settled meetings to your calendar unless you turned that off.',
     delegationChange: 'Change this in your profile',
     addMeeting: 'Add to my calendar',
+    sentInviteMyself: 'I sent it myself',
     addedMeetingMyself: 'I added it myself',
     removeMeeting: 'Take it out',
     cannotCome: 'I cannot come',

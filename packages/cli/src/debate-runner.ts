@@ -1,9 +1,11 @@
-import { type Result, Task as T } from '@homingbird/kernel'
+import { type HasClock, type Result, Task as T } from '@homingbird/kernel'
 import {
   type ApiError,
   type AsRead,
   type Authors,
+  type CalendarOutcome,
   ballotReaderPrompt,
+  calendarReportIn,
   debateExtractionIn,
   debateReaderPrompt,
   debateResultIn,
@@ -12,7 +14,11 @@ import {
   debateTurnRetryPrompt,
   debateVotePrompt,
   extractedRoom,
+  freeSlotsIn,
+  freeSlotsPrompt,
+  isScheduled,
   isStaleTurnRefusal,
+  meetingPrompt,
   quotedDebate,
   quotedDrafts,
   statedModelIn,
@@ -27,11 +33,11 @@ import { type Session, calling } from './session.ts'
 /**
  * Answers what the debate rooms ask of this desk's agent: its next turn, its draft of the room's result,
  * or its vote on the other agents' drafts. In split mode a reader describes the room first and the agent
- * writes, or votes, from that description alone.
+ * writes, or votes, from that description alone. A scheduling room wakes the agent too, to read its
+ * person's calendar with its own tool and to send, accept, decline or cancel the meeting there; an agent
+ * that cannot leaves it to its person, as a desk without a calendar does.
  */
-export const answerDebates = <R extends { readonly nonce: () => string }>(
-  desk: DebateDesk<R>,
-): T.Task<void, CliFailure, R> =>
+export const answerDebates = <R extends DeskServices>(desk: DebateDesk<R>): T.Task<void, CliFailure, R> =>
   T.gen(function* () {
     const { asks, ballots, meetings } = yield* waitingAsks(desk)
     if (asks.length + ballots.length + meetings.length === 0) return
@@ -42,7 +48,7 @@ export const answerDebates = <R extends { readonly nonce: () => string }>(
       desk.tried.add(attempt)
       if (ask.ask === 'turn') yield* takeTurn(desk, ask.debate, authors)
       else if (ask.ask === 'result') yield* draftResult(desk, ask.debate, authors)
-      else if (ask.ask === 'slots') yield* declineCalendar(desk, ask.debate)
+      else if (ask.ask === 'slots') yield* shareFreeSlots(desk, ask.debate, authors)
       else
         desk.report(
           outcome({ step: 'debate-skipped', debateId: ask.debate.id }, unknownAskText(ask.debate.id)),
@@ -58,7 +64,7 @@ export const answerDebates = <R extends { readonly nonce: () => string }>(
       const attempt = `${meeting.debate.id}:${meeting.ask}`
       if (desk.tried.has(attempt)) continue
       desk.tried.add(attempt)
-      yield* reportNoCalendar(desk, meeting)
+      yield* useCalendar(desk, meeting, authors)
     }
   })
 
@@ -66,6 +72,8 @@ export interface DebateDesk<R> {
   readonly session: Session
   readonly member: AsRead.Member
   readonly isSplit: boolean
+  /** The IANA time zone of this computer, where the person's working hours are. */
+  readonly timeZone: string
   /** The asks already tried, so a room that waits on others is not answered twice. */
   readonly tried: Set<string>
   readonly told: Set<string>
@@ -81,6 +89,8 @@ export interface DebateDesk<R> {
 
 export const DEBATES_OFF_TEXT =
   'Debate rooms are turned off in this organization; this desk answers notes and draft requests only.'
+
+type DeskServices = HasClock & { readonly nonce: () => string }
 
 const DEBATES_OFF = 'debates-off'
 
@@ -110,7 +120,7 @@ const waitingAsks = <R>(desk: DebateDesk<R>): T.Task<Waiting, CliFailure> =>
     return { asks: [], ballots: [], meetings: [] }
   })
 
-const takeTurn = <R extends { readonly nonce: () => string }>(
+const takeTurn = <R extends DeskServices>(
   desk: DebateDesk<R>,
   debate: AsRead.Debate,
   authors: Authors,
@@ -136,7 +146,84 @@ const takeTurn = <R extends { readonly nonce: () => string }>(
     )
   })
 
-/** The runner has no calendar to read: it says so, and the person is asked to choose their times. */
+/**
+ * The agent reads its person's calendar with its own tool and prints their free times, which the desk
+ * shares; when it cannot, or prints anything else, the person is asked to choose their times themself.
+ */
+const shareFreeSlots = <R extends DeskServices>(
+  desk: DebateDesk<R>,
+  debate: AsRead.Debate,
+  authors: Authors,
+): T.Task<void, CliFailure, R> =>
+  T.gen(function* () {
+    const env = yield* T.ask<R>()
+    if (!isScheduled(debate)) return yield* declineCalendar(desk, debate)
+    const what = `the scheduling room ${debate.id}`
+    const prompt = freeSlotsPrompt({
+      debate,
+      viewerId: desk.member.id,
+      authors,
+      timeZone: desk.timeZone,
+      now: env.clock.now(),
+      nonce: env.nonce,
+    })
+    const output = yield* desk.run('agent', prompt, what)
+    const answer = output === null ? null : freeSlotsIn(output, debate.schedule.window)
+    if (answer === null || 'cannotReadCalendar' in answer) {
+      if (output !== null && answer === null)
+        yield* desk.warn(`The agent command did not print free times in the expected form for ${what}.`)
+      return yield* declineCalendar(desk, debate)
+    }
+    const posted = yield* T.result(
+      desk.session.api['debates.slots.post']({ params: { id: debate.id }, body: { slots: answer.slots } }),
+    )
+    if (posted._tag === 'Err')
+      return yield* desk.warn(`The free times for ${what} were refused: ${posted.error.message}`)
+    desk.report(
+      outcome(
+        { step: 'debate-slots', debateId: debate.id, shared: answer.slots.length },
+        `Shared ${answer.slots.length} free time(s) from your calendar in ${what}. Only free and busy times leave this computer; the others see only the time the room finds.`,
+      ),
+    )
+  })
+
+/**
+ * The agent does what the settled meeting asks in its person's calendar and prints what it did, which the
+ * desk reports; when it cannot, or prints anything else, the desk reports failed and the person does it.
+ */
+const useCalendar = <R extends DeskServices>(
+  desk: DebateDesk<R>,
+  meeting: AsRead.MeetingAsk,
+  authors: Authors,
+): T.Task<void, CliFailure, R> =>
+  T.gen(function* () {
+    const env = yield* T.ask<R>()
+    const { debate, ask } = meeting
+    if (ask === 'unknown')
+      return desk.report(outcome({ step: 'debate-skipped', debateId: debate.id }, unknownAskText(debate.id)))
+    const what = `the meeting of the scheduling room ${debate.id}`
+    const prompt = meetingPrompt({ meeting, authors, timeZone: desk.timeZone, nonce: env.nonce })
+    const output = yield* desk.run('agent', prompt, what)
+    const report = output === null ? null : calendarReportIn(output, ask)
+    if (report === null || report.outcome === 'failed') {
+      if (output !== null && report === null)
+        yield* desk.warn(`The agent command did not print what it did in the expected form for ${what}.`)
+      return yield* reportNoCalendar(desk, meeting)
+    }
+    const reported = yield* T.result(
+      desk.session.api['debates.calendar.report']({ params: { id: debate.id }, body: report }),
+    )
+    if (reported._tag === 'Err')
+      return yield* desk.warn(`The report on ${what} was refused: ${reported.error.message}`)
+    desk.report(
+      outcome(
+        { step: 'debate-meeting', debateId: debate.id, ask, outcome: report.outcome },
+        `${CALENDAR_DONE[report.outcome]} for ${what}.`,
+      ),
+    )
+  })
+
+/** The agent cannot read a calendar: the desk says so, and the person is asked to choose their times. */
 const declineCalendar = <R>(desk: DebateDesk<R>, debate: AsRead.Debate): T.Task<void, CliFailure, R> =>
   T.gen(function* () {
     const what = `the scheduling room ${debate.id}`
@@ -153,21 +240,18 @@ const declineCalendar = <R>(desk: DebateDesk<R>, debate: AsRead.Debate): T.Task<
     desk.report(
       outcome(
         { step: 'debate-slots', debateId: debate.id },
-        `This desk cannot read a calendar, so ${what} asks your person to choose their free times in the web client.`,
+        `Your agent could not read a calendar, so ${what} asks your person to choose their free times in the web client.`,
       ),
     )
   })
 
 /**
- * The runner has no calendar, so it reports `failed` for every meeting it is asked to put in or take out:
- * the server then leaves adding to the person, and counts a person it could not take out as out and tells
- * them to remove the meeting by hand. An ask this command line does not know is skipped, reporting nothing.
+ * The agent could not use a calendar, so the desk reports `failed`: the server then leaves adding to the
+ * person, and counts a person it could not take out as out and tells them to remove the meeting by hand.
  */
 const reportNoCalendar = <R>(desk: DebateDesk<R>, meeting: AsRead.MeetingAsk): T.Task<void, CliFailure, R> =>
   T.gen(function* () {
     const { debate, ask } = meeting
-    if (ask === 'unknown')
-      return desk.report(outcome({ step: 'debate-skipped', debateId: debate.id }, unknownAskText(debate.id)))
     const what = `the scheduling room ${debate.id}`
     const reported = yield* T.result(
       desk.session.api['debates.calendar.report']({ params: { id: debate.id }, body: { outcome: 'failed' } }),
@@ -179,7 +263,7 @@ const reportNoCalendar = <R>(desk: DebateDesk<R>, meeting: AsRead.MeetingAsk): T
     desk.report(
       outcome(
         { step: 'debate-meeting', debateId: debate.id, ask },
-        `This desk cannot use a calendar, so ${what} asks your person to ${ask === 'send_invite' || ask === 'accept_invite' ? 'put the meeting in their calendar' : 'take the meeting out of their calendar'} by hand.`,
+        `Your agent could not use a calendar, so ${what} asks your person to ${ask === 'send_invite' || ask === 'accept_invite' ? 'put the meeting in their calendar' : 'take the meeting out of their calendar'} by hand.`,
       ),
     )
   })
@@ -190,7 +274,7 @@ type Posted = Result.Result<AsRead.Debate, ApiError>
  * Asks the agent for its turn and posts it after the last turn it was shown, so a turn written while
  * others spoke is refused rather than saved blind; null when the agent gave no turn to post.
  */
-const writeAndPostTurn = <R extends { readonly nonce: () => string }>(
+const writeAndPostTurn = <R extends DeskServices>(
   desk: DebateDesk<R>,
   debate: AsRead.Debate,
   prompt: string,
@@ -219,7 +303,7 @@ const writeAndPostTurn = <R extends { readonly nonce: () => string }>(
   })
 
 /** Once, after a stale refusal: the room again with the turns the agent missed, and its turn rewritten. */
-const retryTurn = <R extends { readonly nonce: () => string }>(
+const retryTurn = <R extends DeskServices>(
   desk: DebateDesk<R>,
   debate: AsRead.Debate,
   authors: Authors,
@@ -233,7 +317,7 @@ const retryTurn = <R extends { readonly nonce: () => string }>(
     return yield* writeAndPostTurn(desk, moved, prompt, what)
   })
 
-const draftResult = <R extends { readonly nonce: () => string }>(
+const draftResult = <R extends DeskServices>(
   desk: DebateDesk<R>,
   debate: AsRead.Debate,
   authors: Authors,
@@ -266,7 +350,7 @@ const draftResult = <R extends { readonly nonce: () => string }>(
     )
   })
 
-const vote = <R extends { readonly nonce: () => string }>(
+const vote = <R extends DeskServices>(
   desk: DebateDesk<R>,
   debate: AsRead.Debate,
   authors: Authors,
@@ -307,7 +391,7 @@ const vote = <R extends { readonly nonce: () => string }>(
 const modelOf = (model: string | null): { model?: string } => (model === null ? {} : { model })
 
 /** The room as the writer reads it: quoted in full, or in split mode the reader's checked description. */
-const roomFor = <R extends { readonly nonce: () => string }>(
+const roomFor = <R extends DeskServices>(
   desk: DebateDesk<R>,
   debate: AsRead.Debate,
   authors: Authors,
@@ -330,3 +414,11 @@ const roomFor = <R extends { readonly nonce: () => string }>(
     }
     return extractedRoom(debate, desk.member.id, extracted, authors, env.nonce)
   })
+
+const CALENDAR_DONE: Readonly<Record<Exclude<CalendarOutcome, 'failed'>, string>> = {
+  sent: 'Sent the invitation from your calendar',
+  accepted: 'Accepted the invitation in your calendar',
+  conflict: 'Did not accept the invitation, as your calendar is busy then; you are asked on a card',
+  declined: 'Declined the invitation in your calendar',
+  cancelled: 'Cancelled the invitation in your calendar',
+}

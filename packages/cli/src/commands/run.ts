@@ -420,6 +420,7 @@ const debateDeskOf = (runner: Runner): DebateDesk<DeskEnv> => ({
   session: runner.session,
   member: runner.member,
   isSplit: runner.split !== null,
+  timeZone: new Intl.DateTimeFormat().resolvedOptions().timeZone,
   tried: runner.triedDebates,
   told: runner.told,
   report: runner.report,

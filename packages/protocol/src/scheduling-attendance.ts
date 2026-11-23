@@ -70,6 +70,15 @@ export const askWaitingOn = (attendance: Attendance, memberId: MemberId): Attend
   return state === 'removing' ? REMOVING_ASK[role] : null
 }
 
+/** No desk of theirs runs, or it left their part waiting `AGENT_PICKUP_MS`: the person may then do it. */
+export const isAgentIdle = (facts: {
+  readonly agentOnline: boolean
+  readonly since: number
+  readonly now: number
+}): boolean => !facts.agentOnline || facts.now - facts.since >= AGENT_PICKUP_MS
+
+export const AGENT_PICKUP_MS = 10 * 60_000
+
 /** For the opener, `added` means the invitation was sent; for anyone else, that it is in their calendar. */
 export interface Attendance {
   readonly openedBy: MemberId
@@ -82,7 +91,8 @@ export interface AttendeeAttendance {
 }
 
 /**
- * `asked` waits for the person's click, `by_hand` for them to do it, `adding` or `removing` for their agent;
+ * `asked` waits for the person's click, `by_hand` for them to do it, `adding` or `removing` for their agent,
+ * which a person may do themself instead once that agent is idle (see `isAgentIdle`);
  * `not_invited` is an optional person busy at the time, left out of the invitation.
  */
 export type AttendanceState = (typeof ATTENDANCE_STATES)[number]
@@ -92,7 +102,11 @@ export type Adding = 'agent' | 'agent_after_click' | 'person'
 
 export type AttendanceEvent =
   | { readonly type: 'report'; readonly memberId: MemberId; readonly outcome: CalendarOutcome }
-  | { readonly type: 'add'; readonly memberId: MemberId }
+  | {
+      readonly type: 'add'
+      readonly memberId: MemberId
+      readonly agentIdle?: boolean
+    }
   | { readonly type: 'decline'; readonly memberId: MemberId }
   | { readonly type: 'remove'; readonly memberId: MemberId }
 
@@ -161,6 +175,7 @@ const nextStateOf = (
     case 'report':
       return REPORTED[role][event.outcome]?.find(([from]) => from === state)?.[1] ?? null
     case 'add':
+      if (state === 'adding') return event.agentIdle === true ? 'added' : null
       return state === 'asked' ? 'adding' : state === 'by_hand' ? 'added' : null
     case 'decline':
       return role === 'attendee' && isWaitingOnPerson(state) ? 'declined' : null

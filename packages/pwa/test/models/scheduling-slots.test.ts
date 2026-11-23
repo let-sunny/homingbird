@@ -110,9 +110,9 @@ describe('schedulingSlotsModel', () => {
     expect(model(room({}, {}, 'choosing'), { joined: true })).not.toBeNull()
   })
 
-  it('is not there when an agent of theirs takes part, when the room is not collecting, or for someone not invited', () => {
-    expect(model(room({}, {}, 'by_agent'), { joined: true })).toBeNull()
+  it('is not there while an agent of theirs is still to answer, when the room is not collecting, or for someone not invited', () => {
     expect(model(room({}, {}, 'waiting'), { joined: true })).toBeNull()
+    expect(model(room({}, {}, 'unknown' as never), { joined: true })).toBeNull()
     expect(model(room({ status: 'closed' }))).toBeNull()
     expect(model(debate())).toBeNull()
     expect(
@@ -123,6 +123,14 @@ describe('schedulingSlotsModel', () => {
         now: START,
       }),
     ).toBeNull()
+  })
+
+  it('lets a person replace the times their agent or they themself shared while the room collects', () => {
+    const byAgent = model(room({}, {}, 'by_agent'), { joined: true })!
+    expect(byAgent.answered).toBe(strings.scheduling.pickAnsweredByAgent)
+    const byPerson = model(room({}, {}, 'by_person'), { joined: true })!
+    expect(byPerson.answered).toBe(strings.scheduling.pickAnswered)
+    expect(model(room({}, {}, 'choosing'), { joined: true })!.answered).toBeNull()
   })
 
   it('starts from the times the person gave before, only for the hours those times cover whole', () => {

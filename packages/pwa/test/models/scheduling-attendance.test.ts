@@ -1,10 +1,11 @@
-import type { AsRead } from '@homingbird/protocol'
+import { AGENT_PICKUP_MS, type AsRead } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { schedulingAttendanceModel } from '../../src/models/scheduling-attendance.ts'
 import { strings } from '../../src/strings.ts'
-import { ANA, BEN, debate, member } from '../support/fixtures.ts'
+import { ANA, BEN, debate, entry, member } from '../support/fixtures.ts'
 
 const NOW = Date.UTC(2026, 10, 19, 12)
+const AGENT_PICKUP_MINUTES = AGENT_PICKUP_MS / 60_000
 const members = new Map([
   [ANA, member(ANA, 'Ana')],
   [BEN, member(BEN, 'Ben')],
@@ -47,7 +48,40 @@ const settled = (
   })
 
 const as = (viewerId: typeof ANA, room: ReturnType<typeof settled>, hasAgent: boolean) =>
-  schedulingAttendanceModel({ debate: room, viewerId, hasAgent, members, now: NOW })
+  schedulingAttendanceModel({ debate: room, viewerId, hasAgent, directory: [], members, now: NOW })
+
+const deskOf = (viewerId: typeof ANA, running: boolean) => [
+  entry(viewerId, 'Viewer', { presence: { humanOnline: true, agentOnline: running } }),
+]
+
+/** The viewer's part of the meeting waits on their agent, since a while before now. */
+const waitingOnAgent = (viewerId: typeof ANA, minutesAgo: number | null, running: boolean) => {
+  const room = settled('adding')
+  const schedule = room.schedule!
+  return schedulingAttendanceModel({
+    debate: {
+      ...room,
+      closedAt: NOW - 60 * 60_000,
+      schedule: {
+        ...schedule,
+        attendees: schedule.attendees.map((one) =>
+          one.memberId === viewerId
+            ? {
+                ...one,
+                attendance: 'adding' as const,
+                ...(minutesAgo !== null && { attendanceSince: NOW - minutesAgo * 60_000 }),
+              }
+            : one,
+        ),
+      },
+    },
+    viewerId,
+    hasAgent: true,
+    directory: deskOf(viewerId, running),
+    members,
+    now: NOW,
+  })!
+}
 
 describe('schedulingAttendanceModel', () => {
   it('offers a person with an agent to add the meeting, or to say they cannot come', () => {
@@ -81,6 +115,7 @@ describe('schedulingAttendanceModel', () => {
         debate: settled('asked'),
         viewerId: BEN,
         hasAgent: false,
+        directory: [],
         members: new Map([[BEN, member(BEN, 'Ben')]]),
         now: NOW,
       })!.calendarFile,
@@ -92,6 +127,7 @@ describe('schedulingAttendanceModel', () => {
       debate: settled('asked'),
       viewerId: BEN,
       hasAgent: false,
+      directory: [],
       members: new Map([
         [ANA, member(ANA, 'Ana')],
         ['mem_zed000000000' as never, member(ANA, 'Zed')],
@@ -100,6 +136,50 @@ describe('schedulingAttendanceModel', () => {
     })!
     expect(shown.calendarFile?.text).toContain('ORGANIZER;CN="Ana"')
     expect(shown.calendarFile?.text).not.toContain('CN="Ben"')
+  })
+
+  it('says it waits for the agent while the desk runs, with nothing to do by hand yet', () => {
+    for (const [viewer, said] of [
+      [ANA, strings.scheduling.waitingOnAgent.opener.awake],
+      [BEN, strings.scheduling.waitingOnAgent.attendee.awake],
+    ] as const) {
+      const shown = waitingOnAgent(viewer, AGENT_PICKUP_MINUTES - 1, true)
+      expect(shown.status).toBe(said)
+      expect(shown.actions.map((action) => action.name)).toEqual(['remove'])
+      expect(shown.calendarFile).toBeNull()
+    }
+  })
+
+  it('offers the opener to send the invitation themself once the agent left it waiting or the desk is off', () => {
+    for (const [minutes, running, said] of [
+      [AGENT_PICKUP_MINUTES, true, strings.scheduling.waitingOnAgent.opener.slow],
+      [null, true, strings.scheduling.waitingOnAgent.opener.slow],
+      [0, false, strings.scheduling.waitingOnAgent.opener.asleep],
+    ] as const) {
+      const shown = waitingOnAgent(ANA, minutes, running)
+      expect(shown.status).toBe(said)
+      expect(shown.actions[0]).toEqual({
+        name: 'add',
+        label: strings.scheduling.sentInviteMyself,
+        emphasis: 'primary',
+      })
+      expect(shown.calendarFile?.text).toContain('ATTENDEE;CN="Ben"')
+    }
+  })
+
+  it('offers anyone else to add the meeting themself once their agent left it waiting or their desk is off', () => {
+    const slow = waitingOnAgent(BEN, AGENT_PICKUP_MINUTES + 5, true)
+    expect(slow.status).toBe(strings.scheduling.waitingOnAgent.attendee.slow)
+    expect(slow.actions.map((action) => action.label)).toEqual([
+      strings.scheduling.addedMeetingMyself,
+      strings.scheduling.removeMeeting,
+    ])
+    expect(slow.calendarFile).not.toBeNull()
+    expect(waitingOnAgent(BEN, 0, false).status).toBe(strings.scheduling.waitingOnAgent.attendee.asleep)
+  })
+
+  it('gives no calendar file before the invitation is sent, even to a person without an agent', () => {
+    expect(as(BEN, settled('waiting_invite'), false)!.calendarFile).toBeNull()
   })
 
   it('offers to take the meeting out once it is in the calendar, and gives no second add', () => {
