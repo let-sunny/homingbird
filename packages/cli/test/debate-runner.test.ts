@@ -92,6 +92,59 @@ describe('the runner in a debate room', () => {
     expect(r.w.agentRuns).toHaveLength(0)
   })
 
+  it.each([
+    ['send_invite', /put the meeting in their calendar by hand/],
+    ['accept_invite', /put the meeting in their calendar by hand/],
+    ['decline_invite', /take the meeting out of their calendar by hand/],
+    ['cancel_invite', /take the meeting out of their calendar by hand/],
+  ] as const)('reports failed for a %s ask, running no agent', async (ask, said) => {
+    const posted: unknown[] = []
+    const r = runner({
+      stubs: {
+        'debates.waiting': once({ asks: [], meetings: [{ debate: ROOM, ask }] }, { asks: [] }),
+        'debates.calendar.report': (request) => {
+          posted.push(request.body)
+          return ROOM
+        },
+      },
+      agent: () => ({ exitCode: 0, output: 'unused' }),
+    })
+    await settle(() => posted.length === 1 && r.w.lines.some((line) => said.test(line)))
+    await r.stop()
+    expect(posted).toEqual([{ outcome: 'failed' }])
+    expect(r.w.agentRuns).toHaveLength(0)
+  })
+
+  it('skips a meeting ask it does not know, reporting nothing', async () => {
+    const r = runner({
+      stubs: {
+        'debates.waiting': once(
+          { asks: [], meetings: [{ debate: ROOM, ask: 'unknown' as never }] },
+          { asks: [] },
+        ),
+      },
+      agent: () => ({ exitCode: 0, output: 'unused' }),
+    })
+    await settle(() => r.w.lines.some((line) => line.includes('asks for something this command line')))
+    await r.stop()
+    expect(r.w.calls.map((call) => call.route)).not.toContain('debates.calendar.report')
+  })
+
+  it('warns when the room refuses that report', async () => {
+    const r = runner({
+      stubs: {
+        'debates.waiting': once({ asks: [], meetings: [{ debate: ROOM, ask: 'send_invite' }] }, { asks: [] }),
+        'debates.calendar.report': () => ({ _tag: 'Conflict', message: 'Nothing waits.' }) as never,
+      },
+      agent: () => ({ exitCode: 0, output: 'unused' }),
+    })
+    await settle(() => r.w.problems.length > 0)
+    await r.stop()
+    expect(r.w.problems).toEqual([
+      expect.stringMatching(/calendar cannot be used in the scheduling room .* was refused/),
+    ])
+  })
+
   it('warns when the room refuses that answer', async () => {
     const r = runner({
       stubs: {

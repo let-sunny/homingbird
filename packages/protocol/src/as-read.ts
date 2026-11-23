@@ -16,6 +16,7 @@ import type {
   Debate as DebateSchema,
   DebateStatus as DebateStatusSchema,
   DebateSummary as DebateSummarySchema,
+  MeetingAsk as MeetingAskSchema,
 } from './debates.ts'
 import type { DeskWake as DeskWakeSchema, DeskWakeTest as DeskWakeTestSchema } from './desk-wake.ts'
 import type {
@@ -94,6 +95,7 @@ export type Debate = S.Read<typeof DebateSchema>
 export type DebateStatus = S.Read<typeof DebateStatusSchema>
 export type DebateSummary = S.Read<typeof DebateSummarySchema>
 export type DebateAsk = S.Read<typeof DebateAskSchema>
+export type MeetingAsk = S.Read<typeof MeetingAskSchema>
 export type DebateResult = S.Read<typeof DebateResultSchema>
 export type RoomResult = S.Read<typeof RoomResultSchema>
 export type DebateExport = S.Read<typeof DebateExportSchema>
