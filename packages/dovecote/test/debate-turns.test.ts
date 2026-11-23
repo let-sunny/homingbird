@@ -149,6 +149,7 @@ describe('taking turns', () => {
     expect(benAsks.asks).toEqual([])
     expect(benAsks.upcoming.map((debate: { id: string }) => debate.id)).toEqual([id])
     expect((await cast.ana.api('GET', '/debate-asks')).json).toEqual({
+      answers: [],
       asks: [],
       upcoming: [],
       ballots: [],

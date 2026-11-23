@@ -3464,6 +3464,7 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
     expect((await anaAgent.api('GET', `/debates/${id}`)).status).toBe(404)
     expect((await anaAgent.api('POST', `/debates/${id}/turns`, { body: 'Let me in.' })).status).toBe(404)
     expect((await anaAgent.api('GET', '/debate-asks')).json).toEqual({
+      answers: [],
       asks: [],
       upcoming: [],
       ballots: [],

@@ -28,6 +28,7 @@ describe('the debate handlers', () => {
     await ana.api('POST', '/debates', { question: 'Which plan holds up?' })
     for (const caller of [ana, anaAgent])
       expect(Object.keys((await caller.api('GET', '/debate-asks')).json).sort()).toEqual([
+        'answers',
         'asks',
         'ballots',
         'ended',

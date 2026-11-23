@@ -134,6 +134,7 @@ describe('a room that moves on by itself', () => {
     await server.clock.advance(24 * 60 * 60_000 + 1)
     expect((await cast.anaAgent.api('GET', '/debate-asks')).json.ended).toEqual([])
     expect((await cast.ana.api('GET', '/debate-asks')).json).toEqual({
+      answers: [],
       asks: [],
       upcoming: [],
       ballots: [],

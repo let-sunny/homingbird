@@ -27,6 +27,7 @@ describe('loading the workspace', () => {
       'channels.list': () => ({ channels: [channel('billing')], hasMore: false, cursor: null }),
       'inbox.list': () => ({ items: [] }),
       'debates.list': () => ({ debates: [] }),
+      'debateSuggestions.list': () => ({ suggestions: [] }),
     })
     await run(loadWorkspace)
     expect(state.conversationsLoaded.get()).toBe(true)
@@ -39,6 +40,7 @@ describe('loading the workspace', () => {
         'contacts.list',
         'conversations.list',
         'credentials.list',
+        'debateSuggestions.list',
         'debates.list',
         'directory.list',
         'draftRequests.list',
