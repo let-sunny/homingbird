@@ -4,7 +4,9 @@ import {
   type DebateRoom,
   type MemberId,
   SCHEDULING_RULES,
+  type ScheduleLimits,
   type TimeSpan,
+  allowedStretches,
   clippedToLimits,
   scheduleOf,
   windowAheadOf,
@@ -159,7 +161,7 @@ const give = (
         position: current.turns.length + 1,
         memberId,
         agentName,
-        body: `Free, except ${hourLabel(busy.from)} to ${hourLabel(busy.to)} UTC each day.`,
+        body: `Free in working hours, except ${hourLabel(busy.from)} to ${hourLabel(busy.to)} each day.`,
         at: now,
       },
     ],
@@ -168,7 +170,7 @@ const give = (
       memberId,
       'by_agent',
       clippedToLimits(
-        freeSlotsOf(busy, windowAheadOf(current.schedule!.window, now)),
+        freeSlotsOf(busy, windowAheadOf(current.schedule!.window, now), current.schedule!),
         windowAheadOf(current.schedule!.window, now),
         current.schedule!,
       ),
@@ -177,20 +179,29 @@ const give = (
   settleWhenAnswered(world, debateId, adding)
 }
 
-/** Everything in the window but one busy stretch each UTC day: all an agent says of its person's calendar. */
-const freeSlotsOf = (busy: BusyHours, window: TimeSpan): TimeSpan[] => {
-  const firstDay = Math.floor(window.startsAt / DAY_MS) * DAY_MS
-  const days = Math.ceil((window.endsAt - firstDay) / DAY_MS)
-  return Array.from({ length: days }, (_, index) => firstDay + index * DAY_MS)
-    .flatMap((day) => [
-      { startsAt: day, endsAt: day + busy.from * HOUR_MS },
-      { startsAt: day + busy.to * HOUR_MS, endsAt: day + DAY_MS },
-    ])
-    .map((span) => ({
-      startsAt: Math.max(span.startsAt, window.startsAt),
-      endsAt: Math.min(span.endsAt, window.endsAt),
-    }))
-    .filter((span) => span.endsAt > span.startsAt)
+/**
+ * The working hours of the visitor's zone, minus one busy stretch each day: all an agent says of its
+ * person's calendar. The flock's own limits win over the default 09:00 to 18:00.
+ */
+const freeSlotsOf = (busy: BusyHours, window: TimeSpan, limits: ScheduleLimits): TimeSpan[] => {
+  const timeZone = limits.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+  const working: ScheduleLimits = { ...limits, ...(limits.hours === undefined && WORKING_DAY), timeZone }
+  const busyStretches = allowedStretches(window, {
+    timeZone,
+    hours: { from: busy.from * 60, to: busy.to * 60 },
+  })
+  return allowedStretches(window, working).flatMap((stretch) => withoutBusy(stretch, busyStretches))
+}
+
+const withoutBusy = (stretch: TimeSpan, busyStretches: ReadonlyArray<TimeSpan>): TimeSpan[] => {
+  const free: TimeSpan[] = []
+  let from = stretch.startsAt
+  for (const busy of busyStretches) {
+    if (busy.endsAt <= from || busy.startsAt >= stretch.endsAt) continue
+    if (busy.startsAt > from) free.push({ startsAt: from, endsAt: busy.startsAt })
+    from = Math.max(from, busy.endsAt)
+  }
+  return from < stretch.endsAt ? [...free, { startsAt: from, endsAt: stretch.endsAt }] : free
 }
 
 interface BusyHours {
@@ -198,10 +209,12 @@ interface BusyHours {
   readonly to: number
 }
 
-/** When the visitor's own calendar is busy, in UTC hours. */
-const OWN_BUSY_HOURS: BusyHours = { from: 3, to: 5 }
+const WORKING_DAY = { hours: { from: 9 * 60, to: 18 * 60 } }
 
-/** When each colleague's calendar is busy, in UTC hours, by the order they were asked. */
+/** When the visitor's own calendar is busy, in hours of their day. */
+const OWN_BUSY_HOURS: BusyHours = { from: 12, to: 13 }
+
+/** When each colleague's calendar is busy, in hours of their day, by the order they were asked. */
 const BUSY_HOURS: ReadonlyArray<BusyHours> = [
   { from: 9, to: 11 },
   { from: 13, to: 15 },
@@ -210,6 +223,3 @@ const BUSY_HOURS: ReadonlyArray<BusyHours> = [
 ]
 
 const hourLabel = (hour: number): string => `${String(hour).padStart(2, '0')}:00`
-
-const HOUR_MS = 3_600_000
-const DAY_MS = 24 * HOUR_MS

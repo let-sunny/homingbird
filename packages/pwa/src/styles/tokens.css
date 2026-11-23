@@ -46,6 +46,7 @@
   --hb-color-danger: var(--hb-alert);
   --hb-color-danger-text: #b42318;
   --hb-color-bubble-mine: #c9d6ec;
+  --hb-color-muted-on-mine: #46526a;
   --hb-color-bubble-theirs: #ffffff;
   --hb-color-titlebar: var(--hb-night);
   --hb-color-on-titlebar: var(--hb-mist);
@@ -181,6 +182,7 @@
     --hb-color-danger-text: light-dark(#b42318, #ff9a97);
     --hb-color-line: light-dark(var(--hb-ink), var(--hb-pip-blue));
     --hb-color-bubble-mine: light-dark(#c9d6ec, #3b5380);
+    --hb-color-muted-on-mine: light-dark(#46526a, #cdd7ea);
     --hb-color-bubble-theirs: light-dark(#ffffff, #2b3d5e);
     --hb-color-titlebar: light-dark(var(--hb-night), #1a2740);
     --hb-color-on-titlebar: var(--hb-mist);

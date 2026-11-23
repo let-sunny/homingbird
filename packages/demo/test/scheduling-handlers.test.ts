@@ -199,6 +199,22 @@ describe('scheduling flocks', () => {
     )
   })
 
+  it('offers working hours in the visitor’s own zone when no hours were chosen', async () => {
+    const { api, clock, ana, ben } = started()
+    const { hours: _hours, timeZone: _zone, ...open } = setup([ana, ben])
+    const room = await succeeded(api['scheduling.create']({ body: open }))
+    await clock.advance(ANSWER_AFTER_MS + 2 * ANSWER_GAP_MS)
+    const settled = await succeeded(api['debates.get']({ params: { id: room.id } }))
+    const result = settled.result?.result
+    expect(result?.kind).toBe('slot')
+    const hourOf = (at: number): number =>
+      Number(new Intl.DateTimeFormat('en', { hour: 'numeric', hourCycle: 'h23' }).format(at))
+    if (result?.kind === 'slot') {
+      expect(hourOf(result.startsAt)).toBeGreaterThanOrEqual(9)
+      expect(hourOf(result.endsAt - 1)).toBeLessThan(18)
+    }
+  })
+
   it('shares and settles only inside the weekdays and hours chosen, in the zone of the visitor', async () => {
     const { api, clock, ana } = started()
     const limits = { weekdays: [7], hours: { from: 780, to: 900 }, timeZone: 'UTC' }
@@ -316,5 +332,7 @@ const setup = (
   minutes: 60,
   window: WINDOW,
   attendees: people.map((memberId) => ({ memberId, required: true })),
+  hours: { from: 0, to: 1440 },
+  timeZone: 'UTC',
   ...changes,
 })

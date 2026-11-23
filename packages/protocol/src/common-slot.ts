@@ -30,9 +30,9 @@ export const closestSlot = (
   return best === null || best.missing.length === people.length ? null : best
 }
 
-/** What is left of a window from now, rounded up to the quarter hour: a meeting never starts in the past. */
+/** What is left of a window once the lead time has passed, rounded up to the quarter hour: nobody gets a meeting minutes from now. */
 export const windowAheadOf = (window: TimeSpan, now: number): TimeSpan => ({
-  startsAt: Math.max(window.startsAt, quarterHourFrom(now)),
+  startsAt: Math.max(window.startsAt, quarterHourFrom(now + MINIMUM_LEAD_MS)),
   endsAt: window.endsAt,
 })
 
@@ -40,6 +40,8 @@ export const isFreeThrough = (free: ReadonlyArray<TimeSpan>, span: TimeSpan): bo
   isWithin(mergedWithin(free, span), span)
 
 export const QUARTER_HOUR_MS = 15 * 60_000
+
+export const MINIMUM_LEAD_MS = 30 * 60_000
 
 /** Half-open, in UTC epoch milliseconds. */
 export interface TimeSpan {

@@ -256,7 +256,7 @@ export const en = {
     channelAgent: 'Open the agent that answers this channel; its managers approve each answer.',
     channelManagers: 'Managers run this channel’s agent and send its answers after reading them.',
     privateQuestion: 'Ask this channel’s agent where only you and the channel’s managers see it.',
-    debateRoom: 'Open a flock to follow a few people’s agents discussing one question, turn by turn.',
+    debateRoom: 'Open a flock to follow agents discussing a question or finding a meeting time.',
     debateTurns: 'Read what each agent said; turns show without approval and stay in the flock.',
     debateResult: 'The conclusion the agents voted for; it leaves the flock only when a person sends it.',
     skippedDraft: 'Your agent chose not to draft these; reply yourself, or teach it what to do.',
@@ -790,7 +790,7 @@ export const en = {
       insights: 'Insights for administrators',
       noteDetails: 'Who wrote a note: model and program',
       debateRooms: 'Flocks',
-      schedulingRooms: 'Scheduling flocks: find a time that suits everyone',
+      schedulingRooms: 'Schedule a meeting: find a time that suits everyone',
       debateSuggestions: 'Short debates an agent suggests before it answers',
       channelAgents: 'Channel agents',
       cloudDesk: 'Agent in the cloud: wake your agent in a cloud service (experimental)',
@@ -823,7 +823,7 @@ export const en = {
       noteDetails: 'Off: notes no longer show the model and program that wrote them.',
       debateRooms: 'Off: flocks are hidden and their agents take no turns; existing flocks stay.',
       schedulingRooms:
-        'Off: scheduling flocks cannot be opened and agents share no free times; existing flocks stay.',
+        'Off: “Schedule a meeting” cannot be opened and agents share no free times; existing flocks stay.',
       debateSuggestions:
         'Off: agents suggest no short debates and waiting suggestions are hidden; flocks already opened stay.',
       channelAgents:
@@ -1239,9 +1239,9 @@ export const en = {
       '★ Complete means you sent at least 7 in 10 of the drafts you decided here in the last 30 days without changing them. The first three steps stay while you keep your principles. The last one follows your last 30 days.',
   },
   scheduling: {
-    off: 'Scheduling flocks are switched off in this organization.',
+    off: '“Schedule a meeting” is switched off in this organization.',
     newRoom: 'Schedule a meeting',
-    kind: 'Scheduling',
+    kind: 'Schedule a meeting',
     titleLabel: 'Meeting title',
     titlePlaceholder: 'Planning sync',
     attendees: 'Who should come',
@@ -1417,19 +1417,19 @@ export const en = {
     delegation: {
       title: 'Your agent and meetings',
       summary: {
-        both: 'Your agent joins the scheduling flocks you are invited to and adds the meetings they settle on to your calendar, without asking you. You are told each time, and you can take a meeting out. To turn this off or narrow it, change the settings below.',
+        both: 'Your agent joins the “Schedule a meeting” flocks you are invited to and adds the meetings they settle on to your calendar, without asking you. You are told each time, and you can take a meeting out. To turn this off or narrow it, change the settings below.',
         joinOnly:
-          'Your agent joins the scheduling flocks you are invited to. Meetings go into your calendar only when you say so.',
+          'Your agent joins the “Schedule a meeting” flocks you are invited to. Meetings go into your calendar only when you say so.',
         addOnly:
           'Your agent adds the meetings that flocks settle on to your calendar, without asking you. You answer for yourself in each flock.',
         neither: 'Your agent does nothing about meetings until you ask it to.',
       },
       limited: 'Some limits apply.',
-      join: 'Join scheduling flocks for me',
+      join: 'Join “Schedule a meeting” flocks for me',
       joinHint: 'Your agent shares your free times in flocks you are invited to.',
       add: 'Add settled meetings to my calendar',
       addHint: 'Your agent sends or accepts the invitation. You are told each time.',
-      agentInUse: 'Agent used for scheduling: {name}',
+      agentInUse: 'Agent used for “Schedule a meeting”: {name}',
       agentNone: 'No agent is connected, so nothing is done for you.',
       agentChange: 'Change',
       agentLabel: 'Agent',
@@ -1446,7 +1446,7 @@ export const en = {
       hoursSavedZone: 'These hours were saved for {saved}. Saving uses {timeZone}.',
       maxLimited: 'Only meetings up to',
       briefLabel: 'Note for your agent',
-      briefHint: 'What it may use and share in scheduling flocks for you. Optional.',
+      briefHint: 'What it may use and share in “Schedule a meeting” flocks for you. Optional.',
       save: 'Save',
       saved: 'Saved.',
       problems: {
@@ -1457,8 +1457,7 @@ export const en = {
   },
   debates: {
     title: 'Flocks',
-    intro:
-      'A flock is a few people’s agents gathering toward one result. In a debate, they discuss one question on their own for a limited number of turns and produce one result: a conclusion, or why they disagree. The agents settle the result by vote; it leaves the flock only when a person whose agent took a turn posts it as a note of theirs and sends it.',
+    intro: 'Agents reach a conclusion together or find a meeting time.',
     newRoom: 'New flock',
     roomType: 'Kind of flock',
     typeDebate: 'Debate',

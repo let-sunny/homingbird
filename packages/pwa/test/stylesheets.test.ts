@@ -33,7 +33,38 @@ const offenders = (accepts: (declaration: Declaration) => boolean): string[] =>
     .filter((declaration) => !accepts(declaration))
     .map((declaration) => `${declaration.sheet}: ${declaration.property}: ${declaration.value}`)
 
+describe('text on the bubble of what is mine', () => {
+  const tokens = readFileSync(join(STYLES, 'tokens.css'), 'utf8')
+  const luminance = (hex: string): number => {
+    const [red, green, blue] = [1, 3, 5].map((at) => {
+      const channel = Number.parseInt(hex.slice(at, at + 2), 16) / 255
+      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+    })
+    return 0.2126 * red! + 0.7152 * green! + 0.0722 * blue!
+  }
+  const ratio = (first: string, second: string): number => {
+    const [light, dark] = [luminance(first), luminance(second)].sort((a, b) => b - a)
+    return (light! + 0.05) / (dark! + 0.05)
+  }
+  const pairs = (name: string): string[] =>
+    [...tokens.matchAll(new RegExp(`--hb-color-${name}: light-dark\\((#\\w+), (#\\w+)\\)`, 'g'))].flatMap(
+      (match) => [match[1]!, match[2]!],
+    )
+
+  it('keeps muted text readable in both appearances', () => {
+    const [bubbleLight, bubbleDark] = pairs('bubble-mine')
+    const [mutedLight, mutedDark] = pairs('muted-on-mine')
+    expect(ratio(mutedLight!, bubbleLight!)).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(mutedDark!, bubbleDark!)).toBeGreaterThanOrEqual(4.5)
+  })
+})
+
 describe('component stylesheets', () => {
+  it('hides what is hidden whatever display a rule gives it', () => {
+    const base = readFileSync(join(STYLES, 'base.css'), 'utf8')
+    expect(base).toMatch(/\[hidden\]\s*\{\s*display:\s*none\s*!important;\s*\}/)
+  })
+
   it('finds the stylesheets to check', () => {
     expect(COMPONENT_SHEETS).toEqual(expect.arrayContaining(['components.css', 'base.css', 'layout.css']))
   })

@@ -140,21 +140,7 @@ const renderDebateRoom = (model: DebateRoomModel, context: ViewContext, drawn: L
       model.people.people.length > 0 && participantsCount(model.people),
     ),
     participantsList(model.people),
-    model.tabs.length > 1 &&
-      h(
-        'nav',
-        { class: 'subtabs debate-tabs', 'aria-label': strings.debates.tabsLabel },
-        model.tabs.map((tab) => {
-          const link = h(
-            'a',
-            { href: tab.href, 'aria-current': tab.current && 'page', data: { tab: tab.tab } },
-            tab.label,
-          )
-          if (tab.tab === 'turns') return hinted(context, 'debateTurns', strings.hints.debateTurns, link)
-          if (tab.tab === 'result') return hinted(context, 'debateResult', strings.hints.debateResult, link)
-          return link
-        }),
-      ),
+    ...tabsWithHints(model, context),
     h('div', { class: `debate-tab is-${model.shown}` }, ...tabContent(model, context, drawn)),
   )
 }
@@ -588,3 +574,29 @@ const postForm = (
 const CURRENT_TAB = '.debate-tabs [aria-current="page"]'
 
 type Room = Extract<DebateRoomModel, { kind: 'room' }>
+
+/** The tabs in one row, and the first-visit hints under the row, never between its tabs. */
+const tabsWithHints = (model: Room, context: ViewContext): ReadonlyArray<Child> => {
+  if (model.tabs.length <= 1) return []
+  const hints: HTMLElement[] = []
+  const links = model.tabs.map((tab) => {
+    const link = h(
+      'a',
+      { href: tab.href, 'aria-current': tab.current && 'page', data: { tab: tab.tab } },
+      tab.label,
+    )
+    const hint =
+      tab.tab === 'turns'
+        ? hinted(context, 'debateTurns', strings.hints.debateTurns, link)
+        : tab.tab === 'result'
+          ? hinted(context, 'debateResult', strings.hints.debateResult, link)
+          : null
+    if (hint === null) return link
+    hints.push(hint[1])
+    return hint[0]
+  })
+  return [
+    h('nav', { class: 'subtabs debate-tabs', 'aria-label': strings.debates.tabsLabel }, links),
+    ...hints,
+  ]
+}
