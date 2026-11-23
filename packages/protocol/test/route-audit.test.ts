@@ -24,6 +24,7 @@ const REVIEWED_WITHOUT_AN_EVENT = [
   'push.subscribe',
   'push.test',
   'push.unsubscribe',
+  'scheduling.slots.set',
 ]
 
 describe('the audit decision of each route', () => {

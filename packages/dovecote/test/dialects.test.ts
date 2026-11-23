@@ -8,6 +8,7 @@ import { MIGRATIONS } from '../src/sql/migrations.ts'
 import { DEBATE_MODEL } from '../src/sql/migrations/debate-model-step.ts'
 import { GROUPS } from '../src/sql/migrations/groups-step.ts'
 import { MUTE } from '../src/sql/migrations/mute-step.ts'
+import { SCHEDULING_ROOMS } from '../src/sql/migrations/scheduling-rooms-step.ts'
 import { raw } from '../src/sql/query.ts'
 import type { Migration } from '../src/sql/schema-steps.ts'
 import { migrate, migrateThrough, schemaStatements } from '../src/sql/schema.ts'
@@ -610,6 +611,27 @@ describe.each(DIALECTS)('The schema on %s', (_, url) => {
         for (const statement of half) await T.runPromise(database.run(raw(statement)))
         expect(await migrated(database)).toEqual({ _tag: 'Ok', value: stepsFrom(mute + 1) })
         expect(await versionsOf(database)).toEqual(stepsFrom(1))
+      } finally {
+        await T.runPromise(database.close)
+      }
+    },
+    timeout,
+  )
+
+  it.skipIf(url === undefined || !url.startsWith('mysql'))(
+    'runs the scheduling rooms step again after MySQL left it half applied, skipping what it already made',
+    async () => {
+      const database = await emptyDatabase()
+      try {
+        const scheduling = MIGRATIONS.indexOf(SCHEDULING_ROOMS)
+        await migrated(database, MIGRATIONS.slice(0, scheduling))
+        const half = schemaStatements('mysql', [[], SCHEDULING_ROOMS]).slice(1, 3)
+        expect(half[0]).toBe('ALTER TABLE debates ADD COLUMN room_type VARCHAR(400)')
+        expect(half[1]).toMatch(/^CREATE TABLE IF NOT EXISTS scheduling_rooms /)
+        for (const statement of half) await T.runPromise(database.run(raw(statement)))
+        expect(await migrated(database)).toEqual({ _tag: 'Ok', value: stepsFrom(scheduling + 1) })
+        expect(await versionsOf(database)).toEqual(stepsFrom(1))
+        expect(await T.runPromise(database.all(raw('SELECT * FROM room_free_slots')))).toEqual([])
       } finally {
         await T.runPromise(database.close)
       }

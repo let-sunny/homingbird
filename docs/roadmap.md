@@ -531,9 +531,9 @@ Still to come:
 - Multi-node deployment: shared event fan-out through the database or a message broker.
 - Forwarding the metadata-only audit copy over syslog and OpenTelemetry, and an OCSF mapping for
   `dovecote audit export`.
-- What note retention and erasure do not cover yet: debate rooms (their turns and results), a
-  person's own export from the web client, erasing a leaver's sent notes, and a legal hold that keeps
-  one person's notes past the retention.
+- What note retention and erasure do not cover yet: debate rooms (their turns and results, and a
+  scheduling room's free slots), a person's own export from the web client, erasing a leaver's sent
+  notes, and a legal hold that keeps one person's notes past the retention.
 - Ending a departed person's credentials without an administrator:
   needs the identity provider to tell Dovecote between sign-ins (a provider refresh token checked
   periodically, or a back-channel logout), which needs a decision on keeping provider tokens first.

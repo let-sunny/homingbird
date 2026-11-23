@@ -222,6 +222,8 @@ export const AUDIT_DETAILS: { readonly [N in AuditedRoute]: Describe<N> } = {
   'principleProposals.discard': ({ params }) => afterwards(() => ({ targetId: params.id, detail: {} })),
   'debates.create': () =>
     afterwards((debate) => ({ targetId: debate.id, detail: { visibility: debate.visibility } })),
+  'scheduling.create': () =>
+    afterwards((debate) => ({ targetId: debate.id, detail: { visibility: debate.visibility } })),
   'debates.optIn': ({ params, body }) =>
     afterwards(() => ({ targetId: params.id, detail: { credentialId: body.agentId } })),
   'debates.brief.set': ({ params, body }) =>

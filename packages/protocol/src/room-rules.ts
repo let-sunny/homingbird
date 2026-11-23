@@ -14,6 +14,7 @@ import {
 export interface RoomRules {
   readonly kind: RoomKind
   readonly agentsToStart: number
+  readonly timeFromFirstTurn: boolean
   readonly turnProblem: (turn: RoomTurn, room: DebateRoom) => string | null
   readonly mayRetry: (turn: RoomTurn) => boolean
   readonly isReadyToConclude: (room: DebateRoom, memberId: MemberId) => boolean
@@ -26,6 +27,7 @@ export interface RoomRules {
 export const DEBATE_RULES: RoomRules = {
   kind: 'debate',
   agentsToStart: 2,
+  timeFromFirstTurn: true,
   turnProblem: (turn, room) => turnProblem(turn.body, room.limits),
   mayRetry: (turn) => turn.body.trim() !== '',
   isReadyToConclude,
@@ -38,6 +40,7 @@ export const DEBATE_RULES: RoomRules = {
 export const SCHEDULING_RULES: RoomRules = {
   kind: 'scheduling',
   agentsToStart: 1,
+  timeFromFirstTurn: false,
   turnProblem: scheduleTurnProblem,
   mayRetry: () => true,
   isReadyToConclude: isEveryRequiredAnswered,

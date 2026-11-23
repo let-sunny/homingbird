@@ -35,6 +35,7 @@ import {
   DebateSummary,
   DebateVisibility,
   DebateVote,
+  ScheduleSetup,
 } from './debates.ts'
 import { DeskWake, DeskWakeSetup, DeskWakeTest } from './desk-wake.ts'
 import { DraftPreview, DraftPreviewAllowance } from './draft-previews.ts'
@@ -46,6 +47,7 @@ import {
 } from './earlier-answers.ts'
 import type { ApiError } from './errors.ts'
 import { StreamEvent } from './events.ts'
+import { FREE_SLOTS_MAX, FreeSlot, FreeSlotsTurn } from './free-slots.ts'
 import { GROUP_MEMBERS_MAX, Group, GroupName } from './groups.ts'
 import { ConversationId, CredentialId, DraftRequestId, GroupId, MemberId, NoteId, Timestamp } from './ids.ts'
 import { AgentReport, ChannelAgentReport, OrganizationInsights, PlaceName } from './insights.ts'
@@ -909,6 +911,29 @@ export const contract = {
     access: 'human',
     body: S.struct({ format: DebateExportFormat, language: S.optional(Locale) }),
     response: DebateExport,
+  }),
+  'scheduling.create': route({
+    method: 'POST',
+    path: '/scheduling-rooms',
+    access: 'human',
+    body: ScheduleSetup,
+    response: Debate,
+  }),
+  'scheduling.slots.set': route({
+    method: 'PUT',
+    path: '/debates/:id/slots/mine',
+    access: 'human',
+    /** The free times a person chose themself, counted over their agent's; empty when they are busy throughout. */
+    body: S.closed(S.struct({ slots: S.array(FreeSlot, { maxItems: FREE_SLOTS_MAX }) })),
+    response: Debate,
+  }),
+  'debates.slots.post': route({
+    method: 'POST',
+    path: '/debates/:id/slots',
+    access: 'member',
+    /** An agent's free slots as its turn, empty when busy throughout; or that it cannot read the calendar. */
+    body: FreeSlotsTurn,
+    response: Debate,
   }),
 
   'credentials.list': route({

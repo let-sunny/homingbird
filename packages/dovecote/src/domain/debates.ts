@@ -36,6 +36,7 @@ import {
   isDebateMember,
   loadRoom,
   lockedDebate,
+  roomRulesOf,
   touchDebate,
   visibleDebate,
 } from './debate-rows.ts'
@@ -114,6 +115,7 @@ export const listDebates = (viewer: Viewer): T.Task<DebateSummary[], never, Requ
       ORDER BY created_at, member_id`)
     return rows.map((row) => ({
       id: row.id,
+      type: roomRulesOf(row).kind,
       question: row.question,
       visibility: row.visibility,
       status: row.status,
@@ -156,6 +158,10 @@ export const optInAgent = (
     if (visible.visibility === 'private' && !(yield* isDebateMember(id, caller.member.id)))
       return yield* T.fail(
         Forbidden({ message: 'Only people invited to a private room can opt their agent in.' }),
+      )
+    if (visible.room_type === 'scheduling' && !(yield* isDebateMember(id, caller.member.id)))
+      return yield* T.fail(
+        Forbidden({ message: 'Only the people asked to this meeting can opt their agent in.' }),
       )
     const agentName = yield* ownAgentName(caller.member.id, agentId, now)
     yield* moveDebate(
@@ -241,8 +247,10 @@ export const debateAsks = (caller: Caller): T.Task<DebateAsks, never, RequestEnv
     const ballots: Debate[] = []
     for (const row of rows) {
       const { debate, room } = yield* loadRoom(row)
-      const ask = askOf(room, row.member_id, env.clock.now())
+      const rules = roomRulesOf(row)
+      const ask = askOf(room, row.member_id, env.clock.now(), rules)
       if (ask === 'ballot') ballots.push(debate)
+      else if (ask === 'turn' && rules.kind === 'scheduling') asks.push({ debate, ask: 'slots' })
       else if (ask !== null) asks.push({ debate, ask })
       else if (debate.askedTurn?.next.includes(row.member_id) === true) upcoming.push(debate)
     }
@@ -256,6 +264,19 @@ export const debateAsks = (caller: Caller): T.Task<DebateAsks, never, RequestEnv
         closedAt: Number(row.closed_at),
       })),
     }
+  })
+
+/** The ids as given, once each, when every one is an active person. */
+export const activeMembersAmong = (ids: ReadonlyArray<MemberId>): T.Task<MemberId[], Invalid, RequestEnv> =>
+  T.gen(function* () {
+    if (ids.length === 0) return []
+    const unique = [...new Set(ids)]
+    const found = yield* all<{ id: MemberId }>(
+      sql`SELECT id FROM members WHERE status = 'active' AND kind = 'person' AND id IN ${list(unique)}`,
+    )
+    if (found.length !== unique.length)
+      return yield* T.fail(Invalid({ message: 'Invite active members only.' }))
+    return unique
   })
 
 export type DebateAsks = Required<ResponseOf<Contract['debates.waiting']>>
@@ -276,18 +297,6 @@ const requireUsableLimits = (limits: DebateLimits): T.Task<void, Invalid> => {
   const problem = limitsProblem(limits)
   return problem === null ? T.unit : T.fail(Invalid({ message: problem }))
 }
-
-const activeMembersAmong = (ids: ReadonlyArray<MemberId>): T.Task<MemberId[], Invalid, RequestEnv> =>
-  T.gen(function* () {
-    if (ids.length === 0) return []
-    const unique = [...new Set(ids)]
-    const found = yield* all<{ id: MemberId }>(
-      sql`SELECT id FROM members WHERE status = 'active' AND kind = 'person' AND id IN ${list(unique)}`,
-    )
-    if (found.length !== unique.length)
-      return yield* T.fail(Invalid({ message: 'Invite active members only.' }))
-    return unique
-  })
 
 const ownAgentName = (
   memberId: MemberId,

@@ -74,7 +74,10 @@ export const FEATURES = {
       'debates.export',
     ],
   },
-  schedulingRooms: { default: false, routes: [] },
+  schedulingRooms: {
+    default: false,
+    routes: ['scheduling.create', 'scheduling.slots.set', 'debates.slots.post'],
+  },
   channelAgents: {
     default: false,
     routes: [

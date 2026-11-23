@@ -63,6 +63,13 @@ const probes: Readonly<Record<string, (person: Session) => Promise<{ status: num
   agentFigures: (person) => person.api('GET', '/insights/me'),
   insights: (person) => person.api('GET', '/admin/insights'),
   debateRooms: (person) => person.api('GET', '/debates'),
+  schedulingRooms: (person) =>
+    person.api('POST', '/scheduling-rooms', {
+      title: 'Plan the launch',
+      minutes: 30,
+      window: { startsAt: Date.UTC(2100, 0, 1), endsAt: Date.UTC(2100, 0, 2) },
+      attendees: [{ memberId: ben.me.member.id, required: true }],
+    }),
   groups: (person) => person.api('GET', '/groups'),
   channelAgents: (person) => person.api('GET', '/reviews'),
   cloudDesk: (person) => person.api('GET', '/me/desk-wake'),

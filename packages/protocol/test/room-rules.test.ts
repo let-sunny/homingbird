@@ -337,6 +337,17 @@ describe('a room stepped by the scheduling rules', () => {
     expect(silent.effects).toEqual([{ type: 'end', because: 'no_turns', during: 'turns' }])
   })
 
+  it('count the room’s time from when it opened, so a first turn does not move its deadline', () => {
+    expect(DEBATE_RULES.timeFromFirstTurn).toBe(true)
+    expect(SCHEDULING_RULES.timeFromFirstTurn).toBe(false)
+    const late = NOW + 20 * 60_000
+    const move = accepted(scheduling(), slotsTurn(ANA, free(1, 2)), SCHEDULING_RULES, late)
+    expect(move.action).toMatchObject({ type: 'addTurn', deadlineAt: null })
+    expect(move.room.deadlineAt).toBe(scheduling().deadlineAt)
+    const debate = accepted(roomOf(), turn(ANA), DEBATE_RULES, late)
+    expect(debate.room.deadlineAt).toBe(late + LIMITS.minutes * 60_000)
+  })
+
   it('keep the place of a turn refused for its slots, even one with no note', () => {
     const outside = slotsTurn(ANA, free(-1, 2))
     const move = stepDebate(scheduling(), outside, NOW, SCHEDULING_RULES)

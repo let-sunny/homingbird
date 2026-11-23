@@ -2007,6 +2007,35 @@ describe('Rule 6: a member sees only conversations they participate in', () => {
     ).toBe(403)
   })
 
+  it('shows a private scheduling room’s free times to its attendees only, and to an administrator as a person only, never to their agent', async () => {
+    expect(ana.me.member.role).toBe('admin')
+    const { id, window } = await schedulingRoom('private')
+    const marker = window.startsAt + 7 * 15 * 60_000
+    await benAgent.api('POST', `/debates/${id}/slots`, {
+      slots: [{ startsAt: marker, endsAt: marker + HOUR_MS }],
+    })
+    const cyAgent = await connectAgent(server, cy, { name: 'Cy agent' })
+    dee = await server.signIn('dee@example.com', 'Dee')
+    for (const viewer of [ben, cy, ana]) {
+      const seen = await viewer.api('GET', `/debates/${id}`)
+      expect(seen.status).toBe(200)
+      expect(JSON.stringify(seen.json.schedule.freeSlots)).toContain(String(marker))
+    }
+    expect(JSON.stringify((await benAgent.api('GET', `/debates/${id}`)).json)).toContain(String(marker))
+    for (const outsider of [anaAgent, dee]) {
+      expect((await outsider.api('GET', `/debates/${id}`)).status).toBe(404)
+      expect(JSON.stringify((await outsider.api('GET', '/debates')).json)).not.toContain(id)
+    }
+    for (const viewer of [cyAgent, anaAgent, dee]) {
+      expect(JSON.stringify((await viewer.api('GET', '/debate-asks')).json)).not.toContain(String(marker))
+      expect(JSON.stringify((await viewer.api('GET', '/events/poll?after=0')).json)).not.toContain(
+        String(marker),
+      )
+    }
+    expect(JSON.stringify((await cyAgent.api('GET', `/debates/${id}`)).json)).not.toContain(String(marker))
+    expect((await ana.api('PUT', `/debates/${id}/slots/mine`, { slots: [] })).status).toBe(403)
+  })
+
   it('lets no one outside a private channel’s room read or change its group, nor an administrator take out its last manager in the room', async () => {
     const dee = await server.signIn('dee@example.com', 'Dee')
     await ben.api('POST', '/channels', { slug: 'ops', description: 'Operations' })
@@ -2951,6 +2980,32 @@ const HOSTILE_TURN = [
 
 const agentIdOf = async (agent: Agent): Promise<string> => (await agent.api('GET', '/me')).json.credential.id
 
+const HOUR_MS = 60 * 60_000
+
+/**
+ * Ana, the administrator, switches scheduling rooms on; Ben opens a room asking Cy, its window a day from
+ * now, and opts his agent in.
+ */
+const schedulingRoom = async (visibility: 'open' | 'private' = 'private') => {
+  const settings = (await ana.api('GET', '/admin/settings')).json
+  await ana.api('PUT', '/admin/settings', {
+    ...settings,
+    features: { ...settings.features, schedulingRooms: true },
+  })
+  const startsAt = Math.ceil((server.clock.now() + 24 * HOUR_MS) / (15 * 60_000)) * 15 * 60_000
+  const window = { startsAt, endsAt: startsAt + 8 * HOUR_MS }
+  const opened = await ben.api('POST', '/scheduling-rooms', {
+    title: 'Plan the billing migration',
+    minutes: 60,
+    window,
+    attendees: [{ memberId: cy.me.member.id, required: true }],
+    visibility,
+  })
+  const id = opened.json.id as string
+  await ben.api('PUT', `/debates/${id}/agent`, { agentId: await agentIdOf(benAgent) })
+  return { id, window }
+}
+
 const debateWithTurn = async (
   visibility: 'open' | 'private' = 'open',
   limits = { turnsPerAgent: 2, totalTurns: 4, minutes: 30, turnCharacters: 400 },
@@ -3387,6 +3442,66 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
       expect(outsideWrappers(text)).not.toContain('9d9d')
     }
     expect(texts[1]).toContain('9d9d')
+  })
+
+  it('refuses an agent credential that tries to open a scheduling room or choose its person’s free times, changing nothing', async () => {
+    const { id, window } = await schedulingRoom()
+    const before = await everyStoredValue(server)
+    const tries: ReadonlyArray<readonly [string, string, unknown]> = [
+      [
+        'POST',
+        '/scheduling-rooms',
+        {
+          title: 'Opened by an agent?',
+          minutes: 30,
+          window,
+          attendees: [{ memberId: cy.me.member.id, required: true }],
+        },
+      ],
+      ['PUT', `/debates/${id}/slots/mine`, { slots: [window] }],
+    ]
+    for (const [method, path, body] of tries)
+      for (const agent of [anaAgent, benAgent])
+        expect([path, (await agent.api(method, path, body)).status]).toEqual([path, 403])
+    expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
+    expect((await storedRows(server, 'scheduling_rooms')).map((row) => row.debate_id)).toEqual([id])
+  })
+
+  it('marks every scheduling route that opens a room or chooses a person’s free times as one only a person may call, behind its feature, and no model-facing route list reaches it', () => {
+    const personal = (Object.keys(contract) as RouteName[]).filter((name) => name.startsWith('scheduling.'))
+    expect(personal.sort()).toEqual(['scheduling.create', 'scheduling.slots.set'])
+    for (const name of personal) {
+      expect([name, contract[name].access]).toEqual([name, 'human'])
+      expect([name, featureOfRoute(name)]).toEqual([name, 'schedulingRooms'])
+    }
+    expect(personal.filter((name) => !humanOnlyRoutes.includes(name))).toEqual([])
+    expect(featureOfRoute('debates.slots.post')).toBe('schedulingRooms')
+    for (const routes of [MCP_ROUTES, A2A_ROUTES])
+      expect(routes.filter((name: string) => personal.includes(name as RouteName))).toEqual([])
+    const names = toolDefinitions().map((tool) => String(tool.name))
+    expect(
+      names.filter((name) => /schedul|meeting|calendar/.test(name) && /open|create|start/.test(name)),
+    ).toEqual([])
+  })
+
+  it('refuses a free-slot turn that carries anything but slots inside the window and a short note, and stores nothing of it', async () => {
+    const { id, window } = await schedulingRoom()
+    const free = { startsAt: window.startsAt, endsAt: window.startsAt + HOUR_MS }
+    const before = await everyStoredValue(server)
+    const refused: ReadonlyArray<Readonly<Record<string, unknown>>> = [
+      { slots: [free], title: 'Board meeting: layoffs 4b2e' },
+      { slots: [free], location: 'Room 4b2e' },
+      { slots: [{ ...free, title: 'Dentist 4b2e' }] },
+      { slots: [free], attendees: ['ceo@example.com'] },
+      { slots: [free], note: `Busy with 4b2e ${'x'.repeat(200)}` },
+      { slots: [{ startsAt: window.startsAt - HOUR_MS, endsAt: window.startsAt + HOUR_MS }], note: '4b2e' },
+      { slots: [{ startsAt: free.endsAt, endsAt: free.startsAt }], note: '4b2e' },
+    ]
+    for (const body of refused)
+      expect([body, (await benAgent.api('POST', `/debates/${id}/slots`, body)).status]).toEqual([body, 400])
+    expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
+    expect(await everyStoredValue(server)).not.toContain('4b2e')
+    expect(await storedRows(server, 'room_free_slots')).toEqual([])
   })
 })
 

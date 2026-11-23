@@ -95,7 +95,25 @@ const PROBES: Readonly<Partial<Record<RouteName, { readonly status: number; read
     status: 400,
     probe: ({ ana }, id) => status(ana, 'POST', '/debates', { question: 'Which runbook?', memberIds: [id] }),
   },
+  'scheduling.create': {
+    status: 400,
+    probe: async ({ ana, root }, id) => {
+      const settings = (await root.api('GET', '/admin/settings')).json
+      await root.api('PUT', '/admin/settings', {
+        ...settings,
+        features: { ...settings.features, schedulingRooms: true },
+      })
+      return status(ana, 'POST', '/scheduling-rooms', {
+        title: 'Plan the runbook',
+        minutes: 30,
+        window: { startsAt: YEAR_2100, endsAt: YEAR_2100 + 24 * 60 * 60_000 },
+        attendees: [{ memberId: id, required: true }],
+      })
+    },
+  },
 }
+
+const YEAR_2100 = Date.UTC(2100, 0, 1)
 
 /** Routes that may answer otherwise, and why that lets no agent in where a person belongs. */
 const ALLOWED: Readonly<Partial<Record<RouteName, string>>> = {

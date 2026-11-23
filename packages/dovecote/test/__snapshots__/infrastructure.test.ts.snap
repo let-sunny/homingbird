@@ -121,6 +121,10 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "ALTER TABLE notes ADD COLUMN tags MEDIUMTEXT",
   "ALTER TABLE receipts ADD COLUMN asked BIGINT",
   "ALTER TABLE slack_arrivals ADD COLUMN edited_ts VARCHAR(64)",
+  "ALTER TABLE debates ADD COLUMN room_type VARCHAR(400)",
+  "CREATE TABLE IF NOT EXISTS scheduling_rooms (debate_id VARCHAR(64) NOT NULL, minutes BIGINT NOT NULL, window_starts_at BIGINT NOT NULL, window_ends_at BIGINT NOT NULL, slot_starts_at BIGINT, invite_uid VARCHAR(400), meeting_url MEDIUMTEXT, invite_state VARCHAR(400), invite_changed_at BIGINT, PRIMARY KEY (debate_id))",
+  "CREATE TABLE IF NOT EXISTS scheduling_attendees (debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, required BIGINT NOT NULL, answer VARCHAR(400), state VARCHAR(400), by_delegation BIGINT, changed_at BIGINT, PRIMARY KEY (debate_id, member_id), INDEX scheduling_attendees_member_id_idx (member_id))",
+  "CREATE TABLE IF NOT EXISTS room_free_slots (debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, starts_at BIGINT NOT NULL, ends_at BIGINT NOT NULL, by_person BIGINT, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, member_id, starts_at))",
 ]
 `;
 
@@ -302,6 +306,11 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "ALTER TABLE notes ADD COLUMN tags TEXT",
   "ALTER TABLE receipts ADD COLUMN asked BIGINT",
   "ALTER TABLE slack_arrivals ADD COLUMN edited_ts VARCHAR(64)",
+  "ALTER TABLE debates ADD COLUMN room_type VARCHAR(400)",
+  "CREATE TABLE IF NOT EXISTS scheduling_rooms (debate_id VARCHAR(64) NOT NULL, minutes BIGINT NOT NULL, window_starts_at BIGINT NOT NULL, window_ends_at BIGINT NOT NULL, slot_starts_at BIGINT, invite_uid VARCHAR(400), meeting_url TEXT, invite_state VARCHAR(400), invite_changed_at BIGINT, PRIMARY KEY (debate_id))",
+  "CREATE TABLE IF NOT EXISTS scheduling_attendees (debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, required BIGINT NOT NULL, answer VARCHAR(400), state VARCHAR(400), by_delegation BIGINT, changed_at BIGINT, PRIMARY KEY (debate_id, member_id))",
+  "CREATE INDEX IF NOT EXISTS scheduling_attendees_member_id_idx ON scheduling_attendees (member_id)",
+  "CREATE TABLE IF NOT EXISTS room_free_slots (debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, starts_at BIGINT NOT NULL, ends_at BIGINT NOT NULL, by_person BIGINT, created_at BIGINT NOT NULL, PRIMARY KEY (debate_id, member_id, starts_at))",
 ]
 `;
 
@@ -483,5 +492,10 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "ALTER TABLE notes ADD COLUMN tags TEXT",
   "ALTER TABLE receipts ADD COLUMN asked INTEGER",
   "ALTER TABLE slack_arrivals ADD COLUMN edited_ts TEXT",
+  "ALTER TABLE debates ADD COLUMN room_type TEXT",
+  "CREATE TABLE IF NOT EXISTS scheduling_rooms (debate_id TEXT NOT NULL, minutes INTEGER NOT NULL, window_starts_at INTEGER NOT NULL, window_ends_at INTEGER NOT NULL, slot_starts_at INTEGER, invite_uid TEXT, meeting_url TEXT, invite_state TEXT, invite_changed_at INTEGER, PRIMARY KEY (debate_id))",
+  "CREATE TABLE IF NOT EXISTS scheduling_attendees (debate_id TEXT NOT NULL, member_id TEXT NOT NULL, required INTEGER NOT NULL, answer TEXT, state TEXT, by_delegation INTEGER, changed_at INTEGER, PRIMARY KEY (debate_id, member_id))",
+  "CREATE INDEX IF NOT EXISTS scheduling_attendees_member_id_idx ON scheduling_attendees (member_id)",
+  "CREATE TABLE IF NOT EXISTS room_free_slots (debate_id TEXT NOT NULL, member_id TEXT NOT NULL, starts_at INTEGER NOT NULL, ends_at INTEGER NOT NULL, by_person INTEGER, created_at INTEGER NOT NULL, PRIMARY KEY (debate_id, member_id, starts_at))",
 ]
 `;
