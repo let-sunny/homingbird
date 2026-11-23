@@ -1,12 +1,14 @@
 import {
   DEBATE_PARTICIPANTS_MAX,
   DEBATE_QUESTION_MAX,
+  MINUTES_PER_DAY,
   type MemberId,
   SCHEDULE_WINDOW_MAX_DAYS,
   type ScheduleSetup,
+  isMeetingPossible,
   windowAheadOf,
 } from '@homingbird/protocol'
-import { strings } from '../strings.ts'
+import { locale, strings } from '../strings.ts'
 
 /**
  * What the form to open a scheduling room starts with and offers: the lengths, the days a time is
@@ -23,6 +25,8 @@ export const schedulingFormModel = (input: SchedulingFormInput): SchedulingFormM
   earliestDay: dayValue(input.now),
   latestDay: dayValue(input.now + (DEFAULT_WINDOW_DAYS - 1) * DAY_MS),
   windowHint: strings.scheduling.windowHint({ days: SCHEDULE_WINDOW_MAX_DAYS }),
+  weekdays: [1, 2, 3, 4, 5, 6, 7].map((value) => ({ value, label: weekdayName(value) })),
+  hoursHint: strings.scheduling.hoursHint({ zone: input.timeZone }),
   attendees: input.chosen.map((memberId) => ({
     memberId,
     name: input.nameOf(memberId),
@@ -55,11 +59,15 @@ export const scheduleSetupFrom = (
   const window = windowAheadOf({ startsAt, endsAt }, now)
   if (window.endsAt - window.startsAt < minutes * 60_000)
     return { problem: strings.scheduling.problems.tooLittleLeft }
+  const limits = limitsFrom(typed)
+  if ('problem' in limits) return limits
+  if (!isMeetingPossible(window, minutes, limits)) return { problem: strings.scheduling.problems.nothingFits }
   return {
     setup: {
       title,
       minutes,
       window,
+      ...limits,
       attendees: typed.chosen.map((memberId) => ({ memberId, required: !typed.optional.has(memberId) })),
     },
   }
@@ -82,6 +90,7 @@ export interface SchedulingFormInput {
   readonly chosen: ReadonlyArray<MemberId>
   readonly optional: ReadonlySet<MemberId>
   readonly nameOf: (id: MemberId) => string
+  readonly timeZone: string
 }
 
 export interface TypedSchedule {
@@ -89,6 +98,13 @@ export interface TypedSchedule {
   readonly minutes: string
   readonly earliestDay: string
   readonly latestDay: string
+  /** The ISO weekdays ticked, 1 for Monday; none for no limit. */
+  readonly weekdays: ReadonlyArray<number>
+  /** Time fields as `HH:MM`, empty for no limit. */
+  readonly hoursFrom: string
+  readonly hoursTo: string
+  /** The browser's IANA time zone, in which the days and hours are read. */
+  readonly timeZone: string
   readonly chosen: ReadonlyArray<MemberId>
   readonly optional: ReadonlySet<MemberId>
 }
@@ -104,6 +120,8 @@ export interface SchedulingFormModel {
   readonly earliestDay: string
   readonly latestDay: string
   readonly windowHint: string
+  readonly weekdays: ReadonlyArray<{ readonly value: number; readonly label: string }>
+  readonly hoursHint: string
   readonly attendees: ReadonlyArray<{
     readonly memberId: MemberId
     readonly name: string
@@ -111,6 +129,40 @@ export interface SchedulingFormModel {
     readonly label: string
   }>
 }
+
+type Limits = Pick<ScheduleSetup, 'weekdays' | 'hours' | 'timeZone'>
+
+/** The days and hours ticked and typed, nothing when none is, or what is wrong with them. */
+const limitsFrom = (typed: TypedSchedule): Limits | { readonly problem: string } => {
+  const from = minutesOf(typed.hoursFrom)
+  const typedTo = minutesOf(typed.hoursTo)
+  const to = typedTo === 0 ? MINUTES_PER_DAY : typedTo
+  if ((typed.hoursFrom === '') !== (typed.hoursTo === '') || from === undefined || to === undefined)
+    return { problem: strings.scheduling.problems.hoursBoth }
+  const hasHours = from !== null && to !== null
+  if (hasHours && (from % 15 !== 0 || to % 15 !== 0))
+    return { problem: strings.scheduling.problems.hoursQuarter }
+  if (hasHours && to <= from) return { problem: strings.scheduling.problems.hoursOrder }
+  const hasDays = typed.weekdays.length > 0
+  if (!hasHours && !hasDays) return {}
+  return {
+    timeZone: typed.timeZone,
+    ...(hasDays && { weekdays: [...typed.weekdays].sort((a, b) => a - b) }),
+    ...(hasHours && { hours: { from, to } }),
+  }
+}
+
+/** Minutes into the day of an `HH:MM` field, null when it is empty, undefined when it is no time. */
+const minutesOf = (field: string): number | null | undefined => {
+  if (field === '') return null
+  const parts = /^(\d{2}):(\d{2})$/.exec(field)
+  return parts === null ? undefined : Number(parts[1]) * 60 + Number(parts[2])
+}
+
+const weekdayName = (weekday: number): string =>
+  new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(
+    Date.UTC(2026, 10, 22 + weekday),
+  )
 
 const DAY_MS = 86_400_000
 

@@ -1,8 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
 import {
-  ATTENDANCE_STATES,
+  type Adding,
   type AttendanceEvent,
-  type AttendanceState,
   Conflict,
   DEFAULT_SCHEDULING_DELEGATION,
   type Debate,
@@ -14,20 +13,19 @@ import {
   NotFound,
   SCHEDULE_WINDOW_MAX_DAYS,
   SCHEDULING_RULES,
+  type ScheduleLimits,
   type ScheduleSetup,
+  isMeetingPossible,
   limitsFor,
-  stepAttendance,
+  scheduleLimitsProblem,
+  windowAheadOf,
 } from '@homingbird/protocol'
 import { changeRoom, roomById } from './debate-script.ts'
 import { type Handlers, found } from './handlers.ts'
 import { connectedAgentOf, memberById } from './reads.ts'
-import {
-  type RoomSchedule,
-  colleaguesAnswerLater,
-  ruleRoomOf,
-  settleWhenAnswered,
-  withAnswer,
-} from './scheduling-script.ts'
+import { agentsContinue, stepRoomAttendance } from './scheduling-invitation.ts'
+import { agentsAnswerLater, ruleRoomOf, settleWhenAnswered, withAnswer } from './scheduling-script.ts'
+import { VISITOR_ID } from './team.ts'
 import type { World } from './world.ts'
 
 /**
@@ -41,6 +39,12 @@ export const schedulingHandlers = (world: World): Handlers => {
     delegation,
     agentInUse: delegation.agentId ?? connectedAgentOf(world.records(), viewerId, null)?.id ?? null,
   })
+  const adding = (): Adding =>
+    connectedAgentOf(world.records(), VISITOR_ID, null) === null
+      ? 'person'
+      : delegation.autoAdd
+        ? 'agent'
+        : 'agent_after_click'
   return {
     'me.scheduling.get': (_, viewerId) => T.sync(() => delegationView(viewerId)),
     'me.scheduling.set': ({ body }, viewerId) =>
@@ -54,7 +58,7 @@ export const schedulingHandlers = (world: World): Handlers => {
       T.gen(function* () {
         const problem = setupProblem(world, viewerId, body)
         if (problem !== null) return yield* T.fail(Invalid({ message: problem }))
-        return openRoom(world, viewerId, body)
+        return openRoom(world, viewerId, body, adding)
       }),
     'scheduling.slots.set': ({ params, body }, viewerId) =>
       T.gen(function* () {
@@ -70,13 +74,13 @@ export const schedulingHandlers = (world: World): Handlers => {
           ...current,
           schedule: withAnswer(current.schedule!, viewerId, 'by_person', body.slots),
         }))
-        settleWhenAnswered(world, debate.id)
+        settleWhenAnswered(world, debate.id, adding)
         return yield* roomOf(world, viewerId, debate.id)
       }),
     'scheduling.attendance.add': ({ params }, viewerId) =>
-      attend(world, viewerId, params.id, { type: 'add', memberId: viewerId }),
+      attend(world, viewerId, params.id, { type: 'add', memberId: viewerId }, adding),
     'scheduling.attendance.remove': ({ params }, viewerId) =>
-      attend(world, viewerId, params.id, { type: 'remove', memberId: viewerId }),
+      attend(world, viewerId, params.id, { type: 'remove', memberId: viewerId }, adding),
     'scheduling.retry': ({ params, body }, viewerId) =>
       T.gen(function* () {
         const debate = yield* roomOf(world, viewerId, params.id)
@@ -87,13 +91,19 @@ export const schedulingHandlers = (world: World): Handlers => {
         if (debate.status === 'open')
           return yield* T.fail(Conflict({ message: 'This room still takes answers.' }))
         const schedule = debate.schedule!
-        return openRoom(world, viewerId, {
-          title: debate.question,
-          minutes: schedule.minutes,
-          window: body.window ?? schedule.window,
-          attendees: schedule.attendees.filter((attendee) => attendee.memberId !== viewerId),
-          visibility: debate.visibility === 'open' ? 'open' : 'private',
-        })
+        return openRoom(
+          world,
+          viewerId,
+          {
+            title: debate.question,
+            minutes: schedule.minutes,
+            window: body.window ?? schedule.window,
+            ...limitsOf(schedule),
+            attendees: schedule.attendees.filter((attendee) => attendee.memberId !== viewerId),
+            visibility: debate.visibility === 'open' ? 'open' : 'private',
+          },
+          adding,
+        )
       }),
   }
 }
@@ -101,7 +111,7 @@ export const schedulingHandlers = (world: World): Handlers => {
 /** How long a room takes answers. */
 const ANSWERS_WITHIN_MINUTES = 120
 
-const openRoom = (world: World, viewerId: MemberId, setup: ScheduleSetup): Debate => {
+const openRoom = (world: World, viewerId: MemberId, setup: ScheduleSetup, adding: () => Adding): Debate => {
   const now = world.clock.now()
   const others = setup.attendees.filter((attendee) => attendee.memberId !== viewerId)
   const agent = connectedAgentOf(world.records(), viewerId, null)
@@ -132,8 +142,9 @@ const openRoom = (world: World, viewerId: MemberId, setup: ScheduleSetup): Debat
     schedule: {
       minutes: setup.minutes,
       window: setup.window,
+      ...limitsOf(setup),
       attendees: [
-        { memberId: viewerId, required: true, answer: agent === null ? 'waiting' : 'choosing' },
+        { memberId: viewerId, required: true, answer: 'waiting' },
         ...others.map(({ memberId, required }) => ({ memberId, required, answer: 'waiting' as const })),
       ],
       invite: null,
@@ -142,7 +153,7 @@ const openRoom = (world: World, viewerId: MemberId, setup: ScheduleSetup): Debat
   }
   world.update((records) => ({ ...records, debates: [debate, ...records.debates] }))
   changeRoom(world, debate.id, (room) => room)
-  colleaguesAnswerLater(world, debate.id)
+  agentsAnswerLater(world, debate.id, adding)
   return roomById(world, debate.id)!
 }
 
@@ -152,6 +163,10 @@ const setupProblem = (world: World, viewerId: MemberId, setup: ScheduleSetup): s
   if (setup.window.endsAt <= setup.window.startsAt) return 'The window ends after it starts.'
   if (setup.window.endsAt - setup.window.startsAt > SCHEDULE_WINDOW_MAX_DAYS * 86_400_000)
     return `The window is at most ${SCHEDULE_WINDOW_MAX_DAYS} days.`
+  const limited = scheduleLimitsProblem(setup)
+  if (limited !== null) return limited
+  if (!isMeetingPossible(windowAheadOf(setup.window, world.clock.now()), setup.minutes, setup))
+    return 'No time in the window that is still ahead fits the meeting inside the chosen days and hours.'
   if (others.length === 0) return 'Ask at least one other person to the meeting.'
   if (new Set(others.map((attendee) => attendee.memberId)).size !== others.length)
     return 'Ask each person once.'
@@ -166,39 +181,24 @@ const attend = (
   viewerId: MemberId,
   id: string,
   event: AttendanceEvent,
+  adding: () => Adding,
 ): T.Task<Debate, NotFound | Conflict> =>
   T.gen(function* () {
     const debate = yield* roomOf(world, viewerId, id)
     if (debate.status !== 'closed' || debate.result?.result.kind !== 'slot')
       return yield* T.fail(Conflict({ message: 'This room has settled no meeting.' }))
-    const attendees = debate.schedule!.attendees
-    const step = stepAttendance(
-      {
-        openedBy: debate.createdBy,
-        attendees: attendees.flatMap((attendee) => {
-          const state = stateOf(attendee.attendance)
-          return state === null ? [] : [{ memberId: attendee.memberId, state }]
-        }),
-      },
-      event,
-      () => 'person',
-    )
-    if (step._tag === 'Err') return yield* T.fail(step.error)
-    changeRoom(world, debate.id, (current) => ({
-      ...current,
-      schedule: {
-        ...current.schedule!,
-        attendees: current.schedule!.attendees.map((attendee) => {
-          const moved = step.value.attendance.attendees.find((one) => one.memberId === attendee.memberId)
-          return moved === undefined ? attendee : { ...attendee, attendance: moved.state }
-        }),
-      },
-    }))
+    const step = stepRoomAttendance(world, debate, event, adding)
+    if ('refusal' in step) return yield* T.fail(step.refusal)
+    agentsContinue(world, debate.id, adding)
     return yield* roomOf(world, viewerId, id)
   })
 
-const stateOf = (attendance: RoomSchedule['attendees'][number]['attendance']): AttendanceState | null =>
-  ATTENDANCE_STATES.find((state) => state === attendance) ?? null
+/** The days and hours a room is limited to, as they were set up. */
+const limitsOf = (limits: ScheduleLimits): ScheduleLimits => ({
+  ...(limits.weekdays !== undefined && { weekdays: limits.weekdays }),
+  ...(limits.hours !== undefined && { hours: limits.hours }),
+  ...(limits.timeZone !== undefined && { timeZone: limits.timeZone }),
+})
 
 const roomOf = (world: World, viewerId: MemberId, id: string): T.Task<Debate, NotFound> =>
   found(

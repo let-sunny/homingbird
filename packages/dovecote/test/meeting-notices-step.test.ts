@@ -11,8 +11,7 @@ afterEach(async () => {
 })
 
 describe('the meeting notices step', () => {
-  it('is the last step, the thirty-second, after scheduling delegations', () => {
-    expect(stepNumberOf(MEETING_NOTICES)).toBe(MIGRATIONS.length)
+  it('is the thirty-second step, after scheduling delegations', () => {
     expect(stepNumberOf(MEETING_NOTICES)).toBe(32)
   })
 

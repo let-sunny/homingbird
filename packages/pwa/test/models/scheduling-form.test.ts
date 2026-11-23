@@ -15,6 +15,10 @@ const typed = (fields: Partial<Typed> = {}): Typed => ({
   minutes: '60',
   earliestDay: '2026-11-20',
   latestDay: '2026-11-22',
+  weekdays: [],
+  hoursFrom: '',
+  hoursTo: '',
+  timeZone: 'Asia/Seoul',
   chosen: [BEN, CY],
   optional: new Set([CY]),
   ...fields,
@@ -27,13 +31,21 @@ const problem = (fields: Partial<Typed>): string | undefined => {
 
 describe('schedulingFormModel', () => {
   it('starts with a week from today, half an hour, and a line for each person chosen', () => {
-    const model = schedulingFormModel({ now: NOW, chosen: [BEN, CY], optional: new Set([CY]), nameOf: names })
+    const model = schedulingFormModel({
+      now: NOW,
+      chosen: [BEN, CY],
+      optional: new Set([CY]),
+      nameOf: names,
+      timeZone: 'Asia/Seoul',
+    })
     expect([model.earliestDay, model.latestDay]).toEqual(['2026-11-19', '2026-11-25'])
     expect(model.lengths.filter((one) => one.selected)).toEqual([
       { value: 30, label: '30 minutes', selected: true },
     ])
     expect(model.maxAttendees).toBe(7)
     expect(model.windowHint).toContain(String(SCHEDULE_WINDOW_MAX_DAYS))
+    expect(model.weekdays.map((one) => one.label)).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
+    expect(model.hoursHint).toContain('Asia/Seoul')
     expect(model.attendees).toEqual([
       { memberId: BEN, name: 'Ben', optional: false, label: 'Optional: Ben' },
       { memberId: CY, name: 'Cy', optional: true, label: 'Optional: Cy' },
@@ -87,6 +99,49 @@ describe('scheduleSetupFrom', () => {
 
   it('accepts a window of exactly the most days', () => {
     expect(problem({ earliestDay: '2026-11-20', latestDay: '2026-12-03' })).toBeUndefined()
+  })
+})
+
+describe('scheduleSetupFrom with days and hours', () => {
+  it('leaves out the limits and the time zone when no day or hour is chosen', () => {
+    const { setup } = scheduleSetupFrom(typed(), NOW) as { setup: Record<string, unknown> }
+    expect(Object.keys(setup)).not.toContain('weekdays')
+    expect(Object.keys(setup)).not.toContain('hours')
+    expect(Object.keys(setup)).not.toContain('timeZone')
+  })
+
+  it('sets the days in order, the hours in minutes and the browser’s time zone', () => {
+    expect(
+      scheduleSetupFrom(typed({ weekdays: [5, 1], hoursFrom: '09:15', hoursTo: '17:00' }), NOW),
+    ).toMatchObject({
+      setup: { weekdays: [1, 5], hours: { from: 555, to: 1020 }, timeZone: 'Asia/Seoul' },
+    })
+    expect(scheduleSetupFrom(typed({ weekdays: [6] }), NOW)).toMatchObject({
+      setup: { weekdays: [6], timeZone: 'Asia/Seoul' },
+    })
+    expect(scheduleSetupFrom(typed({ hoursFrom: '08:00', hoursTo: '10:00' }), NOW)).toMatchObject({
+      setup: { hours: { from: 480, to: 600 } },
+    })
+  })
+
+  it('reads an end of 00:00 as the end of the day', () => {
+    expect(scheduleSetupFrom(typed({ hoursFrom: '18:00', hoursTo: '00:00' }), NOW)).toMatchObject({
+      setup: { hours: { from: 1080, to: 1440 } },
+    })
+  })
+
+  it('names what cannot work in the hours or the days', () => {
+    const { problems } = strings.scheduling
+    expect(problem({ hoursFrom: '09:00' })).toBe(problems.hoursBoth)
+    expect(problem({ hoursTo: '09:00' })).toBe(problems.hoursBoth)
+    expect(problem({ hoursFrom: 'x', hoursTo: 'y' })).toBe(problems.hoursBoth)
+    expect(problem({ hoursFrom: '09:07', hoursTo: '10:00' })).toBe(problems.hoursQuarter)
+    expect(problem({ hoursFrom: '09:00', hoursTo: '10:10' })).toBe(problems.hoursQuarter)
+    expect(problem({ hoursFrom: '10:00', hoursTo: '09:00' })).toBe(problems.hoursOrder)
+    expect(problem({ hoursFrom: '09:00', hoursTo: '09:30', minutes: '60' })).toBe(problems.nothingFits)
+    expect(problem({ weekdays: [2], earliestDay: '2026-11-20', latestDay: '2026-11-22' })).toBe(
+      problems.nothingFits,
+    )
   })
 })
 

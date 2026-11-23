@@ -3,6 +3,7 @@ import { type TimeSpan, windowAheadOf } from '../common-slot.ts'
 import { FREE_SLOTS_MAX } from '../free-slots.ts'
 import type { MemberId } from '../ids.ts'
 import { CalendarReport } from '../meeting.ts'
+import { type ScheduleLimits, clippedToLimits, limitsLines } from '../schedule-limits.ts'
 import { wrapNote } from '../wrap.ts'
 import { quotedBrief } from './debate-prompts.ts'
 import { jsonIn } from './debate-reader.ts'
@@ -17,13 +18,21 @@ export const freeSlotsPrompt = (input: SchedulingPromptInput): string => {
     ...SCHEDULING_INSTRUCTIONS,
     FREE_SLOTS_INSTRUCTIONS(timeZone),
     `Scheduling room ${debate.id}: a meeting of ${debate.schedule.minutes} minutes, somewhere from ${zonedTime(window.startsAt, timeZone)} to ${zonedTime(window.endsAt, timeZone)} (${new Date(window.startsAt).toISOString()} to ${new Date(window.endsAt).toISOString()}). Your person's time zone, as their computer has it: ${timeZone}.`,
+    ...limitsLines(debate.schedule),
     ...quotedBrief(debate, input.authors, input.viewerId, input.nonce),
     FREE_SLOTS_FORM,
   ].join('\n\n')
 }
 
-/** Free times cut to the window and joined, that the agent cannot read a calendar, or null for anything else. */
-export const freeSlotsIn = (output: string, window: TimeSpan): FreeSlotsAnswer | null => {
+/**
+ * Free times cut to the window and to the room's days and hours, and joined, that the agent cannot read a
+ * calendar, or null for anything else.
+ */
+export const freeSlotsIn = (
+  output: string,
+  window: TimeSpan,
+  limits: ScheduleLimits = {},
+): FreeSlotsAnswer | null => {
   const printed = jsonIn(statedModelIn(output).answer)
   if (!isRecord(printed)) return null
   const keys = Object.keys(printed)
@@ -37,7 +46,7 @@ export const freeSlotsIn = (output: string, window: TimeSpan): FreeSlotsAnswer |
     const endsAt = Math.min(span.endsAt, window.endsAt)
     if (endsAt > startsAt) slots.push({ startsAt, endsAt })
   }
-  const joined = joinedSlots(slots)
+  const joined = joinedSlots(clippedToLimits(slots, window, limits))
   return joined.length > FREE_SLOTS_MAX ? null : { slots: joined }
 }
 

@@ -2528,6 +2528,12 @@ token (rule 9).
   them, are shown only to that person and their own agent; the other attendees, an administrator and
   the other agents see the result alone (rules 6 and 9). A note could otherwise carry calendar details
   between agents that no person sees.
+- **Days and hours are limits of the room.** A room may carry `weekdays` (ISO, Monday is 1), `hours`
+  (`from` and `to` in minutes of the day, quarter hours) and the opener's IANA `timeZone`, all
+  optional and strictly validated; omitted means no limit. A meeting lies whole inside one chosen
+  day's hours by the opener's clock, so a clock change shifts the instants, not the hours
+  (`allowedStretches`). The room, not an agent, enforces them when it picks the time; agents are
+  also told and their answer is cut to them. Stored in four columns of `scheduling_rooms`.
 - **Notices are kept.** What a meeting tells a person (it waits on them, it was added, someone left)
   is stored in `meeting_notices` and listed in the web client's Activity; web push only repeats it.
 
