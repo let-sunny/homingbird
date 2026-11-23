@@ -97,7 +97,12 @@ export const postResult = (
       return yield* T.fail(
         Invalid({ message: 'Say where the result goes: one conversation, person or channel.' }),
       )
-    const body = debateResultText(debate, draftedResultOf(debate.result)!.result, yield* namesFor(debate))
+    const drafted = draftedResultOf(debate.result)
+    if (drafted === null)
+      return yield* T.fail(
+        Conflict({ message: 'A scheduling room’s time goes into calendars, never into a note.' }),
+      )
+    const body = debateResultText(debate, drafted.result, yield* namesFor(debate))
     if (body.length > NOTE_BODY_MAX)
       return yield* T.fail(
         Invalid({

@@ -13,12 +13,16 @@ import {
   setDebateBrief,
   setDebateLimits,
 } from '../domain/debates.ts'
+import { chooseFreeSlots, openSchedulingRoom, shareFreeSlots } from '../domain/scheduling-rooms.ts'
 import { isHuman, viewerOf } from '../environment.ts'
 import { transact } from '../events/events.ts'
 import type { Handlers } from './handlers.ts'
 import { identifier } from './route-parameters.ts'
 
-/** Debate rooms: opening one, the agents' turns, and the result a person posts or exports. */
+/**
+ * Debate rooms: opening one, the agents' turns, and the result a person posts or exports; and scheduling
+ * rooms, where agents and people give free times and the room settles the time itself.
+ */
 export const debateHandlers = {
   'debates.list': (_, caller) =>
     T.map((debates: Awaited<ResponseOf<Contract['debates.list']>>['debates']) => ({ debates }))(
@@ -72,6 +76,15 @@ export const debateHandlers = {
     T.flatMap((id: DebateId) => postResult(caller, id, body))(identifier(DebateId, params.id)),
   'debates.export': ({ params, body }, caller) =>
     T.flatMap((id: DebateId) => exportDebate(caller, id, body.format, body.language))(
+      identifier(DebateId, params.id),
+    ),
+  'scheduling.create': ({ body }, caller) => T.flatMap(shownTo(caller))(openSchedulingRoom(caller, body)),
+  'scheduling.slots.set': ({ params, body }, caller) =>
+    T.flatMap((id: DebateId) => T.flatMap(shownTo(caller))(chooseFreeSlots(caller, id, body.slots)))(
+      identifier(DebateId, params.id),
+    ),
+  'debates.slots.post': ({ params, body }, caller) =>
+    T.flatMap((id: DebateId) => T.flatMap(shownTo(caller))(shareFreeSlots(caller, id, body)))(
       identifier(DebateId, params.id),
     ),
 } satisfies Partial<Handlers>

@@ -86,6 +86,7 @@ const WANTS = {
   turn: 'your next turn',
   result: 'a draft of its result',
   vote: 'your vote on the drafts of its result',
+  slots: 'your person’s free times for a meeting, which this command line cannot share yet',
   unknown: 'something this command line does not know; upgrade it to answer',
 } as const
 

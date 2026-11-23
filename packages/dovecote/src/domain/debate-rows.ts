@@ -2,6 +2,7 @@ import { Task as T } from '@homingbird/kernel'
 import {
   type CredentialId,
   DEBATE_GRACE_MINUTES,
+  DEBATE_RULES,
   DEFAULT_GRACE_MINUTES,
   type Debate,
   type DebateConclusion,
@@ -16,6 +17,11 @@ import {
   NotFound,
   RESULT_DRAFTING_WINDOW_MS,
   RESULT_VOTING_WINDOW_MS,
+  type RoomOutcome,
+  type RoomResult,
+  type RoomRules,
+  SCHEDULING_RULES,
+  type ScheduleResult,
   type TurnHold,
   askedTurnOf,
   draftedResultOf,
@@ -25,6 +31,7 @@ import { EVERYONE, type RequestEnv } from '../events/events.ts'
 import { all, dialect, first, run } from '../sql/database.ts'
 import { insertIgnoringConflict, sql } from '../sql/query.ts'
 import { type Viewer, isVisibleRoom } from './channel-rows.ts'
+import { type ScheduleFacts, scheduleOf } from './scheduling-rows.ts'
 import { featureIsOn } from './settings.ts'
 
 /** A private room shows to its members, and to an administrator's own sign-in only (rule 6). */
@@ -68,10 +75,13 @@ export const loadRoom = (row: DebateRow): T.Task<DebateFacts, never, AppEnv> =>
       const agent = agents.find((one) => one.member_id === memberId)
       return agent !== undefined && isAgentTakingPart(env, agent, graceMs)
     }
+    const schedule = row.room_type === 'scheduling' ? yield* scheduleOf(id, turns) : null
     const firstDraftAt = drafts[0] === undefined ? null : Number(drafts[0].created_at)
     const deciding = row.status === 'concluding' && row.result === null
     const debate: Debate = {
       id,
+      type: schedule === null ? 'debate' : 'scheduling',
+      ...(schedule !== null && { schedule: schedule.details }),
       question: row.question,
       visibility: row.visibility,
       status: row.status,
@@ -129,9 +139,14 @@ export const loadRoom = (row: DebateRow): T.Task<DebateFacts, never, AppEnv> =>
             }
           : null,
     }
-    const room = roomOf(row, debate, votes, env.turnHolds.of(id))
-    return { debate: { ...debate, askedTurn: askedTurnOf(room, env.clock.now()) }, room }
+    const room = roomOf(row, debate, votes, env.turnHolds.of(id), schedule)
+    const askedTurn = askedTurnOf(room, env.clock.now(), roomRulesOf(row))
+    return { debate: { ...debate, askedTurn }, room }
   })
+
+/** A room stored without a type is a debate. */
+export const roomRulesOf = (row: Pick<DebateRow, 'room_type'>): RoomRules =>
+  row.room_type === 'scheduling' ? SCHEDULING_RULES : DEBATE_RULES
 
 /**
  * Its credential made an authenticated request within the grace; holding an event stream alone does not
@@ -149,13 +164,17 @@ export const isAgentTakingPart = (
   return Number(agent.last_used_at ?? 0) >= since
 }
 
-/** Each agent's id to its own person only; while drafts are collected, an agent sees only its own. */
+/**
+ * Each agent's id to its own person only; while drafts are collected, an agent sees only its own. Free
+ * times go to attendees and an administrator as a person, and to an agent only its own person's.
+ */
 const seenBy =
   (caller: Caller) =>
   (debate: Debate): Debate => {
     const viewerId = caller.member.id
     const shown = {
       ...debate,
+      ...(debate.schedule != null && { schedule: scheduleSeenBy(caller, debate.schedule) }),
       participants: debate.participants.map((participant) =>
         participant.memberId === viewerId ? participant : { ...participant, agentId: null },
       ),
@@ -185,6 +204,18 @@ export const shownTo =
           : sql`SELECT brief FROM debate_participants WHERE debate_id = ${debate.id} AND credential_id = ${caller.credential.id}`,
       ),
     )
+
+const scheduleSeenBy = (
+  caller: Caller,
+  schedule: NonNullable<Debate['schedule']>,
+): NonNullable<Debate['schedule']> => {
+  const viewerId = caller.member.id
+  const attending = schedule.attendees.some((attendee) => attendee.memberId === viewerId)
+  const seesAll = isHuman(caller) && (attending || caller.member.role === 'admin')
+  return seesAll
+    ? schedule
+    : { ...schedule, freeSlots: (schedule.freeSlots ?? []).filter((one) => one.memberId === viewerId) }
+}
 
 const draftsOf = (id: DebateId, round: number): T.Task<ReadonlyArray<DraftRow>, never, AppEnv> =>
   all<DraftRow>(sql`
@@ -295,6 +326,7 @@ export interface DebateRow {
   readonly votes_open_at: number | null
   readonly grace_minutes: number | null
   readonly dropped_out: string | null
+  readonly room_type?: string | null
 }
 
 export interface DraftRow {
@@ -340,13 +372,13 @@ interface TurnRow {
   readonly ready?: number | null
 }
 
-/** The stored result passed `DebateResult` when it was drafted. */
+/** The stored result passed `DebateResult` when it was drafted, or is what the room computed, by nobody. */
 const resultOf = (row: DebateRow): Debate['result'] =>
   row.result === null
     ? null
     : {
-        result: JSON.parse(row.result) as DebateResult,
-        draftedBy: row.result_by!,
+        result: JSON.parse(row.result) as RoomResult,
+        draftedBy: row.result_by,
         draftedAt: Number(row.result_at),
       }
 
@@ -355,6 +387,7 @@ const roomOf = (
   debate: Debate,
   votes: ReadonlyArray<VoteRow>,
   holds: ReadonlyArray<TurnHold>,
+  schedule: ScheduleFacts | null,
 ): DebateRoom => ({
   stage: stageOf(row, debate),
   createdAt: debate.createdAt,
@@ -363,12 +396,19 @@ const roomOf = (
     debate.turns.at(-1)?.at ??
     Math.max(debate.createdAt, ...debate.participants.map((participant) => participant.joinedAt)),
   limits: debate.limits,
-  participants: debate.participants,
-  turns: debate.turns,
+  participants:
+    schedule === null
+      ? debate.participants
+      : debate.participants.filter((participant) => !schedule.answersThemself.has(participant.memberId)),
+  turns:
+    schedule === null
+      ? debate.turns
+      : debate.turns.map((turn) => ({ ...turn, slots: schedule.agentSlotsOf(turn.memberId) })),
   round: debate.resultRound,
   drafts: debate.drafts ?? [],
   votes: votes.map((vote) => ({ voterId: vote.voter_id, draftBy: vote.draft_by })),
   holds,
+  ...(schedule !== null && { schedule: schedule.room }),
 })
 
 const stageOf = (row: DebateRow, debate: Debate): DebateStage => {
@@ -376,18 +416,27 @@ const stageOf = (row: DebateRow, debate: Debate): DebateStage => {
   switch (row.status) {
     case 'open':
       return debate.turns.length === 0 ? { stage: 'setup' } : { stage: 'open' }
-    case 'concluding':
-      if (debate.result !== null)
-        return { stage: 'approving', concludedAt, result: draftedResultOf(debate.result)! }
+    case 'concluding': {
+      const drafted = draftedResultOf(debate.result)
+      if (drafted !== null) return { stage: 'approving', concludedAt, result: drafted }
       return row.votes_open_at === null
         ? { stage: 'drafting', concludedAt }
         : { stage: 'voting', concludedAt, votesOpenAt: Number(row.votes_open_at) }
+    }
     case 'closed':
-      return { stage: 'closed', result: draftedResultOf(debate.result)! }
+      return { stage: 'closed', result: outcomeOf(debate.result!) }
     default:
       return { stage: 'ended', because: row.ended_because! }
   }
 }
+
+/** A closed room's result: the draft its agents chose, or what a scheduling room computed. */
+const outcomeOf = (settled: NonNullable<Debate['result']>): RoomOutcome =>
+  draftedResultOf(settled) ?? {
+    draftedBy: null,
+    draftedAt: settled.draftedAt,
+    result: settled.result as ScheduleResult,
+  }
 
 const numberOrNull = (value: number | null | undefined): number | null =>
   value === null || value === undefined ? null : Number(value)

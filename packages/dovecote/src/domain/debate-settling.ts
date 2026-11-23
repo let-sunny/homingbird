@@ -13,10 +13,18 @@ import {
   stepDebate,
 } from '@homingbird/protocol'
 import type { RequestEnv } from '../events/events.ts'
-import { dialect, run } from '../sql/database.ts'
+import { dialect, first, run } from '../sql/database.ts'
 import { insertIgnoringConflict, insertInto, sql } from '../sql/query.ts'
 import { recordAudit } from './audit.ts'
-import { type DebateRow, announceDebate, enterDebate, loadRoom, touchDebate } from './debate-rows.ts'
+import {
+  type DebateRow,
+  announceDebate,
+  enterDebate,
+  loadRoom,
+  roomRulesOf,
+  touchDebate,
+} from './debate-rows.ts'
+import { keepAgentSlots } from './scheduling-rows.ts'
 
 /**
  * Moves the room the row was read as on by what time alone decides, storing each effect the machine
@@ -26,7 +34,8 @@ export const settleDebateRow = (row: DebateRow): T.Task<void, never, RequestEnv>
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     const { room } = yield* loadRoom(row)
-    for (const effect of settleDebateRoom(room, env.clock.now()).effects) yield* applySettling(row, effect)
+    for (const effect of settleDebateRoom(room, env.clock.now(), roomRulesOf(row)).effects)
+      yield* applySettling(row, effect)
   })
 
 /**
@@ -41,7 +50,7 @@ export const moveDebate = (
   T.gen(function* () {
     const env = yield* T.ask<RequestEnv>()
     const { room } = yield* loadRoom(row)
-    const move = stepDebate(room, event, env.clock.now())
+    const move = stepDebate(room, event, env.clock.now(), roomRulesOf(row))
     if (!isOk(move)) return yield* T.fail(move.error)
     for (const effect of move.value.before) yield* applySettling(row, effect)
     yield* applyAction(row, move.value.action, actor)
@@ -86,6 +95,8 @@ export const applySettling = (
       }
       case 'close':
         return yield* close(row, effect, now)
+      case 'closeComputed':
+        return yield* closeComputed(row, effect, now)
       case 'end': {
         const ended = yield* run(endingUpdate(row, effect, now))
         if (ended !== 1) return
@@ -149,6 +160,7 @@ const applyAction = (
           )
         if (effect.deadlineAt !== null)
           yield* run(sql`UPDATE debates SET deadline_at = ${effect.deadlineAt} WHERE id = ${row.id}`)
+        if (effect.slots !== undefined) yield* keepAgentSlots(row.id, effect.memberId, effect.slots, now)
         return yield* touchDebate(row.id, now)
       }
       case 'addDraft': {
@@ -218,6 +230,43 @@ const close = (
         draftedBy: chosen.draftedBy,
         votes: effect.votes,
         drafts: effect.drafts,
+        droppedOut: effect.droppedOut,
+      },
+    })
+    yield* announceDebate(row, 'everyone')
+  })
+
+/**
+ * Closes a scheduling room on the time it computed, which nobody drafted and earns no credits; the time is
+ * kept for the invitation, and the audit says only how it settled and how many answered.
+ */
+const closeComputed = (
+  row: DebateRow,
+  effect: Extract<DebateSettlingEffect, { readonly type: 'closeComputed' }>,
+  now: number,
+): T.Task<void, never, RequestEnv> =>
+  T.gen(function* () {
+    const { result, draftedAt } = effect.chosen
+    const closed = yield* run(sql`
+      UPDATE debates SET status = 'closed', result = ${JSON.stringify(result)}, result_by = NULL,
+      result_at = ${draftedAt}, dropped_out = ${JSON.stringify(effect.droppedOut)}, closed_at = ${now},
+      updated_at = ${now}
+      WHERE id = ${row.id} AND status = 'concluding' AND result_round = ${effect.round} AND result IS NULL`)
+    if (closed !== 1) return
+    if (result.kind === 'slot')
+      yield* run(
+        sql`UPDATE scheduling_rooms SET slot_starts_at = ${result.startsAt} WHERE debate_id = ${row.id}`,
+      )
+    const asked = yield* first<{ attendees: number }>(
+      sql`SELECT COUNT(*) AS attendees FROM scheduling_attendees WHERE debate_id = ${row.id}`,
+    )
+    const unanswered = 'unanswered' in result ? result.unanswered.length : 0
+    yield* recordAudit('debate.settled', {
+      targetId: row.id,
+      detail: {
+        outcome: result.kind,
+        answered: Number(asked?.attendees ?? 0) - unanswered,
+        unanswered,
         droppedOut: effect.droppedOut,
       },
     })

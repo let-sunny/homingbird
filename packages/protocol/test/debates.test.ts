@@ -10,6 +10,7 @@ import {
   DebateLimitsWish,
   DebateSummary,
   RoomScheduleDetails,
+  ScheduleSetup,
   TURNS_PER_AGENT_OFFERED,
 } from '../src/debates.ts'
 import { ANA, roomOf } from './debate-fixtures.ts'
@@ -74,5 +75,34 @@ describe('debate room schemas', () => {
     }
     expect(RoomScheduleDetails.decode(asked)).toMatchObject({ _tag: 'Ok' })
     expect(RoomScheduleDetails.decode({ ...asked, minutes: 10 })).toMatchObject({ _tag: 'Err' })
+    const answered = {
+      ...asked,
+      attendees: [{ memberId: ANA, required: true, answer: 'by_person' }],
+      freeSlots: [{ memberId: ANA, slots: [{ startsAt: 1, endsAt: 2 }] }],
+    }
+    expect(RoomScheduleDetails.decode(answered)).toMatchObject({ _tag: 'Ok' })
+    const later = { ...asked, attendees: [{ memberId: ANA, required: true, answer: 'delegated' }] }
+    expect(RoomScheduleDetails.read(later)).toMatchObject({ value: { attendees: [{ answer: 'unknown' }] } })
+  })
+
+  it('asks an agent for free slots in a scheduling room, and an old client reads that ask as unknown', () => {
+    const debate = JSON.parse(JSON.stringify(roomOf()))
+    expect(DebateAsk.decode({ debate, ask: 'slots' })).toMatchObject({ _tag: 'Ok' })
+    expect(DebateAsk.read({ debate, ask: 'invite' })).toMatchObject({ value: { ask: 'unknown' } })
+  })
+
+  it('opens a scheduling room for one to seven other people, its opener being the eighth', () => {
+    const setup = {
+      title: 'Plan the launch',
+      minutes: 30,
+      window: { startsAt: 1, endsAt: 2 },
+      attendees: [{ memberId: ANA, required: false }],
+    }
+    expect(ScheduleSetup.decode(setup)).toMatchObject({ _tag: 'Ok' })
+    expect(ScheduleSetup.decode({ ...setup, attendees: [] })).toMatchObject({ _tag: 'Err' })
+    const eight = Array.from({ length: 8 }, () => ({ memberId: ANA, required: true }))
+    expect(ScheduleSetup.decode({ ...setup, attendees: eight })).toMatchObject({ _tag: 'Err' })
+    expect(ScheduleSetup.decode({ ...setup, attendees: eight.slice(1) })).toMatchObject({ _tag: 'Ok' })
+    expect(ScheduleSetup.decode({ ...setup, title: '' })).toMatchObject({ _tag: 'Err' })
   })
 })

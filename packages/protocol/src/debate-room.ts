@@ -222,7 +222,7 @@ export type DebateActionEffect =
       readonly body: string
       readonly afterTurn: number | null
       readonly ready: boolean
-      /** The first turn starts the room's time: its new deadline; null for every later turn. */
+      /** The first turn starts the room's time: its new deadline; null for every later turn, or when the rules keep it. */
       readonly deadlineAt: number | null
       readonly slots?: ReadonlyArray<TimeSpan>
     }
@@ -381,7 +381,8 @@ const takeTurn = (
   if (problem !== null) return Result.err(Invalid({ message: `${problem}${kept}` }))
   const afterTurn = event.afterTurn ?? null
   const ready = event.ready === true
-  const deadlineAt = room.stage.stage === 'setup' ? now + room.limits.minutes * 60_000 : null
+  const deadlineAt =
+    room.stage.stage === 'setup' && rules.timeFromFirstTurn ? now + room.limits.minutes * 60_000 : null
   const slots = event.slots === undefined ? {} : { slots: event.slots }
   return Result.ok({
     room: {

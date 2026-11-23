@@ -2,6 +2,7 @@ import { Schema as S } from '@homingbird/kernel'
 import { UNKNOWN } from './compatibility.ts'
 import { DEBATE_GRACE_MINUTES } from './debate-grace.ts'
 import { DEBATE_PARTICIPANTS_MAX, DebateResult } from './debate-result.ts'
+import { FREE_SLOTS_MAX } from './free-slots.ts'
 import { CredentialId, DebateId, MemberId, Timestamp } from './ids.ts'
 import { AgentLabel } from './model.ts'
 import { RoomResult } from './room-result.ts'
@@ -16,14 +17,43 @@ export type DebateVisibility = S.Infer<typeof DebateVisibility>
 export const RoomType = S.tolerant(S.literal('debate', 'scheduling'), UNKNOWN)
 export type RoomType = S.Infer<typeof RoomType>
 
+export const AttendeeAnswer = S.tolerant(S.literal('waiting', 'choosing', 'by_agent', 'by_person'), UNKNOWN)
+export type AttendeeAnswer = S.Infer<typeof AttendeeAnswer>
+
 export const RoomScheduleDetails = S.struct({
   minutes: S.int({ min: 15, max: 480 }),
   window: S.struct({ startsAt: Timestamp, endsAt: Timestamp }),
-  attendees: S.array(S.struct({ memberId: MemberId, required: S.boolean }), {
-    maxItems: DEBATE_PARTICIPANTS_MAX,
-  }),
+  attendees: S.array(
+    S.struct({ memberId: MemberId, required: S.boolean, answer: S.optional(AttendeeAnswer) }),
+    { maxItems: DEBATE_PARTICIPANTS_MAX },
+  ),
+  /** The free times each attendee gave, to the people who see the room; to an agent, its own person's only. */
+  freeSlots: S.optional(
+    S.array(
+      S.struct({
+        memberId: MemberId,
+        slots: S.array(S.struct({ startsAt: Timestamp, endsAt: Timestamp }), { maxItems: FREE_SLOTS_MAX }),
+      }),
+      { maxItems: DEBATE_PARTICIPANTS_MAX },
+    ),
+  ),
 })
 export type RoomScheduleDetails = S.Infer<typeof RoomScheduleDetails>
+
+export const SCHEDULE_WINDOW_MAX_DAYS = 14
+
+/** What a person opens a scheduling room with; they are always a required attendee themself. */
+export const ScheduleSetup = S.struct({
+  title: DebateQuestion,
+  minutes: S.int({ min: 15, max: 480 }),
+  window: S.struct({ startsAt: Timestamp, endsAt: Timestamp }),
+  attendees: S.array(S.struct({ memberId: MemberId, required: S.boolean }), {
+    minItems: 1,
+    maxItems: DEBATE_PARTICIPANTS_MAX - 1,
+  }),
+  visibility: S.optional(DebateVisibility),
+})
+export type ScheduleSetup = S.Infer<typeof ScheduleSetup>
 
 export const DebateStatus = S.tolerant(S.literal('open', 'concluding', 'closed', 'ended'), UNKNOWN)
 export type DebateStatus = S.Infer<typeof DebateStatus>
@@ -181,7 +211,10 @@ export const DebateSummary = S.struct({
 })
 export type DebateSummary = S.Infer<typeof DebateSummary>
 
-export const DebateAsk = S.struct({ debate: Debate, ask: S.tolerant(S.literal('turn', 'result'), UNKNOWN) })
+export const DebateAsk = S.struct({
+  debate: Debate,
+  ask: S.tolerant(S.literal('turn', 'result', 'slots'), UNKNOWN),
+})
 export type DebateAsk = S.Infer<typeof DebateAsk>
 
 /** A room that ended without a result, as its agent learns of it: no words of the room, only why. */

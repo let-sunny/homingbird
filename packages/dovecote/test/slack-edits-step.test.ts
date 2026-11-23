@@ -11,8 +11,7 @@ afterEach(async () => {
 })
 
 describe('the Slack edits step', () => {
-  it('is the last step, the twenty-eighth, after note tags', () => {
-    expect(stepNumberOf(SLACK_EDITS)).toBe(MIGRATIONS.length)
+  it('is the twenty-eighth step, after note tags', () => {
     expect(stepNumberOf(SLACK_EDITS)).toBe(28)
   })
 

@@ -190,6 +190,7 @@ export const DEBATE_TOOL_NAMES: ReadonlyArray<string> = DEBATE_TOOLS.map((tool) 
 const WANTS: Readonly<Record<AsRead.DebateAsk['ask'], string>> = {
   turn: 'your next turn',
   result: 'your draft of the room’s result',
+  slots: 'your person’s free times for a meeting, which this adapter cannot share yet; skip this room',
   unknown: 'something this adapter does not know; skip this room and do not draft a result for it',
 }
 

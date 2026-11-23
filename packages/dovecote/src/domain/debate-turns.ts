@@ -13,7 +13,14 @@ import { type AppEnv, type Caller, isHuman, viewerOf } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
 import { all } from '../sql/database.ts'
 import { sql } from '../sql/query.ts'
-import { describeDebate, loadRoom, lockedDebate, participantByAgent, visibleDebate } from './debate-rows.ts'
+import {
+  describeDebate,
+  loadRoom,
+  lockedDebate,
+  participantByAgent,
+  roomRulesOf,
+  visibleDebate,
+} from './debate-rows.ts'
 import { moveDebate, settleDebateRow } from './debate-settling.ts'
 
 /** Only the opted-in credential takes a turn; a turn refused for its length or as stale keeps its place. */
@@ -38,7 +45,7 @@ export const takeTurn = (
       ...(wish.afterTurn !== undefined && { afterTurn: wish.afterTurn }),
       ...(wish.ready === true && { ready: true }),
     }
-    const hold = turnHoldOf((yield* loadRoom(row)).room, event, env.clock.now())
+    const hold = turnHoldOf((yield* loadRoom(row)).room, event, env.clock.now(), roomRulesOf(row))
     if (hold !== null) env.turnHolds.keep(id, hold)
     yield* moveDebate(row, event, {
       credentialId: caller.credential.id,
