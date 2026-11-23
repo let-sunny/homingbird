@@ -714,9 +714,11 @@ one opens on Result. The activity panel opens a room on the tab that waits for y
    `take_debate_turn`, `draft_debate_result` and `vote_debate_result`; in a scheduling room it uses `share_free_slots`
    to give free and busy times only, and, once the room confirms a time, `report_calendar` to say it sent, accepted,
    declined or cancelled the meeting in your own calendar with its own calendar tool (Homingbird holds no calendar
-   access), when scheduling rooms are on. `homingbird run` has no calendar, so it tells a
-   scheduling room so, your person chooses their times, and a confirmed meeting is left for them to put in or take
-   out by hand. The Claude Code plugin's desk
+   access), when scheduling rooms are on. `homingbird run` wakes your agent for a scheduling room as it does for a
+   turn: the agent reads your calendar with its own calendar tool (for `claude -p`, the MCP servers you set up for
+   Claude Code, such as a Google Calendar connector) and prints your free times, then sends, accepts, declines or
+   cancels the meeting there; an agent without a calendar tool, or one that prints anything else, leaves it to you
+   in the web client ([Schedule a meeting](#schedule-a-meeting)). The Claude Code plugin's desk
    takes no turns: it only shows a notice when a room waits on your agent, so opt in the agent that a
    `homingbird run` signs in as (on the same computer that is the plugin's own agent). An agent is **taking part** while it sends requests, and a
    running desk or runner sends one every minute. Only requests count: a connection held open, such
@@ -773,20 +775,40 @@ A scheduling room finds a meeting time without the long "when are you free?" bac
 **Schedule a meeting** in the web client, give the meeting a title and a length, add who should come
 (everyone is required unless you mark them optional) and choose the earliest and latest day to look at.
 
+**With everyone's desk running, opening the room is all anyone does.** Each person's `homingbird run`
+wakes their agent, which shares their free times, the room picks the time, the opener's agent sends the
+invitation and everyone else's agent accepts it, and the meeting is in every calendar. The agent needs a
+calendar tool of its own: for `homingbird run --agent claude`, a calendar MCP server or connector set up
+in Claude Code; for Codex CLI or Gemini CLI, one in that program's own MCP configuration. An agent
+without one says so and its person is asked on a card instead, which is the only time a person is asked.
+
 1. **Agents share free times only.** Each person's agent reads that person's own calendar with its own
-   tools and offers only the times they are free, never what the busy time is. If an agent has no
-   calendar tool, its person ticks the hours they are free in the web client instead. Homingbird never
-   holds a calendar token. The free times you give, and any remark your agent adds to them, are seen
-   only by you and your agent: everyone else, an administrator included, sees only the result.
-2. **The earliest common time is taken.** Once every required person has answered, or the room's time
+   tools and offers only the times they are free, never what the busy time is, within their working
+   hours (09:00 to 18:00 on working days in their computer's time zone) unless their note for the room
+   or their calendar says otherwise. If an agent has no calendar tool, its person ticks the hours they
+   are free in the web client instead. Homingbird never holds a calendar token. The free times you
+   give, and any remark your agent adds to them, are seen only by you and your agent: everyone else, an
+   administrator included, sees only the result. While the room still collects, you can change your
+   times in the web client, over your agent's too, and your agent can replace its own answer; nobody
+   can change anyone else's.
+2. **The room collects for up to a day.** It settles as soon as every required person answered. If
+   someone has not, it stops waiting an hour before the latest start that still fits the meeting, at
+   most a day after it opened and at least two hours after, though never past that latest start. Desks
+   answer within minutes, a day leaves a person without an agent a working day to see their card, and
+   the hour before the latest start leaves time to send the invitation.
+3. **The earliest common time is taken.** Once every required person has answered, or the room's time
    is up, the earliest time still ahead when all of them are free becomes the meeting time. Optional people are
    named as free or busy then, and anyone who did not answer is named too. When there is no common time
    the room says so and shows the closest option.
-3. **One invitation.** The agent of the person who opened the room sends a single calendar invitation
-   to everyone it names by name and email, people without an agent too, and each attendee's agent
-   accepts it. An optional person busy then is not invited, and the room says so. A person without a
-   calendar tool gets a **Get the .ics file** button instead. The person who opened the room sees in it
-   where each person's part stands: added, cannot come, took it out.
+4. **One invitation.** The agent of the person who opened the room sends a single calendar invitation
+   to everyone it names by email, people without an agent too, with a meeting link when its calendar
+   tool can add one, and each attendee's agent accepts it. An optional person busy then is not invited,
+   and the room says so. A person without an agent, or whose agent could not do it, gets a **Get the
+   .ics file** button, never before the invitation is sent, so the meeting is not in a calendar twice.
+   While your agent is to send or add it, the room says it waits for your agent and whether your desk
+   is running; if the desk is off, or the agent has not done it within ten minutes, you get the .ics
+   file and **I sent it myself** or **I added it myself** instead. The person who opened the room sees
+   in it where each person's part stands: added, cannot come, took it out.
 
 Your agent joins a scheduling room and adds the meeting to your calendar without asking. This
 delegation is on by default and you can turn either part off, or narrow it to rooms opened by people

@@ -57,7 +57,7 @@ export const debateView = (
   const pickedHours = signal<ReadonlySet<number> | null>(null)
   return region(
     life,
-    [state.shownDebate, state.members, state.agentCredentials, state.serverInfo],
+    [state.shownDebate, state.members, state.agentCredentials, state.serverInfo, state.directory],
     () => {
       drawn.end()
       const current = state.shownDebate.get()
@@ -78,7 +78,11 @@ export const debateView = (
             ? [
                 schedulingAgentCard(context, { ...person, agents }),
                 schedulingSlotsCard(context, drawn, { ...person, picked: pickedHours }),
-                schedulingAttendanceCard(context, { ...person, members: state.members.get() }),
+                schedulingAttendanceCard(context, {
+                  ...person,
+                  directory: state.directory.get(),
+                  members: state.members.get(),
+                }),
                 schedulingRetryCard(context, person),
               ]
             : [],

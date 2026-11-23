@@ -60,7 +60,7 @@ describe('schedulingRoomModel', () => {
     expect(model.attendees).toEqual([
       {
         memberId: ANA,
-        name: 'You',
+        name: 'Ana (you)',
         required: 'Required',
         answer: strings.scheduling.ownAnswer.by_person,
         answered: true,

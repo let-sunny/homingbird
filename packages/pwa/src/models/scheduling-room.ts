@@ -40,7 +40,10 @@ export const schedulingRoomModel = (input: SchedulingRoomInput): SchedulingRoomM
     attendeesTitle: strings.scheduling.attendeesTitle,
     attendees: schedule.attendees.map((attendee) => ({
       memberId: attendee.memberId,
-      name: attendee.memberId === viewerId ? strings.scheduling.you : nameOf(attendee.memberId),
+      name:
+        attendee.memberId === viewerId
+          ? strings.scheduling.youNamed({ name: nameOf(attendee.memberId) })
+          : nameOf(attendee.memberId),
       required: attendee.required ? strings.scheduling.required : strings.scheduling.optional,
       answer: (attendee.memberId === viewerId ? strings.scheduling.ownAnswer : strings.scheduling.answer)[
         attendee.answer ?? 'waiting'

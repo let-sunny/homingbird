@@ -4,8 +4,8 @@ import { zoneShown } from './schedule-result.ts'
 
 /**
  * The card on which a person picks the times they are free, one hour at a time, in their own time zone.
- * It is there while the room collects times and no agent of theirs takes part in the room, or they were
- * asked to choose themself.
+ * It is there while the room collects times and no agent of theirs takes part in the room, they were
+ * asked to choose themself, or an answer is in, theirs or their agent's, which picking again replaces.
  */
 export const schedulingSlotsModel = (input: SchedulingSlotsInput): SchedulingSlotsModel | null => {
   const { debate, viewerId, timeZone } = input
@@ -13,7 +13,8 @@ export const schedulingSlotsModel = (input: SchedulingSlotsInput): SchedulingSlo
   if (debate.status !== 'open' || schedule == null) return null
   const attendee = schedule.attendees.find((one) => one.memberId === viewerId)
   const isAnsweredByAgent = debate.participants.some((participant) => participant.memberId === viewerId)
-  if (attendee === undefined || (isAnsweredByAgent && attendee.answer !== 'choosing')) return null
+  if (attendee === undefined || (isAnsweredByAgent && !ANSWERED.has(attendee.answer ?? 'waiting')))
+    return null
   const cells = freeTimeCells(schedule.window, input.now)
   const dayLabel = dayFormat(timeZone)
   const timeLabel = timeFormat(timeZone)
@@ -61,7 +62,12 @@ export const schedulingSlotsModel = (input: SchedulingSlotsInput): SchedulingSlo
     sendDisabled: picked.length === 0 || slots.length > FREE_SLOTS_MAX,
     busy: strings.scheduling.pickBusy,
     busyHint: strings.scheduling.pickBusyHint,
-    answered: attendee.answer === 'by_person' ? strings.scheduling.pickAnswered : null,
+    answered:
+      attendee.answer === 'by_person'
+        ? strings.scheduling.pickAnswered
+        : attendee.answer === 'by_agent'
+          ? strings.scheduling.pickAnsweredByAgent
+          : null,
   }
 }
 
@@ -181,3 +187,6 @@ const hourFormat = (timeZone: string): Intl.DateTimeFormat =>
 
 const hourLabel = (hour: number): string =>
   new Intl.DateTimeFormat(locale, { hour: 'numeric', timeZone: 'UTC' }).format(Date.UTC(2000, 0, 1, hour))
+
+/** Answers after which the person may pick, their agent being done: asked to choose, or replacing an answer. */
+const ANSWERED: ReadonlySet<string> = new Set(['choosing', 'by_agent', 'by_person'])

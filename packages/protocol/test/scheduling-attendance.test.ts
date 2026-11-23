@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { MemberId } from '../src/ids.ts'
 import type { CalendarOutcome } from '../src/meeting.ts'
 import {
+  AGENT_PICKUP_MS,
   type Adding,
   type Attendance,
   type AttendanceEvent,
@@ -11,6 +12,7 @@ import {
   type AttendanceStep,
   askWaitingOn,
   confirmAttendance,
+  isAgentIdle,
   stepAttendance,
 } from '../src/scheduling-attendance.ts'
 
@@ -139,6 +141,30 @@ describe('the opener’s invitation', () => {
     expect(busy.notices).toEqual([{ to: ANA, notice: 'waits' }])
     const again = accepted(busy.attendance, { type: 'add', memberId: ANA })
     expect(again.asks).toEqual([{ memberId: ANA, ask: 'send_invite' }])
+  })
+
+  it('is sent by the opener themself once their agent left it idle, reaching everyone as if it had', () => {
+    const opened = confirmAttendance(ANA, PEOPLE, byAgents, []).attendance
+    expect(refusal(opened, { type: 'add', memberId: ANA })).toMatch(/adding/)
+    expect(refusal(opened, { type: 'add', memberId: ANA, agentIdle: false })).toMatch(/adding/)
+    const step = accepted(opened, { type: 'add', memberId: ANA, agentIdle: true })
+    expect(statesOf(step.attendance)).toEqual({ [ANA]: 'added', [BEN]: 'adding', [CY]: 'adding' })
+    expect(askWaitingOn(step.attendance, ANA)).toBeNull()
+    expect(step.asks).toEqual([
+      { memberId: BEN, ask: 'accept_invite' },
+      { memberId: CY, ask: 'accept_invite' },
+    ])
+    const added = accepted(step.attendance, { type: 'add', memberId: BEN, agentIdle: true }).attendance
+    expect(statesOf(added)[BEN]).toBe('added')
+    expect(refusal(step.attendance, report(ANA, 'sent'))).toMatch(/added/)
+  })
+
+  it('counts an agent idle when its desk is off or it has left the meeting waiting ten minutes', () => {
+    const since = 1_000_000
+    expect(isAgentIdle({ agentOnline: true, since, now: since + AGENT_PICKUP_MS - 1 })).toBe(false)
+    expect(isAgentIdle({ agentOnline: true, since, now: since + AGENT_PICKUP_MS })).toBe(true)
+    expect(isAgentIdle({ agentOnline: false, since, now: since })).toBe(true)
+    expect(AGENT_PICKUP_MS).toBe(10 * 60_000)
   })
 
   it('is not accepted, added or reported on by anyone else before it is sent', () => {

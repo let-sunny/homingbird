@@ -28,7 +28,7 @@ export const scheduleOf = (
         FROM scheduling_rooms WHERE debate_id = ${id}`,
     ))!
     const attendees = yield* all<AttendeeRow>(sql`
-      SELECT a.member_id, a.required, a.answer, a.state FROM scheduling_attendees a
+      SELECT a.member_id, a.required, a.answer, a.state, a.changed_at FROM scheduling_attendees a
       JOIN debate_members m ON m.debate_id = a.debate_id AND m.member_id = a.member_id
       WHERE a.debate_id = ${id} ORDER BY m.created_at, a.member_id`)
     const slots = yield* all<FreeSlotRow>(sql`
@@ -64,6 +64,8 @@ export const scheduleOf = (
           ...listed[at]!,
           answer: answerOf(attendee),
           ...(attendee.state !== null && { attendance: attendee.state }),
+          ...(attendee.state !== null &&
+            attendee.changed_at !== null && { attendanceSince: Number(attendee.changed_at) }),
         })),
         freeSlots: answered,
         invite: inviteOf(asked),
@@ -169,6 +171,7 @@ interface AttendeeRow {
   readonly required: number
   readonly answer: string | null
   readonly state: AttendanceState | null
+  readonly changed_at: number | null
 }
 
 interface FreeSlotRow {

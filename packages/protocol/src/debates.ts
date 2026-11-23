@@ -30,6 +30,8 @@ export const RoomScheduleDetails = S.struct({
       required: S.boolean,
       answer: S.optional(AttendeeAnswer),
       attendance: S.optional(MeetingAttendance),
+      /** When their part of the meeting last moved, so a client can tell an agent that never picked it up. */
+      attendanceSince: S.optional(Timestamp),
     }),
     { maxItems: DEBATE_PARTICIPANTS_MAX },
   ),

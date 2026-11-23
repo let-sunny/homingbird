@@ -15,6 +15,7 @@ import {
   SCHEDULING_RULES,
   type ScheduleSetup,
   type TimeSpan,
+  answersWithinMinutes,
   turnHoldOf,
   windowAheadOf,
 } from '@homingbird/protocol'
@@ -36,13 +37,13 @@ import {
 import { moveDebate, settleDebateRow } from './debate-settling.ts'
 import { activeMembersAmong, requireMayInvite } from './debates.ts'
 import { joinByDelegation } from './delegated-joins.ts'
-import { keepChosenSlots } from './scheduling-rows.ts'
+import { keepAgentSlots, keepChosenSlots } from './scheduling-rows.ts'
 import { featureIsOn } from './settings.ts'
 
 /**
  * Opens a room that finds the earliest time every required person is free for a meeting. Only a person
  * opens one (rule 9), and they are always a required attendee; its time runs from now, not from the first
- * answer, so a room nobody answers still ends.
+ * answer, so a room nobody answers still ends, and fits the window: see `answersWithinMinutes`.
  */
 export const openSchedulingRoom = (
   caller: Caller,
@@ -70,6 +71,7 @@ export const openSchedulingRoom = (
       'a meeting',
     )
     const attendees = [{ memberId: caller.member.id, required: true }, ...others]
+    const answersWithin = answersWithinMinutes(setup, now)
     const row: DebateRow = {
       id: DebateId.of(env.random.identifier()),
       question: title,
@@ -79,11 +81,11 @@ export const openSchedulingRoom = (
       turns_per_agent: 1,
       total_turns: Math.max(2, attendees.length),
       total_follows_agents: null,
-      minutes: ANSWERS_WITHIN_MINUTES,
+      minutes: answersWithin,
       turn_characters: FREE_SLOTS_NOTE_MAX,
       created_at: now,
       updated_at: now,
-      deadline_at: now + ANSWERS_WITHIN_MINUTES * 60_000,
+      deadline_at: now + answersWithin * 60_000,
       concluded_at: null,
       closed_at: null,
       result: null,
@@ -165,7 +167,8 @@ export const retrySchedulingRoom = (
 
 /**
  * An agent's answer for its own person: their free slots as its turn, empty when they are busy throughout.
- * An agent that cannot read the calendar takes no turn: its person is asked to choose in the web client.
+ * Answering again, while the room collects, replaces its own person's slots and nobody else's. An agent
+ * that cannot read the calendar takes no turn: its person is asked to choose in the web client.
  */
 export const shareFreeSlots = (
   caller: Caller,
@@ -199,6 +202,8 @@ export const shareFreeSlots = (
         }),
       )
     if (turn.cannotReadCalendar === true) yield* askPersonToChoose(row, memberId, turn.slots)
+    else if (answer === null && (yield* hasTakenTurn(row.id, memberId)))
+      yield* replaceAgentSlots(row, memberId, turn)
     else {
       const event = {
         type: 'turn' as const,
@@ -254,9 +259,6 @@ export const lockedSchedulingRoom = (id: DebateId): T.Task<DebateRow, Conflict, 
       : T.fail(Conflict({ message: 'This room is a debate: it takes turns, not free times.' })),
   )(lockedDebate(id))
 
-/** How long a scheduling room waits for answers, from when it opened. */
-const ANSWERS_WITHIN_MINUTES = 120
-
 const requireTakingAnswers = (row: DebateRow): T.Task<void, Conflict> =>
   row.status === 'open' ? T.unit : T.fail(Conflict({ message: 'This room no longer takes answers.' }))
 
@@ -281,10 +283,7 @@ const askPersonToChoose = (
         Invalid({ message: 'Give free slots, or say the calendar cannot be read; not both.' }),
       )
     yield* requireTakingAnswers(row)
-    const turned = yield* first(
-      sql`SELECT 1 AS present FROM debate_turns WHERE debate_id = ${row.id} AND member_id = ${memberId}`,
-    )
-    if (turned !== null)
+    if (yield* hasTakenTurn(row.id, memberId))
       return yield* T.fail(Conflict({ message: 'This agent already shared free slots in this room.' }))
     const now = env.clock.now()
     yield* run(sql`
@@ -293,6 +292,33 @@ const askPersonToChoose = (
     yield* touchDebate(row.id, now)
     yield* announceDebate(row)
   })
+
+/** The agent's later answer, in place of the slots and note its turn gave, while the room collects. */
+const replaceAgentSlots = (
+  row: DebateRow,
+  memberId: MemberId,
+  turn: FreeSlotsTurn,
+): T.Task<void, Conflict | Invalid, RequestEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<RequestEnv>()
+    yield* requireTakingAnswers(row)
+    const { room } = yield* loadRoom(row)
+    const body = turn.note ?? ''
+    const problem = SCHEDULING_RULES.turnProblem({ memberId, body, slots: turn.slots }, room)
+    if (problem !== null) return yield* T.fail(Invalid({ message: problem }))
+    const now = env.clock.now()
+    yield* keepAgentSlots(row.id, memberId, turn.slots, now)
+    yield* run(
+      sql`UPDATE debate_turns SET body = ${body} WHERE debate_id = ${row.id} AND member_id = ${memberId}`,
+    )
+    yield* touchDebate(row.id, now)
+    yield* announceDebate(row)
+  })
+
+const hasTakenTurn = (id: DebateId, memberId: MemberId): T.Task<boolean, never, RequestEnv> =>
+  T.map((found: unknown) => found !== null)(
+    first(sql`SELECT 1 AS present FROM debate_turns WHERE debate_id = ${id} AND member_id = ${memberId}`),
+  )
 
 const setupProblem = (setup: ScheduleSetup, now: number): string | null => {
   const { minutes, window } = setup

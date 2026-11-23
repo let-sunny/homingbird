@@ -12,6 +12,7 @@ export const schedulingAttendanceCard = (
     readonly debate: AsRead.Debate
     readonly viewerId: MemberId
     readonly hasAgent: boolean
+    readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
     readonly members: ReadonlyMap<MemberId, AsRead.Member>
   },
 ): HTMLElement | null => {

@@ -16,11 +16,12 @@ import {
   type ScheduleResult,
   askWaitingOn,
   confirmAttendance,
+  isAgentIdle,
   stepAttendance,
 } from '@homingbird/protocol'
 import { type Caller, isHuman, viewerOf } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
-import { all } from '../sql/database.ts'
+import { all, first } from '../sql/database.ts'
 import { sql } from '../sql/query.ts'
 import { type DebateRow, announceDebate, describeDebate, loadRoom, visibleDebate } from './debate-rows.ts'
 import {
@@ -84,7 +85,8 @@ export const addMeeting = (
   T.gen(function* () {
     const row = yield* attendedRoom(caller, id)
     const memberId = caller.member.id
-    const moved = yield* moveAttendance(row, { type: 'add', memberId })
+    const agentIdle = yield* isOwnAgentIdle(id, memberId)
+    const moved = yield* moveAttendance(row, { type: 'add', memberId, agentIdle })
     const isSentByHand = memberId === row.created_by && stateOf(moved.attendance, memberId) === 'added'
     if (isSentByHand) yield* keepInvite(id, {})
     return yield* describeDebate(row)
@@ -130,6 +132,21 @@ const moveAttendance = (
     yield* keepAttendance(row, attendance, step.value)
     yield* announceDebate(row)
     return step.value
+  })
+
+/** The person's agent left their part waiting: no desk of theirs runs, or none picked it up in time. */
+const isOwnAgentIdle = (id: DebateId, memberId: MemberId): T.Task<boolean, never, RequestEnv> =>
+  T.gen(function* () {
+    const env = yield* T.ask<RequestEnv>()
+    const found = yield* first<{ changed_at: number | null }>(
+      sql`SELECT changed_at FROM scheduling_attendees WHERE debate_id = ${id} AND member_id = ${memberId}`,
+    )
+    const now = env.clock.now()
+    return isAgentIdle({
+      agentOnline: env.hub.presenceOf(memberId).agentOnline,
+      since: Number(found?.changed_at ?? now),
+      now,
+    })
   })
 
 const stateOf = (attendance: Attendance, memberId: MemberId): AttendanceState | undefined =>

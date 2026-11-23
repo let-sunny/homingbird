@@ -53,7 +53,7 @@ const withAgents = async () => {
 const roomOf = async (id: string, as: Session = cast.ana) => (await as.api('GET', `/debates/${id}`)).json
 
 describe('opening a scheduling room', () => {
-  it('opens a private room whose opener is a required attendee, with two hours from now for answers', async () => {
+  it('opens a private room whose opener is a required attendee, with a day from now for answers', async () => {
     const room = (await cast.ana.api('POST', '/scheduling-rooms', setupFor({ title: '  Plan the launch ' })))
       .json
     expect(room).toMatchObject({
@@ -62,7 +62,7 @@ describe('opening a scheduling room', () => {
       visibility: 'private',
       status: 'open',
       createdBy: cast.ana.me.member.id,
-      limits: { turnsPerAgent: 1, totalTurns: 3, minutes: 120, graceMinutes: 5 },
+      limits: { turnsPerAgent: 1, totalTurns: 3, minutes: 24 * 60, graceMinutes: 5 },
       memberIds: [cast.ana.me.member.id, cast.ben.me.member.id, cast.cy.me.member.id],
       schedule: {
         minutes: 60,
@@ -75,10 +75,19 @@ describe('opening a scheduling room', () => {
         freeSlots: [],
       },
     })
-    expect(room.deadlineAt - room.createdAt).toBe(2 * HOUR)
+    expect(room.deadlineAt - room.createdAt).toBe(DAY)
     const audited = (await storedRows(server, 'audit_events')).filter((row) => row.event === 'debate.opened')
     expect(audited).toMatchObject([{ target_id: room.id }])
     expect(JSON.stringify((await cast.ana.api('GET', '/debates')).json)).toContain('"type":"scheduling"')
+  })
+
+  it('collects answers until an hour before the last start that fits a near window, and for at least two hours', async () => {
+    const now = server.clock.now()
+    const soon = Math.ceil((now + HOUR) / (15 * 60_000)) * 15 * 60_000
+    const near = await opened({ window: { startsAt: soon, endsAt: soon + 6 * HOUR } })
+    expect(near.deadlineAt - near.createdAt).toBe(Math.floor((soon + 4 * HOUR - now) / 60_000) * 60_000)
+    const tight = await opened({ window: { startsAt: soon, endsAt: soon + 2 * HOUR } })
+    expect(tight.deadlineAt - tight.createdAt).toBe(2 * HOUR)
   })
 
   it('refuses a blank title, a meeting off the quarter hour, a window gone, too long or too short, and people asked wrongly', async () => {
@@ -185,6 +194,48 @@ describe('collecting free times from agents', () => {
     expect(JSON.parse(String(audited!.detail))).toMatchObject({ outcome: 'no_slot', answered: 2 })
     const listed = await cast.ana.api('GET', '/debates')
     expect(listed.json.debates).toMatchObject([{ id: room.id, status: 'closed', outcome: 'no_slot' }])
+  })
+
+  it('lets an agent replace its own person’s free times while the room collects, and nobody else’s', async () => {
+    const room = await opened({
+      attendees: [
+        { memberId: cast.ben.me.member.id, required: true },
+        { memberId: cast.cy.me.member.id, required: true },
+      ],
+    })
+    await cast.optIn(cast.ana, room.id, cast.anaAgent.id)
+    await cast.optIn(cast.ben, room.id, cast.benAgent.id)
+    await cast.anaAgent.api('POST', `/debates/${room.id}/slots`, { slots: [hours(1, 1)], note: 'Late.' })
+    const again = await cast.anaAgent.api('POST', `/debates/${room.id}/slots`, {
+      slots: [hours(3, 2)],
+      note: 'Afternoons.',
+    })
+    expect(again.status).toBe(200)
+    expect(again.json).toMatchObject({
+      status: 'open',
+      turns: [{ memberId: cast.ana.me.member.id, body: 'Afternoons.' }],
+      schedule: { freeSlots: [{ memberId: cast.ana.me.member.id, slots: [hours(3, 2)] }] },
+    })
+    expect(await storedRows(server, 'debate_turns')).toHaveLength(1)
+    const outside = { slots: [{ startsAt: windowStart() - HOUR, endsAt: windowStart() }] }
+    expect((await cast.anaAgent.api('POST', `/debates/${room.id}/slots`, outside)).status).toBe(400)
+    await cast.benAgent.api('POST', `/debates/${room.id}/slots`, { slots: [hours(0, 8)] })
+    const benSlots = (await storedRows(server, 'room_free_slots')).filter(
+      (row) => row.member_id === cast.ben.me.member.id,
+    )
+    expect(benSlots).toMatchObject([{ starts_at: hours(0, 8).startsAt, ends_at: hours(0, 8).endsAt }])
+    await cast.cy.api('PUT', `/debates/${room.id}/slots/mine`, { slots: [hours(0, 8)] })
+    expect((await roomOf(room.id)).result.result).toMatchObject({ kind: 'slot', ...hours(3, 1) })
+    expect(
+      (await cast.anaAgent.api('POST', `/debates/${room.id}/slots`, { slots: [hours(1, 1)] })).status,
+    ).toBe(409)
+  })
+
+  it('lets a person replace the times they chose themself while the room collects', async () => {
+    const room = await opened()
+    await cast.ana.api('PUT', `/debates/${room.id}/slots/mine`, { slots: [hours(0, 1)] })
+    const again = await cast.ana.api('PUT', `/debates/${room.id}/slots/mine`, { slots: [hours(5, 2)] })
+    expect(again.json.schedule.freeSlots).toEqual([{ memberId: cast.ana.me.member.id, slots: [hours(5, 2)] }])
   })
 
   it('refuses slots outside the window, keeping the agent’s place and storing nothing of them', async () => {
@@ -309,7 +360,7 @@ describe('a scheduling room’s time', () => {
   it('ends with no turns when no required person answered by the deadline', async () => {
     const room = await opened()
     await cast.cy.api('PUT', `/debates/${room.id}/slots/mine`, { slots: [hours(1, 2)] })
-    await server.clock.advance(2 * HOUR)
+    await server.clock.advance(DAY)
     expect(await roomOf(room.id)).toMatchObject({ status: 'ended', endedBecause: 'no_turns', result: null })
   })
 })

@@ -3730,6 +3730,29 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
     }
   })
 
+  it('9: lets an agent replace only its own person’s free times, never another person’s or what a person chose', async () => {
+    const { id, window } = await schedulingRoom()
+    const cyAgent = await connectAgent(server, cy, { name: 'Cy agent' })
+    await server.clock.advance(1)
+    await cy.api('PUT', `/debates/${id}/agent`, { agentId: await agentIdOf(cyAgent) })
+    const early = { startsAt: window.startsAt, endsAt: window.startsAt + HOUR_MS }
+    const late = { startsAt: window.endsAt - HOUR_MS, endsAt: window.endsAt }
+    const slotsOf = async () =>
+      Object.fromEntries(
+        (await ben.api('GET', `/debates/${id}`)).json.schedule.freeSlots.map(
+          (entry: { memberId: string; slots: unknown }) => [entry.memberId, entry.slots],
+        ),
+      )
+    await benAgent.api('POST', `/debates/${id}/slots`, { slots: [early] })
+    const forCy = { slots: [late], memberId: cy.me.member.id }
+    expect((await benAgent.api('POST', `/debates/${id}/slots`, forCy)).status).toBe(400)
+    expect((await benAgent.api('POST', `/debates/${id}/slots`, { slots: [late] })).status).toBe(200)
+    expect(await slotsOf()).toEqual({ [ben.me.member.id]: [late] })
+    await ben.api('PUT', `/debates/${id}/slots/mine`, { slots: [early] })
+    expect((await benAgent.api('POST', `/debates/${id}/slots`, { slots: [late] })).status).toBe(409)
+    expect(await slotsOf()).toEqual({ [ben.me.member.id]: [early] })
+  })
+
   it('9: lets an agent suggest a room only as a card: no room, no member invited and no room event until its person accepts, and no agent can accept or dismiss', async () => {
     dee = await server.signIn('dee@example.com', 'Dee')
     const asked = await questionFrom(dee)
