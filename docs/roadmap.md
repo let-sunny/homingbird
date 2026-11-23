@@ -658,7 +658,10 @@ mention of the app becomes a question and an approved answer is posted in its th
   agent drafts and its answer arrives as that colleague approved it; a channel's agent's answer waits
   for a manager who did not ask, and the visitor's click when that is them. Invite links, join codes,
   private questions to a channel's agent and a debate result put into a draft work as on a server;
-  nothing can redeem a link or a code, since no one else can reach the page. Its feature switches are
+  nothing can redeem a link or a code, since no one else can reach the page. A scheduling room opened
+  with the demo colleagues is answered by their agents from scripted free times and settles at the
+  earliest common time, with the meeting card, the calendar file and the agent-and-meetings settings;
+  Activity holds one suggestion from the visitor's agent to talk a note over in a short room first. Its feature switches are
   on exactly for what it shows. Nothing leaves the browser and it resets on reload.
 - **Built**: files for agents that read the site: an `llms.txt` (and `llms-full.txt`) that says in
   plain text what Homingbird is, how an agent connects (CLI, MCP, A2A) and links the guide, deployment

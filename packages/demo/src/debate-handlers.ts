@@ -22,6 +22,7 @@ import {
 import { changeRoom, colleagueJoinsLater, debateLater } from './debate-script.ts'
 import { type Handlers, found } from './handlers.ts'
 import { connectedAgentOf, memberById } from './reads.ts'
+import { roomKindFields } from './room-summaries.ts'
 import { destinationOf } from './rooms.ts'
 import { saveDraft } from './sending.ts'
 import type { Records, World } from './world.ts'
@@ -235,6 +236,7 @@ const summaryOf = (debate: Debate, viewerId: MemberId): DebateSummary => ({
   turnCount: debate.turns.length,
   totalTurns: debate.limits.totalTurns,
   resultDrafted: debate.result !== null,
+  ...roomKindFields(debate, viewerId),
   joined:
     debate.memberIds.includes(viewerId) ||
     debate.participants.some((participant) => participant.memberId === viewerId),
