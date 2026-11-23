@@ -4,6 +4,7 @@ import {
   type Channel,
   Conflict,
   ConversationId,
+  type DebateSuggestion,
   DraftRequestId,
   EARLIER_ANSWERS_FIRST,
   Forbidden,
@@ -11,6 +12,7 @@ import {
   NO_EARLIER_ANSWERS,
   NoteId,
   type RouteName,
+  type SuggestionId,
   Unavailable,
   contract,
   humanOnlyRoutes,
@@ -130,6 +132,18 @@ const PROPOSAL = {
   createdAt: 1,
 }
 
+const SUGGESTION: DebateSuggestion = {
+  id: 'sugg_aaaaaaaaaaaa' as SuggestionId,
+  inReplyTo: noteOf().id,
+  conversationId: CONVERSATION_ID,
+  draftId: null,
+  question: 'Which region?',
+  memberIds: [BEN.id],
+  reason: 'Ben knows the latency.',
+  agentName: 'Laptop',
+  createdAt: 1,
+}
+
 const HAPPY: Stubs = {
   'teaching.material': () => MATERIAL,
   'principleProposals.create': () => PROPOSAL,
@@ -161,6 +175,7 @@ const HAPPY: Stubs = {
   'debates.result.vote': () => debateOf({ status: 'concluding' }),
   'debates.slots.post': () => debateOf(),
   'debates.calendar.report': () => debateOf(),
+  'debateSuggestions.create': () => SUGGESTION,
 }
 
 const SAMPLE_ARGUMENTS: Readonly<Record<string, unknown>> = {
@@ -187,6 +202,12 @@ const SAMPLE_ARGUMENTS: Readonly<Record<string, unknown>> = {
   vote_debate_result: { debateId: DEBATE_ID, draftBy: BEN.id },
   share_free_slots: { debateId: DEBATE_ID, slots: [] },
   report_calendar: { debateId: DEBATE_ID, outcome: 'failed' },
+  suggest_debate: {
+    inReplyTo: noteOf().id,
+    question: 'Which region?',
+    memberIds: [BEN.id],
+    reason: 'Ben knows the latency.',
+  },
   check_character: { character: OTTER },
   preview_character: { character: OTTER },
   interview_material: {},
@@ -286,6 +307,7 @@ describe('the tool table', () => {
       'channels.list',
       'conversations.list',
       'conversations.notes',
+      'debateSuggestions.create',
       'debates.calendar.report',
       'debates.get',
       'debates.result.draft',

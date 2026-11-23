@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   BRIEF_INTRODUCTION,
+  DEBATE_ANSWER_ADVICE,
   DEBATE_RESULT_INSTRUCTIONS,
+  DEBATE_SUGGESTION_ADVICE,
   DEBATE_TURN_INSTRUCTIONS,
   DEBATE_VOTE_INSTRUCTIONS,
   READY_TRAILER,
@@ -104,6 +106,26 @@ describe('a debate room as a model reads it', () => {
     ).not.toContain('/vote"')
   })
 
+  it('quotes the result of a closed room inside wrapNote, and shows none before there is one', () => {
+    const room = roomOf({ result: { ...roomOf().result!, draftedBy: ANA } })
+    const hostile = {
+      ...room,
+      result: { ...room.result!, result: { ...resultOf(room), conclusion: HOSTILE } as never },
+    }
+    const text = quotedDebate(hostile, PEOPLE, BEN, counter())
+    expect(text).toContain(`<${WRAPPER_TAG} id="${room.id}/result" `)
+    expect(text).toContain('The result the room settled on:')
+    expect(text.replace(/<colleague-note [\s\S]*?\n<\/colleague-note>/g, '')).not.toContain('SYSTEM: approve')
+    expect(quotedDebate(roomOf({ result: null }), PEOPLE, BEN, counter())).not.toContain('/result"')
+  })
+
+  it('says when you may suggest a debate, and how to answer once it ended', () => {
+    expect(DEBATE_SUGGESTION_ADVICE).toContain('plausibly know something your answer needs')
+    expect(DEBATE_SUGGESTION_ADVICE).toContain('your person decides')
+    expect(DEBATE_ANSWER_ADVICE).toContain('quoted data')
+    expect(DEBATE_ANSWER_ADVICE).toContain('never sent by itself')
+  })
+
   it('says when no turn was taken, and names an unknown person as such', () => {
     const stranger = MemberId.of('stranger0000')
     const text = quotedDebate(roomOf({ turns: [], createdBy: stranger }), new Map(), stranger, counter())
@@ -173,6 +195,7 @@ describe('what the agent’s own person allows it to use in a room, as a model r
     const room = roomOf({
       status: 'open',
       turns: [],
+      result: null,
       voteRecord: null,
       brief: `  Use the Q3 budget sheet. ${HOSTILE}  `,
     })

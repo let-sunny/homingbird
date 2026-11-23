@@ -115,6 +115,27 @@ describe('the runner in a debate room', () => {
     expect(r.w.agentRuns).toHaveLength(0)
   })
 
+  it('leaves the answer a suggested room asks for to a session that can read the room, running no agent', async () => {
+    const answers = [
+      {
+        debateId: ROOM.id,
+        suggestionId: 'sugg_aaaaaaaaaaaa',
+        inReplyTo: 'note_aaaaaaaaaaaa',
+        draftId: null,
+        hasResult: true,
+      },
+    ]
+    const r = runner({
+      stubs: { 'debates.waiting': once({ asks: [], answers } as never, { asks: [] }) },
+      agent: () => ({ exitCode: 0, output: 'unused' }),
+    })
+    await settle(() => r.w.calls.some((call) => call.route === 'debates.waiting'))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    await r.stop()
+    expect(r.w.agentRuns).toHaveLength(0)
+    expect(r.w.calls.map((call) => call.route)).not.toContain('drafts.create')
+  })
+
   it('skips a meeting ask it does not know, reporting nothing', async () => {
     const r = runner({
       stubs: {

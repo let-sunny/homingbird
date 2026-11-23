@@ -10,6 +10,7 @@ import type {
   ServerInfo as ServerInfoSchema,
 } from './contract-schemas.ts'
 import type { DebateResult as DebateResultSchema } from './debate-result.ts'
+import type { DebateAnswerAsk as DebateAnswerAskSchema } from './debate-suggestions.ts'
 import type {
   DebateAsk as DebateAskSchema,
   DebateExport as DebateExportSchema,
@@ -95,6 +96,7 @@ export type Debate = S.Read<typeof DebateSchema>
 export type DebateStatus = S.Read<typeof DebateStatusSchema>
 export type DebateSummary = S.Read<typeof DebateSummarySchema>
 export type DebateAsk = S.Read<typeof DebateAskSchema>
+export type DebateAnswerAsk = S.Read<typeof DebateAnswerAskSchema>
 export type MeetingAsk = S.Read<typeof MeetingAskSchema>
 export type DebateResult = S.Read<typeof DebateResultSchema>
 export type RoomResult = S.Read<typeof RoomResultSchema>

@@ -4,6 +4,7 @@ import {
   type ApiError,
   type AsRead,
   Conflict,
+  DEBATE_ANSWER_ADVICE,
   DEBATE_TURN_MAX,
   DebateId,
   DebateResult,
@@ -38,17 +39,24 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
     describe: {},
     run: (_, context) =>
       T.gen(function* () {
-        const { asks, upcoming = [], ballots = [], meetings = [] } = yield* context.api['debates.waiting']({})
+        const {
+          asks,
+          upcoming = [],
+          ballots = [],
+          meetings = [],
+          answers = [],
+        } = yield* context.api['debates.waiting']({})
         const waiting = upcoming.filter((debate) => debate.askedTurn != null)
         const viewerId = waiting.length === 0 ? null : (yield* context.api['me.get']({})).member.id
         return [
-          ...(asks.length + ballots.length + meetings.length === 0
+          ...(asks.length + ballots.length + meetings.length + answers.length === 0
             ? ['No debate room is waiting on you.']
             : [
-                `${asks.length + ballots.length + meetings.length} debate room(s) are waiting on you. ${ROOM_RULE}`,
+                `${asks.length + ballots.length + meetings.length + answers.length} debate room(s) are waiting on you. ${ROOM_RULE}`,
                 ...asks.map(askLine),
                 ...ballots.map(ballotLine),
                 ...meetings.map((meeting) => meetingLine(meeting, context.nonce)),
+                ...answers.map(answerLine),
               ]),
           ...(waiting.length === 0
             ? []
@@ -205,6 +213,19 @@ const askLine = (ask: AsRead.DebateAsk): string =>
     ...(ask.ask === 'turn' &&
       ask.debate.askedTurn != null && { yourTurnUntil: new Date(ask.debate.askedTurn.until).toISOString() }),
     closesAt: new Date(ask.debate.deadlineAt).toISOString(),
+  })
+
+/** A room your own suggestion opened that has ended: the note to answer, and with which ids. */
+const answerLine = (answer: AsRead.DebateAnswerAsk): string =>
+  JSON.stringify({
+    debateId: answer.debateId,
+    wants: `your answer to note ${answer.inReplyTo}, which you suggested this room for. ${
+      answer.hasResult
+        ? 'The room has a result: call read_debate to read it. '
+        : 'The room ended without a result. '
+    }${DEBATE_ANSWER_ADVICE}`,
+    inReplyTo: answer.inReplyTo,
+    ...(answer.draftId !== null && { draftId: answer.draftId }),
   })
 
 const ballotLine = (debate: AsRead.Debate): string =>

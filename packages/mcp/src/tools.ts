@@ -6,6 +6,7 @@ import {
   type AsRead,
   ChannelSlug,
   ConversationId,
+  DebateId,
   type DeskSession,
   DraftRequestId,
   DraftSources,
@@ -42,6 +43,7 @@ import { type RpcFailure, invalidParams } from './json-rpc.ts'
 import type { MemberApi } from './member-api.ts'
 import { quotingFor as quotingOf } from './quote.ts'
 import { SCHEDULING_TOOLS } from './scheduling-tools.ts'
+import { SUGGESTION_TOOLS } from './suggestion-tools.ts'
 import { TEACHING_TOOLS } from './teaching-tools.ts'
 import {
   type AnnouncedRequests,
@@ -76,6 +78,9 @@ export interface ToolResult {
   readonly content: ReadonlyArray<{ readonly type: 'text'; readonly text: string }>
   readonly isError?: true
 }
+
+const DEBATE_ID_DESCRIPTION =
+  'The room your own suggestion opened, from the debateId of check_debates, when this answers the note that suggestion was for. The draft then waits for your person, marked as from that room.'
 
 const WAIT_MAX_SECONDS = 50
 const WAIT_DEFAULT_SECONDS = 25
@@ -388,6 +393,7 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
       noteId: NoteId,
       body: NoteBody,
       requestId: S.optional(DraftRequestId),
+      debateId: S.optional(DebateId),
       basis: S.optional(NoteBasis),
       sources: S.optional(DraftSources),
       model: S.optional(AgentLabel),
@@ -398,18 +404,20 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
       model: MODEL_DESCRIPTION,
       sessionMinutes: SESSION_MINUTES_DESCRIPTION,
       contextPercent: CONTEXT_PERCENT_DESCRIPTION,
+      debateId: DEBATE_ID_DESCRIPTION,
       noteId: 'The note being answered.',
       body: 'The reply, as plain text. When you cannot answer yet, a holding reply saying what you will check is a good draft.',
       requestId: 'The draft request from your human that asked for this reply, if there was one.',
       basis: BASIS_DESCRIPTION,
       sources: SOURCES_DESCRIPTION,
     },
-    run: ({ noteId, body, requestId, basis, sources, model, ...session }, context) =>
+    run: ({ noteId, body, requestId, debateId, basis, sources, model, ...session }, context) =>
       T.gen(function* () {
         const reported = yield* requireSession(session)
         const draft = yield* context.api['drafts.create']({
           body: {
             ...(requestId === undefined ? { body, inReplyTo: noteId } : { body, requestId }),
+            ...(debateId !== undefined && { debateId }),
             ...(basis !== undefined && { basis }),
             ...(sources !== undefined && { sources }),
             ...labelsOf(context, model),
@@ -478,15 +486,23 @@ export const TOOLS: ReadonlyArray<Tool<any>> = [
     title: 'Revise a waiting draft',
     description: 'Replaces the text of one of your drafts that is still waiting for approval.',
     readOnly: false,
-    input: { draftId: NoteId, body: NoteBody },
-    describe: { draftId: 'The draft to change, from list_drafts.', body: 'The new text.' },
-    run: ({ draftId, body }, context) =>
+    input: { draftId: NoteId, body: NoteBody, debateId: S.optional(DebateId) },
+    describe: {
+      draftId: 'The draft to change, from list_drafts.',
+      body: 'The new text.',
+      debateId: DEBATE_ID_DESCRIPTION,
+    },
+    run: ({ draftId, body, debateId }, context) =>
       T.map((draft: AsRead.Note) => awaitingApproval(draft, context))(
-        context.api['drafts.update']({ params: { id: draftId }, body: { body } }),
+        context.api['drafts.update']({
+          params: { id: draftId },
+          body: { body, ...(debateId !== undefined && { debateId }) },
+        }),
       ),
   }),
   ...DEBATE_TOOLS,
   ...SCHEDULING_TOOLS,
+  ...SUGGESTION_TOOLS,
   ...CHARACTER_TOOLS,
   ...TEACHING_TOOLS,
 ]
