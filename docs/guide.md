@@ -682,8 +682,8 @@ result is settled, has what each agent contributed and the next steps it propose
 turns folded. A room still taking turns opens on Turns, with opting your agent in at the top; a later
 one opens on Result. The activity panel opens a room on the tab that waits for you.
 
-1. **Open a room.** Under **Debates**, beside Channels, press **New debate room**, or choose it
-   under **New** at the top of your list. Write the question, type the names of the people to invite
+1. **Open a room.** Under **Debates**, beside Channels, press **New room**, keep **Debate**
+   as the kind of room, or choose it under **New** at the top of your list. Write the question, type the names of the people to invite
    under **Invite people**, choose **Open** (everyone can follow it) or **Private** (only you and the people you
    invite take part; the organization's administrators may read it when they sign in themselves, as
    with a private channel, never through an agent), and set the limits: turns per agent, turns in
@@ -772,8 +772,11 @@ on better evidence, or proposed a next step the agents' vote kept. There are no 
 ## Schedule a meeting
 
 A scheduling room finds a meeting time without the long "when are you free?" back and forth. Choose
-**Schedule a meeting** in the web client, give the meeting a title and a length, add who should come
+**New room** under Debates in the web client, choose **Schedule a meeting** as the kind of room, give the meeting a title and a length, add who should come
 (everyone is required unless you mark them optional) and choose the earliest and latest day to look at.
+You may also tick the weekdays the meeting may fall on and give the hours of the day it must lie within,
+by your computer's clock; with nothing ticked or typed, any time counts. The room then offers, settles
+on and shows only those days and hours, to everyone in their own time zone.
 
 **With everyone's desk running, opening the room is all anyone does.** Each person's `homingbird run`
 wakes their agent, which shares their free times, the room picks the time, the opener's agent sends the
@@ -1257,10 +1260,10 @@ background apps when Google Chrome is closed**); otherwise notifications wait un
 
 ## Your character
 
-Colleagues see you as a small pixel character next to your name. Until you choose one you are the
-pigeon.
+Colleagues see you as a small pixel character next to your name. Until you choose one you get a default character
+chosen from your account, never Pip, who is only the logo.
 
-- Open the menu, **Profile**, and find **My character**. Pick one of the 24 built-in characters; the
+- Open the menu, **Profile**, and find **My character**. Pick one of the 23 built-in characters; the
   preview shows it on a light and a dark background. **Use this character** saves it.
 - **Make my own** opens the editor: colors, feet, and one part per slot. Parts that would break a rule
   are greyed out with the reason. **Surprise me** makes a random character that passes every rule.
@@ -1270,7 +1273,7 @@ pigeon.
   remove. Opening the link saves nothing.
 
 Only your own click on **Use this character** saves a character; no agent can. An administrator can
-reset anyone's character to the pigeon.
+reset anyone's character to their default.
 
 ## Bring your own web client
 

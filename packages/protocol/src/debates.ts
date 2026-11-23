@@ -7,6 +7,7 @@ import { CredentialId, DebateId, MemberId, Timestamp } from './ids.ts'
 import { MEETING_NOTICES_SHOWN_MAX, MeetingAttendance, MeetingInvite, MeetingNoticeShown } from './meeting.ts'
 import { AgentLabel } from './model.ts'
 import { RoomResult } from './room-result.ts'
+import { scheduleLimitFields } from './schedule-limits.ts'
 
 export const DEBATE_QUESTION_MAX = 500
 export const DebateQuestion = S.string({ minLength: 1, maxLength: DEBATE_QUESTION_MAX })
@@ -23,13 +24,13 @@ export type AttendeeAnswer = S.Infer<typeof AttendeeAnswer>
 export const RoomScheduleDetails = S.struct({
   minutes: S.int({ min: 15, max: 480 }),
   window: S.struct({ startsAt: Timestamp, endsAt: Timestamp }),
+  ...scheduleLimitFields,
   attendees: S.array(
     S.struct({
       memberId: MemberId,
       required: S.boolean,
       answer: S.optional(AttendeeAnswer),
       attendance: S.optional(MeetingAttendance),
-      /** When their part of the meeting last moved, so a client can tell an agent that never picked it up. */
       attendanceSince: S.optional(Timestamp),
     }),
     { maxItems: DEBATE_PARTICIPANTS_MAX },
@@ -56,6 +57,7 @@ export const ScheduleSetup = S.struct({
   title: DebateQuestion,
   minutes: S.int({ min: 15, max: 480 }),
   window: S.struct({ startsAt: Timestamp, endsAt: Timestamp }),
+  ...scheduleLimitFields,
   attendees: S.array(S.struct({ memberId: MemberId, required: S.boolean }), {
     minItems: 1,
     maxItems: DEBATE_PARTICIPANTS_MAX - 1,
@@ -75,7 +77,6 @@ const limitFields = {
   graceMinutes: S.optional(S.tolerant(S.literal(...DEBATE_GRACE_MINUTES), UNKNOWN)),
 }
 
-/** Chosen at setup; `graceMinutes` is how long an unseen agent still takes part. */
 export const DebateLimits = S.struct({
   ...limitFields,
   totalFollowsAgents: S.optional(S.boolean),
@@ -141,7 +142,6 @@ export type DebateEnding = S.Infer<typeof DebateEnding>
 export const DebateConclusion = S.tolerant(S.literal('limit', 'time', 'agreed'), UNKNOWN)
 export type DebateConclusion = S.Infer<typeof DebateConclusion>
 
-/** A started room whose agents dropped out: one left taking part, or none. */
 export type DebateEndingDetail = Extract<DebateEnding, 'one_agent_left' | 'no_agent_left'>
 
 /** Shown once the room closed: who voted for whose draft, and who had dropped out. */
@@ -191,7 +191,6 @@ export const Debate = S.struct({
   participants: S.array(DebateParticipant, { maxItems: DEBATE_PARTICIPANTS_MAX }),
   turns: S.array(DebateTurn),
   askedTurn: S.optional(S.nullable(DebateAskedTurn)),
-  /** `draftedBy` is null for a result the room computed itself. */
   result: S.nullable(S.struct({ result: RoomResult, draftedBy: S.nullable(MemberId), draftedAt: Timestamp })),
   resultRound: S.int({ min: 0 }),
   drafts: S.optional(S.array(DebateResultDraft, { maxItems: DEBATE_PARTICIPANTS_MAX })),
@@ -204,7 +203,6 @@ export const Debate = S.struct({
 })
 export type Debate = S.Infer<typeof Debate>
 
-/** What a closed room settled, as a list can show it without the result itself. */
 export const DebateOutcome = S.tolerant(S.literal('slot', 'no_slot', 'conclusion', 'no_conclusion'), UNKNOWN)
 export type DebateOutcome = S.Infer<typeof DebateOutcome>
 
@@ -246,11 +244,9 @@ export const MeetingAsk = S.struct({
 })
 export type MeetingAsk = S.Infer<typeof MeetingAsk>
 
-/** A room that ended without a result, as its agent learns of it: no words of the room, only why. */
 export const DebateEnded = S.struct({ id: DebateId, endedBecause: DebateEnding, closedAt: Timestamp })
 export type DebateEnded = S.Infer<typeof DebateEnded>
 
-/** A vote as an agent casts it, with the model it says it ran as. */
 export const DebateVote = S.struct({
   round: S.int({ min: 0 }),
   draftBy: MemberId,

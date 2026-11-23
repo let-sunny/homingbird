@@ -16,7 +16,8 @@ const opened = () => {
   made.context.state.serverInfo.set(serverInfo({ schedulingRooms: true }))
   made.context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben'), entry(CY, 'Cy')])
   const shown = mount(debatesView(made.context, lifetime(), me()))
-  getByRole(shown, 'button', { name: strings.scheduling.newRoom }).click()
+  getByRole(shown, 'button', { name: strings.debates.newRoom }).click()
+  getByRole(document.getElementById('dialog')!, 'radio', { name: strings.scheduling.newRoom }).click()
   return { ...made, shown, dialog: document.getElementById('dialog')! }
 }
 
@@ -31,11 +32,28 @@ describe('the button to schedule a meeting', () => {
     const { context } = testContext()
     context.state.serverInfo.set(serverInfo())
     const shown = mount(debatesView(context, lifetime(), me()))
-    expect(textOf(shown)).not.toContain(strings.scheduling.newRoom)
+    const kinds = (): number => {
+      getByRole(shown, 'button', { name: strings.debates.newRoom }).click()
+      return document.getElementById('dialog')!.querySelectorAll('input[name=roomType]').length
+    }
+    mount(dialogHost())
+    expect(kinds()).toBe(0)
     context.state.serverInfo.set(serverInfo({ schedulingRooms: true }))
-    expect(textOf(shown)).toContain(strings.scheduling.newRoom)
-    context.state.serverInfo.set(serverInfo())
-    expect(textOf(shown)).not.toContain(strings.scheduling.newRoom)
+    expect(kinds()).toBe(2)
+  })
+
+  it('shows the debate fields first and the meeting fields once the kind is chosen', () => {
+    const { dialog } = opened()
+    const debateForm = dialog.querySelector('.create-debate') as HTMLElement
+    expect([debateForm.hidden, (dialog.querySelector('.scheduling-form') as HTMLElement).hidden]).toEqual([
+      true,
+      false,
+    ])
+    getByRole(dialog, 'radio', { name: strings.debates.typeDebate }).click()
+    expect([debateForm.hidden, (dialog.querySelector('.scheduling-form') as HTMLElement).hidden]).toEqual([
+      false,
+      true,
+    ])
   })
 
   it('lists a scheduling room with its kind, and not at all while the feature is off', () => {
@@ -59,7 +77,7 @@ describe('the form to schedule a meeting', () => {
     expect(dialog.querySelectorAll('.scheduling-optional-list li')).toHaveLength(2)
     getByRole(dialog, 'checkbox', { name: strings.scheduling.optionalFor({ name: 'Cy' }) }).click()
     context.state.notice.set({ kind: 'error', text: strings.scheduling.problems.noAttendee })
-    fire.submit(dialog.querySelector('form')!)
+    fire.submit(dialog.querySelector('.scheduling-form')!)
     expect(context.state.notice.get()).toBeNull()
     const [create] = called('createSchedulingRoom')
     expect(create!.args[0]).toMatchObject({
@@ -82,9 +100,33 @@ describe('the form to schedule a meeting', () => {
     ).toBe(false)
   })
 
+  it('opens a room limited to the days ticked and the hours typed, in the browser’s time zone', () => {
+    const { dialog, called } = opened()
+    fire.type(getByRole(dialog, 'textbox', { name: strings.scheduling.titleLabel }), 'Planning sync')
+    choose(dialog, 'be')
+    const field = (name: string) => dialog.querySelector(`[name=${name}]`) as HTMLInputElement
+    for (const box of dialog.querySelectorAll<HTMLInputElement>('[name=weekday]'))
+      if (['1', '3'].includes(box.value)) box.click()
+    field('hoursFrom').value = '10:00'
+    field('hoursTo').value = '15:00'
+    fire.submit(dialog.querySelector('.scheduling-form')!)
+    expect(called('createSchedulingRoom')[0]!.args[0]).toMatchObject({
+      weekdays: [1, 3],
+      hours: { from: 600, to: 900 },
+      timeZone: 'Asia/Seoul',
+    })
+  })
+
+  it('names the weekdays and the hours as fields, and says which time zone the hours are in', () => {
+    const { dialog } = opened()
+    expect(dialog.querySelectorAll('[name=weekday]')).toHaveLength(7)
+    expect(textOf(dialog)).toContain(strings.scheduling.limitsLegend)
+    expect(textOf(dialog)).toContain(strings.scheduling.hoursHint({ zone: 'Asia/Seoul' }))
+  })
+
   it('says what is missing instead of opening a room', () => {
     const { context, dialog, called } = opened()
-    fire.submit(dialog.querySelector('form')!)
+    fire.submit(dialog.querySelector('.scheduling-form')!)
     expect(context.state.notice.get()).toEqual({ kind: 'error', text: strings.scheduling.problems.noTitle })
     expect(called('createSchedulingRoom')).toHaveLength(0)
   })

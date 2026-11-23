@@ -1,6 +1,6 @@
 import type { AsRead, CharacterSpec } from '@homingbird/protocol'
 import { type Lifetime, h, region, signal } from '@homingbird/ui'
-import { characterOf } from '../characters.ts'
+import { characterOf, hasSavedCharacter } from '../characters.ts'
 import { featureOn } from '../features.ts'
 import { avatarOf, memberAvatarOf } from '../models/avatar.ts'
 import { type MyCharacterModel, myCharacterModel, previewModel } from '../models/character.ts'
@@ -9,11 +9,11 @@ import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { button } from './parts.ts'
 
-/** "My character" on the profile: the character in use, the 24 built-ins to pick from, and the editor. */
+/** "My character" on the profile: the character in use, the built-ins to pick from, and the editor. */
 export const myCharacterSection = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const current = characterOf(me.member, featureOn('characters', context.state.serverInfo.get()))
   const picked = signal<CharacterSpec | null>(null)
-  const model = (): MyCharacterModel => myCharacterModel(current, picked.get())
+  const model = (): MyCharacterModel => myCharacterModel(current, picked.get(), hasSavedCharacter(me.member))
   const start = model()
   const choices = start.choices.map((choice) =>
     h(
@@ -58,8 +58,8 @@ export const myCharacterSection = (context: ViewContext, life: Lifetime, me: AsR
           'div',
           { class: 'character-actions' },
           h('a', { class: 'button', href: start.editorHref }, strings.character.makeOwn),
-          start.mayGoBackToPigeon &&
-            button(strings.character.backToPigeon, () => context.actions.useCharacter(null, saved)),
+          start.mayGoBackToDefault &&
+            button(strings.character.backToDefault, () => context.actions.useCharacter(null, saved)),
         ),
       ),
     ),
@@ -80,12 +80,11 @@ export const myCharacterSection = (context: ViewContext, life: Lifetime, me: AsR
         h(
           'div',
           { class: 'character-actions' },
-          button(strings.character.use, () => context.actions.useCharacter(shown.saves, saved), {
+          button(strings.character.use, () => context.actions.useCharacter(shown.spec, saved), {
             class: 'primary',
             disabled: !shown.mayUse,
           }),
-          shown.editHref !== null &&
-            h('a', { class: 'button', href: shown.editHref }, strings.character.editThis),
+          h('a', { class: 'button', href: shown.editHref }, strings.character.editThis),
         ),
       )
     }),

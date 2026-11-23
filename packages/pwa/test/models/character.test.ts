@@ -1,4 +1,4 @@
-import { BUILT_IN_CHARACTERS } from '@homingbird/protocol'
+import { CHOOSABLE_CHARACTERS } from '@homingbird/protocol'
 import { SLOTS, presetById } from '@homingbird/sprites'
 import { describe, expect, it } from 'vitest'
 import { PIGEON, workbenchFor, workbenchFromBuiltIn, workbenchFromLink } from '../../src/characters.ts'
@@ -14,18 +14,20 @@ import { strings } from '../../src/strings.ts'
 const owl = presetById('owl')!
 
 describe('myCharacterModel', () => {
-  it('names the character in use, offers every built-in, and leaves the pigeon as it is', () => {
-    const model = myCharacterModel(PIGEON, null)
-    expect(model.current).toBe(strings.character.current({ character: 'Pigeon' }))
+  it('names the character in use, offers every built-in but Pip, and has no default to go back to', () => {
+    const model = myCharacterModel(owl, null, false)
+    expect(model.current).toBe(strings.character.current({ character: 'Owl' }))
     expect(model.editorHref).toBe('#/character')
-    expect(model.mayGoBackToPigeon).toBe(false)
-    expect(model.choices).toHaveLength(BUILT_IN_CHARACTERS.length)
+    expect(model.mayGoBackToDefault).toBe(false)
+    expect(model.choices).toHaveLength(CHOOSABLE_CHARACTERS.length)
+    expect(model.choices.map((choice) => choice.preset.id)).not.toContain('pigeon')
     expect(model.choices.some((choice) => choice.pressed)).toBe(false)
     expect(model.picked).toBeNull()
   })
 
-  it('offers to use a picked character and to edit it, and the pigeon back for someone else', () => {
-    const model = myCharacterModel(PIGEON, owl)
+  it('offers to use and to edit a picked character, and the default back to someone with their own', () => {
+    const cat = presetById('cat')!
+    const model = myCharacterModel(cat, owl, false)
     expect(model.choices.filter((choice) => choice.pressed).map((choice) => choice.preset.id)).toEqual([
       'owl',
     ])
@@ -33,13 +35,14 @@ describe('myCharacterModel', () => {
       spec: owl,
       selected: strings.character.selected({ character: 'Owl' }),
       mayUse: true,
-      saves: owl,
       editHref: '#/character?from=owl',
     })
-    const back = myCharacterModel(owl, PIGEON)
-    expect(back.mayGoBackToPigeon).toBe(true)
-    expect(back.picked).toMatchObject({ mayUse: true, saves: null, editHref: null })
-    expect(myCharacterModel(owl, owl).picked!.mayUse).toBe(false)
+    expect(myCharacterModel(owl, null, true).mayGoBackToDefault).toBe(true)
+  })
+
+  it('lets someone save the character they are drawn as by default, but not one they already saved', () => {
+    expect(myCharacterModel(owl, owl, false).picked!.mayUse).toBe(true)
+    expect(myCharacterModel(owl, owl, true).picked!.mayUse).toBe(false)
   })
 })
 

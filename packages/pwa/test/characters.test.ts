@@ -1,4 +1,11 @@
-import { BUILT_IN_CHARACTERS, characterProblems, encodeCharacter } from '@homingbird/protocol'
+import {
+  BUILT_IN_CHARACTERS,
+  type MemberId,
+  characterForMember,
+  characterProblems,
+  encodeCharacter,
+  isPipLook,
+} from '@homingbird/protocol'
 import { PRESETS, SLOTS, presetById } from '@homingbird/sprites'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
@@ -13,6 +20,7 @@ import {
   editorStateOf,
   framePixels,
   frameTimings,
+  hasSavedCharacter,
   idFrom,
   problemKindOf,
   problemsOf,
@@ -23,6 +31,8 @@ import {
   workbenchFromBuiltIn,
   workbenchFromLink,
 } from '../src/characters.ts'
+
+const ANA = 'mem_ana' as MemberId
 
 const OTTER = {
   version: 1 as const,
@@ -37,23 +47,48 @@ const OTTER = {
 }
 
 describe('characterOf', () => {
-  it('draws everyone as the pigeon while an administrator has characters turned off, and as their own again after', () => {
-    expect(characterOf({ character: OTTER }, false)).toBe(PIGEON)
-    expect(characterOf({ character: OTTER }, true)).toBe(OTTER)
+  const ana = { id: ANA, character: null }
+
+  it('draws everyone as their default while characters are turned off, and as their own again after', () => {
+    expect(characterOf({ ...ana, character: OTTER }, false)).toBe(characterForMember(ana))
+    expect(characterOf({ ...ana, character: OTTER }, true)).toBe(OTTER)
   })
 
-  it('draws a member with no saved character, or an unknown member, as the pigeon', () => {
-    expect(characterOf({ character: null }, true)).toBe(PIGEON)
-    expect(characterOf(undefined, true)).toBe(PIGEON)
-    expect(PIGEON.id).toBe('pigeon')
+  it('draws a member with no saved character as a default that is not Pip, and the same one every time', () => {
+    const drawn = characterOf(ana, true)
+    expect(isPipLook(drawn)).toBe(false)
+    expect(drawn).toBe(characterOf(ana, true))
+    expect(drawn).toBe(characterForMember(ana))
+  })
+
+  it('draws a stored copy of Pip as no character, and an unknown member as a default too', () => {
+    expect(isPipLook(characterOf({ ...ana, character: PIGEON }, true))).toBe(false)
+    expect(characterOf({ ...ana, character: PIGEON }, true)).toBe(characterOf(ana, true))
+    expect(isPipLook(characterOf(undefined, true))).toBe(false)
+  })
+
+  it('never draws a person as Pip, whoever they are', () => {
+    fc.assert(
+      fc.property(fc.string(), fc.boolean(), (id, on) => {
+        expect(isPipLook(characterOf({ id: id as MemberId, character: null }, on))).toBe(false)
+      }),
+    )
   })
 
   it('draws a channel’s agent with no saved character as the robot, unless characters are off', () => {
-    expect(characterOf({ character: null, kind: 'channel_agent' }, true)).toBe(ROBOT)
+    expect(characterOf({ ...ana, kind: 'channel_agent' }, true)).toBe(ROBOT)
     expect(ROBOT.id).toBe('robot')
-    expect(characterOf({ character: OTTER, kind: 'channel_agent' }, true)).toBe(OTTER)
-    expect(characterOf({ character: null, kind: 'channel_agent' }, false)).toBe(PIGEON)
-    expect(characterOf({ character: null, kind: 'person' }, true)).toBe(PIGEON)
+    expect(characterOf({ ...ana, character: OTTER, kind: 'channel_agent' }, true)).toBe(OTTER)
+    expect(characterOf({ ...ana, kind: 'channel_agent' }, false)).not.toBe(ROBOT)
+    expect(characterOf({ ...ana, kind: 'person' }, true)).toBe(characterForMember(ana))
+  })
+})
+
+describe('hasSavedCharacter', () => {
+  it('is true for a character of one’s own and false for none or Pip’s look', () => {
+    expect(hasSavedCharacter({ character: OTTER })).toBe(true)
+    expect(hasSavedCharacter({ character: null })).toBe(false)
+    expect(hasSavedCharacter({ character: PIGEON })).toBe(false)
   })
 })
 

@@ -189,7 +189,8 @@ every one of them.
   </tr>
 </table>
 
-Members pick one of these or compose their own in the web client's editor. The pigeon is Pip's and
+Members pick one of these or compose their own in the web client's editor, and a member who has not
+chosen gets one of them at random. The pigeon is Pip's, only the logo, and
 stays with the project, as [TRADEMARKS.md](TRADEMARKS.md) says. The other 23 are
 [CC BY 4.0](assets/characters/LICENSE.md): credit them as "Homingbird characters". Regenerate the
 GIFs with `pnpm --filter @homingbird/sprites assets`.

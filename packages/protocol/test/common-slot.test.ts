@@ -10,6 +10,7 @@ import {
   windowAheadOf,
 } from '../src/common-slot.ts'
 import { MemberId } from '../src/ids.ts'
+import { type ScheduleLimits, allowedStretches, isAllowed } from '../src/schedule-limits.ts'
 
 const DAY = Date.UTC(2026, 10, 23)
 const MINUTE = 60_000
@@ -216,5 +217,133 @@ describe('what is left of a window from now', () => {
     expect(windowAheadOf(WINDOW, at(9))).toEqual(WINDOW)
     expect(windowAheadOf(WINDOW, at(10, 1))).toEqual(span(at(10, 15), at(17)))
     expect(windowAheadOf(WINDOW, at(10, 15))).toEqual(span(at(10, 15), at(17)))
+  })
+})
+
+const ZONES = ['UTC', 'Asia/Seoul', 'America/New_York', 'Europe/London', 'Pacific/Auckland'] as const
+const limitsOf = fc
+  .record(
+    {
+      weekdays: fc.uniqueArray(fc.integer({ min: 1, max: 7 }), { minLength: 1, maxLength: 6 }),
+      hours: fc
+        .tuple(fc.integer({ min: 0, max: 90 }), fc.integer({ min: 1, max: 48 }))
+        .map(([from, length]) => ({ from: from * 15, to: Math.min(1440, (from + length) * 15) })),
+    },
+    { requiredKeys: [] },
+  )
+  .chain((limits) => fc.constantFrom(...ZONES).map((timeZone): ScheduleLimits => ({ ...limits, timeZone })))
+const longMeetings = fc
+  .tuple(
+    fc.integer({ min: 0, max: 400 * 24 }),
+    fc.integer({ min: 12, max: 14 * 24 }),
+    fc.integer({ min: 1, max: 12 }),
+  )
+  .map(([startHour, lengthHours, quarters]) => ({
+    minutes: quarters * 15,
+    window: span(
+      Date.UTC(2026, 0, 1) + startHour * 60 * MINUTE,
+      Date.UTC(2026, 0, 1) + (startHour + lengthHours) * 60 * MINUTE,
+    ),
+  }))
+const freeAcrossWindow = (meeting: Meeting) =>
+  fc.array(
+    fc
+      .tuple(fc.integer({ min: 0, max: 14 * 24 }), fc.integer({ min: 1, max: 12 }))
+      .map(([from, length]) =>
+        span(
+          meeting.window.startsAt + from * 60 * MINUTE,
+          meeting.window.startsAt + (from + length) * 60 * MINUTE,
+        ),
+      ),
+    { maxLength: 6 },
+  )
+
+describe('the earliest common slot inside chosen weekdays and hours', () => {
+  it('always lies whole inside them, in the zone of whoever opened the room', () => {
+    fc.assert(
+      fc.property(
+        longMeetings.chain((meeting) =>
+          fc.tuple(fc.constant(meeting), limitsOf, fc.array(freeAcrossWindow(meeting), { maxLength: 3 })),
+        ),
+        ([meeting, limits, everyone]) => {
+          const found = earliestCommonSlot({ ...meeting, limits }, everyone)
+          if (found === null) return
+          expect(isAllowed(allowedStretches(meeting.window, limits), found)).toBe(true)
+          expect(found.endsAt - found.startsAt).toBe(meeting.minutes * MINUTE)
+        },
+      ),
+    )
+  })
+
+  it('is never later without a limit than with it', () => {
+    fc.assert(
+      fc.property(
+        longMeetings.chain((meeting) =>
+          fc.tuple(fc.constant(meeting), limitsOf, fc.array(freeAcrossWindow(meeting), { maxLength: 3 })),
+        ),
+        ([meeting, limits, everyone]) => {
+          const limited = earliestCommonSlot({ ...meeting, limits }, everyone)
+          const free = earliestCommonSlot(meeting, everyone)
+          const dropped: ScheduleLimits[] = [
+            {},
+            { timeZone: limits.timeZone!, ...(limits.hours === undefined ? {} : { hours: limits.hours }) },
+            {
+              timeZone: limits.timeZone!,
+              ...(limits.weekdays === undefined ? {} : { weekdays: limits.weekdays }),
+            },
+          ]
+          expect(startOf(free)).toBeLessThanOrEqual(startOf(limited))
+          for (const looser of dropped) {
+            const found = earliestCommonSlot({ ...meeting, limits: looser }, everyone)
+            expect(startOf(found)).toBeLessThanOrEqual(startOf(limited))
+          }
+        },
+      ),
+    )
+  })
+
+  it('matches a search over every quarter hour inside the limits', () => {
+    fc.assert(
+      fc.property(
+        longMeetings.chain((meeting) =>
+          fc.tuple(fc.constant(meeting), limitsOf, fc.array(freeAcrossWindow(meeting), { maxLength: 3 })),
+        ),
+        ([meeting, limits, everyone]) => {
+          const stretches = allowedStretches(meeting.window, limits)
+          const length = meeting.minutes * MINUTE
+          const first = Math.ceil(meeting.window.startsAt / QUARTER_HOUR_MS) * QUARTER_HOUR_MS
+          let expected: TimeSpan | null = null
+          for (
+            let start = first;
+            start + length <= meeting.window.endsAt && expected === null;
+            start += QUARTER_HOUR_MS
+          ) {
+            const time = span(start, start + length)
+            if (isAllowed(stretches, time) && everyone.every((spans) => isCovered(spans, time)))
+              expected = time
+          }
+          expect(earliestCommonSlot({ ...meeting, limits }, everyone)).toEqual(expected)
+        },
+      ),
+      { numRuns: 60 },
+    )
+  })
+
+  it('finds the first allowed hour on a chosen day, even when everyone is free all week', () => {
+    const week = span(Date.UTC(2026, 10, 23), Date.UTC(2026, 10, 30))
+    const limits = { weekdays: [3], hours: { from: 600, to: 720 }, timeZone: 'Asia/Seoul' }
+    const found = earliestCommonSlot({ minutes: 60, window: week, limits }, [[week]])
+    expect(found).toEqual(span(Date.UTC(2026, 10, 25, 1), Date.UTC(2026, 10, 25, 2)))
+    expect(earliestCommonSlot({ minutes: 150, window: week, limits }, [[week]])).toBeNull()
+  })
+
+  it('has a closest slot inside the limits too', () => {
+    const week = span(Date.UTC(2026, 10, 23), Date.UTC(2026, 10, 30))
+    const limits = { weekdays: [3], timeZone: 'UTC' }
+    const closest = closestSlot({ minutes: 60, window: week, limits }, [
+      { memberId: ANA, free: [week] },
+      { memberId: BEN, free: [span(Date.UTC(2026, 10, 24), Date.UTC(2026, 10, 24, 5))] },
+    ])
+    expect(closest).toEqual({ ...span(Date.UTC(2026, 10, 25), Date.UTC(2026, 10, 25, 1)), missing: [BEN] })
   })
 })

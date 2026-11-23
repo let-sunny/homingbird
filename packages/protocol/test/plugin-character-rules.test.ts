@@ -15,7 +15,7 @@ const characterRulesModule = async (): Promise<string> => {
   const built = await build({
     stdin: {
       contents: [
-        "export { characterProblems, BUILT_IN_CHARACTERS } from './src/character.ts'",
+        "export { characterProblems, CHOOSABLE_CHARACTERS } from './src/character.ts'",
         "export { characterLink } from './src/character-link.ts'",
       ].join('\n'),
       resolveDir: new URL('..', import.meta.url).pathname,
@@ -56,7 +56,7 @@ describe('the character rules the plugin carries', () => {
     }
     for (const spec of [otter, { ...otter, id: 'cat' }, { ...otter, marks: [[12, 9, 1, 1, 'B']] }, null])
       expect(bundled.characterProblems(spec)).toEqual(characterProblems(spec))
-    expect(bundled.BUILT_IN_CHARACTERS).toHaveLength(24)
+    expect(bundled.CHOOSABLE_CHARACTERS).toHaveLength(23)
     expect(bundled.characterLink('https://h.example', otter)).toBe(
       characterLink('https://h.example', otter as never),
     )

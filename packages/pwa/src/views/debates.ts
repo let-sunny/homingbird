@@ -23,18 +23,7 @@ export const debatesView = (context: ViewContext, life: Lifetime, me: AsRead.Me)
   actions.loadDebates()
   return page(
     strings.debates.title,
-    h(
-      'div',
-      { class: 'debates-intro' },
-      h('p', {}, strings.debates.intro),
-      newDebateButton(context, me),
-      region(
-        life,
-        [state.serverInfo],
-        () => featureOn('schedulingRooms', state.serverInfo.get()) && newSchedulingButton(context, me),
-        { class: 'scheduling-new' },
-      ),
-    ),
+    h('div', { class: 'debates-intro' }, h('p', {}, strings.debates.intro), newRoomButton(context, me)),
     region(life, [state.debates, state.debatesLoaded, state.directory, state.serverInfo], () =>
       renderDebateList(
         debateListModel({
@@ -207,24 +196,51 @@ const renderDebateList = (model: DebateListModel): HTMLElement => {
   )
 }
 
-const newSchedulingButton = (context: ViewContext, me: AsRead.Me): HTMLElement =>
+const newRoomButton = (context: ViewContext, me: AsRead.Me): HTMLElement =>
   h(
     'button',
     {
       type: 'button',
-      class: 'new-scheduling',
-      ...opensDialog(context, strings.scheduling.newRoom, (life) => schedulingForm(context, life, me)),
-    },
-    strings.scheduling.newRoom,
-  )
-
-const newDebateButton = (context: ViewContext, me: AsRead.Me): HTMLElement =>
-  h(
-    'button',
-    {
-      type: 'button',
-      class: 'primary new-debate',
-      ...opensDialog(context, strings.debates.newRoom, (life) => debateCreateForm(context, life, me)),
+      class: 'primary new-room-button',
+      ...opensDialog(context, strings.debates.newRoom, (life) => newRoomDialog(context, life, me)),
     },
     strings.debates.newRoom,
   )
+
+/** One form for every kind of room: the kind is the first choice, and the fields below follow it. */
+const newRoomDialog = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
+  const debateForm = debateCreateForm(context, life, me)
+  if (!featureOn('schedulingRooms', context.state.serverInfo.get())) return debateForm
+  const meetingForm = schedulingForm(context, life, me)
+  meetingForm.hidden = true
+  const choose = (kind: 'debate' | 'scheduling'): void => {
+    debateForm.hidden = kind !== 'debate'
+    meetingForm.hidden = kind !== 'scheduling'
+  }
+  const kindOption = (kind: 'debate' | 'scheduling', label: string) =>
+    h(
+      'label',
+      {},
+      h('input', {
+        type: 'radio',
+        name: 'roomType',
+        value: kind,
+        checked: kind === 'debate',
+        on: { change: () => choose(kind) },
+      }),
+      h('span', {}, label),
+    )
+  return h(
+    'div',
+    { class: 'new-room' },
+    h(
+      'fieldset',
+      { class: 'room-type-choice' },
+      h('legend', {}, strings.debates.roomType),
+      kindOption('debate', strings.debates.typeDebate),
+      kindOption('scheduling', strings.scheduling.newRoom),
+    ),
+    debateForm,
+    meetingForm,
+  )
+}

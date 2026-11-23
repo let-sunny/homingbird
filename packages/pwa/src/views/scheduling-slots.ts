@@ -36,6 +36,7 @@ export const schedulingSlotsCard = (
     first.title,
     'scheduling-pick',
     h('p', { class: 'hint' }, first.hint),
+    first.limitsHint !== null && h('p', { class: 'hint scheduling-pick-limits' }, first.limitsHint),
     first.answered !== null && h('p', { class: 'hint' }, first.answered),
     first.emptyText !== null && h('p', { class: 'hint' }, first.emptyText),
     region(life, [showsAll], () => {

@@ -131,6 +131,10 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "CREATE TABLE IF NOT EXISTS scheduling_delegations (member_id VARCHAR(64) NOT NULL, auto_join BIGINT, auto_add BIGINT, credential_id VARCHAR(64), brief MEDIUMTEXT, max_minutes BIGINT, hours_from BIGINT, hours_to BIGINT, time_zone VARCHAR(400), updated_at BIGINT NOT NULL, PRIMARY KEY (member_id))",
   "CREATE TABLE IF NOT EXISTS scheduling_delegation_people (member_id VARCHAR(64) NOT NULL, other_member_id VARCHAR(64) NOT NULL, PRIMARY KEY (member_id, other_member_id))",
   "CREATE TABLE IF NOT EXISTS meeting_notices (id VARCHAR(64) NOT NULL, debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, notice VARCHAR(400), about_member_id VARCHAR(64), because VARCHAR(400), agent_name VARCHAR(400), created_at BIGINT NOT NULL, PRIMARY KEY (id), INDEX meeting_notices_member_id_debate_id_idx (member_id, debate_id))",
+  "ALTER TABLE scheduling_rooms ADD COLUMN weekdays VARCHAR(400)",
+  "ALTER TABLE scheduling_rooms ADD COLUMN hours_from BIGINT",
+  "ALTER TABLE scheduling_rooms ADD COLUMN hours_to BIGINT",
+  "ALTER TABLE scheduling_rooms ADD COLUMN time_zone VARCHAR(400)",
 ]
 `;
 
@@ -325,6 +329,10 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "CREATE TABLE IF NOT EXISTS scheduling_delegation_people (member_id VARCHAR(64) NOT NULL, other_member_id VARCHAR(64) NOT NULL, PRIMARY KEY (member_id, other_member_id))",
   "CREATE TABLE IF NOT EXISTS meeting_notices (id VARCHAR(64) NOT NULL, debate_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, notice VARCHAR(400), about_member_id VARCHAR(64), because VARCHAR(400), agent_name VARCHAR(400), created_at BIGINT NOT NULL, PRIMARY KEY (id))",
   "CREATE INDEX IF NOT EXISTS meeting_notices_member_id_debate_id_idx ON meeting_notices (member_id, debate_id)",
+  "ALTER TABLE scheduling_rooms ADD COLUMN weekdays VARCHAR(400)",
+  "ALTER TABLE scheduling_rooms ADD COLUMN hours_from BIGINT",
+  "ALTER TABLE scheduling_rooms ADD COLUMN hours_to BIGINT",
+  "ALTER TABLE scheduling_rooms ADD COLUMN time_zone VARCHAR(400)",
 ]
 `;
 
@@ -519,5 +527,9 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "CREATE TABLE IF NOT EXISTS scheduling_delegation_people (member_id TEXT NOT NULL, other_member_id TEXT NOT NULL, PRIMARY KEY (member_id, other_member_id))",
   "CREATE TABLE IF NOT EXISTS meeting_notices (id TEXT NOT NULL, debate_id TEXT NOT NULL, member_id TEXT NOT NULL, notice TEXT, about_member_id TEXT, because TEXT, agent_name TEXT, created_at INTEGER NOT NULL, PRIMARY KEY (id))",
   "CREATE INDEX IF NOT EXISTS meeting_notices_member_id_debate_id_idx ON meeting_notices (member_id, debate_id)",
+  "ALTER TABLE scheduling_rooms ADD COLUMN weekdays TEXT",
+  "ALTER TABLE scheduling_rooms ADD COLUMN hours_from INTEGER",
+  "ALTER TABLE scheduling_rooms ADD COLUMN hours_to INTEGER",
+  "ALTER TABLE scheduling_rooms ADD COLUMN time_zone TEXT",
 ]
 `;

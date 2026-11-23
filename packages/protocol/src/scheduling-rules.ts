@@ -11,6 +11,7 @@ import type { DebateEnding } from './debates.ts'
 import { FREE_SLOTS_MAX, FREE_SLOTS_NOTE_MAX } from './free-slots.ts'
 import type { MemberId } from './ids.ts'
 import type { ComputedResult, RoomTurn } from './room-rules.ts'
+import type { ScheduleLimits } from './schedule-limits.ts'
 
 /**
  * The earliest time still ahead that every required person who answered is free, else the closest; who
@@ -26,7 +27,11 @@ export const scheduleOf = (room: DebateRoom, now: number): ComputedResult | null
   const unanswered = schedule.attendees
     .filter((attendee) => !answers.has(attendee.memberId))
     .map((attendee) => attendee.memberId)
-  const meeting: Meeting = { minutes: schedule.minutes, window: windowAheadOf(schedule.window, now) }
+  const meeting: Meeting = {
+    minutes: schedule.minutes,
+    window: windowAheadOf(schedule.window, now),
+    limits: schedule,
+  }
   const slot = earliestCommonSlot(meeting, required.map(freeOf))
   if (slot === null) {
     const closest = closestSlot(
@@ -89,7 +94,7 @@ export const scheduleEndingOf = (room: DebateRoom): DebateEnding | null => {
 }
 
 /** What a person chose themself in the web client, when their agent could not, counts over its turn. */
-export interface RoomSchedule {
+export interface RoomSchedule extends ScheduleLimits {
   readonly minutes: number
   readonly window: TimeSpan
   readonly attendees: ReadonlyArray<Attendee>
