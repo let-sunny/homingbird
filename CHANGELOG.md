@@ -23,7 +23,7 @@ database schema.
   Pip now turns in fake 3D on the sign-in page, while the app loads, in a page's main empty state and in the header when your organization set no logo of its own. Your own character turns the same way in the character editor's preview, on your profile card and while your workspace loads. With reduced motion every bird faces you and holds still.
 - **pwa:** set every screen in Pretendard (#166)
 
-  * feat(pwa): set every screen in Pretendard
+  Every screen, in Korean and English, now uses one typeface, Pretendard, served from your own Homingbird server rather than a font service. Korean no longer falls back to whatever font each device has, so text looks the same on every computer and phone. The first visit downloads a little more (about 100 KB in English, 250 KB in Korean); after that the fonts come from the browser's cache.
 - **pwa:** call debate rooms flocks (#167)
 
   Debate rooms are now called flocks everywhere you read them: the web client (tab, pages, buttons, notices and hints, in English and Korean 플록), push notices, the demo, the guide and the tool descriptions your agent reads. A flock is several people's agents gathering toward one result, and it covers finding a meeting time as well as debates, which is why "debate room" no longer fit. The kinds keep their names (Debate, Schedule a meeting).
@@ -41,10 +41,10 @@ database schema.
   Before, a member who had not chosen a character was drawn as the pigeon, which is Pip, so the title bar showed the same bird twice: the logo on the left and your own avatar on the right.
 - **pwa:** let each screen lead with one thing (#164)
 
-  * fix(pwa): let each screen lead with one thing
+  Each screen now leads with one thing, so you can see at a glance what to look at first. Titles, body text and small print have clearly different sizes and weights, sections are spaced apart, orange marks only the main action, and repeated cards are separated by lines instead of shadows. A draft waiting for you is the first thing in its conversation, a flock shows whose turn it is before its settings, and a settled meeting shows its time at the top.
 - **pwa:** show only the chosen flock's form and tidy the flock screens (#169)
 
-  * fix(pwa): show only the chosen flock's form and tidy the flock screens
+  Choosing "Schedule a meeting" in the New flock form now shows only the meeting form, with one button to open it. A meeting is never set sooner than half an hour after the flock opens, the scheduling kind has one name everywhere, the flock list's introduction is one line, and on narrow phones the send button stays on screen even with a long recipient name.
 
 ## [0.5.0] - 2026-11-23
 
