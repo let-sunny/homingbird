@@ -662,7 +662,10 @@ export const ko: Translation<typeof en> = {
     replyYourself: '직접 답장하기',
     unavailableTitle: '지금은 에이전트가 답할 수 없어요',
     openConnection: '연결 열기',
-    debateAsks: '이 토론방이 내 에이전트의 참여를 기다려요. 토론방에서 참여시키세요.',
+    debateAsks:
+      '{person} 님이 {time}까지 이 토론방에 내 에이전트가 참여하길 부탁해요. 토론방에서 참여시키세요.',
+    debateAsksSuggested:
+      '{person} 님이 받은 질문에 답하도록 내 에이전트의 도움을 부탁해요. {time}까지 열리는 짧은 토론방이에요. 토론방에서 참여시키세요.',
     debateResult:
       '내 에이전트가 함께 낸 결과가 있어요. 채널이나 사람에게 게시하세요. 승인하기 전에는 아무것도 보내지 않아요.',
     openRoom: '토론방 열기',
@@ -1366,6 +1369,8 @@ export const ko: Translation<typeof en> = {
     turnsLeft: { other: '남은 차례 {count}번' },
     droppedOut:
       '토론 이탈: 정한 시간보다 오래 요청이 없어 돌아올 때까지 건너뛰어요. 에이전트가 둘이면 토론방은 결과 없이 끝나요.',
+    notAwake:
+      '쉬는 중: 정한 시간보다 오래 요청이 없어 돌아올 때까지 건너뛰어요. 토론방은 {time}까지 열려 있어요.',
     readyToConclude: '결론 낼 준비 됨',
     waitingFor:
       '{person} 님의 에이전트 차례를 기다리고 있어요. 토론방은 한 번에 한 에이전트에게만 차례를 주고, {time}까지 쓰지 않으면 다음 에이전트에게 넘겨요.',
@@ -1383,6 +1388,9 @@ export const ko: Translation<typeof en> = {
     chooseAgent: '에이전트',
     optIn: '참여시키기',
     noAgent: '먼저 내 에이전트 → 연결에서 에이전트를 연결하세요.',
+    agentNotAwake:
+      '지금 내 에이전트가 쉬는 중이에요. 에이전트를 실행하는 프로그램이 켜질 때까지 차례를 쓰지 않고, 토론방은 건너뛰어요.',
+    answeredBy: '이 토론방을 연 질문에는 {person} 님의 에이전트가 답해요. 나에게 더 부탁할 일은 없어요.',
     briefTitle: '이 토론방에서 내 에이전트가 쓸 수 있는 것',
     briefHint:
       '내 에이전트가 이 토론방에서 나누면 안 되는 것, 지킬 한계, 참고할 사실이나 출처를 적어 주세요. 차례는 내 승인 없이 토론방에 보이므로, 에이전트는 이 메모가 막은 것은 절대 나누지 않아요. 질문과 관련 있고 내가 어차피 나눌 일반적인 사실은 쓸 수 있고, 확실하지 않으면 확실하지 않다고 말해요. 이 메모는 나와 내 에이전트만 봐요.',
@@ -1525,7 +1533,13 @@ export const ko: Translation<typeof en> = {
       '짧은 방이에요. 에이전트마다 두 번씩, {minutes}분 안에 끝나요. 열기 전에는 아무에게도 가지 않아요.',
     open: '짧은 토론 열기',
     dismiss: '그냥 답하기',
-    dismissed: '에이전트가 토론 없이 답할 거예요.',
+    dismissed: '에이전트에게 토론 없이 답하라고 알렸어요.',
+    notAwake: '지금 에이전트가 쉬는 중: {people}. 실행하는 프로그램이 켜질 때까지 차례를 쓰지 않아요.',
+    askInNote:
+      '함께 이야기할 깨어 있는 에이전트가 둘보다 적어요. 그룹 노트로 물으면 더 빨리 답을 들을 수 있어요. 그래도 토론방을 열 수 있어요.',
+    askInNoteLink: '그룹 노트로 묻기',
+    askerLeftOut: '{name} 님이 이 노트를 물었으니 이 토론방에는 넣을 수 없어요.',
+    blocked: '{name} 님을 차단했어요. 토론방에 부르려면 사람 탭에서 차단을 풀어요.',
     questionEmpty: '방에 올릴 질문을 적어 주세요.',
     questionTooLong: '질문은 {max}자까지 쓸 수 있어요.',
     peopleEmpty: '물어볼 동료를 한 명 이상 골라 주세요.',

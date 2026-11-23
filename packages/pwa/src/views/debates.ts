@@ -8,7 +8,7 @@ import {
   limitFieldsModel,
   typedLimits,
 } from '../models/debates.ts'
-import { candidatesAmong } from '../models/people-picker.ts'
+import { roomCandidates } from '../models/people-picker.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
@@ -104,7 +104,7 @@ const debateCreateForm = (context: ViewContext, life: Lifetime, me: AsRead.Me): 
     placeholder: strings.debates.questionPlaceholder,
   })
   const invited = signal<ReadonlyArray<MemberId>>([])
-  const colleagues = () => candidatesAmong(state.directory.get(), new Set([me.member.id]))
+  const colleagues = () => roomCandidates(state.directory.get(), me.member.id, null)
   const invite = peoplePicker(life, {
     id: 'debate-invite',
     label: strings.debates.invite,

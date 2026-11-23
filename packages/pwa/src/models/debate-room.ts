@@ -131,7 +131,9 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
           : null,
       droppedOut:
         participant.takingPart === false && (debate.status === 'open' || debate.status === 'concluding')
-          ? strings.debates.droppedOut
+          ? debate.status === 'open' && debate.turns.length === 0
+            ? strings.debates.notAwake({ time: fullTime(debate.deadlineAt) })
+            : strings.debates.droppedOut
           : null,
       ready:
         debate.status === 'open' && isReadyToConclude(debate, participant.memberId)
@@ -151,6 +153,7 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
             kind: 'choose',
             agents: input.agents.map((agent) => ({ value: agent.id, label: agent.name })),
             brief: briefField(''),
+            notAwake: isOwnAgentAwake(input) ? null : strings.debates.agentNotAwake,
           }
       : null,
     brief: briefOf(debate, viewerId),
@@ -199,7 +202,11 @@ export const debateRoomModel = (input: DebateRoomInput): DebateRoomModel => {
     closed:
       stage === 'closed'
         ? {
-            mayPost: tookATurn(debate, viewerId),
+            mayPost: tookATurn(debate, viewerId) && !isAnsweredByAnother(debate, viewerId),
+            answeredBy:
+              tookATurn(debate, viewerId) && isAnsweredByAnother(debate, viewerId)
+                ? strings.debates.answeredBy({ person: nameOf(debate.createdBy) })
+                : null,
             channels: input.channels
               .filter((one) => one.joined)
               .map((one) => ({ value: one.slug, label: channelLabel(one.slug) })),
@@ -288,6 +295,8 @@ export type DebateRoomModel =
             readonly agents: ReadonlyArray<{ readonly value: string; readonly label: string }>
             /** The person's note on what their agent may use here, written with the opt-in. */
             readonly brief: BriefField
+            /** That the person's own agent is not awake now, so it would take no turn yet. */
+            readonly notAwake: string | null
           }
         | null
       /** To a participant: their own note on what their agent may use here, editable while turns go on. */
@@ -315,6 +324,8 @@ export type DebateRoomModel =
       }> | null
       readonly closed: {
         readonly mayPost: boolean
+        /** In a room opened from an agent's suggestion, that its person's agent answers from the result. */
+        readonly answeredBy: string | null
         readonly channels: ReadonlyArray<{ readonly value: string; readonly label: string }>
         readonly people: ReadonlyArray<{ readonly value: string; readonly label: string }>
         /** What to say when the person asks for a draft before choosing where it goes. */
@@ -409,6 +420,14 @@ const briefOf = (debate: AsRead.Debate, viewerId: MemberId): BriefModel | null =
         fixed: strings.debates.briefFixed,
       }
 }
+
+/** A room opened from another person's agent's suggestion: that agent answers from it, nobody else posts it. */
+const isAnsweredByAnother = (debate: AsRead.Debate, viewerId: MemberId): boolean =>
+  debate.fromSuggestion === true && debate.createdBy !== viewerId
+
+/** The person's own agent is awake, as their colleagues see it; unknown counts as awake. */
+const isOwnAgentAwake = (input: DebateRoomInput): boolean =>
+  input.directory.find((entry) => entry.member.id === input.viewerId)?.presence.agentOnline ?? true
 
 const fullTime = (timestamp: number): string => formats.full.format(new Date(timestamp))
 

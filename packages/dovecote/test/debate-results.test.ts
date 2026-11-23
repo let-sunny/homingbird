@@ -264,8 +264,11 @@ describe('settling the result by vote', () => {
     await cast.anaAgent.api('PUT', `/debates/${id}/result`, threeResult('A.'))
     await cast.benAgent.api('PUT', `/debates/${id}/result`, threeResult('B.'))
     await cast.cyAgent.api('PUT', `/debates/${id}/result`, threeResult('C.'))
+    const joinedAt = (await roomOf(id)).participants.find(
+      (one: { memberId: string }) => one.memberId === cast.ben.me.member.id,
+    ).joinedAt
     cast.sleep('ben')
-    await server.clock.advance(RESULT_VOTING_WINDOW_MS - 1 - cast.elapsed())
+    await server.clock.advance(RESULT_VOTING_WINDOW_MS - 1 - (server.clock.now() - joinedAt))
     const round = (await roomOf(id)).resultRound
     await cast.anaAgent.api('POST', `/debates/${id}/result/vote`, { round, draftBy: cast.ben.me.member.id })
     await cast.cyAgent.api('POST', `/debates/${id}/result/vote`, { round, draftBy: cast.ben.me.member.id })

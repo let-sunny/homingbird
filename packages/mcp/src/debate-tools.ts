@@ -1,5 +1,6 @@
 import { Schema as S, Task as T } from '@homingbird/kernel'
 import {
+  ANSWER_ALONE_ADVICE,
   AgentLabel,
   type ApiError,
   type AsRead,
@@ -89,7 +90,8 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
             ? []
             : [quotedDrafts(debate, quoting.authors, member.id, context.nonce)]
         const facts = scheduleFacts(debate, member.id)
-        const advice = facts ?? debateToolAdvice(debate, member.id)
+        const advice =
+          facts ?? (yield* answerAdviceFor(context, debate)) ?? debateToolAdvice(debate, member.id)
         if (draftsOnly)
           return [advice, voteStateOf(debate), ...(drafts.length === 0 ? [NO_DRAFTS] : drafts)].join('\n\n')
         const room = quotedDebate(debate, quoting.authors, member.id, context.nonce)
@@ -215,18 +217,47 @@ const askLine = (ask: AsRead.DebateAsk): string =>
     closesAt: new Date(ask.debate.deadlineAt).toISOString(),
   })
 
-/** A room your own suggestion opened that has ended: the note to answer, and with which ids. */
+/**
+ * A room your own suggestion opened that has ended, or a suggestion your person turned down: the note to
+ * answer, and with which ids.
+ */
 const answerLine = (answer: AsRead.DebateAnswerAsk): string =>
-  JSON.stringify({
-    debateId: answer.debateId,
-    wants: `your answer to note ${answer.inReplyTo}, which you suggested this room for. ${
-      answer.hasResult
-        ? 'The room has a result: call read_debate to read it. '
-        : 'The room ended without a result. '
-    }${DEBATE_ANSWER_ADVICE}`,
-    inReplyTo: answer.inReplyTo,
-    ...(answer.draftId !== null && { draftId: answer.draftId }),
-  })
+  JSON.stringify(
+    answer.debateId === null
+      ? {
+          wants: `your answer to note ${answer.inReplyTo}. ${ANSWER_ALONE_ADVICE}`,
+          inReplyTo: answer.inReplyTo,
+        }
+      : {
+          debateId: answer.debateId,
+          wants: answerWanted(answer),
+          inReplyTo: answer.inReplyTo,
+          ...(answer.draftId !== null && { draftId: answer.draftId }),
+        },
+  )
+
+const answerWanted = (answer: AsRead.DebateAnswerAsk): string =>
+  `your answer to note ${answer.inReplyTo}, which you suggested this room for. ${
+    answer.hasResult
+      ? 'The room has a result: call read_debate to read it. '
+      : 'The room ended without a result. '
+  }${DEBATE_ANSWER_ADVICE}`
+
+/** In a room that has ended, the answer the agent's own suggestion still owes, or null when it owes none. */
+const answerAdviceFor = (
+  context: Parameters<Tool['run']>[1],
+  debate: AsRead.Debate,
+): T.Task<string | null, ApiError> =>
+  debate.status !== 'closed' && debate.status !== 'ended'
+    ? T.succeed(null)
+    : T.map(({ answers = [] }: { readonly answers?: ReadonlyArray<AsRead.DebateAnswerAsk> }) => {
+        const owed = answers.find((answer) => answer.debateId === debate.id)
+        return owed === undefined
+          ? null
+          : `This room asks for your answer to note ${owed.inReplyTo}, which you suggested it for${
+              owed.draftId === null ? '' : `, in place of your waiting draft ${owed.draftId}`
+            }. ${DEBATE_ANSWER_ADVICE}`
+      })(context.api['debates.waiting']({}))
 
 const ballotLine = (debate: AsRead.Debate): string =>
   JSON.stringify({

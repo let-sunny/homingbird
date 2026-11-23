@@ -93,8 +93,27 @@ describe('debateRoomModel', () => {
         value: '',
         maxLength: DEBATE_BRIEF_MAX,
       },
+      notAwake: null,
     })
     expect(model.brief).toBeNull()
+  })
+
+  it('says at the opt-in when the person’s own agent is not awake, so it would take no turn yet', () => {
+    const asleep = input(debate(), { agents: [credential('cred_desk')], directory: [entry(ANA, 'Ana')] })
+    expect(room(debateRoomModel(asleep)).optIn).toMatchObject({ notAwake: strings.debates.agentNotAwake })
+    const awake = input(debate(), {
+      agents: [credential('cred_desk')],
+      directory: [entry(ANA, 'Ana', { presence: { humanOnline: true, agentOnline: true } })],
+    })
+    expect(room(debateRoomModel(awake)).optIn).toMatchObject({ notAwake: null })
+  })
+
+  it('says an agent is not awake, with the room open until its deadline, while no agent has taken a turn', () => {
+    const waiting = debate({ participants: [participant(ANA), participant(BEN, { takingPart: false })] })
+    const model = room(debateRoomModel(input(waiting)))
+    expect(model.participants[1]!.droppedOut).toBe(
+      strings.debates.notAwake({ time: formats.full.format(new Date(waiting.deadlineAt)) }),
+    )
   })
 
   it('lets a participant edit their own note while the room takes turns, and shows it fixed afterwards', () => {
@@ -410,6 +429,7 @@ describe('debateRoomModel', () => {
     ])
     expect(model.closed).toEqual({
       mayPost: true,
+      answeredBy: null,
       channels: [{ value: 'billing', label: '#billing' }],
       people: [{ value: BEN, label: 'Ben' }],
       chooseFirst: strings.debates.chooseDestination,
@@ -485,6 +505,33 @@ describe('debateRoomModel', () => {
       ['credit', false],
       ['turns', false],
     ])
+  })
+
+  it('leaves the answer to a suggested room’s opener, whose agent answers from it, and lets nobody else post it', () => {
+    const closed = debate({
+      status: 'closed',
+      createdBy: BEN,
+      fromSuggestion: true,
+      participants: [participant(ANA), participant(BEN)],
+      turns: [{ position: 1, memberId: ANA, agentName: 'Ana desk', body: 'Yes.', at: 5 }],
+      result: { result: conclusion, draftedBy: BEN, draftedAt: 6 },
+    })
+    expect(room(debateRoomModel(input(closed))).closed).toMatchObject({
+      mayPost: false,
+      answeredBy: strings.debates.answeredBy({ person: 'Ben' }),
+    })
+    expect(room(debateRoomModel(input(closed, { viewerId: BEN }))).closed).toMatchObject({
+      mayPost: false,
+      answeredBy: null,
+    })
+    const opener = {
+      ...closed,
+      turns: [{ position: 1, memberId: BEN, agentName: 'Ben desk', body: 'Yes.', at: 5 }],
+    }
+    expect(room(debateRoomModel(input(opener, { viewerId: BEN }))).closed).toMatchObject({
+      mayPost: true,
+      answeredBy: null,
+    })
   })
 
   it('opens a room still taking turns on its turns and any later one on its result, unless a tab is asked for', () => {

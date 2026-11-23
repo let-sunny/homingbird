@@ -1,7 +1,7 @@
 import type { AsRead, MemberId } from '@homingbird/protocol'
 import { type Lifetime, h, signal } from '@homingbird/ui'
 import { type SuggestionCard, suggestionAcceptance } from '../models/debate-suggestion-card.ts'
-import { candidatesAmong } from '../models/people-picker.ts'
+import { chosenAmong, roomCandidates } from '../models/people-picker.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
@@ -22,6 +22,8 @@ export const debateSuggestionCard = (
   const { state, actions } = context
   const id = card.suggestion.id
   const chosen = signal<ReadonlyArray<MemberId>>(card.people.chosen)
+  const candidates = () =>
+    roomCandidates(state.directory.get(), me.member.id, card.suggestion.askerId ?? null)
   const question = h('textarea', {
     name: 'question',
     rows: 2,
@@ -33,7 +35,7 @@ export const debateSuggestionCard = (
     id: `suggestion-${id}-people`,
     label: card.people.label,
     placeholder: card.people.placeholder,
-    candidates: () => candidatesAmong(state.directory.get(), new Set([me.member.id])),
+    candidates,
     sources: [state.directory],
     chosen,
     limit: card.people.limit,
@@ -42,7 +44,7 @@ export const debateSuggestionCard = (
   const open = (): void => {
     const typed = suggestionAcceptance({
       question: question.value,
-      memberIds: chosen.get(),
+      memberIds: chosenAmong(candidates(), chosen.get(), card.people.limit),
       brief: brief.value,
     })
     if ('problem' in typed) {
@@ -62,8 +64,17 @@ export const debateSuggestionCard = (
     h('p', { class: 'suggestion-reason' }, h('small', {}, card.reason.label), ' ', card.reason.text),
     field(card.question.label, question),
     picker.element,
+    card.notAwake !== null && h('p', { class: 'hint suggestion-not-awake' }, card.notAwake),
     field(card.brief.label, brief, card.brief.hint),
     h('p', { class: 'trust-footnote' }, card.limits),
+    card.askInNote !== null &&
+      h(
+        'p',
+        { class: 'advice suggestion-ask-in-note' },
+        card.askInNote.text,
+        ' ',
+        h('a', { href: card.askInNote.href }, card.askInNote.label),
+      ),
     problem,
     h(
       'div',

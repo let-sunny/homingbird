@@ -647,6 +647,34 @@ describe('Rule 1: a saved answer its person switched to send automatically is th
 })
 
 describe('Rule 2: drafts are invisible to recipients', () => {
+  it('2: never lets the person who asked a note into the debate room about it, by the agent’s suggestion or by its acceptance, so they read nothing before the answer is approved', async () => {
+    const asked = await questionFromBen('Which region should billing move to? 7e1a')
+    const refused = await anaAgent.api('POST', '/debate-suggestions', {
+      inReplyTo: asked.id,
+      question: 'Which region should billing move to? 7e1a',
+      memberIds: [ben.me.member.id, cy.me.member.id],
+      reason: 'Cy ran the last migration.',
+    })
+    expect(refused.status).toBe(400)
+    expect(await storedRows(server, 'debate_suggestions')).toEqual([])
+    const suggestion = await suggestedByAnaAgent(asked.id, [cy.me.member.id])
+    expect((await ana.api('GET', '/debate-suggestions')).json.suggestions).toMatchObject([
+      { id: suggestion, askerId: ben.me.member.id, memberIds: [cy.me.member.id] },
+    ])
+    const accepted = await ana.api('POST', `/debate-suggestions/${suggestion}/accept`, {
+      memberIds: [cy.me.member.id, ben.me.member.id],
+    })
+    expect(accepted.status).toBe(400)
+    expect(await storedRows(server, 'debates')).toEqual([])
+    expect(await storedRows(server, 'debate_members')).toEqual([])
+    expect((await ana.api('GET', '/debate-suggestions')).json.suggestions).toHaveLength(1)
+    const opened = (await ana.api('POST', `/debate-suggestions/${suggestion}/accept`, {})).json
+    expect(opened.memberIds).not.toContain(ben.me.member.id)
+    expect((await ben.api('GET', `/debates/${opened.id}`)).status).toBe(404)
+    for (const path of ['/debates', '/debate-asks'])
+      expect(JSON.stringify((await ben.api('GET', path)).json)).not.toContain('7e1a')
+  })
+
   it('2: puts nothing of a draft into Slack, nor any draft, edit or discard, before a person sends it', async () => {
     const { slack, slackServer, manager } = await startSlackChannel()
     try {
@@ -1837,6 +1865,40 @@ describe('Rule 5: credentials are stored hashed and never logged', () => {
 })
 
 describe('Rule 6: a member sees only conversations they participate in', () => {
+  it('6: asks nobody to a debate room across a block, either way: not by an agent’s suggestion, its acceptance or a room the person opens', async () => {
+    dee = await server.signIn('dee@example.com', 'Dee')
+    const asked = await questionFrom(dee, 'Which region should billing move to? 3b9f')
+    const suggestion = await suggestedByAnaAgent(asked.id, [cy.me.member.id])
+    const room = { question: 'Which region? 3b9f', visibility: 'private', memberIds: [ben.me.member.id] }
+    const suggest = {
+      inReplyTo: asked.id,
+      question: 'Which region should billing move to? 3b9f',
+      memberIds: [ben.me.member.id],
+      reason: 'Ben ran the last migration.',
+    }
+    for (const [blocker, blocked] of [
+      [ben, ana],
+      [ana, ben],
+    ] as const) {
+      expect((await blocker.api('PUT', `/blocks/${blocked.me.member.id}`)).status).toBe(200)
+      const before = await everyStoredValue(server)
+      expect((await anaAgent.api('POST', '/debate-suggestions', suggest)).status).toBe(403)
+      expect((await ana.api('POST', '/debates', room)).status).toBe(403)
+      expect(
+        (
+          await ana.api('POST', `/debate-suggestions/${suggestion}/accept`, {
+            memberIds: [cy.me.member.id, ben.me.member.id],
+          })
+        ).status,
+      ).toBe(403)
+      expect(stateOf(await everyStoredValue(server))).toBe(stateOf(before))
+      for (const path of ['/debates', '/debate-asks'])
+        expect(JSON.stringify((await ben.api('GET', path)).json)).not.toContain('3b9f')
+      await blocker.api('DELETE', `/blocks/${blocked.me.member.id}`)
+    }
+    expect((await ana.api('POST', '/debates', room)).status).toBe(200)
+  })
+
   it('6: lets only a channel’s managers link it to Slack, a private Slack channel only to a private channel, and keeps the link out of every place a person is named', async () => {
     const { slack, slackServer, admin, manager } = await startSlackChannel()
     try {
@@ -3052,19 +3114,27 @@ const schedulingRoom = async (visibility: 'open' | 'private' = 'private') => {
 }
 
 /** Ana, the administrator, switches debate suggestions on; Ben asks Ana a question, sent. */
-const questionFromBen = async (body = 'Which region should billing move to?', conversationId?: string) => {
+const questionFromBen = (body = 'Which region should billing move to?', conversationId?: string) =>
+  questionFrom(ben, body, conversationId)
+
+/** Ana, the administrator, switches debate suggestions on; the asker asks Ana a question, sent. */
+const questionFrom = async (
+  asker: Session,
+  body = 'Which region should billing move to?',
+  conversationId?: string,
+) => {
   const settings = (await ana.api('GET', '/admin/settings')).json
   await ana.api('PUT', '/admin/settings', {
     ...settings,
     features: { ...settings.features, debateSuggestions: true },
   })
   const draft = (
-    await ben.api('POST', '/drafts', {
+    await asker.api('POST', '/drafts', {
       ...(conversationId === undefined ? { to: [ana.me.member.id] } : { conversationId }),
       body,
     })
   ).json
-  return (await ben.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).json as {
+  return (await asker.api('POST', `/drafts/${draft.id}/send`, { expected: asRead(draft) })).json as {
     id: string
     conversationId: string
   }
@@ -3599,7 +3669,8 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
   })
 
   it('9: lets an agent suggest a room only as a card: no room, no member invited and no room event until its person accepts, and no agent can accept or dismiss', async () => {
-    const asked = await questionFromBen()
+    dee = await server.signIn('dee@example.com', 'Dee')
+    const asked = await questionFrom(dee)
     const watching = new AbortController()
     const seen = new Map<string, string[]>()
     const watch = (key: string, memberId: string, kind: 'hidden') => {
@@ -3654,7 +3725,8 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
   })
 
   it('9: gives the room’s result only to the agent whose suggestion opened it, inside wrapNote, and its answer waits on the approval card marked as from the room', async () => {
-    const asked = await questionFromBen()
+    dee = await server.signIn('dee@example.com', 'Dee')
+    const asked = await questionFrom(dee)
     const suggestion = await suggestedByAnaAgent(asked.id, [ben.me.member.id])
     const id = (await ana.api('POST', `/debate-suggestions/${suggestion}/accept`, {})).json.id as string
     await server.clock.advance(1)
@@ -3699,6 +3771,8 @@ describe('Rule 9: no tool exposed to a model can open a debate room, opt an agen
     ])
     expect((await ben.api('GET', `/notes/${answer.id}`)).status).toBe(404)
     expect(JSON.stringify((await ben.api('GET', '/inbox')).json)).not.toContain(answer.id)
+    expect((await dee.api('GET', `/notes/${answer.id}`)).status).toBe(404)
+    expect(JSON.stringify((await dee.api('GET', '/inbox')).json)).not.toContain(answer.id)
     expect(
       (await anaAgent.api('POST', `/drafts/${answer.id}/send`, { expected: asRead(answer) })).status,
     ).toBe(403)

@@ -311,6 +311,35 @@ describe('debateView', () => {
     expect(shown.querySelector('.debate-export .export-markdown')).not.toBeNull()
   })
 
+  it('says that the suggesting person’s agent answers from a suggested room, in place of the send form', () => {
+    const { context } = testContext()
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
+    context.state.directory.set([entry(BEN, 'Ben')])
+    context.state.shownDebate.set(
+      debate({
+        status: 'closed',
+        createdBy: BEN,
+        fromSuggestion: true,
+        participants: [participant(ANA), participant(BEN)],
+        turns: [{ position: 1, memberId: ANA, agentName: 'Desk', body: 'Yes.', at: 3 }],
+        result: { result: conclusion, draftedBy: BEN, draftedAt: 4 },
+      }),
+    )
+    expect(textOf(shown)).toContain(strings.debates.answeredBy({ person: 'Ben' }))
+    expect(shown.querySelector('.debate-send')).toBeNull()
+  })
+
+  it('warns at the opt-in that the person’s own agent is not awake', () => {
+    const { context } = testContext()
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
+    context.state.directory.set([entry(ANA, 'Ana')])
+    context.state.agentCredentials.set([credential('cred_desk')])
+    context.state.shownDebate.set(debate())
+    expect(shown.querySelector('.debate-opt-in .debate-not-awake')?.textContent).toBe(
+      strings.debates.agentNotAwake,
+    )
+  })
+
   it('opens an open room on its turns alone and a later one on its result, each tab its own address', () => {
     const { context, page } = testContext()
     context.state.agentCredentials.set([credential('cred_desk')])

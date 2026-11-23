@@ -173,6 +173,7 @@ export type DebateResultDraft = S.Infer<typeof DebateResultDraft>
 export const Debate = S.struct({
   id: DebateId,
   type: S.optional(RoomType),
+  fromSuggestion: S.optional(S.boolean),
   schedule: S.optional(S.nullable(RoomScheduleDetails)),
   question: S.string({ maxLength: DEBATE_QUESTION_MAX }),
   visibility: DebateVisibility,
@@ -216,6 +217,7 @@ export const DebateSummary = S.struct({
   totalTurns: S.int({ min: 0 }),
   resultDrafted: S.boolean,
   joined: S.boolean,
+  fromSuggestion: S.optional(S.boolean),
 })
 export type DebateSummary = S.Infer<typeof DebateSummary>
 

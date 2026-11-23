@@ -60,7 +60,7 @@ export const loadRoom = (row: DebateRow): T.Task<DebateFacts, never, AppEnv> =>
       sql`SELECT * FROM debate_turns WHERE debate_id = ${id} ORDER BY position`,
     )
     const agents = yield* all<AgentRow>(sql`
-      SELECT p.member_id, p.credential_id, c.last_used_at, c.revoked_at, m.status
+      SELECT p.member_id, p.credential_id, p.created_at AS joined_at, c.last_used_at, c.revoked_at, m.status
       FROM debate_participants p JOIN credentials c ON c.id = p.credential_id JOIN members m ON m.id = p.member_id
       WHERE p.debate_id = ${id}`)
     const round = Number(row.result_round)
@@ -82,6 +82,7 @@ export const loadRoom = (row: DebateRow): T.Task<DebateFacts, never, AppEnv> =>
       id,
       type: schedule === null ? 'debate' : 'scheduling',
       ...(schedule !== null && { schedule: schedule.details }),
+      ...(row.suggestion_id != null && { fromSuggestion: true }),
       question: row.question,
       visibility: row.visibility,
       status: row.status,
@@ -149,19 +150,20 @@ export const roomRulesOf = (row: Pick<DebateRow, 'room_type'>): RoomRules =>
   row.room_type === 'scheduling' ? SCHEDULING_RULES : DEBATE_RULES
 
 /**
- * Its credential made an authenticated request within the grace; holding an event stream alone does not
+ * Its credential made an authenticated request within the grace, or its person opted it in within the
+ * grace, so an agent is never dropped out the moment it joins; holding an event stream alone does not
  * count, since a half-open connection looks held for many minutes. For one grace after this server
  * started everyone takes part. A deactivated account or a revoked credential has dropped out.
  */
 export const isAgentTakingPart = (
   env: AppEnv,
-  agent: Pick<AgentRow, 'last_used_at' | 'revoked_at' | 'status'>,
+  agent: Pick<AgentRow, 'last_used_at' | 'revoked_at' | 'status'> & Partial<Pick<AgentRow, 'joined_at'>>,
   graceMs: number,
 ): boolean => {
   if (agent.status !== 'active' || agent.revoked_at !== null) return false
   const since = env.clock.now() - graceMs
   if (env.hub.startedAt > since) return true
-  return Number(agent.last_used_at ?? 0) >= since
+  return Math.max(Number(agent.last_used_at ?? 0), Number(agent.joined_at ?? 0)) >= since
 }
 
 /**
@@ -329,6 +331,7 @@ export interface DebateRow {
   readonly grace_minutes: number | null
   readonly dropped_out: string | null
   readonly room_type?: string | null
+  readonly suggestion_id?: string | null
 }
 
 export interface DraftRow {
@@ -358,6 +361,7 @@ export interface ParticipantRow {
 interface AgentRow {
   readonly member_id: MemberId
   readonly credential_id: CredentialId
+  readonly joined_at: number
   readonly last_used_at: number | null
   readonly revoked_at: number | null
   readonly status: string

@@ -138,7 +138,10 @@ describe('debate tools', () => {
         await call(
           'read_debate',
           { debateId: DEBATE_ID },
-          { 'debates.get': () => debateOf({ status: 'closed' }) },
+          {
+            'debates.get': () => debateOf({ status: 'closed' }),
+            'debates.waiting': () => ({ asks: [] }) as never,
+          },
         )
       ).text,
     ).toContain('asks nothing of you')

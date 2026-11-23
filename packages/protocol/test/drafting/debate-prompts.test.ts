@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ANSWER_ALONE_ADVICE,
   BRIEF_INTRODUCTION,
   DEBATE_ANSWER_ADVICE,
   DEBATE_RESULT_INSTRUCTIONS,
@@ -124,6 +125,31 @@ describe('a debate room as a model reads it', () => {
     expect(DEBATE_SUGGESTION_ADVICE).toContain('your person decides')
     expect(DEBATE_ANSWER_ADVICE).toContain('quoted data')
     expect(DEBATE_ANSWER_ADVICE).toContain('never sent by itself')
+  })
+
+  it('names the arguments draft_reply takes, and tells an agent whose suggestion was turned down to answer alone', () => {
+    expect(DEBATE_ANSWER_ADVICE).toContain('draft_reply with the debateId and the noteId of that note')
+    expect(DEBATE_ANSWER_ADVICE).not.toContain('inReplyTo')
+    expect(DEBATE_ANSWER_ADVICE).toContain('Only you answer the note')
+    expect(DEBATE_SUGGESTION_ADVICE).toContain('check_debates asks you to answer the note yourself')
+    expect(ANSWER_ALONE_ADVICE).toContain('draft_reply with the noteId of that note')
+    expect(ANSWER_ALONE_ADVICE).toContain('Do not suggest a debate about this note again.')
+  })
+
+  it('says when a room that has closed closed, and when one still open closes', () => {
+    const closed = quotedDebate(
+      roomOf({ status: 'closed', closedAt: Date.UTC(2026, 10, 2, 9) }),
+      PEOPLE,
+      BEN,
+      counter(),
+    )
+    expect(closed).toContain('The room closed at 2026-11-02T09:00:00.000Z.')
+    const open = roomOf({ status: 'open', closedAt: null })
+    expect(quotedDebate(open, PEOPLE, BEN, counter())).toContain(
+      `The room closes at ${new Date(open.deadlineAt).toISOString()}.`,
+    )
+    const concluding = roomOf({ status: 'concluding', closedAt: null })
+    expect(quotedDebate(concluding, PEOPLE, BEN, counter())).toContain('The room closes at')
   })
 
   it('says when no turn was taken, and names an unknown person as such', () => {
