@@ -1,5 +1,5 @@
 import type { AsRead, MemberId } from '@homingbird/protocol'
-import { type Lifetime, type Signal, h, region } from '@homingbird/ui'
+import { type Lifetime, type Signal, h, region, signal } from '@homingbird/ui'
 import { type SchedulingSlotsModel, schedulingSlotsModel } from '../models/scheduling-slots.ts'
 import type { ViewContext } from './context.ts'
 import { section } from './debate-result.ts'
@@ -19,12 +19,14 @@ export const schedulingSlotsCard = (
   },
 ): HTMLElement | null => {
   const { debate, picked } = input
+  const showsAll = signal(false)
   const modelOf = (chosen: ReadonlySet<number> | null): SchedulingSlotsModel | null =>
     schedulingSlotsModel({
       debate,
       viewerId: input.viewerId,
       hasAgent: input.hasAgent,
       now: context.clock.now(),
+      showAllHours: showsAll.get(),
       ...(chosen !== null && { chosen }),
     })
   const first = modelOf(picked.get())
@@ -37,41 +39,59 @@ export const schedulingSlotsCard = (
     h('p', { class: 'hint' }, first.hint),
     first.answered !== null && h('p', { class: 'hint' }, first.answered),
     first.emptyText !== null && h('p', { class: 'hint' }, first.emptyText),
-    h(
-      'div',
-      { class: 'scheduling-pick-days' },
-      first.days.map((day) =>
-        h(
-          'fieldset',
-          { class: 'scheduling-pick-day' },
-          h('legend', {}, day.day),
+    region(life, [showsAll], () => {
+      const shown = modelOf(picked.get()) ?? first
+      return h(
+        'div',
+        { class: 'scheduling-pick-hours' },
+        shown.workingHint !== null && h('p', { class: 'hint scheduling-pick-working' }, shown.workingHint),
+        shown.hoursToggle !== null &&
           h(
-            'div',
-            { class: 'scheduling-pick-cells' },
-            day.cells.map((cell) =>
+            'button',
+            {
+              type: 'button',
+              class: 'scheduling-pick-hours-toggle',
+              on: { click: () => showsAll.set(shown.hoursToggle?.showsAll ?? false) },
+            },
+            shown.hoursToggle.label,
+          ),
+        h(
+          'div',
+          { class: 'scheduling-pick-days' },
+          shown.days.map((day) =>
+            h(
+              'fieldset',
+              { class: 'scheduling-pick-day' },
+              h('legend', {}, day.day),
               h(
-                'label',
-                { class: 'scheduling-pick-cell' },
-                h('input', {
-                  type: 'checkbox',
-                  data: { start: String(cell.startsAt) },
-                  checked: cell.chosen,
-                  on: {
-                    change: (event) => {
-                      const next = new Set(picked.get() ?? chosenIn(first))
-                      if ((event.target as HTMLInputElement).checked) next.add(cell.startsAt)
-                      else next.delete(cell.startsAt)
-                      picked.set(next)
-                    },
-                  },
-                }),
-                h('span', {}, cell.label),
+                'div',
+                { class: 'scheduling-pick-cells' },
+                day.cells.map((cell) =>
+                  h(
+                    'label',
+                    { class: 'scheduling-pick-cell' },
+                    h('input', {
+                      type: 'checkbox',
+                      data: { start: String(cell.startsAt) },
+                      checked: cell.chosen,
+                      on: {
+                        change: (event) => {
+                          const next = new Set(picked.get() ?? shown.chosenStarts)
+                          if ((event.target as HTMLInputElement).checked) next.add(cell.startsAt)
+                          else next.delete(cell.startsAt)
+                          picked.set(next)
+                        },
+                      },
+                    }),
+                    h('span', {}, cell.label),
+                  ),
+                ),
               ),
             ),
           ),
         ),
-      ),
-    ),
+      )
+    }),
     region(life, [picked], () => {
       const current = modelOf(picked.get()) ?? first
       return h(
@@ -99,6 +119,3 @@ export const schedulingSlotsCard = (
     }),
   )
 }
-
-const chosenIn = (model: SchedulingSlotsModel): ReadonlyArray<number> =>
-  model.days.flatMap((day) => day.cells.filter((cell) => cell.chosen).map((cell) => cell.startsAt))

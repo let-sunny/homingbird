@@ -27,7 +27,7 @@ const collecting = (anaAnswer: 'choosing' | 'by_agent' = 'choosing') =>
     },
   })
 
-const closed = (attendance: 'asked' | 'added') =>
+const closed = (attendance: 'asked' | 'added' | 'by_hand') =>
   debate({
     type: 'scheduling',
     question: 'Planning sync',
@@ -80,19 +80,36 @@ describe('the card to add or take out a meeting', () => {
     expect(shown.querySelector('.scheduling-calendar-file')).toBeNull()
     getByRole(shown, 'button', { name: strings.scheduling.addMeeting }).click()
     expect(called('addMeeting')[0]!.args).toEqual([ID])
+    expect(called('addMeeting')[0]!.then).toEqual({ attempt: 'meeting' })
     getByRole(shown, 'button', { name: strings.scheduling.cancelMeeting }).click()
     expect(called('removeMeeting')[0]!.args).toEqual([ID])
+    expect(called('removeMeeting')[0]!.then).toEqual({ attempt: 'meeting' })
     expect(textOf(shown)).toContain(strings.scheduling.removeCancelsForEveryone)
   })
 
   it('gives a person without an agent the calendar file and a way to say they added it', () => {
-    const { shown, called, page } = opened(closed('asked'), false)
+    const { shown, called, page } = opened(closed('by_hand'), false)
     getByRole(shown, 'button', { name: strings.scheduling.getCalendarFile }).click()
     expect(page.downloads).toHaveLength(1)
     expect(page.downloads[0]!.filename).toBe('meeting.ics')
     expect(page.downloads[0]!.text).toContain('DTSTART:20261119T130000Z')
     getByRole(shown, 'button', { name: strings.scheduling.addedMeetingMyself }).click()
     expect(called('addMeeting')).toHaveLength(1)
+  })
+
+  it('asks a person whose agent could not add the meeting to add it by hand, with the file', () => {
+    const { shown } = opened(closed('by_hand'), true)
+    expect(textOf(shown)).toContain(strings.scheduling.attendance.by_hand)
+    getByRole(shown, 'button', { name: strings.scheduling.addedMeetingMyself })
+    getByRole(shown, 'button', { name: strings.scheduling.getCalendarFile })
+  })
+
+  it('points a person with an agent to the profile, where meetings are delegated', () => {
+    const { shown } = opened(closed('added'), true)
+    const link = getByRole(shown, 'link', { name: strings.scheduling.delegationChange })
+    expect(link.getAttribute('href')).toBe('#/me')
+    expect(textOf(shown)).toContain(strings.scheduling.delegationNote)
+    expect(textOf(opened(closed('added'), false).shown)).not.toContain(strings.scheduling.delegationNote)
   })
 
   it('offers only to take the meeting out once it is in the calendar', () => {

@@ -40,7 +40,7 @@ describe('schedulingSettingsModel', () => {
     expect(model.people).toMatchObject({ limited: false })
     expect(model.people.choices.map((choice) => choice.label)).toEqual(['Ben', 'Cy'])
     expect(model.hours).toMatchObject({ limited: false, from: '09:00', to: '18:00' })
-    expect(model.hours.zoneNote).toBe(strings.scheduling.delegation.hoursZone({ timeZone: 'Asia/Seoul' }))
+    expect(model.hours.zoneNote).toBe(strings.scheduling.delegation.hoursZone({ timeZone: 'GMT+9' }))
     expect(model.maxMinutes.limited).toBe(false)
     expect(model.maxMinutes.choices.find((choice) => choice.selected)!.value).toBe(60)
   })

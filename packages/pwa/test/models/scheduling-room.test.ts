@@ -62,7 +62,7 @@ describe('schedulingRoomModel', () => {
         memberId: ANA,
         name: 'You',
         required: 'Required',
-        answer: strings.scheduling.answer.by_person,
+        answer: strings.scheduling.ownAnswer.by_person,
         answered: true,
       },
       {
@@ -90,7 +90,7 @@ describe('schedulingRoomModel', () => {
     const base = meeting()
     const model = room(schedulingRoomModel(input({ ...base, schedule: { ...base.schedule!, attendees } })))
     expect(model.attendees.map((one) => one.answer)).toEqual([
-      strings.scheduling.answer.waiting,
+      strings.scheduling.ownAnswer.waiting,
       strings.scheduling.answer.unknown,
     ])
     expect(model.answered).toBe('Answered: 0 of 2')
@@ -166,12 +166,15 @@ describe('roomKindOf', () => {
 
 describe('schedulingStageOf', () => {
   it('collects while the room is open or concluding and settles or ends with it', () => {
-    expect((['open', 'concluding', 'closed', 'ended', UNKNOWN] as const).map(schedulingStageOf)).toEqual([
-      'collecting',
-      'collecting',
-      'settled',
-      'ended',
-      'unknown',
-    ])
+    expect(
+      (['open', 'concluding', 'closed', 'ended', UNKNOWN] as const).map((status) =>
+        schedulingStageOf(status),
+      ),
+    ).toEqual(['collecting', 'collecting', 'settled', 'ended', 'unknown'])
+  })
+
+  it('says no time was found when the room closed without a common time', () => {
+    expect(schedulingStageOf('closed', 'no_slot')).toBe('no_slot')
+    expect(schedulingStageOf('closed', 'slot')).toBe('settled')
   })
 })

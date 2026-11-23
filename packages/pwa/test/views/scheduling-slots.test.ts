@@ -11,6 +11,7 @@ usingFakeDom()
 
 const HOUR = 3_600_000
 const START = Date.UTC(2026, 10, 19, 12)
+const WORK = START + 11 * HOUR
 const ID = 'debate_000000000000'
 
 const collecting = (anaAnswer: 'choosing' | 'by_agent' = 'choosing') =>
@@ -19,7 +20,7 @@ const collecting = (anaAnswer: 'choosing' | 'by_agent' = 'choosing') =>
     question: 'Planning sync',
     schedule: {
       minutes: 60,
-      window: { startsAt: START, endsAt: START + 4 * HOUR },
+      window: { startsAt: WORK, endsAt: WORK + 4 * HOUR },
       attendees: [
         { memberId: ANA, required: true, answer: anaAnswer },
         { memberId: BEN, required: true, answer: 'waiting' },
@@ -77,32 +78,54 @@ describe('the card to pick free times', () => {
     expect(shown.querySelectorAll('.scheduling-pick-cell')).toHaveLength(4)
     expect(textOf(shown)).toContain(strings.scheduling.pickTitle)
     expect(shown.querySelector<HTMLButtonElement>('.scheduling-pick-send')!.disabled).toBe(true)
-    tick(shown, START, true)
-    tick(shown, START + HOUR, true)
+    tick(shown, WORK, true)
+    tick(shown, WORK + HOUR, true)
     expect(textOf(shown)).toContain('2 hours picked')
     expect(shown.querySelector<HTMLButtonElement>('.scheduling-pick-send')!.disabled).toBe(false)
     context.state.shownDebate.set(collecting())
     expect(textOf(shown)).toContain('2 hours picked')
-    tick(shown, START + HOUR, false)
+    tick(shown, WORK + HOUR, false)
     expect(textOf(shown)).toContain('1 hour picked')
   })
 
   it('sends the picked hours joined, then the picks start again from what the room holds', () => {
     const { shown, called } = opened(collecting(), false)
-    tick(shown, START, true)
-    tick(shown, START + HOUR, true)
-    tick(shown, START + 3 * HOUR, true)
+    tick(shown, WORK, true)
+    tick(shown, WORK + HOUR, true)
+    tick(shown, WORK + 3 * HOUR, true)
     getByRole(shown, 'button', { name: strings.scheduling.pickSend }).click()
     const [sent] = called('setMyFreeTimes')
     expect(sent!.args).toEqual([
       ID,
       [
-        { startsAt: START, endsAt: START + 2 * HOUR },
-        { startsAt: START + 3 * HOUR, endsAt: START + 4 * HOUR },
+        { startsAt: WORK, endsAt: WORK + 2 * HOUR },
+        { startsAt: WORK + 3 * HOUR, endsAt: WORK + 4 * HOUR },
       ],
     ])
     sent!.then!.done!(undefined)
     expect(textOf(shown)).toContain('0 hours picked')
+  })
+
+  it('shows the working hours first and all hours when asked', () => {
+    const night = debate({
+      type: 'scheduling',
+      question: 'Planning sync',
+      schedule: {
+        minutes: 60,
+        window: { startsAt: START, endsAt: START + 24 * HOUR },
+        attendees: [
+          { memberId: ANA, required: true, answer: 'choosing' },
+          { memberId: BEN, required: true, answer: 'waiting' },
+        ],
+      },
+    })
+    const { shown } = opened(night, false)
+    expect(shown.querySelectorAll('.scheduling-pick-cell')).toHaveLength(12)
+    expect(textOf(shown)).toContain('GMT+9')
+    getByRole(shown, 'button', { name: strings.scheduling.pickShowAll }).click()
+    expect(shown.querySelectorAll('.scheduling-pick-cell')).toHaveLength(24)
+    getByRole(shown, 'button', { name: strings.scheduling.pickShowWorking }).click()
+    expect(shown.querySelectorAll('.scheduling-pick-cell')).toHaveLength(12)
   })
 
   it('says the person is busy throughout by sending no hour', () => {

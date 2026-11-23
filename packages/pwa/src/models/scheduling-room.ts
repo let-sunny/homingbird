@@ -18,11 +18,12 @@ export const schedulingRoomModel = (input: SchedulingRoomInput): SchedulingRoomM
     return { kind: 'unsupported', text: strings.scheduling.unsupported }
   const nameOf = (id: MemberId): string => input.members.get(id)?.name ?? strings.formerMember
   const answered = schedule.attendees.filter(hasAnswered).length
+  const stage = schedulingStageOf(debate.status, debate.result?.result.kind)
   return {
     kind: 'room',
     title: debate.question,
-    stage: schedulingStageOf(debate.status),
-    stageText: strings.scheduling.stage[schedulingStageOf(debate.status)],
+    stage,
+    stageText: strings.scheduling.stage[stage],
     isPrivate: debate.visibility === 'private',
     summary: [
       strings.scheduling.lengthSummary({ minutes: schedule.minutes }),
@@ -40,7 +41,9 @@ export const schedulingRoomModel = (input: SchedulingRoomInput): SchedulingRoomM
       memberId: attendee.memberId,
       name: attendee.memberId === viewerId ? strings.scheduling.you : nameOf(attendee.memberId),
       required: attendee.required ? strings.scheduling.required : strings.scheduling.optional,
-      answer: strings.scheduling.answer[attendee.answer ?? 'waiting'],
+      answer: (attendee.memberId === viewerId ? strings.scheduling.ownAnswer : strings.scheduling.answer)[
+        attendee.answer ?? 'waiting'
+      ],
       answered: hasAnswered(attendee),
     })),
     resultTitle: strings.scheduling.resultTitle,
@@ -88,14 +91,16 @@ export type SchedulingResult =
   | { readonly kind: 'unknown'; readonly text: string }
   | { readonly kind: 'settled'; readonly body: ScheduleResultBody }
 
-export type SchedulingStage = 'collecting' | 'settled' | 'ended' | 'unknown'
+export type SchedulingStage = 'collecting' | 'settled' | 'no_slot' | 'ended' | 'unknown'
 
-/** The stage a scheduling room shows in a list, from the summary alone. */
-export const schedulingStageOf = (status: AsRead.Debate['status']): SchedulingStage =>
+/** The stage a scheduling room shows; a list has the status alone, and a room that closed with no common time says so. */
+export const schedulingStageOf = (status: AsRead.Debate['status'], resultKind?: string): SchedulingStage =>
   status === 'open' || status === 'concluding'
     ? 'collecting'
     : status === 'closed'
-      ? 'settled'
+      ? resultKind === 'no_slot'
+        ? 'no_slot'
+        : 'settled'
       : status === 'ended'
         ? 'ended'
         : 'unknown'

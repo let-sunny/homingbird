@@ -591,6 +591,7 @@ export const ko: Translation<typeof en> = {
     managerStays:
       '운영자는 다른 사람이 있는 동안 채널에 남아요. 먼저 내 운영자 역할을 내려놓고, 운영자가 나뿐이면 그 전에 다른 운영자를 추가해 주세요.',
     requestNotWaiting: '이 요청은 더 이상 기다리고 있지 않아요.',
+    meetingNotNow: '지금은 이 회의에 그렇게 할 수 없어요. 방을 다시 열어 지금 할 수 있는 일을 확인해 주세요.',
   },
   deskTitle: 'Homingbird용 에이전트 세션 하나를 열어 두세요. 이 세션이 내 데스크예요.',
   deskBody:
@@ -717,7 +718,8 @@ export const ko: Translation<typeof en> = {
       '종 모양 버튼에 에이전트의 초안, 검토할 답변, 에이전트가 건너뛴 노트가 모여요. 그 자리에서 바로 승인하고 보내거나, 고치거나, 버릴 수 있어요.',
     activityPlace: '오른쪽 위의 종 모양 버튼',
     profileTitle: '내 프로필',
-    profileBody: '언어와 캐릭터를 고르고, 이 둘러보기를 다시 볼 수 있어요.',
+    profileBody:
+      '언어와 캐릭터를 고르고, 이 둘러보기를 다시 볼 수 있어요. 회의만은 먼저 승인하지 않아도 돼요. 에이전트가 정해진 회의를 묻지 않고 내 캘린더에 넣을지 여기서 정해요.',
     lookFor: '“{place}” 항목을 찾아보세요.',
     showAgain: '둘러보기 다시 보기',
     legend: 'Homingbird 둘러보기',
@@ -1171,7 +1173,7 @@ export const ko: Translation<typeof en> = {
     titlePlaceholder: '기획 싱크',
     attendees: '참석자',
     attendeesHint:
-      '추가한 사람은 선택 참석자로 바꾸지 않는 한 모두 필수예요. 나는 항상 필수예요. 각자의 에이전트는 비는 시간만 공유하고, 누구의 캘린더에도 회의가 만들어지지 않아요.',
+      '추가한 사람은 선택 참석자로 바꾸지 않는 한 모두 필수예요. 나는 항상 필수예요. 각자의 에이전트는 비는 시간을 공유해요. 시간이 정해지면 각자의 에이전트가 회의를 캘린더에 넣어요. 프로필의 “내 에이전트와 회의”에서 끈 사람은 넣지 않아요.',
     optionalFor: '선택 참석: {name}',
     length: '길이',
     lengthChoice: '{minutes}분',
@@ -1191,6 +1193,7 @@ export const ko: Translation<typeof en> = {
     stage: {
       collecting: '비는 시간 모으는 중',
       settled: '정해짐',
+      no_slot: '시간을 찾지 못함',
       ended: '시간 없이 끝남',
       unknown: '알 수 없음',
     },
@@ -1210,6 +1213,14 @@ export const ko: Translation<typeof en> = {
       by_person: '직접 비는 시간을 골랐어요',
       unknown: '아직 답하지 않았어요',
     },
+    ownAnswer: {
+      waiting: '아직 답하지 않았어요',
+      choosing: '직접 비는 시간을 고르는 중이에요',
+      by_agent: '내 에이전트가 비는 시간을 공유했어요',
+      by_person: '직접 비는 시간을 골랐어요',
+      unknown: '아직 답하지 않았어요',
+    },
+    youInSentence: '나',
     resultTitle: '결과',
     waitingForResult: '필수 참석자가 모두 답하거나 방의 시간이 끝나면 시간이 정해져요.',
     endedNoTime: '이 방은 시간을 정하지 못하고 끝났어요.',
@@ -1225,6 +1236,9 @@ export const ko: Translation<typeof en> = {
     pickHint:
       '비는 시간을 골라 주세요. 시간은 내 시간대({zone}) 기준으로 보여요. 다른 사람에게는 결과만 보이고, 고른 시간은 보이지 않아요.',
     pickNoTimes: '기간 전체가 이미 지났어요.',
+    pickShowAll: '모든 시간 보기',
+    pickShowWorking: '업무 시간만 보기',
+    pickWorkingHint: '업무 시간({from}~{to})만 보여요.',
     pickedCount: { other: '{count}시간 골랐어요' },
     pickTooMany: '고른 시간이 {max}개보다 많은 구간으로 나뉘어요. 빈틈을 줄여 주세요.',
     pickSend: '이 시간 공유하기',
@@ -1235,7 +1249,7 @@ export const ko: Translation<typeof en> = {
     attendance: {
       waiting_invite: '아직 초대장이 가지 않았어요.',
       asked: '내 에이전트에게 회의를 캘린더에 넣어 달라고 요청했어요.',
-      by_hand: '직접 넣었다고 알렸어요.',
+      by_hand: '회의를 직접 캘린더에 넣은 다음, 넣었다고 알려 주세요.',
       adding: '내 에이전트가 회의를 캘린더에 넣는 중이에요.',
       added: '회의가 내 캘린더에 들어 있어요.',
       declined: '참석할 수 없다고 알렸어요.',
@@ -1245,6 +1259,8 @@ export const ko: Translation<typeof en> = {
       unknown: '회의가 아직 내 캘린더에 없어요.',
     },
     meetingLink: '회의 링크 열기',
+    delegationNote: '내 에이전트가 정해진 회의를 캘린더에 넣어요. 끄지 않았다면요.',
+    delegationChange: '프로필에서 바꾸기',
     addMeeting: '내 캘린더에 넣기',
     addedMeetingMyself: '직접 넣었어요',
     removeMeeting: '빼기',

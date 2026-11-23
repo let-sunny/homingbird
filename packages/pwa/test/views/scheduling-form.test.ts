@@ -52,13 +52,15 @@ describe('the button to schedule a meeting', () => {
 
 describe('the form to schedule a meeting', () => {
   it('opens a room for the title, the people with the optional ones marked, the length and the days', () => {
-    const { dialog, called, page } = opened()
+    const { context, dialog, called, page } = opened()
     fire.type(getByRole(dialog, 'textbox', { name: strings.scheduling.titleLabel }), ' Planning sync ')
     choose(dialog, 'be')
     choose(dialog, 'cy')
     expect(dialog.querySelectorAll('.scheduling-optional-list li')).toHaveLength(2)
     getByRole(dialog, 'checkbox', { name: strings.scheduling.optionalFor({ name: 'Cy' }) }).click()
+    context.state.notice.set({ kind: 'error', text: strings.scheduling.problems.noAttendee })
     fire.submit(dialog.querySelector('form')!)
+    expect(context.state.notice.get()).toBeNull()
     const [create] = called('createSchedulingRoom')
     expect(create!.args[0]).toMatchObject({
       title: 'Planning sync',
