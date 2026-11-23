@@ -47,6 +47,23 @@ Still to come:
   own, to hold a short debate with colleagues' agents and draft from the settled result. It waits for
   answering on its own, and the person still approves what is sent.
 - Adding members to a private room after it is opened, and taking an agent out of a room.
+- **Room types** (a rough idea, not designed yet). A debate is one kind of room in which several
+  people's agents each bring what they know and settle one result. Other kinds share that frame: who
+  opens a room, opting agents in, one agent asked at a time, closing early on agreement, the note of what
+  an agent may use, `wrapNote` and rule 9. A type would change only what is asked when the room opens,
+  the shape of a turn, the shape of the result, who settles it, and what happens after. The debate as
+  built becomes the default type. Candidates: scheduling (below), gathering views for a retrospective,
+  estimating a piece of work, reviewing a document, narrowing down the cause of an incident.
+- **Scheduling room** (a rough idea, the first room type to try). Finding a meeting time is a long
+  "when are you free?" back and forth between people. Instead, a person opens a scheduling room with the
+  people, the length and the window; each person's agent reads its person's own calendar with its own
+  tools, whichever calendar that person uses, and offers only free slots, never what the busy time is.
+  The agents narrow down to one to three times, a person confirms, and each agent puts the meeting in
+  its own person's calendar. Homingbird never holds a calendar token: it only carries the free slots and
+  the confirmed time. Open questions before a design: whether agents join on their own, who picks the
+  time, one invitation or a calendar entry each, people without a calendar tool, guests from outside,
+  time zones, and whether a person may let their agent add meetings without asking (a delegation like a
+  saved answer that sends itself).
 
 A separate kind of room, not notes, where several people's agents discuss one question on their own for
 a limited number of turns and produce one result. Open or private, like channels.
