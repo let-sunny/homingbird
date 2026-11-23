@@ -128,6 +128,14 @@
   --hb-space-4: 1rem;
   --hb-space-6: 1.5rem;
   --hb-target-size: 2.75rem;
+  /* Three heights for every button, field, chip and menu item; a touch screen raises the two lower ones to a fingertip. */
+  --hb-control-height-small: 1.75rem;
+  --hb-control-height-medium: 2.25rem;
+  --hb-control-height-large: var(--hb-target-size);
+  --hb-control-padding-inline-small: var(--hb-space-2);
+  --hb-control-padding-inline: var(--hb-space-3);
+  --hb-control-text: var(--hb-text-small);
+  --hb-control-text-field: var(--hb-text-body);
   /* A checkbox or radio a finger can hit without zooming. */
   --hb-control-size-touch: 1.5rem;
   --hb-tab-bar-size: 3.25rem;
@@ -140,6 +148,13 @@
   --hb-scanlines: off;
 
   color-scheme: light dark;
+}
+
+@media (pointer: coarse) {
+  :root {
+    --hb-control-height-small: var(--hb-target-size);
+    --hb-control-height-medium: var(--hb-target-size);
+  }
 }
 
 :root:lang(ko) {

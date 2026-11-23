@@ -33,13 +33,16 @@
 }
 
 .tab {
-  padding: var(--hb-space-1) var(--hb-space-3);
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--hb-control-height-medium);
+  padding: var(--hb-space-1) var(--hb-control-padding-inline);
   white-space: nowrap;
   border: var(--hb-border);
   background: var(--hb-color-surface);
   color: var(--hb-color-text);
   font-weight: 600;
-  font-size: var(--hb-text-small);
+  font-size: var(--hb-control-text);
   text-decoration: none;
 }
 
@@ -357,9 +360,11 @@
 }
 
 .menu-item {
-  display: block;
+  display: flex;
+  align-items: center;
   inline-size: 100%;
-  padding: var(--hb-space-2);
+  min-block-size: var(--hb-control-height-medium);
+  padding: var(--hb-space-1) var(--hb-space-2);
   border: 0;
   background: none;
   box-shadow: none;
@@ -962,8 +967,8 @@ a.quote:hover {
 .draft-actions > button,
 .review-actions > button,
 .toast.is-held button {
-  min-block-size: var(--hb-target-size);
-  min-inline-size: var(--hb-target-size);
+  min-block-size: var(--hb-control-height-large);
+  min-inline-size: var(--hb-control-height-large);
 }
 
 .draft-actions > p,
@@ -1831,7 +1836,10 @@ button.link.section-action {
 }
 
 .subtabs a {
-  padding: var(--hb-space-2) var(--hb-space-3);
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--hb-control-height-medium);
+  padding: var(--hb-space-1) var(--hb-control-padding-inline);
   border: var(--hb-border);
   border-block-end: 0;
   background: var(--hb-color-sunken);
@@ -2330,8 +2338,8 @@ button.link.section-action {
 }
 
 .channel-chip {
-  display: inline-block;
-  padding: 0 var(--hb-space-2);
+  display: inline-flex;
+  align-items: center;
   border: var(--hb-border-thin);
   background: var(--hb-color-sunken);
   color: var(--hb-color-text);
@@ -2356,8 +2364,8 @@ button.link.section-action {
 }
 
 .group-chip {
-  display: inline-block;
-  padding: 0 var(--hb-space-2);
+  display: inline-flex;
+  align-items: center;
   border: var(--hb-border-thin);
   border-radius: var(--hb-radius);
   background: var(--hb-color-sunken);
@@ -2603,7 +2611,9 @@ button.group-member-name:focus-visible::after {
 }
 
 .channel-more,
-.person-more {
+.person-more,
+.thread-more {
+  min-block-size: var(--hb-control-height-medium);
   min-inline-size: 2rem;
   padding-inline: var(--hb-space-1);
 }
@@ -6716,39 +6726,9 @@ textarea:disabled {
   }
 
   /*
-   * Every other control a finger aims at is at least a fingertip tall: buttons with words, menu items
-   * and section tabs grow to it. The small ones listed above keep their look and take the taps with
-   * the invisible layer around them instead.
+   * Buttons, fields, menu items and tabs reach a fingertip through the control height tokens. The small
+   * ones listed above keep their look and take the taps with the invisible layer around them instead.
    */
-  :where(button, .button):where(
-      :not(
-          .link,
-          .icon,
-          .switch,
-          .answering-help,
-          .hint-close,
-          .author-button,
-          .todo-switch,
-          .todo-move,
-          .todo-more,
-          .todo-public,
-          .tabs-scroll,
-          .user-button
-        )
-    ),
-  :where(.menu-item, .subtabs a) {
-    min-block-size: var(--hb-target-size);
-  }
-
-  :where(.subtabs a) {
-    display: inline-flex;
-    align-items: center;
-  }
-
-  .menu-item {
-    display: flex;
-    align-items: center;
-  }
 
   .suggestion-ask-in-note a,
   .debate-question a,
@@ -6768,9 +6748,7 @@ textarea:disabled {
 
   /* Small controls that sit inside menus, rows and forms grow to a fingertip themselves. */
   .people-picker-box input,
-  .people-picker-chip .icon,
-  .channel-chip,
-  .group-chip {
+  .people-picker-chip .icon {
     min-block-size: var(--hb-target-size);
   }
 
@@ -6784,10 +6762,9 @@ textarea:disabled {
     min-block-size: var(--hb-target-size);
   }
 
-  .channel-chip,
-  .group-chip {
-    display: inline-flex;
-    align-items: center;
+  button.link,
+  .profile-name {
+    min-block-size: var(--hb-target-size);
   }
 
   .chance button.link {
