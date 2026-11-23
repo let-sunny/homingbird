@@ -1,6 +1,7 @@
+import { isPipLook } from '@homingbird/protocol'
 import { presetById } from '@homingbird/sprites'
 import { afterEach, describe, expect, it } from 'vitest'
-import { PIGEON } from '../../src/characters.ts'
+import { characterOf } from '../../src/characters.ts'
 import { avatarOf, characterName, groupAvatarOf, memberAvatarOf } from '../../src/models/avatar.ts'
 import { strings, useLanguage } from '../../src/strings.ts'
 import { ANA, BEN, CY, member } from '../support/fixtures.ts'
@@ -54,9 +55,13 @@ describe('avatars', () => {
       strings.character.avatarLabel({ person: 'Ana', character: 'Owl' }),
     )
     expect(memberAvatarOf(ana, true, { labelled: false }).label).toBeNull()
-    expect(memberAvatarOf(ana, false).spec).toBe(PIGEON)
+    expect(memberAvatarOf(ana, false).spec).toBe(characterOf(ana, false))
+    expect(isPipLook(memberAvatarOf(ana, false).spec)).toBe(false)
     expect(memberAvatarOf(undefined, true).label).toBe(
-      strings.character.avatarLabel({ person: strings.formerMember, character: characterName(PIGEON) }),
+      strings.character.avatarLabel({
+        person: strings.formerMember,
+        character: characterName(characterOf(undefined, true)),
+      }),
     )
   })
 

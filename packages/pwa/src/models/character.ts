@@ -1,16 +1,20 @@
-import { BUILT_IN_CHARACTERS, type CharacterSpec, isSameCharacter } from '@homingbird/protocol'
+import { CHOOSABLE_CHARACTERS, type CharacterSpec, isSameCharacter } from '@homingbird/protocol'
 import { SLOTS, type SlotId } from '@homingbird/sprites'
-import { PIGEON, PREVIEW_STATES, type Workbench, blockedParts, problemKindOf } from '../characters.ts'
+import { PREVIEW_STATES, type Workbench, blockedParts, problemKindOf } from '../characters.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { characterName } from './avatar.ts'
 
 /** "My character": the one in use, the built-ins to pick from, and what picking one offers. */
-export const myCharacterModel = (current: CharacterSpec, picked: CharacterSpec | null): MyCharacterModel => ({
+export const myCharacterModel = (
+  current: CharacterSpec,
+  picked: CharacterSpec | null,
+  hasSaved: boolean,
+): MyCharacterModel => ({
   current: strings.character.current({ character: characterName(current) }),
   editorHref: hrefFor(EDITOR),
-  mayGoBackToPigeon: current.id !== PIGEON.id,
-  choices: BUILT_IN_CHARACTERS.map((preset) => ({
+  mayGoBackToDefault: hasSaved,
+  choices: CHOOSABLE_CHARACTERS.map((preset) => ({
     preset,
     name: characterName(preset),
     pressed: picked !== null && preset.id === picked.id,
@@ -21,9 +25,8 @@ export const myCharacterModel = (current: CharacterSpec, picked: CharacterSpec |
       : {
           spec: picked,
           selected: strings.character.selected({ character: characterName(picked) }),
-          mayUse: !isSameCharacter(picked, current),
-          saves: picked.id === PIGEON.id ? null : picked,
-          editHref: picked.id === PIGEON.id ? null : hrefFor({ ...EDITOR, from: picked.id }),
+          mayUse: !(hasSaved && isSameCharacter(picked, current)),
+          editHref: hrefFor({ ...EDITOR, from: picked.id }),
         },
 })
 
@@ -101,7 +104,7 @@ export const optionLabel = (slot: SlotId, option: string): string =>
 export interface MyCharacterModel {
   readonly current: string
   readonly editorHref: string
-  readonly mayGoBackToPigeon: boolean
+  readonly mayGoBackToDefault: boolean
   readonly choices: ReadonlyArray<{
     readonly preset: CharacterSpec
     readonly name: string
@@ -111,9 +114,7 @@ export interface MyCharacterModel {
     readonly spec: CharacterSpec
     readonly selected: string
     readonly mayUse: boolean
-    /** What using it saves: null goes back to the default pigeon. */
-    readonly saves: CharacterSpec | null
-    readonly editHref: string | null
+    readonly editHref: string
   } | null
 }
 

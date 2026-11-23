@@ -67,7 +67,7 @@ describe('getPrompt', () => {
     expect([...positions].sort((a, b) => a - b)).toEqual(positions)
     expect(text).toContain('no tool can')
     expect(text).toContain('mouth zone (x 11-15, y 8-11)')
-    expect(text.match(/^\{"version":1,"base":"bubble-16","id":"[a-z-]+"/gm)).toHaveLength(24)
+    expect(text.match(/^\{"version":1,"base":"bubble-16","id":"[a-z-]+"/gm)).toHaveLength(23)
   })
 
   it('starts the character conversation from the person’s idea when they give one', async () => {

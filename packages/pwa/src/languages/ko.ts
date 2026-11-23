@@ -782,7 +782,7 @@ export const ko: Translation<typeof en> = {
       channels: '끄면: 새 채널을 만들 수 없어요. 있는 채널은 그대로예요.',
       groups: '끄면: 그룹 페이지가 숨겨지고 아무도 그룹을 바꿀 수 없어요. 그룹은 계속 채널을 운영해요.',
       draftRequests: '끄면: 웹에서 에이전트에게 초안을 요청할 수 없어요.',
-      characters: '끄면: 모두 비둘기로 보이고 캐릭터를 바꿀 수 없어요.',
+      characters: '끄면: 모두 기본 캐릭터로 보이고 캐릭터를 바꿀 수 없어요.',
       mute: '끄면: DM이나 채널의 알림을 끄거나 알림 받을 곳을 고를 수 없고, 모두 전처럼 알림이 와요.',
       hideConversations: '끄면: DM이나 그룹 DM을 숨길 수 없고, 숨겨 두었던 DM도 모두 목록에 다시 보여요.',
       leaveGroups: '끄면: 그룹 DM에서 나갈 수 없고, 각 그룹의 사람은 그대로예요.',
@@ -1712,7 +1712,7 @@ export const ko: Translation<typeof en> = {
     selected: '고른 캐릭터: {character}',
     use: '이 캐릭터 쓰기',
     saved: '캐릭터를 저장했어요.',
-    backToPigeon: '비둘기로 돌아가기',
+    backToDefault: '기본 캐릭터로 돌아가기',
     makeOwn: '직접 만들기',
     editThis: '편집기에서 바꾸기',
     editorTitle: '캐릭터 만들기',
@@ -1775,7 +1775,7 @@ export const ko: Translation<typeof en> = {
     askAgentHint:
       '에이전트 세션에서 Homingbird 캐릭터를 만들어 달라고 해 보세요. 에이전트가 캐릭터를 확인하고 여기서 열리는 링크를 줘요. 저장은 나만 할 수 있어요.',
     resetMember: '캐릭터 초기화',
-    resetMemberDone: '{name} 님은 다시 비둘기로 보여요.',
+    resetMemberDone: '{name} 님은 다시 기본 캐릭터로 보여요.',
     slots: {
       pattern: '몸 무늬',
       face: '얼굴',

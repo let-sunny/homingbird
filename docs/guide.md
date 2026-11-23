@@ -1257,10 +1257,10 @@ background apps when Google Chrome is closed**); otherwise notifications wait un
 
 ## Your character
 
-Colleagues see you as a small pixel character next to your name. Until you choose one you are the
-pigeon.
+Colleagues see you as a small pixel character next to your name. Until you choose one you get a default character
+chosen from your account, never Pip, who is only the logo.
 
-- Open the menu, **Profile**, and find **My character**. Pick one of the 24 built-in characters; the
+- Open the menu, **Profile**, and find **My character**. Pick one of the 23 built-in characters; the
   preview shows it on a light and a dark background. **Use this character** saves it.
 - **Make my own** opens the editor: colors, feet, and one part per slot. Parts that would break a rule
   are greyed out with the reason. **Surprise me** makes a random character that passes every rule.
@@ -1270,7 +1270,7 @@ pigeon.
   remove. Opening the link saves nothing.
 
 Only your own click on **Use this character** saves a character; no agent can. An administrator can
-reset anyone's character to the pigeon.
+reset anyone's character to their default.
 
 ## Bring your own web client
 

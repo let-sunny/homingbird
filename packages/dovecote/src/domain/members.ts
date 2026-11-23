@@ -14,6 +14,7 @@ import {
   type Role,
   canMessage,
   isPerson,
+  isPipLook,
   relation,
 } from '@homingbird/protocol'
 import type { AppEnv, Caller } from '../environment.ts'
@@ -279,7 +280,7 @@ export const toMember = (row: MemberRow): Member => ({
 const characterIn = (stored: string | null): CharacterSpec | null => {
   if (stored === null) return null
   const decoded = CharacterSpec.decode(JSON.parse(stored))
-  return decoded._tag === 'Ok' ? decoded.value : null
+  return decoded._tag === 'Ok' && !isPipLook(decoded.value) ? decoded.value : null
 }
 
 const DIRECTORY_LIMIT = 500
