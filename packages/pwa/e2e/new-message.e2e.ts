@@ -21,8 +21,8 @@ const WIDE = { width: 1280, height: 800 }
 const PHONE = { width: 375, height: 812 }
 
 /**
- * From the list to a note sent to two people with the keyboard alone, wide and on a phone: New, New
- * message, a name typed and Enter, twice, then the note and Enter. A key pressed while an input method
+ * From the list to a note sent to two people with the keyboard alone, wide and on a phone: New message
+ * in the head of Direct messages, a name typed and Enter, twice, then the note and Enter. A key pressed while an input method
  * composes adds nobody, and a screen left before sending leaves no room behind.
  */
 const scenario = async (): Promise<void> => {
@@ -45,24 +45,23 @@ const scenario = async (): Promise<void> => {
       const ana: Person = await newPage(browser, base, 'en-US', { viewport })
       await submitDevelopmentLogin(ana.page, 'ana@example.com', 'Ana')
       await ana.page.waitForSelector('.app .sidebar')
-      await ana.page.waitForSelector('.new-menu-trigger')
-
-      // -- New, then New message, with the keyboard alone --------------------------------------------
-      await tabTo(ana.page, '.new-menu-trigger')
-      await ana.page.keyboard.press('Enter')
-      await ana.page.waitForSelector('#new-menu:popover-open')
-      await ana.page.waitForFunction(
-        () => (globalThis as any).document.activeElement?.classList.contains('new-menu-message'),
-        undefined,
-        { timeout: 5000 },
+      await ana.page.waitForSelector('.sidebar-list-head .new-message-link:has-text("New message")')
+      await ana.page.waitForSelector('.sidebar .section-actions .new-channel-link:has-text("New channel")')
+      assert.equal(
+        await ana.page.locator('.sidebar-list-head .new-channel-link').count(),
+        0,
+        `${name}: Direct messages starts no channel`,
       )
+
+      // -- New message, with the keyboard alone ------------------------------------------------------
+      await tabTo(ana.page, '.new-message-link')
       assert.equal(
         await focusedClass(ana.page),
-        'menu-item new-menu-message',
+        'section-action new-message-link',
         `${name}: New message has the focus`,
       )
       await ana.page.waitForTimeout(400)
-      await ana.page.screenshot({ path: join(screenshots, `${name}-1-new-menu.png`) })
+      await ana.page.screenshot({ path: join(screenshots, `${name}-1-list.png`) })
       await ana.page.keyboard.press('Enter')
       await ana.page.waitForFunction(() => (globalThis as any).location.hash === '#/new')
       await ana.page.waitForFunction(

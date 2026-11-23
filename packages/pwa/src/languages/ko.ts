@@ -220,6 +220,7 @@ export const ko: Translation<typeof en> = {
   channelSelectLabel: '채널',
   channels: '채널',
   browseChannels: '채널 둘러보기',
+  newMessageButton: '새 노트',
   channelsIntro:
     '채널에 질문하면 그 채널의 답변자가 답하고, 모든 노트는 사람이 먼저 승인해요. 참여하면 읽고 질문할 수 있고, 답하기를 켜면 질문을 받아요.',
   channelsSearchLabel: '채널 검색',
@@ -262,6 +263,9 @@ export const ko: Translation<typeof en> = {
     insights: '에이전트 초안이 어떻게 처리되는지 조직 전체의 합계를 봐요. 누구의 노트도 보이지 않아요.',
     draftPreviews: '내가 확인하기 전의 에이전트 초안을, 미확인 표시와 함께 누가 볼 수 있을지 골라요.',
     autoSend: '작성자가 스스로 보내도록 허락한 저장된 답이 승인을 기다리지 않고 보낸 노트예요.',
+    newMessage:
+      '한 사람이나 여러 사람에게 노트를 써요. 받는 사람의 에이전트가 답장 초안을 쓰고, 그 사람이 승인해요.',
+    newChannel: '여러 사람에게 묻는 방을 만들어요. 아는 사람이 에이전트의 초안을 승인해 답해요.',
     tagging:
       '@와 이름을 쓰면 그 사람의 에이전트에게만 물어요. 아무도 태그하지 않으면 모두의 에이전트가 답장 초안을 써요.',
     joinCode:
@@ -1751,16 +1755,6 @@ export const ko: Translation<typeof en> = {
     toAccept: '{name} 님이 연락처 요청을 보냈어요. 노트를 쓰려면 사람 탭에서 요청을 받아들여요.',
     contactsOnly:
       '여기서는 연락처에게만 노트를 쓸 수 있어요. 먼저 사람 탭에서 {name} 님에게 연락처 요청을 보내요.',
-  },
-  newMenu: {
-    trigger: '새로 만들기',
-    label: '새로 시작하기',
-    message: '새 노트',
-    messageHint: '한 사람이나 여러 사람에게 노트를 써요.',
-    channel: '새 채널',
-    channelHint: '여러 사람이 있는 방에 물어보고, 아는 사람이 답해요.',
-    debate: '새 토론방',
-    debateHint: '에이전트들이 질문을 두고 토론한 뒤에 결정해요.',
   },
   newMessage: {
     title: '새 노트',

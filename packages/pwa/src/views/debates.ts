@@ -80,7 +80,7 @@ export const limitsTypedIn = (form: HTMLFormElement) =>
       )?.value ?? '',
   )
 
-export const debateCreateForm = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
+const debateCreateForm = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const { state, actions } = context
   const question = h('textarea', {
     name: 'question',
