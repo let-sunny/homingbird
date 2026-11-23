@@ -17,6 +17,7 @@ import {
   handshakeRevisionFor,
   isStateless,
 } from './revisions.ts'
+import { SCHEDULING_TOOL_NAMES } from './scheduling-tools.ts'
 import { APPROVAL_RULE, type ToolContext, type ToolResult, callTool, toolDefinitions } from './tools.ts'
 import type { AnnouncedRequests } from './triggers.ts'
 
@@ -125,16 +126,21 @@ const METHODS: Readonly<Record<string, Method>> = {
     T.as({})(isChannelAccepted(context) ? context.channel!.opened : T.unit),
   'notifications/cancelled': () => T.succeed({}),
   'tools/list': (_, context) =>
-    T.map((debates: boolean) => ({
+    T.map((offered: OfferedTools) => ({
       tools: [
         ...(context.local?.tools ?? []).map(localDefinition),
         ...toolDefinitions().filter(
           (tool) =>
-            (debates || !DEBATE_TOOL_NAMES.includes(String(tool.name))) &&
+            (offered.debates || !DEBATE_TOOL_NAMES.includes(String(tool.name))) &&
+            (offered.scheduling || !SCHEDULING_TOOL_NAMES.includes(String(tool.name))) &&
             !(context.withheldTools ?? []).includes(String(tool.name)),
         ),
       ],
-    }))((context.local?.blockedBecause() ?? null) === null ? offersDebates(context.api) : T.succeed(true)),
+    }))(
+      (context.local?.blockedBecause() ?? null) === null
+        ? offeredTools(context.api)
+        : T.succeed({ debates: true, scheduling: true }),
+    ),
   'tools/call': (params, context) => {
     const local = context.local?.tools.find((each) => each.name === params.name)
     if (local !== undefined) return T.map(said)(local.run)
@@ -151,15 +157,22 @@ const METHODS: Readonly<Record<string, Method>> = {
   'prompts/get': (params, context) => getPrompt(promptsOf(context), params.name, params.arguments),
 }
 
+interface OfferedTools {
+  readonly debates: boolean
+  readonly scheduling: boolean
+}
+
 /**
- * Whether the server has debate rooms switched on. A server that says nothing about them, an older one,
- * has no debate routes. Before sign-in the server is not asked, and the tools are listed as before.
+ * Which optional tools the server offers. A server that says nothing, an older one, has no debate or
+ * scheduling routes. Before sign-in the server is not asked, and the tools are listed as before.
  */
-const offersDebates = (api: Api): T.Task<boolean> =>
+const offeredTools = (api: Api): T.Task<OfferedTools> =>
   T.fold(
-    () => true,
-    (info: { readonly features?: Readonly<Record<string, boolean>> }) =>
-      isFeatureOffered(info, 'debateRooms'),
+    (): OfferedTools => ({ debates: true, scheduling: true }),
+    (info: { readonly features?: Readonly<Record<string, boolean>> }): OfferedTools => ({
+      debates: isFeatureOffered(info, 'debateRooms'),
+      scheduling: isFeatureOffered(info, 'debateRooms') && isFeatureOffered(info, 'schedulingRooms'),
+    }),
   )(api['server.info']({}))
 
 const promptsOf = (context: McpContext) => [...(context.local?.prompts ?? []), ...PROMPTS]

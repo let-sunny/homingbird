@@ -72,6 +72,42 @@ describe('the runner in a debate room', () => {
       if (call.route !== null) expect(contract[call.route].access).not.toMatch(/human|admin/)
   })
 
+  it('answers a scheduling room by saying it cannot read a calendar, running no agent', async () => {
+    const posted: unknown[] = []
+    const r = runner({
+      stubs: {
+        'debates.waiting': once({ asks: [{ debate: ROOM, ask: 'slots' }] }, { asks: [] }),
+        'debates.slots.post': (request) => {
+          posted.push(request.body)
+          return ROOM
+        },
+      },
+      agent: () => ({ exitCode: 0, output: 'unused' }),
+    })
+    await settle(
+      () => posted.length === 1 && r.w.lines.some((line) => line.includes('cannot read a calendar')),
+    )
+    await r.stop()
+    expect(posted).toEqual([{ slots: [], cannotReadCalendar: true }])
+    expect(r.w.agentRuns).toHaveLength(0)
+  })
+
+  it('warns when the room refuses that answer', async () => {
+    const r = runner({
+      stubs: {
+        'debates.waiting': once({ asks: [{ debate: ROOM, ask: 'slots' }] }, { asks: [] }),
+        'debates.slots.post': () =>
+          ({ _tag: 'Conflict', message: 'This room no longer takes answers.' }) as never,
+      },
+      agent: () => ({ exitCode: 0, output: 'unused' }),
+    })
+    await settle(() => r.w.problems.length > 0)
+    await r.stop()
+    expect(r.w.problems).toEqual([
+      expect.stringMatching(/cannot be read in the scheduling room .* was refused/),
+    ])
+  })
+
   it('writes nothing while the room asks another agent for its turn', async () => {
     const theirs = { ...ROOM, askedTurn: { memberId: BEN.id, until: 150_000, next: [ANA.id] } }
     let listed = 0

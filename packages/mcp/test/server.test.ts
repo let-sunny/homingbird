@@ -269,6 +269,31 @@ describe('handleMcpMessage', () => {
     }
   })
 
+  it('lists share_free_slots only while the server has scheduling rooms switched on', async () => {
+    const info = (features?: Readonly<Record<string, boolean>>): Stubs => ({
+      'server.info': () => ({
+        name: 'dovecote',
+        version: '0.1.0',
+        contactMode: 'open' as const,
+        signInWith: 'Development login',
+        protocolVersion: 1,
+        ...(features !== undefined && { features }),
+      }),
+    })
+    const names = async (stubs: Stubs) =>
+      ((await server(stubs).call('tools/list')).result.tools as Array<{ name: string }>).map(
+        (tool) => tool.name,
+      )
+    expect(await names(info({ debateRooms: true, schedulingRooms: true }))).toContain('share_free_slots')
+    for (const off of [
+      info({ debateRooms: true, schedulingRooms: false }),
+      info({ debateRooms: true }),
+      info({ schedulingRooms: true }),
+      info(),
+    ])
+      expect(await names(off)).not.toContain('share_free_slots')
+  })
+
   it('runs a tool and returns its text', async () => {
     const { call, calls } = server()
     const { result } = await call('tools/call', { name: 'whoami', arguments: {} })

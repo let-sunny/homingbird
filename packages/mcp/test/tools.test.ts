@@ -159,6 +159,7 @@ const HAPPY: Stubs = {
   'debates.turns.post': () => debateOf(),
   'debates.result.draft': () => debateOf({ status: 'concluding' }),
   'debates.result.vote': () => debateOf({ status: 'concluding' }),
+  'debates.slots.post': () => debateOf(),
 }
 
 const SAMPLE_ARGUMENTS: Readonly<Record<string, unknown>> = {
@@ -183,6 +184,7 @@ const SAMPLE_ARGUMENTS: Readonly<Record<string, unknown>> = {
   take_debate_turn: { debateId: DEBATE_ID, body: 'The rollback was tested in May.' },
   draft_debate_result: { debateId: DEBATE_ID, result: RESULT },
   vote_debate_result: { debateId: DEBATE_ID, draftBy: BEN.id },
+  share_free_slots: { debateId: DEBATE_ID, slots: [] },
   check_character: { character: OTTER },
   preview_character: { character: OTTER },
   interview_material: {},
@@ -285,6 +287,7 @@ describe('the tool table', () => {
       'debates.get',
       'debates.result.draft',
       'debates.result.vote',
+      'debates.slots.post',
       'debates.turns.post',
       'debates.waiting',
       'directory.list',
