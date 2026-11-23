@@ -34,6 +34,9 @@ export interface MeetingPushTitles {
   readonly leftBody: { readonly took_out: string; readonly declined: string }
   readonly removeByHand: (room: string) => string
   readonly removeByHandBody: string
+  readonly joined: (room: string) => string
+  readonly joinedBody: string
+  readonly joinedFirstBody: (agent: string) => string
 }
 
 const PUSH_TITLES: Readonly<Record<Locale, PushTitles>> = { en, ko }

@@ -36,5 +36,9 @@ export const en: PushTitles = {
     },
     removeByHand: (room) => `${room} · Take it out yourself`,
     removeByHandBody: 'Your agent could not take the meeting out of your calendar.',
+    joined: (room) => `${room} · Your agent is finding a time`,
+    joinedBody: 'It joined for you to share your free times.',
+    joinedFirstBody: (agent) =>
+      `${agent} joined for you to share your free times. You can change this in Settings.`,
   },
 }

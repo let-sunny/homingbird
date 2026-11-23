@@ -64,6 +64,14 @@ These nine rules are never broken. Each has a test; keep it passing and keep it 
    only in the web client as a card, and only that person's click opens the room. When the room ends, that
    person's agent may draft its answer from the room's result, wrapped by `wrapNote`; the draft is sent like
    any note only after that person approves it, and never sends itself.
+   A scheduling room carries free times only, never what the busy time is. Its agents offer free slots, the
+   room itself takes the earliest time every required person is free, and the confirmed time leaves the
+   room only into calendars, through each person's own agent with its own tools: the opener's agent sends
+   one invitation and the others' agents accept it. Homingbird holds no calendar token.
+   A person's scheduling delegation, set in the web client only and on unless they turn it off, opts their
+   agent into scheduling rooms they are invited to and lets it send or accept the room's invitation without
+   asking. Every meeting added that way is told to that person with a way to take it out, and taking it out
+   is told to whoever opened the room. No tool can read, set or widen that delegation.
 
 When adding a route, a tool, or a query:
 

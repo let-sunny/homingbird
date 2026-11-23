@@ -204,6 +204,11 @@ const meetingMessage = (
       return { title: titles.busy(room, other), body: titles.busyBody }
     case 'left':
       return { title: titles.left(room, other), body: titles.leftBody[notice.because] }
+    case 'joined':
+      return {
+        title: titles.joined(room),
+        body: notice.agentName === null ? titles.joinedBody : titles.joinedFirstBody(notice.agentName),
+      }
   }
 }
 

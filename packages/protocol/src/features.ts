@@ -83,6 +83,9 @@ export const FEATURES = {
       'debates.calendar.report',
       'scheduling.attendance.add',
       'scheduling.attendance.remove',
+      'scheduling.retry',
+      'me.scheduling.get',
+      'me.scheduling.set',
     ],
   },
   debateSuggestions: {

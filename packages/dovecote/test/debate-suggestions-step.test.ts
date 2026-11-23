@@ -11,8 +11,7 @@ afterEach(async () => {
 })
 
 describe('the debate suggestions step', () => {
-  it('is the last step, the thirtieth, after scheduling rooms', () => {
-    expect(stepNumberOf(DEBATE_SUGGESTIONS)).toBe(MIGRATIONS.length)
+  it('is the thirtieth step, after scheduling rooms', () => {
     expect(stepNumberOf(DEBATE_SUGGESTIONS)).toBe(30)
   })
 

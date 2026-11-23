@@ -27,6 +27,7 @@ import { agentIntroductionsOf } from './agent-introductions.ts'
 import { channelsHelpedBy, helpersOfChannelSeenBy } from './channels.ts'
 import { type Ties, tiesOf } from './contacts.ts'
 import { removeFromEveryGroup } from './group-membership.ts'
+import { forgetDelegation } from './scheduling-delegations.ts'
 import { featureIsOn, readSettings } from './settings.ts'
 
 export const directoryFor = (
@@ -195,7 +196,8 @@ export const chosenLocaleOf = (id: MemberId): T.Task<Locale | null, never, AppEn
 
 /**
  * Deactivating a member revokes their credentials, refuses a sign-in they approved and no program has
- * finished yet, takes them out of every group and deletes their cloud desk wake and Slack link at once.
+ * finished yet, takes them out of every group and deletes their cloud desk wake, scheduling delegation and
+ * Slack link at once.
  * Deactivated or demoted, they lose the Slack app's values they gave (rule 5).
  */
 export const administerMember = (
@@ -222,6 +224,7 @@ export const administerMember = (
       )
       if (before.status !== 'deactivated') yield* removeFromEveryGroup(actor, id)
       yield* forgetDeskWake(actor, id)
+      yield* forgetDelegation(id)
       yield* forgetSlackPerson(id, 'deactivated', actor.member.id)
       yield* forgetSlackCredentialsOf(actor, id, 'deactivated')
     } else if (changes.role !== undefined && changes.role !== 'admin')

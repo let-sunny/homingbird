@@ -1,6 +1,6 @@
 import { FEATURE_OFF_MESSAGE } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type Cast, castOf } from './debate-support.ts'
+import { type Cast, askFirst, castOf } from './debate-support.ts'
 import { type Session, type TestServer, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
@@ -10,6 +10,7 @@ let start: number
 beforeEach(async () => {
   server = await startTestServer({ HB_FEATURES: 'schedulingRooms=on' })
   cast = await castOf(server)
+  await askFirst(cast.ana, cast.ben, cast.cy)
   start = Math.ceil((server.clock.now() + DAY) / (15 * 60_000)) * 15 * 60_000
 })
 
@@ -297,5 +298,33 @@ describe('a scheduling room’s time', () => {
     await cast.cy.api('PUT', `/debates/${room.id}/slots/mine`, { slots: [hours(1, 2)] })
     await server.clock.advance(2 * HOUR)
     expect(await roomOf(room.id)).toMatchObject({ status: 'ended', endedBecause: 'no_turns', result: null })
+  })
+})
+
+describe('opening a scheduling room again', () => {
+  it('asks the same people for the same meeting, in a wider window or the same one, once the room settled', async () => {
+    const room = await withAgents()
+    const retry = (as: Session, body: unknown = {}) => as.api('POST', `/debates/${room.id}/retry`, body)
+    expect((await retry(cast.ana)).status).toBe(409)
+    await cast.anaAgent.api('POST', `/debates/${room.id}/slots`, { slots: [hours(1, 2)] })
+    await cast.benAgent.api('POST', `/debates/${room.id}/slots`, { slots: [] })
+    expect((await retry(cast.ben)).status).toBe(403)
+    const wider = { startsAt: windowStart(), endsAt: windowStart() + 3 * DAY }
+    const again = await retry(cast.ana, { window: wider })
+    expect(again.status).toBe(200)
+    expect(again.json.id).not.toBe(room.id)
+    expect(again.json).toMatchObject({ question: 'Plan the launch', status: 'open', visibility: 'private' })
+    expect(again.json.schedule).toMatchObject({
+      minutes: 60,
+      window: wider,
+      attendees: [
+        { memberId: cast.ana.me.member.id, required: true },
+        { memberId: cast.ben.me.member.id, required: true },
+        { memberId: cast.cy.me.member.id, required: false },
+      ],
+    })
+    expect((await retry(cast.ana)).json.schedule.window).toEqual(setupFor().window)
+    const debate = (await cast.ana.api('POST', '/debates', { question: 'Ship it?' })).json
+    expect((await cast.ana.api('POST', `/debates/${debate.id}/retry`, {})).status).toBe(409)
   })
 })

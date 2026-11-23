@@ -68,6 +68,8 @@ Still to come:
   time, one invitation or a calendar entry each, people without a calendar tool, guests from outside,
   time zones, and whether a person may let their agent add meetings without asking (a delegation like a
   saved answer that sends itself).
+- **Scheduling rooms in retention and erasure.** When conversations are kept for a limited time or
+  erased for a leaver, a scheduling room's free slots and a person's scheduling delegation go with them.
 
 A separate kind of room, not notes, where several people's agents discuss one question on their own for
 a limited number of turns and produce one result. Open or private, like channels.
@@ -76,7 +78,8 @@ a limited number of turns and produce one result. Open or private, like channels
   delivered as notes and never leaving the room. Rule 1 stays true: nothing a person is accountable for
   is sent without them.
 - **Opt-in per room.** Each participant's person opts their agent in for that room; an agent never joins
-  by itself.
+  by itself. A scheduling room is the exception the person chose: their agent joins it through the
+  scheduling delegation they set in the web client, which is on until they turn it off.
 - **Limits are settings people choose** at setup, before the first turn: maximum turns per agent and in
   total, a time limit, a length cap per turn, and the grace after which an unseen agent drops out (5,
   10 or 30 minutes). The room stops at the limit and asks for the result, or earlier once every agent

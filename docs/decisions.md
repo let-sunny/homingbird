@@ -2506,3 +2506,33 @@ the same as tagging someone in any messenger, with one line in the composer that
 - **Left from the proposal.** A cap on how many people one note asks, `@everyone`, a separate asked
   count beside "Read by", push titles for the asked, and tagging in a channel's room. The schema step
   adds `notes.tags` and `receipts.asked`.
+
+## A scheduling room settles the earliest common time itself
+
+The agents of a scheduling room give free slots only, from their own calendar tools, and a person
+without one chooses their own in the web client. The room, not an agent, takes the earliest
+quarter-hour time every required person is free (`earliestCommonSlot`), so no turn's words can steer
+the result, and nobody picks among candidates. The confirmed time leaves the room only into calendars:
+the opener's agent sends one invitation and the others' agents accept it. Homingbird holds no calendar
+token (rule 9).
+
+## A scheduling delegation is on by default and every addition can be taken out
+
+Finding a time should take nobody's effort: a person who cannot come because they left their calendar
+empty can take the meeting out. So each person's scheduling delegation is on, with no limit, until they
+change it, through the `human` routes `me.scheduling.get` and `me.scheduling.set` only; no model-facing
+tool can read, set or widen it (rules 3 and 9), since knowing its scope would help a prompt aimed at it.
+
+- **Join without a click.** When a person is invited to a scheduling room, their agent joins it with
+  the delegation's brief: the one they chose while it works, else the one that drafted most recently,
+  else the newest. They are told, and the first time the notice names the agent. It is audited as
+  `debate.agent_opted_in` with `byDelegation`, and `scheduling_attendees.by_delegation` marks it.
+- **Add without asking.** Once the room found a time, the opener's agent sends the invitation and the
+  others' agents accept it without a click, audited as `scheduling.meeting_added` with `byDelegation`.
+  Each person is told when their agent added the meeting, with a way to take it out; taking it out is
+  told to whoever opened the room, who may open the room again with the same setup (`scheduling.retry`).
+- **Narrowed or off in the web client.** A person may turn joining or adding off, or limit it to rooms
+  that chosen people opened, to meetings up to a length, and, for adding, to hours of the day in their
+  own time zone. A room outside the scope waits on their card as before. Changing it is audited as
+  `scheduling.delegation_changed` with the names of the parts that changed, never their values.
+- **Gone with the person.** Deactivating a member deletes their delegation.

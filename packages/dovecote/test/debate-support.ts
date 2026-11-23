@@ -22,6 +22,23 @@ export interface Cast {
   readonly elapsed: () => number
 }
 
+/** A scheduling delegation turned off: the room asks the person before their agent joins or adds anything. */
+export const ASKING_FIRST = {
+  autoJoin: false,
+  autoAdd: false,
+  agentId: null,
+  brief: '',
+  scope: { people: null, hours: null, maxMinutes: null },
+}
+
+/** Turns each person's scheduling delegation off, for rooms that wait on their clicks. */
+export const askFirst = async (...people: ReadonlyArray<Session>): Promise<void> => {
+  for (const person of people) {
+    const set = await person.api('PUT', '/me/scheduling', ASKING_FIRST)
+    if (set.status !== 200) throw new Error(JSON.stringify(set.json))
+  }
+}
+
 /** One step past the default grace, and past the grace after the test server started. */
 export const PAST_GRACE_MS = 5 * 60_000 + 1
 
