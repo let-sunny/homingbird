@@ -128,6 +128,8 @@ exports[`schema > generates stable DDL for mysql 1`] = `
   "CREATE TABLE IF NOT EXISTS debate_suggestions (id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, credential_id VARCHAR(64) NOT NULL, in_reply_to VARCHAR(64) NOT NULL, conversation_id VARCHAR(64) NOT NULL, draft_id VARCHAR(64), question MEDIUMTEXT NOT NULL, reason MEDIUMTEXT NOT NULL, created_at BIGINT NOT NULL, decided_at BIGINT, decision VARCHAR(400), debate_id VARCHAR(64), answered_at BIGINT, PRIMARY KEY (id), INDEX debate_suggestions_member_id_decided_at_idx (member_id, decided_at))",
   "CREATE TABLE IF NOT EXISTS debate_suggestion_people (suggestion_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, position BIGINT NOT NULL, PRIMARY KEY (suggestion_id, member_id))",
   "ALTER TABLE debates ADD COLUMN suggestion_id VARCHAR(64)",
+  "CREATE TABLE IF NOT EXISTS scheduling_delegations (member_id VARCHAR(64) NOT NULL, auto_join BIGINT, auto_add BIGINT, credential_id VARCHAR(64), brief MEDIUMTEXT, max_minutes BIGINT, hours_from BIGINT, hours_to BIGINT, time_zone VARCHAR(400), updated_at BIGINT NOT NULL, PRIMARY KEY (member_id))",
+  "CREATE TABLE IF NOT EXISTS scheduling_delegation_people (member_id VARCHAR(64) NOT NULL, other_member_id VARCHAR(64) NOT NULL, PRIMARY KEY (member_id, other_member_id))",
 ]
 `;
 
@@ -318,6 +320,8 @@ exports[`schema > generates stable DDL for postgres 1`] = `
   "CREATE INDEX IF NOT EXISTS debate_suggestions_member_id_decided_at_idx ON debate_suggestions (member_id, decided_at)",
   "CREATE TABLE IF NOT EXISTS debate_suggestion_people (suggestion_id VARCHAR(64) NOT NULL, member_id VARCHAR(64) NOT NULL, position BIGINT NOT NULL, PRIMARY KEY (suggestion_id, member_id))",
   "ALTER TABLE debates ADD COLUMN suggestion_id VARCHAR(64)",
+  "CREATE TABLE IF NOT EXISTS scheduling_delegations (member_id VARCHAR(64) NOT NULL, auto_join BIGINT, auto_add BIGINT, credential_id VARCHAR(64), brief TEXT, max_minutes BIGINT, hours_from BIGINT, hours_to BIGINT, time_zone VARCHAR(400), updated_at BIGINT NOT NULL, PRIMARY KEY (member_id))",
+  "CREATE TABLE IF NOT EXISTS scheduling_delegation_people (member_id VARCHAR(64) NOT NULL, other_member_id VARCHAR(64) NOT NULL, PRIMARY KEY (member_id, other_member_id))",
 ]
 `;
 
@@ -508,5 +512,7 @@ exports[`schema > generates stable DDL for sqlite 1`] = `
   "CREATE INDEX IF NOT EXISTS debate_suggestions_member_id_decided_at_idx ON debate_suggestions (member_id, decided_at)",
   "CREATE TABLE IF NOT EXISTS debate_suggestion_people (suggestion_id TEXT NOT NULL, member_id TEXT NOT NULL, position INTEGER NOT NULL, PRIMARY KEY (suggestion_id, member_id))",
   "ALTER TABLE debates ADD COLUMN suggestion_id TEXT",
+  "CREATE TABLE IF NOT EXISTS scheduling_delegations (member_id TEXT NOT NULL, auto_join INTEGER, auto_add INTEGER, credential_id TEXT, brief TEXT, max_minutes INTEGER, hours_from INTEGER, hours_to INTEGER, time_zone TEXT, updated_at INTEGER NOT NULL, PRIMARY KEY (member_id))",
+  "CREATE TABLE IF NOT EXISTS scheduling_delegation_people (member_id TEXT NOT NULL, other_member_id TEXT NOT NULL, PRIMARY KEY (member_id, other_member_id))",
 ]
 `;

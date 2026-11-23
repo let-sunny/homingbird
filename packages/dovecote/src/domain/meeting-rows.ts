@@ -1,19 +1,22 @@
 import { Task as T } from '@homingbird/kernel'
-import type {
-  Adding,
-  Attendance,
-  AttendanceNotice,
-  AttendanceState,
-  AttendanceStep,
-  CredentialId,
-  DebateId,
-  MemberId,
+import {
+  type Adding,
+  type Attendance,
+  type AttendanceNotice,
+  type AttendanceState,
+  type AttendanceStep,
+  type CredentialId,
+  type DebateId,
+  type MemberId,
+  mayAddByDelegation,
 } from '@homingbird/protocol'
 import type { AppEnv } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
 import { all, first, run } from '../sql/database.ts'
 import { list, sql } from '../sql/query.ts'
+import { recordAudit } from './audit.ts'
 import type { DebateRow } from './debate-rows.ts'
+import { delegationOf } from './scheduling-delegations.ts'
 
 /** The meeting's attendance as stored, opener first, or null before the room found a time. */
 export const attendanceOf = (
@@ -33,7 +36,10 @@ export const attendanceOf = (
       WHERE a.debate_id = ${row.id} AND a.state IS NOT NULL ORDER BY m.created_at, a.member_id`),
   )
 
-/** The agent that shared free slots adds after a click, anyone else by hand; a delegation is read here. */
+/**
+ * The agent that shared free slots adds the meeting at once where its person's delegation covers it, else
+ * after their click; anyone without one adds it by hand.
+ */
 export const addingsOf = (id: DebateId): T.Task<(memberId: MemberId) => Adding, never, AppEnv> =>
   T.gen(function* () {
     const env = yield* T.ask<AppEnv>()
@@ -42,8 +48,22 @@ export const addingsOf = (id: DebateId): T.Task<(memberId: MemberId) => Adding, 
       JOIN credentials c ON c.id = p.credential_id
       WHERE p.debate_id = ${id} AND c.revoked_at IS NULL AND c.expires_at > ${env.clock.now()}
       AND EXISTS (SELECT 1 FROM debate_turns t WHERE t.debate_id = p.debate_id AND t.member_id = p.member_id)`)
+    const meeting = (yield* first<{ created_by: MemberId; minutes: number; slot_starts_at: number }>(sql`
+      SELECT d.created_by, s.minutes, s.slot_starts_at FROM debates d
+      JOIN scheduling_rooms s ON s.debate_id = d.id WHERE d.id = ${id}`))!
+    const delegated = new Set<MemberId>()
+    for (const { member_id: memberId } of agents) {
+      const isCovered = mayAddByDelegation(yield* delegationOf(memberId), {
+        memberId,
+        openedBy: meeting.created_by,
+        minutes: Number(meeting.minutes),
+        startsAt: Number(meeting.slot_starts_at),
+      })
+      if (isCovered) delegated.add(memberId)
+    }
     const withAgent = new Set(agents.map((agent) => agent.member_id))
-    return (memberId) => (withAgent.has(memberId) ? 'agent_after_click' : 'person')
+    return (memberId) =>
+      delegated.has(memberId) ? 'agent' : withAgent.has(memberId) ? 'agent_after_click' : 'person'
   })
 
 export const meetingAgentOf = (
@@ -82,6 +102,14 @@ export const keepAttendance = (
       yield* run(sql`
         UPDATE scheduling_attendees SET state = ${attendee.state}, changed_at = ${now}
         WHERE debate_id = ${row.id} AND member_id = ${attendee.memberId}`)
+      const isAddedWithoutAsking =
+        (was === undefined || was === 'waiting_invite') && attendee.state === 'adding'
+      if (isAddedWithoutAsking)
+        yield* recordAudit('scheduling.meeting_added', {
+          actorId: attendee.memberId,
+          targetId: row.id,
+          detail: { by: 'agent', byDelegation: true },
+        })
     }
     for (const notice of step.notices)
       env.outbox.push({ memberId: notice.to, meeting: meetingNoticeOf(row, notice) })
@@ -112,7 +140,14 @@ export interface MeetingNotice {
   readonly debateId: DebateId
   readonly title: string
   readonly toOpener: boolean
-  readonly notice: AttendanceNotice
+  readonly notice: AttendanceNotice | JoinedNotice
+}
+
+/** The person's agent joined the room by their delegation; the first time it is named. */
+export interface JoinedNotice {
+  readonly to: MemberId
+  readonly notice: 'joined'
+  readonly agentName: string | null
 }
 
 const meetingNoticeOf = (

@@ -17,6 +17,7 @@ import {
   WhoCanInvite,
 } from './model.ts'
 import { PrincipleId, PrincipleKind } from './principles.ts'
+import { DELEGATION_FIELDS } from './scheduling-delegation.ts'
 
 /**
  * Every event the audit trail can hold, its tier and what its detail may contain. The detail schema is
@@ -216,7 +217,10 @@ export const AUDIT_EVENTS = {
   'principle.proposal_discarded': event('full', 'principle', {}),
   'principle.document_changed': event('full', 'none', { kept: S.boolean }),
   'debate.opened': event('full', 'debate', { visibility: DebateVisibility }),
-  'debate.agent_opted_in': event('full', 'debate', { credentialId: CredentialId }),
+  'debate.agent_opted_in': event('full', 'debate', {
+    credentialId: CredentialId,
+    byDelegation: S.optional(S.boolean),
+  }),
   'debate.suggestion_accepted': event('full', 'debate', {
     credentialId: CredentialId,
     invited: S.int({ min: 0 }),
@@ -236,6 +240,9 @@ export const AUDIT_EVENTS = {
   'scheduling.meeting_added': event('full', 'debate', {
     by: S.tolerant(S.literal('agent', 'person'), UNKNOWN),
     byDelegation: S.boolean,
+  }),
+  'scheduling.delegation_changed': event('full', 'member', {
+    fields: S.array(S.literal(...DELEGATION_FIELDS), { maxItems: DELEGATION_FIELDS.length }),
   }),
   'scheduling.meeting_removed': event('full', 'debate', {
     because: S.tolerant(S.literal('took_out', 'declined', 'cancelled'), UNKNOWN),

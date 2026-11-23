@@ -2,7 +2,7 @@ import { Task as T } from '@homingbird/kernel'
 import type { DebateId, MemberId } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { addingsOf, attendanceOf, meetingAgentOf } from '../src/domain/meeting-rows.ts'
-import { type Cast, castOf } from './debate-support.ts'
+import { ASKING_FIRST, type Cast, askFirst, castOf } from './debate-support.ts'
 import { type TestServer, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
@@ -12,6 +12,7 @@ let start: number
 beforeEach(async () => {
   server = await startTestServer({ HB_FEATURES: 'schedulingRooms=on' })
   cast = await castOf(server)
+  await askFirst(cast.ana, cast.ben, cast.cy)
   start = Math.ceil((server.clock.now() + DAY) / (15 * 60_000)) * 15 * 60_000
 })
 
@@ -52,6 +53,21 @@ describe('a meeting as it is stored', () => {
     const id = await openedWithAgents()
     const addingOf = await T.runPromise(addingsOf(id), server.env)
     expect([addingOf(ben()), addingOf(cy())]).toEqual(['agent_after_click', 'person'])
+  })
+
+  it('is added by that agent at once where its person’s delegation covers the meeting', async () => {
+    const id = await openedWithAgents()
+    await cast.cyAgent.api('POST', `/debates/${id}/slots`, {
+      slots: [{ startsAt: start, endsAt: start + HOUR }],
+    })
+    await cast.ben.api('PUT', '/me/scheduling', { ...ASKING_FIRST, autoAdd: true })
+    await cast.cy.api('PUT', '/me/scheduling', {
+      ...ASKING_FIRST,
+      autoAdd: true,
+      scope: { ...ASKING_FIRST.scope, maxMinutes: 30 },
+    })
+    const addingOf = await T.runPromise(addingsOf(id), server.env)
+    expect([addingOf(ben()), addingOf(cy())]).toEqual(['agent', 'agent_after_click'])
   })
 
   it('is added by hand once that agent’s credential is revoked', async () => {

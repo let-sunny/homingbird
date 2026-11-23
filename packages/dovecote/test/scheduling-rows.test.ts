@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type Cast, castOf } from './debate-support.ts'
+import { type Cast, askFirst, castOf } from './debate-support.ts'
 import { type TestServer, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
@@ -9,6 +9,7 @@ let start: number
 beforeEach(async () => {
   server = await startTestServer({ HB_FEATURES: 'schedulingRooms=on' })
   cast = await castOf(server)
+  await askFirst(cast.ana, cast.ben, cast.cy)
   start = Math.ceil((server.clock.now() + DAY) / QUARTER_HOUR) * QUARTER_HOUR
 })
 

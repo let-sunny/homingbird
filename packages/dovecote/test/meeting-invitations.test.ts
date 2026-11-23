@@ -1,7 +1,7 @@
 import { FEATURE_OFF_MESSAGE } from '@homingbird/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { MeetingNotice } from '../src/domain/meeting-rows.ts'
-import { type Cast, castOf } from './debate-support.ts'
+import { type Cast, askFirst, castOf } from './debate-support.ts'
 import { type Agent, type Session, type TestServer, startTestServer, storedRows } from './harness.ts'
 
 let server: TestServer
@@ -12,6 +12,7 @@ let told: Array<{ to: string; notice: MeetingNotice }>
 beforeEach(async () => {
   server = await startTestServer({ HB_FEATURES: 'schedulingRooms=on' })
   cast = await castOf(server)
+  await askFirst(cast.ana, cast.ben, cast.cy)
   start = Math.ceil((server.clock.now() + DAY) / (15 * 60_000)) * 15 * 60_000
   told = []
   ;(server.env as { meetingPushSink: unknown }).meetingPushSink = (to: string, notice: MeetingNotice) =>

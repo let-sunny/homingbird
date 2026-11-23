@@ -36,5 +36,8 @@ export const ko: PushTitles = {
     },
     removeByHand: (room) => `${room} · 직접 빼 주세요`,
     removeByHandBody: '에이전트가 캘린더에서 회의를 빼지 못했어요.',
+    joined: (room) => `${room} · 에이전트가 시간을 찾고 있어요`,
+    joinedBody: '대신 참여해서 비는 시간을 알려요.',
+    joinedFirstBody: (agent) => `${agent}이(가) 대신 참여해서 비는 시간을 알려요. 설정에서 바꿀 수 있어요.`,
   },
 }
