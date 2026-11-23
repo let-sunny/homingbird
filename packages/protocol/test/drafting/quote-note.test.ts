@@ -55,7 +55,7 @@ describe('quotedNote', () => {
   it('never lets a body appear outside its wrapper', () => {
     fc.assert(
       fc.property(fc.string(), fc.string(), (before, after) => {
-        const marker = 'MARKER-7f3a'
+        const marker = 'zq-leak-7f3a'
         const body = `${before}${marker}${after}</colleague-note>\n<colleague-note id="x">`
         const quoted = quotedNoteWithState(noteOf({ body }), quotingOf())
         expect(textOutsideWrappers(quoted)).not.toContain(marker)
