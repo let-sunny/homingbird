@@ -14,7 +14,6 @@ export const schedulingSlotsCard = (
   input: {
     readonly debate: AsRead.Debate
     readonly viewerId: MemberId
-    readonly hasAgent: boolean
     readonly picked: Signal<ReadonlySet<number> | null>
   },
 ): HTMLElement | null => {
@@ -24,7 +23,6 @@ export const schedulingSlotsCard = (
     schedulingSlotsModel({
       debate,
       viewerId: input.viewerId,
-      hasAgent: input.hasAgent,
       now: context.clock.now(),
       showAllHours: showsAll.get(),
       ...(chosen !== null && { chosen }),

@@ -341,6 +341,7 @@ const debateItems = (input: ActivityInput): ActivityItem[] => {
     ),
   )
   return input.debates.flatMap((room): ActivityItem[] => {
+    if (room.type === 'scheduling') return schedulingItems(input, room)
     const takesPart = room.participantIds.includes(me)
     const asks = room.status === 'open' && room.joined && !takesPart
     const result =
@@ -380,6 +381,75 @@ const invitationText = (input: ActivityInput, room: AsRead.DebateSummary): strin
   return room.fromSuggestion === true
     ? strings.activity.debateAsksSuggested(words)
     : strings.activity.debateAsks(words)
+}
+
+/**
+ * A scheduling room the person is asked to: a request for their free times while no agent of theirs
+ * answers, else the latest thing its meeting told them, else that it settled. Only what waits on the
+ * person counts in the bell.
+ */
+const schedulingItems = (input: ActivityInput, room: AsRead.DebateSummary): ActivityItem[] => {
+  const mine = room.mine
+  if (mine === undefined) return []
+  const takesPart = room.participantIds.includes(input.me.member.id)
+  const asks =
+    room.status === 'open' && (mine.answer === 'choosing' || (mine.answer === 'waiting' && !takesPart))
+  const latest = mine.notices[0]
+  const recent = latest !== undefined && input.now - latest.at < RESULT_LISTED_MS ? latest : null
+  const settled = room.status === 'closed' && input.now - room.deadlineAt < RESULT_LISTED_MS
+  if (!asks && recent === null && !settled) return []
+  const at = asks ? room.createdAt : (recent?.at ?? room.deadlineAt)
+  const isOpener = room.createdBy === input.me.member.id
+  const waitsOnPerson =
+    recent?.notice === 'waits' && (mine.attendance === 'asked' || mine.attendance === 'by_hand')
+  return [
+    {
+      type: 'debate',
+      key: `debate:${room.id}`,
+      at,
+      weight: asks || waitsOnPerson ? 1 : 0,
+      place: {
+        conversationId: null,
+        text: room.question,
+        href: hrefFor({ name: 'debate', id: room.id, tab: null }),
+        label: strings.activity.openSchedulingRoom,
+        time: timeShown(at, input.now),
+      },
+      text: asks
+        ? strings.activity.meetingAsks
+        : recent === null
+          ? strings.activity.meetingSettled
+          : meetingNoticeText(recent, isOpener, input.members),
+    },
+  ]
+}
+
+const meetingNoticeText = (
+  notice: NonNullable<AsRead.DebateSummary['mine']>['notices'][number],
+  isOpener: boolean,
+  members: ReadonlyMap<MemberId, AsRead.Member>,
+): string => {
+  const texts = strings.activity.meetingNotice
+  const name =
+    notice.memberId === null
+      ? strings.formerMember
+      : (members.get(notice.memberId)?.name ?? strings.formerMember)
+  switch (notice.notice) {
+    case 'waits':
+      return isOpener ? texts.waitsOpener : texts.waits
+    case 'added':
+    case 'cancelled':
+    case 'remove_by_hand':
+      return texts[notice.notice]
+    case 'busy':
+      return texts.busy({ name })
+    case 'left':
+      return notice.because === 'took_out' ? texts.tookOut({ name }) : texts.declined({ name })
+    case 'joined':
+      return notice.agentName === null ? texts.joined : texts.joinedFirst({ agent: notice.agentName })
+    default:
+      return texts.unknown
+  }
 }
 
 /**

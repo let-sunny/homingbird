@@ -64,6 +64,7 @@ describe('schedulingRoomModel', () => {
         required: 'Required',
         answer: strings.scheduling.ownAnswer.by_person,
         answered: true,
+        part: null,
       },
       {
         memberId: BEN,
@@ -71,6 +72,7 @@ describe('schedulingRoomModel', () => {
         required: 'Required',
         answer: strings.scheduling.answer.by_agent,
         answered: true,
+        part: null,
       },
       {
         memberId: CY,
@@ -78,8 +80,28 @@ describe('schedulingRoomModel', () => {
         required: 'Optional',
         answer: strings.scheduling.answer.waiting,
         answered: false,
+        part: null,
       },
     ])
+  })
+
+  it('shows whoever opened the room where each other person’s part of the meeting stands, and no one else', () => {
+    const base = meeting({ status: 'closed', createdBy: ANA })
+    const attendees = [
+      { memberId: ANA, required: true, answer: 'by_person', attendance: 'added' },
+      { memberId: BEN, required: true, answer: 'by_agent', attendance: 'declined' },
+      { memberId: CY, required: false, answer: 'by_person', attendance: 'not_invited' },
+      { memberId: 'mem_dee000000000', required: false, answer: 'waiting', attendance: UNKNOWN },
+    ] as never
+    const settled = { ...base, schedule: { ...base.schedule!, attendees } }
+    expect(room(schedulingRoomModel(input(settled))).attendees.map((one) => one.part)).toEqual([
+      null,
+      strings.scheduling.partOf.declined,
+      strings.scheduling.partOf.not_invited,
+      strings.scheduling.partOf.unknown,
+    ])
+    const seenByBen = room(schedulingRoomModel(input(settled, { viewerId: BEN })))
+    expect(seenByBen.attendees.map((one) => one.part)).toEqual([null, null, null, null])
   })
 
   it('reads an attendee without an answer, or with one it does not know, as not yet answered', () => {

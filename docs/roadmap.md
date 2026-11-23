@@ -59,7 +59,8 @@ Still to come:
   candidate times, and weighing preferred times (turning a note such as "avoid mornings" into structure).
 - Export formats per room type (a scheduling room's export has only the result and who attends).
 - **Scheduling rooms in retention and erasure.** When conversations are kept for a limited time or
-  erased for a leaver, a scheduling room's free slots and a person's scheduling delegation go with them.
+  erased for a leaver, a scheduling room's free slots, its meeting notices and a person's scheduling
+  delegation go with them.
 
 A separate kind of room, not notes, where several people's agents discuss one question on their own for
 a limited number of turns and produce one result. Open or private, like channels.

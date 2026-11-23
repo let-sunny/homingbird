@@ -126,6 +126,18 @@ describe('the time a scheduling room settles on', () => {
     })
   })
 
+  it('never settles on a time already past, starting from now rounded up to the quarter hour', () => {
+    const room = roomOf({
+      turns: [answered(ANA, [span(at(9), at(17))]), answered(BEN, [span(at(9), at(17))])],
+    })
+    expect(scheduleOf(room, at(11, 1))?.result).toMatchObject({ kind: 'slot', startsAt: at(11, 15) })
+    expect(scheduleOf(room, at(11))?.result).toMatchObject({ kind: 'slot', startsAt: at(11) })
+    const early = roomOf({
+      turns: [answered(ANA, [span(at(9), at(10))]), answered(BEN, [span(at(9), at(10))])],
+    })
+    expect(scheduleOf(early, at(9, 30))?.result).toMatchObject({ kind: 'no_slot', closest: null })
+  })
+
   it('is no result for a room that schedules nothing', () => {
     expect(scheduleOf(unscheduled(), NOW)).toBeNull()
   })

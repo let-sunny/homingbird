@@ -440,6 +440,104 @@ describe('activityModel', () => {
     expect(itemsOf(model, 'debates')[1]!.place.href).toBe('#/debate/debate_asks0000000/turns')
   })
 
+  it('asks for free times in a scheduling room no agent answers, in scheduling words, not a debate’s', () => {
+    const open = (mine: AsRead.DebateSummary['mine'], participantIds: MemberId[] = [ANA]) =>
+      activityModel(
+        input({
+          debates: [
+            summary({
+              id: 'debate_meet0000000' as DebateId,
+              type: 'scheduling',
+              createdAt: 30,
+              participantIds,
+              ...(mine !== undefined && { mine }),
+            }),
+          ],
+        }),
+      )
+    const asked = open({ answer: 'waiting', notices: [] }, [])
+    expect(itemsOf(asked, 'debates')).toMatchObject([
+      {
+        text: strings.activity.meetingAsks,
+        weight: 1,
+        place: { href: '#/debate/debate_meet0000000', label: strings.activity.openSchedulingRoom },
+      },
+    ])
+    expect(open({ answer: 'choosing', notices: [] })).toMatchObject({ count: 1 })
+    expect(open({ answer: 'waiting', notices: [] }).groups).toEqual([])
+    expect(open({ answer: 'by_person', notices: [] }, []).groups).toEqual([])
+    expect(open(undefined, []).groups).toEqual([])
+  })
+
+  it('lists what a scheduling room’s meeting last told the person, counting only what waits on them', () => {
+    const told = (
+      notice: NonNullable<AsRead.DebateSummary['mine']>['notices'][number],
+      attendance: NonNullable<AsRead.DebateSummary['mine']>['attendance'] = 'added',
+      createdBy: MemberId = ANA,
+    ) =>
+      itemsOf(
+        activityModel(
+          input({
+            members: new Map([[BEN, member(BEN, 'Ben')]]),
+            debates: [
+              summary({
+                id: 'debate_meet0000000' as DebateId,
+                type: 'scheduling',
+                status: 'closed',
+                createdBy,
+                deadlineAt: NOW - 5000,
+                mine: { answer: 'by_person', attendance, notices: [notice] },
+              }),
+            ],
+          }),
+        ),
+        'debates',
+      ).map((item) => [item.type === 'debate' && item.text, item.weight])
+    const about = { memberId: null, because: null, agentName: null, at: NOW - 10 }
+    const texts = strings.activity.meetingNotice
+    expect(told({ ...about, notice: 'waits' }, 'by_hand', BEN)).toEqual([[texts.waits, 1]])
+    expect(told({ ...about, notice: 'waits' }, 'asked')).toEqual([[texts.waitsOpener, 1]])
+    expect(told({ ...about, notice: 'waits' }, 'added')).toEqual([[texts.waitsOpener, 0]])
+    expect(told({ ...about, notice: 'left', memberId: BEN, because: 'took_out' })).toEqual([
+      [texts.tookOut({ name: 'Ben' }), 0],
+    ])
+    expect(told({ ...about, notice: 'left', memberId: BEN, because: 'declined' })).toEqual([
+      [texts.declined({ name: 'Ben' }), 0],
+    ])
+    expect(told({ ...about, notice: 'busy', memberId: 'mem_gone00000000' as MemberId })).toEqual([
+      [texts.busy({ name: strings.formerMember }), 0],
+    ])
+    expect(told({ ...about, notice: 'busy' })).toEqual([[texts.busy({ name: strings.formerMember }), 0]])
+    expect(told({ ...about, notice: 'joined' })).toEqual([[texts.joined, 0]])
+    expect(told({ ...about, notice: 'joined', agentName: 'Laptop' })).toEqual([
+      [texts.joinedFirst({ agent: 'Laptop' }), 0],
+    ])
+    for (const notice of ['added', 'cancelled', 'remove_by_hand'] as const)
+      expect(told({ ...about, notice })).toEqual([[texts[notice], 0]])
+    expect(told({ ...about, notice: 'unknown' })).toEqual([[texts.unknown, 0]])
+    expect(told({ ...about, notice: 'added', at: NOW - RESULT_LISTED_MS - 1 })).toEqual([
+      [strings.activity.meetingSettled, 0],
+    ])
+  })
+
+  it('lists a settled scheduling room for a week, then leaves it out', () => {
+    const settled = (deadlineAt: number) =>
+      activityModel(
+        input({
+          debates: [
+            summary({
+              type: 'scheduling',
+              status: 'closed',
+              deadlineAt,
+              mine: { answer: 'by_agent', notices: [] },
+            }),
+          ],
+        }),
+      )
+    expect(itemsOf(settled(NOW - 10), 'debates')).toMatchObject([{ text: strings.activity.meetingSettled }])
+    expect(settled(NOW - RESULT_LISTED_MS).groups).toEqual([])
+  })
+
   it('lists a short debate the agent suggested, newest first, counted once and opening where its note is', () => {
     const model = activityModel(
       input({

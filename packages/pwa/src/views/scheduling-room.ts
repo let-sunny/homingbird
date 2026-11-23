@@ -40,6 +40,7 @@ export const renderSchedulingRoom = (
             h('strong', {}, profileName(attendee.memberId, attendee.name)),
             h('small', {}, attendee.required),
             h('span', {}, attendee.answer),
+            attendee.part !== null && h('span', { class: 'scheduling-attendee-part' }, attendee.part),
           ),
         ),
       ),

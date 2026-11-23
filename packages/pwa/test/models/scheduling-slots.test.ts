@@ -31,12 +31,17 @@ const room = (
 
 const model = (
   debateRoom: ReturnType<typeof room>,
-  extra: { hasAgent?: boolean; chosen?: ReadonlyArray<number>; now?: number; workingOnly?: boolean } = {},
+  extra: { joined?: boolean; chosen?: ReadonlyArray<number>; now?: number; workingOnly?: boolean } = {},
 ) =>
   schedulingSlotsModel({
-    debate: debateRoom,
+    debate:
+      extra.joined === true
+        ? {
+            ...debateRoom,
+            participants: [{ memberId: ANA, agentId: null, agentName: 'Laptop', joinedAt: 1 }],
+          }
+        : debateRoom,
     viewerId: ANA,
-    hasAgent: extra.hasAgent ?? true,
     now: extra.now ?? START,
     timeZone: 'Asia/Seoul',
     showAllHours: extra.workingOnly !== true,
@@ -99,22 +104,21 @@ describe('schedulingSlotsModel', () => {
     expect(shown.workingHint).toBeNull()
   })
 
-  it('is there for a person with no agent whatever they answered, and for a person choosing themself', () => {
-    expect(model(room({}, {}, 'waiting'), { hasAgent: false })).not.toBeNull()
-    expect(model(room({}, {}, 'by_person'), { hasAgent: false })!.answered).not.toBeNull()
-    expect(model(room({}, {}, 'choosing'), { hasAgent: true })).not.toBeNull()
+  it('is there for a person no agent of theirs answers for, whatever they answered, and for a person choosing themself', () => {
+    expect(model(room({}, {}, 'waiting'))).not.toBeNull()
+    expect(model(room({}, {}, 'by_person'))!.answered).not.toBeNull()
+    expect(model(room({}, {}, 'choosing'), { joined: true })).not.toBeNull()
   })
 
-  it('is not there when the agent answers, when the room is not collecting, or for someone not invited', () => {
-    expect(model(room({}, {}, 'by_agent'))).toBeNull()
-    expect(model(room({}, {}, 'waiting'))).toBeNull()
+  it('is not there when an agent of theirs takes part, when the room is not collecting, or for someone not invited', () => {
+    expect(model(room({}, {}, 'by_agent'), { joined: true })).toBeNull()
+    expect(model(room({}, {}, 'waiting'), { joined: true })).toBeNull()
     expect(model(room({ status: 'closed' }))).toBeNull()
     expect(model(debate())).toBeNull()
     expect(
       schedulingSlotsModel({
         debate: room(),
         viewerId: 'mem_zed000000000' as never,
-        hasAgent: false,
         now: START,
       }),
     ).toBeNull()
@@ -131,7 +135,7 @@ describe('schedulingSlotsModel', () => {
       },
       'by_person',
     )
-    const shown = model(given, { hasAgent: false })!
+    const shown = model(given)!
     const picked = shown.days.flatMap((day) => day.cells).filter((cell) => cell.chosen)
     expect(picked.map((cell) => cell.startsAt)).toEqual([START + HOUR, START + 2 * HOUR])
     expect(shown.count).toBe('2 hours picked')

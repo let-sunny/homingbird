@@ -167,8 +167,7 @@ export const isAgentTakingPart = (
 }
 
 /**
- * Each agent's id to its own person only; while drafts are collected, an agent sees only its own. Free
- * times go to attendees and an administrator as a person, and to an agent only its own person's.
+ * Agent ids, drafts being collected, free times and their notes: each only to its own person and agent.
  */
 const seenBy =
   (caller: Caller) =>
@@ -176,7 +175,10 @@ const seenBy =
     const viewerId = caller.member.id
     const shown = {
       ...debate,
-      ...(debate.schedule != null && { schedule: scheduleSeenBy(caller, debate.schedule) }),
+      ...(debate.schedule != null && {
+        schedule: scheduleSeenBy(caller, debate.schedule),
+        turns: debate.turns.map((turn) => (turn.memberId === viewerId ? turn : { ...turn, body: '' })),
+      }),
       participants: debate.participants.map((participant) =>
         participant.memberId === viewerId ? participant : { ...participant, agentId: null },
       ),
@@ -213,10 +215,10 @@ const scheduleSeenBy = (
 ): NonNullable<Debate['schedule']> => {
   const viewerId = caller.member.id
   const own = schedule.attendees.find((attendee) => attendee.memberId === viewerId)
-  const seesAll = isHuman(caller) && (own !== undefined || caller.member.role === 'admin')
-  const shown = seesAll
-    ? schedule
-    : { ...schedule, freeSlots: (schedule.freeSlots ?? []).filter((one) => one.memberId === viewerId) }
+  const shown = {
+    ...schedule,
+    freeSlots: (schedule.freeSlots ?? []).filter((one) => one.memberId === viewerId),
+  }
   const isInvited = own?.attendance !== undefined
   return schedule.invite == null || isInvited ? shown : { ...shown, invite: null }
 }

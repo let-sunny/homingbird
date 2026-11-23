@@ -56,6 +56,15 @@ describe('scheduleSetupFrom', () => {
     })
   })
 
+  it('starts a window whose first day is today from now, on the next quarter hour, never in the past', () => {
+    const now = new Date(2026, 10, 20, 14, 7).getTime()
+    expect(scheduleSetupFrom(typed(), now)).toMatchObject({
+      setup: { window: { startsAt: new Date(2026, 10, 20, 14, 15).getTime(), endsAt: day(11, 23) } },
+    })
+    const late = new Date(2026, 10, 22, 23, 30).getTime()
+    expect(scheduleSetupFrom(typed(), late)).toEqual({ problem: strings.scheduling.problems.tooLittleLeft })
+  })
+
   it('falls back to half an hour for a length that is not offered', () => {
     expect(scheduleSetupFrom(typed({ minutes: '7' }), NOW)).toMatchObject({ setup: { minutes: 30 } })
   })

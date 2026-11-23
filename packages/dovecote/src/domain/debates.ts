@@ -43,6 +43,7 @@ import {
 import { moveDebate } from './debate-settling.ts'
 import { settleDebate } from './debate-turns.ts'
 import { meetingAsks } from './meeting-invitations.ts'
+import { ownSchedulingParts } from './meeting-notices.ts'
 
 export interface DebateWish {
   readonly question: string
@@ -115,7 +116,12 @@ export const listDebates = (viewer: Viewer): T.Task<DebateSummary[], never, Requ
     const participants = yield* all<{ debate_id: DebateId; member_id: MemberId }>(sql`
       SELECT debate_id, member_id FROM debate_participants WHERE debate_id IN ${list(rows.map((row) => row.id))}
       ORDER BY created_at, member_id`)
+    const mine = yield* ownSchedulingParts(
+      viewer.id,
+      rows.filter((row) => row.room_type === 'scheduling').map((row) => row.id),
+    )
     return rows.map((row) => ({
+      ...(mine.has(row.id) && { mine: mine.get(row.id)! }),
       id: row.id,
       type: roomRulesOf(row).kind,
       question: row.question,
@@ -287,6 +293,7 @@ export const activeMembersAmong = (ids: ReadonlyArray<MemberId>): T.Task<MemberI
 export const requireMayInvite = (
   inviterId: MemberId,
   ids: ReadonlyArray<MemberId>,
+  room: 'a debate room' | 'a meeting' = 'a debate room',
 ): T.Task<void, Forbidden, RequestEnv> =>
   T.gen(function* () {
     if (ids.length === 0) return
@@ -296,7 +303,7 @@ export const requireMayInvite = (
       OR (b.blocked_id = ${inviterId} AND b.blocker_id IN ${list(ids)})
       ORDER BY m.name`)
     if (blocked !== null)
-      return yield* T.fail(Forbidden({ message: `You cannot ask ${blocked.name} to a debate room.` }))
+      return yield* T.fail(Forbidden({ message: `You cannot ask ${blocked.name} to ${room}.` }))
   })
 
 export type DebateAsks = Omit<Required<ResponseOf<Contract['debates.waiting']>>, 'answers'>

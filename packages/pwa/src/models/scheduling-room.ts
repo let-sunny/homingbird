@@ -8,7 +8,8 @@ export const roomKindOf = (debate: Pick<AsRead.Debate, 'type'>): 'debate' | 'sch
 
 /**
  * A scheduling room: who has answered and what each one is doing, the deadline, and the result, with
- * every time in the viewer's time zone.
+ * every time in the viewer's time zone. Whoever opened it also sees where each other person's part of
+ * the meeting stands.
  */
 export const schedulingRoomModel = (input: SchedulingRoomInput): SchedulingRoomModel => {
   const { debate, viewerId, timeZone } = input
@@ -45,6 +46,10 @@ export const schedulingRoomModel = (input: SchedulingRoomInput): SchedulingRoomM
         attendee.answer ?? 'waiting'
       ],
       answered: hasAnswered(attendee),
+      part:
+        debate.createdBy === viewerId && attendee.memberId !== viewerId && attendee.attendance !== undefined
+          ? strings.scheduling.partOf[knownPart(attendee.attendance)]
+          : null,
     })),
     resultTitle: strings.scheduling.resultTitle,
     result: resultOf(debate, { nameOf, viewerId }, timeZone),
@@ -80,6 +85,8 @@ export type SchedulingRoomModel =
         readonly required: string
         readonly answer: string
         readonly answered: boolean
+        /** Where their part of the meeting stands, for whoever opened the room. */
+        readonly part: string | null
       }>
       readonly resultTitle: string
       readonly result: SchedulingResult
@@ -104,6 +111,9 @@ export const schedulingStageOf = (status: AsRead.Debate['status'], resultKind?: 
       : status === 'ended'
         ? 'ended'
         : 'unknown'
+
+const knownPart = (state: string): keyof typeof strings.scheduling.partOf =>
+  state in strings.scheduling.partOf ? (state as keyof typeof strings.scheduling.partOf) : 'unknown'
 
 const hasAnswered = (attendee: { readonly answer?: string | undefined }): boolean =>
   attendee.answer === 'by_agent' || attendee.answer === 'by_person'

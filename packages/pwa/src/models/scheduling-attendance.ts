@@ -21,7 +21,8 @@ export const schedulingAttendanceModel = (
   const mayAdd = state === 'asked' || state === 'by_hand'
   const inCalendar = state === 'adding' || state === 'added'
   const mayLeave = inCalendar || mayAdd || (state === 'waiting_invite' && !isOpener)
-  const mayGiveFile = state !== 'cancelled' && (state === 'by_hand' || !input.hasAgent)
+  const mayGiveFile =
+    state !== 'cancelled' && state !== 'not_invited' && (state === 'by_hand' || !input.hasAgent)
   return {
     title: strings.scheduling.attendanceTitle,
     status: strings.scheduling.attendance[known(state)],

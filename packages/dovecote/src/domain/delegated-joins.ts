@@ -6,6 +6,7 @@ import { sql } from '../sql/query.ts'
 import { recordAudit } from './audit.ts'
 import { type DebateRow, lockedDebate } from './debate-rows.ts'
 import { moveDebate } from './debate-settling.ts'
+import { tellMeeting } from './meeting-notices.ts'
 import { delegatedAgentOf, delegationOf } from './scheduling-delegations.ts'
 
 /** Without the person's click, recorded and told to them, naming the agent the first time. */
@@ -15,7 +16,6 @@ export const joinByDelegation = (
   minutes: number,
 ): T.Task<void, Conflict | Invalid, RequestEnv> =>
   T.gen(function* () {
-    const env = yield* T.ask<RequestEnv>()
     const delegation = yield* delegationOf(memberId)
     if (!mayJoinByDelegation(delegation, { memberId, openedBy: row.created_by, minutes })) return
     const agent = yield* delegatedAgentOf(memberId, delegation.agentId)
@@ -40,13 +40,10 @@ export const joinByDelegation = (
       targetId: row.id,
       detail: { credentialId: agent.id, byDelegation: true },
     })
-    env.outbox.push({
-      memberId,
-      meeting: {
-        debateId: row.id,
-        title: row.question,
-        toOpener: memberId === row.created_by,
-        notice: { to: memberId, notice: 'joined', agentName: isFirst ? agent.name : null },
-      },
+    yield* tellMeeting(memberId, {
+      debateId: row.id,
+      title: row.question,
+      toOpener: memberId === row.created_by,
+      notice: { to: memberId, notice: 'joined', agentName: isFirst ? agent.name : null },
     })
   })

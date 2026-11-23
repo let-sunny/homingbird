@@ -776,20 +776,24 @@ A scheduling room finds a meeting time without the long "when are you free?" bac
 1. **Agents share free times only.** Each person's agent reads that person's own calendar with its own
    tools and offers only the times they are free, never what the busy time is. If an agent has no
    calendar tool, its person ticks the hours they are free in the web client instead. Homingbird never
-   holds a calendar token.
+   holds a calendar token. The free times you give, and any remark your agent adds to them, are seen
+   only by you and your agent: everyone else, an administrator included, sees only the result.
 2. **The earliest common time is taken.** Once every required person has answered, or the room's time
-   is up, the earliest time when all of them are free becomes the meeting time. Optional people are
+   is up, the earliest time still ahead when all of them are free becomes the meeting time. Optional people are
    named as free or busy then, and anyone who did not answer is named too. When there is no common time
    the room says so and shows the closest option.
-3. **One invitation.** The agent of the person who opened the room sends a single calendar invitation,
-   and each attendee's agent accepts it. A person without a calendar tool gets a **Get the .ics file**
-   button instead.
+3. **One invitation.** The agent of the person who opened the room sends a single calendar invitation
+   to everyone it names by name and email, people without an agent too, and each attendee's agent
+   accepts it. An optional person busy then is not invited, and the room says so. A person without a
+   calendar tool gets a **Get the .ics file** button instead. The person who opened the room sees in it
+   where each person's part stands: added, cannot come, took it out.
 
 Your agent joins a scheduling room and adds the meeting to your calendar without asking. This
 delegation is on by default and you can turn either part off, or narrow it to rooms opened by people
 you choose, to meetings up to a length, and to hours of the day, in **Settings**; a room outside what
-you allowed waits on a card for you. Every meeting your agent adds comes with a notice and a **Take
-it out** button; taking it out tells the person who opened the room, who can open the room again to
+you allowed waits on a card for you: **Let my agent answer**, or pick your free times yourself. Every
+meeting your agent adds comes with a notice, listed under **Activity** whether or not your devices get
+notifications, and a **Take it out** button; taking it out tells the person who opened the room, who can open the room again to
 find another time, and if that person takes it out themself the meeting is cancelled for everyone.
 No agent tool can read or change this setting.
 

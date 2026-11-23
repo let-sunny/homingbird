@@ -4,7 +4,7 @@ import { DEBATE_GRACE_MINUTES } from './debate-grace.ts'
 import { DEBATE_PARTICIPANTS_MAX, DebateResult } from './debate-result.ts'
 import { FREE_SLOTS_MAX } from './free-slots.ts'
 import { CredentialId, DebateId, MemberId, Timestamp } from './ids.ts'
-import { MeetingAttendance, MeetingInvite } from './meeting.ts'
+import { MEETING_NOTICES_SHOWN_MAX, MeetingAttendance, MeetingInvite, MeetingNoticeShown } from './meeting.ts'
 import { AgentLabel } from './model.ts'
 import { RoomResult } from './room-result.ts'
 
@@ -218,6 +218,13 @@ export const DebateSummary = S.struct({
   resultDrafted: S.boolean,
   joined: S.boolean,
   fromSuggestion: S.optional(S.boolean),
+  mine: S.optional(
+    S.struct({
+      answer: AttendeeAnswer,
+      attendance: S.optional(MeetingAttendance),
+      notices: S.array(MeetingNoticeShown, { maxItems: MEETING_NOTICES_SHOWN_MAX }),
+    }),
+  ),
 })
 export type DebateSummary = S.Infer<typeof DebateSummary>
 
