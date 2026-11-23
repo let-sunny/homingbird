@@ -62,11 +62,12 @@ describe('a scheduling room’s stored free slots', () => {
     expect(rows).toHaveLength(3)
   })
 
-  it('shows every attendee’s free times to the people asked, and to an agent only its own person’s', async () => {
+  it('shows each attendee’s free times only to them and their own agent', async () => {
     const id = await openedWithAgents('open')
     await cast.benAgent.api('POST', `/debates/${id}/slots`, { slots: [hours(1, 1)] })
     const bens = [{ memberId: cast.ben.me.member.id, slots: [hours(1, 1)] }]
-    expect((await cast.cy.api('GET', `/debates/${id}`)).json.schedule.freeSlots).toEqual(bens)
+    expect((await cast.ben.api('GET', `/debates/${id}`)).json.schedule.freeSlots).toEqual(bens)
+    expect((await cast.cy.api('GET', `/debates/${id}`)).json.schedule.freeSlots).toEqual([])
     expect((await cast.benAgent.api('GET', `/debates/${id}`)).json.schedule.freeSlots).toEqual(bens)
     expect((await cast.cyAgent.api('GET', `/debates/${id}`)).json.schedule.freeSlots).toEqual([])
     const dee = await server.signIn('dee@example.com', 'Dee')

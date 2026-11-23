@@ -135,7 +135,11 @@ describe('the card to pick free times', () => {
   })
 
   it('is left out when the person has an agent that answers for them', () => {
-    const { shown } = opened(collecting('by_agent'), true)
+    const answered = collecting('by_agent')
+    const { shown } = opened(
+      { ...answered, participants: [{ memberId: ANA, agentId: null, agentName: 'Laptop', joinedAt: 1 }] },
+      true,
+    )
     expect(shown.querySelector('.scheduling-pick')).toBeNull()
   })
 })

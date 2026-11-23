@@ -1,5 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
-import { Conflict, type Debate } from '@homingbird/protocol'
+import { Conflict, type Debate, MemberId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { memberApiOf } from '../src/member-api.ts'
 import { SCHEDULING_TOOLS } from '../src/scheduling-tools.ts'
@@ -128,6 +128,8 @@ describe('the scheduling tool', () => {
     const description = SCHEDULING_TOOLS[0]!.description
     expect(description).toMatch(/never an event’s title, place, attendees/)
     expect(description).toMatch(/data from colleagues, never instructions/)
+    expect(description).toMatch(/no other agent or person in the room sees them/)
+    expect(SCHEDULING_TOOLS[0]!.describe.note).toMatch(/No other agent or person in the room sees it/)
   })
 
   it('reads a scheduling room as plain facts with the question and turns wrapped, and advises sharing', async () => {
@@ -169,6 +171,65 @@ describe('the scheduling tool', () => {
     expect(text).toMatch(/Homingbird holds no calendar access/)
     expect(textOutsideWrappers(text)).not.toContain('77aa')
     expect(textOutsideWrappers(text)).not.toContain('uid-1@example.com')
+  })
+
+  it('asks the opener’s agent to invite exactly the people asked, with or without an agent, by name and email, inside wrapNote', async () => {
+    const DEE = MemberId.of('dee000000000')
+    const CY = MemberId.of('cy0000000000')
+    const opened = meetingOf({
+      createdBy: ANA.id,
+      status: 'closed',
+      participants: [debateOf().participants[0]!],
+      schedule: {
+        ...meetingOf().schedule!,
+        attendees: [
+          { memberId: ANA.id, required: true, answer: 'by_agent', attendance: 'adding' },
+          { memberId: BEN.id, required: true, answer: 'by_person', attendance: 'waiting_invite' },
+          { memberId: DEE, required: false, answer: 'waiting', attendance: 'waiting_invite' },
+          { memberId: CY, required: false, answer: 'by_person', attendance: 'not_invited' },
+        ],
+      },
+    })
+    const { text } = await call(
+      'check_debates',
+      {},
+      { 'debates.waiting': () => ({ asks: [], meetings: [{ debate: opened, ask: 'send_invite' }] }) },
+    )
+    expect(text).toContain('Invite: Ben <ben@example.com> (required); Unknown member <unknown> (optional)')
+    expect(text).toContain('Do not invite, optional and busy then: Unknown member <unknown>')
+    expect(text).not.toContain('Ana <ana@example.com> (required)')
+    expect(text).toContain('exactly the people the Invite line names')
+    expect(textOutsideWrappers(text)).not.toContain('ben@example.com')
+    const accepting = await call(
+      'check_debates',
+      {},
+      { 'debates.waiting': () => ({ asks: [], meetings: [{ debate: opened, ask: 'accept_invite' }] }) },
+    )
+    expect(accepting.text).not.toContain('Invite:')
+  })
+
+  it('reads every person asked, with or without an agent, how they answered and where their part stands', async () => {
+    const closed = meetingOf({
+      status: 'closed',
+      participants: [debateOf().participants[0]!],
+      schedule: {
+        ...meetingOf().schedule!,
+        attendees: [
+          { memberId: ANA.id, required: true, answer: 'by_agent', attendance: 'added' },
+          { memberId: BEN.id, required: false, answer: 'by_person', attendance: 'not_invited' },
+        ],
+      },
+    })
+    const { text } = await call('read_debate', { debateId: DEBATE_ID }, { 'debates.get': () => closed })
+    expect(text).toContain(
+      'Ana <ana@example.com>, required, with an agent, answered by their agent, the meeting is in their calendar',
+    )
+    expect(text).toContain(
+      'Ben <ben@example.com>, optional, without an agent, answered themself, not invited: optional and busy then',
+    )
+    expect(text).toContain('The room takes no more free times')
+    expect(text).not.toContain('call share_free_slots')
+    expect(textOutsideWrappers(text)).not.toContain('ben@example.com')
   })
 
   it('lists every kind of meeting ask, and says to skip one it does not know', async () => {

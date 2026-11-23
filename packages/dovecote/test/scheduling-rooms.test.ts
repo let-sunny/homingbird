@@ -88,6 +88,7 @@ describe('opening a scheduling room', () => {
       { window: { startsAt: server.clock.now() - DAY, endsAt: server.clock.now() - HOUR } },
       { window: { startsAt: windowStart(), endsAt: windowStart() + 15 * DAY } },
       { window: { startsAt: windowStart(), endsAt: windowStart() + 30 * 60_000 } },
+      { window: { startsAt: server.clock.now() - DAY, endsAt: server.clock.now() + 30 * 60_000 } },
       { attendees: [{ memberId: cast.ana.me.member.id, required: true }] },
       {
         attendees: [
@@ -291,6 +292,16 @@ describe('a scheduling room’s time', () => {
       ...hours(1, 1),
       unanswered: [cast.ben.me.member.id, cast.cy.me.member.id],
     })
+  })
+
+  it('settles on a time still ahead in a window that has already begun', async () => {
+    const now = server.clock.now()
+    const window = { startsAt: now - 2 * HOUR, endsAt: now + 6 * HOUR }
+    const room = await opened({ window })
+    await cast.ben.api('PUT', `/debates/${room.id}/slots/mine`, { slots: [window] })
+    const settled = (await cast.ana.api('PUT', `/debates/${room.id}/slots/mine`, { slots: [window] })).json
+    const ahead = Math.ceil(now / (15 * 60_000)) * 15 * 60_000
+    expect(settled.result.result).toMatchObject({ kind: 'slot', startsAt: ahead, endsAt: ahead + HOUR })
   })
 
   it('ends with no turns when no required person answered by the deadline', async () => {

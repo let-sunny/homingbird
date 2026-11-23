@@ -16,6 +16,7 @@ import { all, first, run } from '../sql/database.ts'
 import { list, sql } from '../sql/query.ts'
 import { recordAudit } from './audit.ts'
 import type { DebateRow } from './debate-rows.ts'
+import { tellMeeting } from './meeting-notices.ts'
 import { delegationOf } from './scheduling-delegations.ts'
 
 /** The meeting's attendance as stored, opener first, or null before the room found a time. */
@@ -87,7 +88,7 @@ export const meetingsWaitingOn = (
     AND a.state IN ${list(['adding', 'removing'])}
     ORDER BY d.created_at, d.id`)
 
-/** Stores each part the step moved and queues its notices for after the commit. */
+/** Stores each part the step moved and keeps its notices, queued for the devices after the commit. */
 export const keepAttendance = (
   row: Pick<DebateRow, 'id' | 'question' | 'created_by'>,
   before: Attendance | null,
@@ -111,8 +112,7 @@ export const keepAttendance = (
           detail: { by: 'agent', byDelegation: true },
         })
     }
-    for (const notice of step.notices)
-      env.outbox.push({ memberId: notice.to, meeting: meetingNoticeOf(row, notice) })
+    for (const notice of step.notices) yield* tellMeeting(notice.to, meetingNoticeOf(row, notice))
   })
 
 /** Keeps the invitation the opener's agent sent; its id and link are never audited or logged. */

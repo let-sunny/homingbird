@@ -4,6 +4,7 @@ import {
   type MemberId,
   SCHEDULE_WINDOW_MAX_DAYS,
   type ScheduleSetup,
+  windowAheadOf,
 } from '@homingbird/protocol'
 import { strings } from '../strings.ts'
 
@@ -32,7 +33,8 @@ export const schedulingFormModel = (input: SchedulingFormInput): SchedulingFormM
 
 /**
  * The setup typed into the form, or the reason it cannot be opened. The days are read in the browser's
- * time zone: the window runs from the start of the earliest day to the end of the latest.
+ * time zone: the window runs from the start of the earliest day, or from now when that day has begun, to
+ * the end of the latest.
  */
 export const scheduleSetupFrom = (
   typed: TypedSchedule,
@@ -49,11 +51,15 @@ export const scheduleSetupFrom = (
   if (Math.round((endsAt - startsAt) / DAY_MS) > SCHEDULE_WINDOW_MAX_DAYS)
     return { problem: strings.scheduling.problems.tooManyDays({ days: SCHEDULE_WINDOW_MAX_DAYS }) }
   if (endsAt <= now) return { problem: strings.scheduling.problems.passed }
+  const minutes = lengthFrom(typed.minutes)
+  const window = windowAheadOf({ startsAt, endsAt }, now)
+  if (window.endsAt - window.startsAt < minutes * 60_000)
+    return { problem: strings.scheduling.problems.tooLittleLeft }
   return {
     setup: {
       title,
-      minutes: lengthFrom(typed.minutes),
-      window: { startsAt, endsAt },
+      minutes,
+      window,
       attendees: typed.chosen.map((memberId) => ({ memberId, required: !typed.optional.has(memberId) })),
     },
   }

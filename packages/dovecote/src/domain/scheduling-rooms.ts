@@ -16,6 +16,7 @@ import {
   type ScheduleSetup,
   type TimeSpan,
   turnHoldOf,
+  windowAheadOf,
 } from '@homingbird/protocol'
 import { type Caller, isHuman, viewerOf } from '../environment.ts'
 import type { RequestEnv } from '../events/events.ts'
@@ -33,7 +34,7 @@ import {
   visibleDebate,
 } from './debate-rows.ts'
 import { moveDebate, settleDebateRow } from './debate-settling.ts'
-import { activeMembersAmong } from './debates.ts'
+import { activeMembersAmong, requireMayInvite } from './debates.ts'
 import { joinByDelegation } from './delegated-joins.ts'
 import { keepChosenSlots } from './scheduling-rows.ts'
 import { featureIsOn } from './settings.ts'
@@ -63,6 +64,11 @@ export const openSchedulingRoom = (
     if (new Set(others.map((attendee) => attendee.memberId)).size !== others.length)
       return yield* T.fail(Invalid({ message: 'Ask each person once.' }))
     yield* activeMembersAmong(others.map((attendee) => attendee.memberId))
+    yield* requireMayInvite(
+      caller.member.id,
+      others.map((attendee) => attendee.memberId),
+      'a meeting',
+    )
     const attendees = [{ memberId: caller.member.id, required: true }, ...others]
     const row: DebateRow = {
       id: DebateId.of(env.random.identifier()),
@@ -295,7 +301,11 @@ const setupProblem = (setup: ScheduleSetup, now: number): string | null => {
   const length = window.endsAt - window.startsAt
   if (length > SCHEDULE_WINDOW_MAX_DAYS * DAY_MS)
     return `The window to find a time in spans at most ${SCHEDULE_WINDOW_MAX_DAYS} days.`
-  return length < minutes * 60_000 ? 'The window to find a time in is shorter than the meeting.' : null
+  if (length < minutes * 60_000) return 'The window to find a time in is shorter than the meeting.'
+  const ahead = windowAheadOf(window, now)
+  return ahead.endsAt - ahead.startsAt < minutes * 60_000
+    ? 'Too little of the window to find a time in is still ahead for the meeting.'
+    : null
 }
 
 const DAY_MS = 24 * 60 * 60_000

@@ -174,6 +174,13 @@ describe('schedulingAttendanceModel', () => {
     expect(as(BEN, settled('cancelled'), false)!.calendarFile).toBeNull()
   })
 
+  it('says an optional person busy then was not invited, and offers them nothing to click or download', () => {
+    const shown = as(BEN, settled('not_invited'), false)!
+    expect(shown.status).toBe(strings.scheduling.attendance.not_invited)
+    expect(shown.actions).toEqual([])
+    expect(shown.calendarFile).toBeNull()
+  })
+
   it('reads a state it does not know as not in the calendar', () => {
     expect(as(BEN, settled('brand_new' as never), true)!.status).toBe(strings.scheduling.attendance.unknown)
   })

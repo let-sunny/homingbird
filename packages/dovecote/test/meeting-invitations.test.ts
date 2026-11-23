@@ -112,7 +112,7 @@ describe('a meeting the room confirmed', () => {
     expect(await meetingsOf(cast.benAgent)).toEqual([])
   })
 
-  it('invites no optional person who is busy at that time', async () => {
+  it('invites no optional person who is busy at that time, and their part says so', async () => {
     const opened = await cast.ana.api('POST', '/scheduling-rooms', {
       title: 'Plan the launch',
       minutes: 60,
@@ -129,7 +129,9 @@ describe('a meeting the room confirmed', () => {
     expect(await partsOf(id)).toEqual({
       [cast.ana.me.member.id]: 'by_hand',
       [cast.ben.me.member.id]: 'waiting_invite',
+      [cast.cy.me.member.id]: 'not_invited',
     })
+    expect((await cast.cy.api('POST', `/debates/${id}/attendance`)).status).toBe(409)
   })
 
   it('tells nobody on their devices while web push is off', async () => {

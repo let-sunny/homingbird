@@ -47,6 +47,19 @@ describe('renderSchedulingRoom', () => {
     expect(shown.querySelector('.scheduling-deadline')).not.toBeNull()
   })
 
+  it('shows whoever opened the room where each other person’s part of the meeting stands', () => {
+    const room = meeting({ status: 'closed', createdBy: ANA })
+    const attendees = [
+      { memberId: ANA, required: true, answer: 'by_person', attendance: 'added' },
+      { memberId: BEN, required: false, answer: 'by_agent', attendance: 'declined' },
+    ] as const
+    const shown = mount(renderSchedulingRoom(model({ ...room, schedule: { ...room.schedule!, attendees } })))
+    expect(shown.querySelector(`li[data-member="${BEN}"] .scheduling-attendee-part`)?.textContent).toBe(
+      strings.scheduling.partOf.declined,
+    )
+    expect(shown.querySelector(`li[data-member="${ANA}"] .scheduling-attendee-part`)).toBeNull()
+  })
+
   it('shows the time the room settled on and no deadline', () => {
     const slot = {
       kind: 'slot',

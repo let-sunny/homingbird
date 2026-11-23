@@ -53,13 +53,13 @@ const report = (memberId: MemberId, outcome: CalendarOutcome): AttendanceEvent =
 /** Sent by the opener's agent; everyone else adds as `others` says. */
 const sent = (others: (memberId: MemberId) => Adding = byAgents) => {
   const addingOf = (memberId: MemberId): Adding => (memberId === ANA ? 'agent' : others(memberId))
-  return accepted(confirmAttendance(ANA, PEOPLE, addingOf).attendance, report(ANA, 'sent'), addingOf)
+  return accepted(confirmAttendance(ANA, PEOPLE, addingOf, []).attendance, report(ANA, 'sent'), addingOf)
     .attendance
 }
 
 describe('a confirmed meeting', () => {
   it('asks the opener’s agent for one invitation, and nobody else for anything yet', () => {
-    expect(confirmAttendance(ANA, [BEN, ANA, CY, BEN], byAgents)).toEqual({
+    expect(confirmAttendance(ANA, [BEN, ANA, CY, BEN], byAgents, [])).toEqual({
       attendance: {
         openedBy: ANA,
         attendees: [
@@ -73,9 +73,26 @@ describe('a confirmed meeting', () => {
     })
   })
 
+  it('leaves out an optional person busy then, saying so, and never asks, invites or cancels them', () => {
+    const step = confirmAttendance(ANA, [ANA, BEN], byAgents, [DAN, BEN, ANA, DAN])
+    expect(step.attendance.attendees).toEqual([
+      { memberId: ANA, state: 'adding' },
+      { memberId: BEN, state: 'waiting_invite' },
+      { memberId: DAN, state: 'not_invited' },
+    ])
+    const sent = accepted(step.attendance, report(ANA, 'sent'), byAgents)
+    expect(statesOf(sent.attendance)[DAN]).toBe('not_invited')
+    expect(sent.asks.map((ask) => ask.memberId)).not.toContain(DAN)
+    for (const type of ['add', 'decline', 'remove'] as const)
+      expect(refusal(sent.attendance, { type, memberId: DAN })).toMatch(/not_invited/)
+    const cancelled = accepted(sent.attendance, { type: 'remove', memberId: ANA }, byAgents)
+    expect(statesOf(cancelled.attendance)[DAN]).toBe('not_invited')
+    expect(cancelled.notices.map((notice) => notice.to)).not.toContain(DAN)
+  })
+
   it('asks the opener on a card when their agent waits for a click, or when they send it themself', () => {
     for (const adding of ['agent_after_click', 'person'] as const) {
-      const step = confirmAttendance(ANA, PEOPLE, () => adding)
+      const step = confirmAttendance(ANA, PEOPLE, () => adding, [])
       expect(statesOf(step.attendance)[ANA]).toBe(adding === 'person' ? 'by_hand' : 'asked')
       expect(step.asks).toEqual([])
       expect(step.notices).toEqual([{ to: ANA, notice: 'waits' }])
@@ -87,7 +104,11 @@ describe('the opener’s invitation', () => {
   it('reaches everyone once sent: an agent adds at once, or the person is asked on a card', () => {
     const addingOf = (memberId: MemberId): Adding =>
       memberId === BEN ? 'agent' : memberId === CY ? 'agent_after_click' : 'agent'
-    const step = accepted(confirmAttendance(ANA, PEOPLE, addingOf).attendance, report(ANA, 'sent'), addingOf)
+    const step = accepted(
+      confirmAttendance(ANA, PEOPLE, addingOf, []).attendance,
+      report(ANA, 'sent'),
+      addingOf,
+    )
     expect(statesOf(step.attendance)).toEqual({ [ANA]: 'added', [BEN]: 'adding', [CY]: 'asked' })
     expect(step.asks).toEqual([{ memberId: BEN, ask: 'accept_invite' }])
     expect(step.notices).toEqual([
@@ -98,7 +119,7 @@ describe('the opener’s invitation', () => {
 
   it('is sent by the opener themself when their agent cannot, after which people add it by hand', () => {
     const byHand = () => 'person' as const
-    const opened = confirmAttendance(ANA, PEOPLE, byHand).attendance
+    const opened = confirmAttendance(ANA, PEOPLE, byHand, []).attendance
     const step = accepted(opened, { type: 'add', memberId: ANA }, byHand)
     expect(statesOf(step.attendance)).toEqual({ [ANA]: 'added', [BEN]: 'by_hand', [CY]: 'by_hand' })
     expect(step.notices).toEqual([
@@ -111,7 +132,7 @@ describe('the opener’s invitation', () => {
   })
 
   it('waits on the opener’s card when their agent failed or found the time taken', () => {
-    const opened = confirmAttendance(ANA, PEOPLE, byAgents).attendance
+    const opened = confirmAttendance(ANA, PEOPLE, byAgents, []).attendance
     expect(statesOf(accepted(opened, report(ANA, 'failed')).attendance)[ANA]).toBe('by_hand')
     const busy = accepted(opened, report(ANA, 'conflict'))
     expect(statesOf(busy.attendance)[ANA]).toBe('asked')
@@ -121,7 +142,7 @@ describe('the opener’s invitation', () => {
   })
 
   it('is not accepted, added or reported on by anyone else before it is sent', () => {
-    const opened = confirmAttendance(ANA, PEOPLE, byAgents).attendance
+    const opened = confirmAttendance(ANA, PEOPLE, byAgents, []).attendance
     expect(refusal(opened, report(BEN, 'accepted'))).toBe(
       'Nothing waits for this agent to report accepted: its person’s part of the meeting is waiting_invite.',
     )
@@ -219,7 +240,7 @@ describe('an invited person', () => {
 
 describe('what an agent is asked now', () => {
   it('is to send or cancel the invitation for the opener, and to accept or decline it for anyone else', () => {
-    const opened = confirmAttendance(ANA, PEOPLE, byAgents).attendance
+    const opened = confirmAttendance(ANA, PEOPLE, byAgents, []).attendance
     expect([ANA, BEN, DAN].map((memberId) => askWaitingOn(opened, memberId))).toEqual([
       'send_invite',
       null,
@@ -242,7 +263,7 @@ describe('what an agent is asked now', () => {
 describe('a click that does not fit', () => {
   it('is refused: a decline from the opener, or taking out what is not yet in a calendar', () => {
     const afterClick = () => 'agent_after_click' as const
-    const opened = confirmAttendance(ANA, PEOPLE, afterClick).attendance
+    const opened = confirmAttendance(ANA, PEOPLE, afterClick, []).attendance
     expect(refusal(opened, { type: 'decline', memberId: ANA }, afterClick)).toBe(
       'Whoever opened the room takes the meeting out instead, which cancels it.',
     )
@@ -253,7 +274,7 @@ describe('a click that does not fit', () => {
   })
 
   it('lets a person say they cannot come before the invitation or on a card to add it by hand', () => {
-    const opened = confirmAttendance(ANA, PEOPLE, byAgents).attendance
+    const opened = confirmAttendance(ANA, PEOPLE, byAgents, []).attendance
     expect(statesOf(accepted(opened, { type: 'decline', memberId: BEN }).attendance)[BEN]).toBe('declined')
     const byHand = sent(() => 'person')
     expect(statesOf(accepted(byHand, { type: 'decline', memberId: BEN }).attendance)[BEN]).toBe('declined')
@@ -297,7 +318,7 @@ describe('the opener taking the meeting out', () => {
   it('before sending it by hand cancels it with nothing for an agent to do', () => {
     const byHand = () => 'person' as const
     const step = accepted(
-      confirmAttendance(ANA, PEOPLE, byHand).attendance,
+      confirmAttendance(ANA, PEOPLE, byHand, []).attendance,
       { type: 'remove', memberId: ANA },
       byHand,
     )
@@ -307,7 +328,7 @@ describe('the opener taking the meeting out', () => {
 
   it('before anything was sent cancels it with nothing for an agent to do', () => {
     const afterClick = () => 'agent_after_click' as const
-    const opened = confirmAttendance(ANA, PEOPLE, afterClick).attendance
+    const opened = confirmAttendance(ANA, PEOPLE, afterClick, []).attendance
     const step = accepted(opened, { type: 'remove', memberId: ANA }, afterClick)
     expect(statesOf(step.attendance)).toEqual({ [ANA]: 'removed', [BEN]: 'cancelled', [CY]: 'cancelled' })
     expect(step.asks).toEqual([])
@@ -348,7 +369,7 @@ describe('any run of clicks and reports', () => {
     ) => void,
   ) => {
     const addingOf = (memberId: MemberId) => addings[memberId] ?? 'agent'
-    let attendance = confirmAttendance(ANA, PEOPLE, addingOf).attendance
+    let attendance = confirmAttendance(ANA, PEOPLE, addingOf, []).attendance
     let sentEver = false
     for (const event of events) {
       const step = stepAttendance(attendance, event, addingOf)

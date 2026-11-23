@@ -34,7 +34,7 @@ import {
 } from './meeting-rows.ts'
 import { lockedSchedulingRoom, requireDebateRooms } from './scheduling-rooms.ts'
 
-/** Asks the opener for one invitation; a busy optional person is not invited, a silent required one is. */
+/** Asks the opener for one invitation; a busy optional person is not invited and told so, a silent required one is. */
 export const confirmMeeting = (
   row: DebateRow,
   slot: Extract<ScheduleResult, { readonly kind: 'slot' }>,
@@ -44,10 +44,10 @@ export const confirmMeeting = (
       SELECT a.member_id FROM scheduling_attendees a
       JOIN debate_members m ON m.debate_id = a.debate_id AND m.member_id = a.member_id
       WHERE a.debate_id = ${row.id} ORDER BY m.created_at, a.member_id`)
-    const invited = attendees
-      .map((attendee) => attendee.member_id)
-      .filter((memberId) => !slot.optionalBusy.includes(memberId))
-    const step = confirmAttendance(row.created_by, invited, yield* addingsOf(row.id))
+    const memberIds = attendees.map((attendee) => attendee.member_id)
+    const notInvited = memberIds.filter((memberId) => slot.optionalBusy.includes(memberId))
+    const invited = memberIds.filter((memberId) => !notInvited.includes(memberId))
+    const step = confirmAttendance(row.created_by, invited, yield* addingsOf(row.id), notInvited)
     yield* keepAttendance(row, null, step)
   })
 

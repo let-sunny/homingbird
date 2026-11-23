@@ -4,15 +4,16 @@ import { zoneShown } from './schedule-result.ts'
 
 /**
  * The card on which a person picks the times they are free, one hour at a time, in their own time zone.
- * It is there while the room collects times and the person has not got an agent to answer for them, or
- * chose to answer themself.
+ * It is there while the room collects times and no agent of theirs takes part in the room, or they were
+ * asked to choose themself.
  */
 export const schedulingSlotsModel = (input: SchedulingSlotsInput): SchedulingSlotsModel | null => {
   const { debate, viewerId, timeZone } = input
   const schedule = debate.schedule
   if (debate.status !== 'open' || schedule == null) return null
   const attendee = schedule.attendees.find((one) => one.memberId === viewerId)
-  if (attendee === undefined || !(input.hasAgent === false || attendee.answer === 'choosing')) return null
+  const isAnsweredByAgent = debate.participants.some((participant) => participant.memberId === viewerId)
+  if (attendee === undefined || (isAnsweredByAgent && attendee.answer !== 'choosing')) return null
   const cells = freeTimeCells(schedule.window, input.now)
   const dayLabel = dayFormat(timeZone)
   const timeLabel = timeFormat(timeZone)
@@ -67,8 +68,6 @@ export const schedulingSlotsModel = (input: SchedulingSlotsInput): SchedulingSlo
 export interface SchedulingSlotsInput {
   readonly debate: AsRead.Debate
   readonly viewerId: MemberId
-  /** Whether the viewer has an agent that can answer for them. */
-  readonly hasAgent: boolean
   readonly now: number
   /** The hours picked so far, by when each starts; what the person gave before when absent. */
   readonly chosen?: Iterable<number>

@@ -7,6 +7,7 @@ import {
   closestSlot,
   earliestCommonSlot,
   isFreeThrough,
+  windowAheadOf,
 } from '../src/common-slot.ts'
 import { MemberId } from '../src/ids.ts'
 
@@ -208,3 +209,12 @@ const bruteForce = (meeting: Meeting, free: ReadonlyArray<ReadonlyArray<TimeSpan
 }
 
 const startOf = (slot: TimeSpan | null): number => slot?.startsAt ?? Number.POSITIVE_INFINITY
+
+describe('what is left of a window from now', () => {
+  it('starts at the next quarter hour once the window has begun, and is the window before then', () => {
+    expect(windowAheadOf(WINDOW, at(8))).toEqual(WINDOW)
+    expect(windowAheadOf(WINDOW, at(9))).toEqual(WINDOW)
+    expect(windowAheadOf(WINDOW, at(10, 1))).toEqual(span(at(10, 15), at(17)))
+    expect(windowAheadOf(WINDOW, at(10, 15))).toEqual(span(at(10, 15), at(17)))
+  })
+})

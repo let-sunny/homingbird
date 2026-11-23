@@ -29,6 +29,12 @@ export const closestSlot = (
   return best === null || best.missing.length === people.length ? null : best
 }
 
+/** What is left of a window from now, rounded up to the quarter hour: a meeting never starts in the past. */
+export const windowAheadOf = (window: TimeSpan, now: number): TimeSpan => ({
+  startsAt: Math.max(window.startsAt, quarterHourFrom(now)),
+  endsAt: window.endsAt,
+})
+
 export const isFreeThrough = (free: ReadonlyArray<TimeSpan>, span: TimeSpan): boolean =>
   isWithin(mergedWithin(free, span), span)
 

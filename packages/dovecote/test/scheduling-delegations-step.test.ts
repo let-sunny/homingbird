@@ -11,8 +11,7 @@ afterEach(async () => {
 })
 
 describe('the scheduling delegations step', () => {
-  it('is the last step, the thirty-first, after debate suggestions', () => {
-    expect(stepNumberOf(SCHEDULING_DELEGATIONS)).toBe(MIGRATIONS.length)
+  it('is the thirty-first step, after debate suggestions', () => {
     expect(stepNumberOf(SCHEDULING_DELEGATIONS)).toBe(31)
   })
 

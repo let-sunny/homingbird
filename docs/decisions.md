@@ -2516,6 +2516,15 @@ the result, and nobody picks among candidates. The confirmed time leaves the roo
 the opener's agent sends one invitation and the others' agents accept it. Homingbird holds no calendar
 token (rule 9).
 
+- **Only times still ahead.** Candidates start at now, rounded up to the quarter hour, so a window that
+  has begun never settles in the past; a window with too little of it left is refused when opened.
+- **Free times stay with their person.** The slots each attendee gave, and the note an agent gave with
+  them, are shown only to that person and their own agent; the other attendees, an administrator and
+  the other agents see the result alone (rules 6 and 9). A note could otherwise carry calendar details
+  between agents that no person sees.
+- **Notices are kept.** What a meeting tells a person (it waits on them, it was added, someone left)
+  is stored in `meeting_notices` and listed in the web client's Activity; web push only repeats it.
+
 ## A scheduling delegation is on by default and every addition can be taken out
 
 Finding a time should take nobody's effort: a person who cannot come because they left their calendar

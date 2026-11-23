@@ -20,7 +20,7 @@ import {
 } from '@homingbird/protocol'
 import { MODEL_DESCRIPTION } from './answering.ts'
 import { quotingFor } from './quote.ts'
-import { meetingLine, scheduleFacts } from './scheduling-tools.ts'
+import { meetingLine, scheduleAttendees, scheduleFacts } from './scheduling-tools.ts'
 import type { Tool } from './tools.ts'
 
 /**
@@ -49,6 +49,8 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
         } = yield* context.api['debates.waiting']({})
         const waiting = upcoming.filter((debate) => debate.askedTurn != null)
         const viewerId = waiting.length === 0 ? null : (yield* context.api['me.get']({})).member.id
+        const authors =
+          meetings.length === 0 ? new Map() : (yield* quotingFor(context.api, context.nonce)).authors
         return [
           ...(asks.length + ballots.length + meetings.length + answers.length === 0
             ? ['No debate room is waiting on you.']
@@ -56,7 +58,7 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
                 `${asks.length + ballots.length + meetings.length + answers.length} debate room(s) are waiting on you. ${ROOM_RULE}`,
                 ...asks.map(askLine),
                 ...ballots.map(ballotLine),
-                ...meetings.map((meeting) => meetingLine(meeting, context.nonce)),
+                ...meetings.map((meeting) => meetingLine(meeting, authors, context.nonce)),
                 ...answers.map(answerLine),
               ]),
           ...(waiting.length === 0
@@ -95,6 +97,8 @@ export const DEBATE_TOOLS: ReadonlyArray<Tool<any>> = [
         if (draftsOnly)
           return [advice, voteStateOf(debate), ...(drafts.length === 0 ? [NO_DRAFTS] : drafts)].join('\n\n')
         const room = quotedDebate(debate, quoting.authors, member.id, context.nonce)
+        const attendees = scheduleAttendees(debate, quoting.authors, context.nonce)
+        if (attendees !== null) return [advice, attendees, room].join('\n\n')
         return (
           isVotingOnDrafts(debate) ? [advice, voteStateOf(debate), ...drafts, room] : [advice, room]
         ).join('\n\n')

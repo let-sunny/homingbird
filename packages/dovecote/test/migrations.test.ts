@@ -13,6 +13,7 @@ import { DISCARDED_BY } from '../src/sql/migrations/discarded-by-step.ts'
 import { DRAFT_PREVIEWS } from '../src/sql/migrations/draft-previews-step.ts'
 import { HISTORY_ANSWERS } from '../src/sql/migrations/history-answers-step.ts'
 import { INSIGHTS } from '../src/sql/migrations/insights-step.ts'
+import { MEETING_NOTICES } from '../src/sql/migrations/meeting-notices-step.ts'
 import { MUTE } from '../src/sql/migrations/mute-step.ts'
 import { NOTE_TAGS } from '../src/sql/migrations/note-tags-step.ts'
 import { SCHEDULING_DELEGATIONS } from '../src/sql/migrations/scheduling-delegations-step.ts'
@@ -30,11 +31,12 @@ const tablesOf = (steps: ReadonlyArray<Step>): string[] =>
   steps.flatMap((step) => ('primaryKey' in step ? [step.name] : []))
 
 describe('the migrations', () => {
-  it('run in a fixed order, with the audit trail as the fifth step, groups as the sixth, channel agents as the eighth, mutes as the ninth, the cloud desk as the tenth, insights as the eleventh, spent refresh tokens as the twelfth, answers from history as the thirteenth, sources and reasons as the fourteenth, debate pacing as the fifteenth, channel teaching as the sixteenth, automatic sending as the seventeenth, draft previews as the eighteenth, who discarded an answer as the nineteenth, debate agreement as the twentieth, the teaching chat as the twenty-first, Slack as the twenty-second, Slack channel links as the twenty-third, debate briefs as the twenty-fourth, hiding conversations as the twenty-fifth, the Slack app’s stored values as the twenty-sixth, note tags as the twenty-seventh, Slack edits as the twenty-eighth, scheduling rooms as the twenty-ninth, debate suggestions as the thirtieth and scheduling delegations as the thirty-first', () => {
-    expect(MIGRATIONS).toHaveLength(31)
+  it('run in a fixed order, with the audit trail as the fifth step, groups as the sixth, channel agents as the eighth, mutes as the ninth, the cloud desk as the tenth, insights as the eleventh, spent refresh tokens as the twelfth, answers from history as the thirteenth, sources and reasons as the fourteenth, debate pacing as the fifteenth, channel teaching as the sixteenth, automatic sending as the seventeenth, draft previews as the eighteenth, who discarded an answer as the nineteenth, debate agreement as the twentieth, the teaching chat as the twenty-first, Slack as the twenty-second, Slack channel links as the twenty-third, debate briefs as the twenty-fourth, hiding conversations as the twenty-fifth, the Slack app’s stored values as the twenty-sixth, note tags as the twenty-seventh, Slack edits as the twenty-eighth, scheduling rooms as the twenty-ninth, debate suggestions as the thirtieth, scheduling delegations as the thirty-first and meeting notices as the thirty-second', () => {
+    expect(MIGRATIONS).toHaveLength(32)
     expect(MIGRATIONS.indexOf(SCHEDULING_ROOMS)).toBe(28)
     expect(MIGRATIONS.indexOf(DEBATE_SUGGESTIONS)).toBe(29)
     expect(MIGRATIONS.indexOf(SCHEDULING_DELEGATIONS)).toBe(30)
+    expect(MIGRATIONS.indexOf(MEETING_NOTICES)).toBe(31)
     expect(MIGRATIONS.indexOf(CLOUD_DESK)).toBe(9)
     expect(MIGRATIONS.indexOf(INSIGHTS)).toBe(10)
     expect(MIGRATIONS.indexOf(SPENT_REFRESH_TOKENS)).toBe(11)
@@ -56,7 +58,7 @@ describe('the migrations', () => {
     expect(MIGRATIONS.indexOf(SLACK_CREDENTIALS)).toBe(25)
     expect(MIGRATIONS.indexOf(NOTE_TAGS)).toBe(26)
     expect(MIGRATIONS.indexOf(SLACK_EDITS)).toBe(27)
-    expect(MIGRATIONS.at(-1)).toBe(SCHEDULING_DELEGATIONS)
+    expect(MIGRATIONS.at(-1)).toBe(MEETING_NOTICES)
     expect(AUDIT_TRAIL_STEP).toBe(5)
   })
 

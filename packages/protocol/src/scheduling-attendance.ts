@@ -29,14 +29,19 @@ export const stepAttendance = (
   return Result.ok(event.type === 'remove' ? followed(step, cancelled(step.attendance)) : step)
 }
 
-/** The meeting as the room confirmed it: the opener is asked to send its one invitation, nobody else yet. */
+/** The meeting as the room confirmed it: the opener is asked for its one invitation; a busy optional person is left out. */
 export const confirmAttendance = (
   openedBy: MemberId,
   memberIds: ReadonlyArray<MemberId>,
   addingOf: (memberId: MemberId) => Adding,
+  notInvited: ReadonlyArray<MemberId>,
 ): AttendanceStep => {
   const others = memberIds.filter(
     (memberId, index) => memberId !== openedBy && memberIds.indexOf(memberId) === index,
+  )
+  const leftOut = notInvited.filter(
+    (memberId, index) =>
+      memberId !== openedBy && !others.includes(memberId) && notInvited.indexOf(memberId) === index,
   )
   const opener = moved(
     'opener',
@@ -49,6 +54,7 @@ export const confirmAttendance = (
       attendees: [
         opener.attendee,
         ...others.map((memberId) => ({ memberId, state: 'waiting_invite' as const })),
+        ...leftOut.map((memberId) => ({ memberId, state: 'not_invited' as const })),
       ],
     },
     asks: opener.asks,
@@ -75,7 +81,10 @@ export interface AttendeeAttendance {
   readonly state: AttendanceState
 }
 
-/** `asked` waits for the person's click, `by_hand` for them to do it, `adding` or `removing` for their agent. */
+/**
+ * `asked` waits for the person's click, `by_hand` for them to do it, `adding` or `removing` for their agent;
+ * `not_invited` is an optional person busy at the time, left out of the invitation.
+ */
 export type AttendanceState = (typeof ATTENDANCE_STATES)[number]
 
 /** Their agent adds at once as their delegation allows, after their click, or the person does it themself. */
@@ -229,7 +238,8 @@ const cancelled = (attendance: Attendance): ReturnType<typeof moved>[] =>
       notices: [{ to: one.memberId, notice: 'cancelled' as const }],
     }))
 
-const isGone = (state: AttendanceState): boolean => state === 'declined' || state === 'removed'
+const isGone = (state: AttendanceState): boolean =>
+  state === 'declined' || state === 'removed' || state === 'not_invited'
 
 const followed = (step: AttendanceStep, others: ReturnType<typeof moved>[]): AttendanceStep => ({
   attendance: withStates(

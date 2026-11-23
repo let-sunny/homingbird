@@ -1,11 +1,21 @@
-import { type Meeting, type TimeSpan, closestSlot, earliestCommonSlot, isFreeThrough } from './common-slot.ts'
+import {
+  type Meeting,
+  type TimeSpan,
+  closestSlot,
+  earliestCommonSlot,
+  isFreeThrough,
+  windowAheadOf,
+} from './common-slot.ts'
 import type { DebateRoom } from './debate-room.ts'
 import type { DebateEnding } from './debates.ts'
 import { FREE_SLOTS_MAX, FREE_SLOTS_NOTE_MAX } from './free-slots.ts'
 import type { MemberId } from './ids.ts'
 import type { ComputedResult, RoomTurn } from './room-rules.ts'
 
-/** The earliest time every required person who answered is free, else the closest; who did not is named. */
+/**
+ * The earliest time still ahead that every required person who answered is free, else the closest; who
+ * did not answer is named.
+ */
 export const scheduleOf = (room: DebateRoom, now: number): ComputedResult | null => {
   const schedule = room.schedule
   if (schedule === undefined) return null
@@ -16,7 +26,7 @@ export const scheduleOf = (room: DebateRoom, now: number): ComputedResult | null
   const unanswered = schedule.attendees
     .filter((attendee) => !answers.has(attendee.memberId))
     .map((attendee) => attendee.memberId)
-  const meeting: Meeting = { minutes: schedule.minutes, window: schedule.window }
+  const meeting: Meeting = { minutes: schedule.minutes, window: windowAheadOf(schedule.window, now) }
   const slot = earliestCommonSlot(meeting, required.map(freeOf))
   if (slot === null) {
     const closest = closestSlot(

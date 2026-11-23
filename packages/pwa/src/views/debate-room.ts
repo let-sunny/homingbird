@@ -28,6 +28,7 @@ import { citedBody } from './note-body.ts'
 import { participantsCount, participantsList } from './participants.ts'
 import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
 import { profileName } from './profile-card.ts'
+import { schedulingAgentCard } from './scheduling-agent.ts'
 import { schedulingAttendanceCard } from './scheduling-attendance.ts'
 import { schedulingRetryCard } from './scheduling-retry.ts'
 import { renderSchedulingRoom } from './scheduling-room.ts'
@@ -68,15 +69,13 @@ export const debateView = (
           enabled,
           members: state.members.get(),
         })
-        const person = {
-          debate: current,
-          viewerId: me.member.id,
-          hasAgent: state.agentCredentials.get().length > 0,
-        }
+        const agents = state.agentCredentials.get()
+        const person = { debate: current, viewerId: me.member.id, hasAgent: agents.length > 0 }
         return renderSchedulingRoom(
           room,
           room.kind === 'room'
             ? [
+                schedulingAgentCard(context, { ...person, agents }),
                 schedulingSlotsCard(context, drawn, { ...person, picked: pickedHours }),
                 schedulingAttendanceCard(context, { ...person, members: state.members.get() }),
                 schedulingRetryCard(context, person),
