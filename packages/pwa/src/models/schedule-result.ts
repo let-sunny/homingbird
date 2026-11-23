@@ -11,6 +11,10 @@ export const scheduleResultBody = (
   timeZone?: string,
 ): ScheduleResultBody => {
   const named = namesOf(people)
+  const sentence = (ids: ReadonlyArray<MemberId>, key: SentenceKey): ReadonlyArray<string> =>
+    ids.length === 0
+      ? []
+      : [strings.scheduling[key]({ count: countOf(ids, people.viewerId), names: named(ids) })]
   const when = (startsAt: number, endsAt: number): string => rangeShown(startsAt, endsAt, timeZone)
   if (result.kind === 'slot')
     return {
@@ -19,9 +23,9 @@ export const scheduleResultBody = (
       heading: strings.scheduling.slotHeading,
       lines: [
         when(result.startsAt, result.endsAt),
-        ...sentence(result.optionalFree, 'optionalFree', named),
-        ...sentence(result.optionalBusy, 'optionalBusy', named),
-        ...sentence(result.unanswered, 'unanswered', named),
+        ...sentence(result.optionalFree, 'optionalFree'),
+        ...sentence(result.optionalBusy, 'optionalBusy'),
+        ...sentence(result.unanswered, 'unanswered'),
       ],
     }
   return {
@@ -33,11 +37,11 @@ export const scheduleResultBody = (
       result.closest === null
         ? strings.scheduling.nobodyFree
         : strings.scheduling.closest({
-            count: result.closest.missing.length,
+            count: countOf(result.closest.missing, people.viewerId),
             when: when(result.closest.startsAt, result.closest.endsAt),
-            names: named(result.closest.missing),
+            names: named(result.closest.missing, 'inSentence'),
           }),
-      ...sentence(result.unanswered, 'unanswered', named),
+      ...sentence(result.unanswered, 'unanswered'),
     ],
   }
 }
@@ -53,6 +57,19 @@ export const rangeShown = (startsAt: number, endsAt: number, timeZone?: string):
     timeZoneName: 'short',
     ...(timeZone !== undefined && { timeZone }),
   }).formatRange(new Date(startsAt), new Date(endsAt))
+
+/** A time zone as its short name in the viewer's language, such as GMT+9, the way a result shows it. */
+export const zoneShown = (timeZone?: string): string => {
+  try {
+    const parts = new Intl.DateTimeFormat(locale, {
+      timeZoneName: 'short',
+      ...(timeZone !== undefined && { timeZone }),
+    }).formatToParts(0)
+    return parts.find((part) => part.type === 'timeZoneName')?.value ?? timeZone ?? ''
+  } catch {
+    return timeZone ?? ''
+  }
+}
 
 /** The cases of a room result that are a time. */
 export type ScheduleKind = Extract<AsRead.RoomResult, { kind: 'slot' | 'no_slot' }>
@@ -70,14 +87,24 @@ export interface ScheduleResultBody {
   readonly lines: ReadonlyArray<string>
 }
 
+type SentenceKey = 'optionalFree' | 'optionalBusy' | 'unanswered'
+
+/** The viewer comes first and is "you", capitalised only when the names start a sentence. */
 const namesOf =
   ({ nameOf, viewerId }: SchedulePeople) =>
-  (ids: ReadonlyArray<MemberId>): string =>
-    listOf(ids.map((id) => (id === viewerId ? strings.scheduling.you : nameOf(id))))
+  (ids: ReadonlyArray<MemberId>, position: 'start' | 'inSentence' = 'start'): string =>
+    listOf(
+      [...ids]
+        .sort((a, b) => Number(b === viewerId) - Number(a === viewerId))
+        .map((id) =>
+          id !== viewerId
+            ? nameOf(id)
+            : position === 'start'
+              ? strings.scheduling.you
+              : strings.scheduling.youInSentence,
+        ),
+    )
 
-const sentence = (
-  ids: ReadonlyArray<MemberId>,
-  key: 'optionalFree' | 'optionalBusy' | 'unanswered',
-  named: (ids: ReadonlyArray<MemberId>) => string,
-): ReadonlyArray<string> =>
-  ids.length === 0 ? [] : [strings.scheduling[key]({ count: ids.length, names: named(ids) })]
+/** "You" takes the plural verb, so a viewer counts as more than one. */
+const countOf = (ids: ReadonlyArray<MemberId>, viewerId: MemberId): number =>
+  ids.includes(viewerId) ? Math.max(ids.length, 2) : ids.length

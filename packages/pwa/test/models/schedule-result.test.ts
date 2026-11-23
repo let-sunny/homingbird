@@ -1,6 +1,6 @@
 import type { AsRead } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
-import { rangeShown, scheduleResultBody } from '../../src/models/schedule-result.ts'
+import { rangeShown, scheduleResultBody, zoneShown } from '../../src/models/schedule-result.ts'
 import { strings } from '../../src/strings.ts'
 import { ANA, BEN, CY } from '../support/fixtures.ts'
 import { plainSpaces } from '../support/text.ts'
@@ -33,6 +33,11 @@ describe('scheduleResultBody', () => {
       heading: strings.scheduling.slotHeading,
       lines: ['Friday, November 20, 10:00 – 11:00 AM GMT+9'],
     })
+  })
+
+  it('gives a viewer who is alone the plural verb that goes with you, in a sentence of its own', () => {
+    const body = scheduleResultBody(slot({ optionalBusy: [ANA], unanswered: [ANA] }), people, ZONE)
+    expect(body.lines.slice(1)).toEqual(['You are optional and busy then.', 'You did not answer.'])
   })
 
   it('says who is optional and free, optional and busy, and who did not answer, calling the viewer you', () => {
@@ -79,5 +84,13 @@ describe('scheduleResultBody', () => {
 describe('rangeShown', () => {
   it('shows a time in the browser’s own time zone when none is given', () => {
     expect(rangeShown(TEN, ELEVEN)).toContain('November 2')
+  })
+})
+
+describe('zoneShown', () => {
+  it('names a zone the way a result shows it, and falls back to the name it was given', () => {
+    expect(zoneShown('Asia/Seoul')).toBe('GMT+9')
+    expect(zoneShown('Not/AZone')).toBe('Not/AZone')
+    expect(zoneShown()).not.toBe('')
   })
 })

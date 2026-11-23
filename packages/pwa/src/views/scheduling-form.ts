@@ -65,6 +65,7 @@ export const schedulingForm = (context: ViewContext, life: Lifetime, me: AsRead.
             context.clock.now(),
           )
           if ('problem' in typed) return state.notice.set({ kind: 'error', text: typed.problem })
+          state.notice.set(null)
           actions.createSchedulingRoom(typed.setup, {
             done: (created) => {
               closeDialog(context)

@@ -38,7 +38,7 @@ describe('schedulingSettingsSection', () => {
       (getByRole(test.shown, 'checkbox', { name: new RegExp(copy.join) }) as HTMLInputElement).checked,
     ).toBe(true)
     expect(test.shown.querySelector('select[name="agent"]')).toBeNull()
-    expect(textOf(test.shown)).toContain(copy.hoursZone({ timeZone: 'Asia/Seoul' }))
+    expect(textOf(test.shown)).toContain(copy.hoursZone({ timeZone: 'GMT+9' }))
   })
 
   it('says when the delegation could not be read', () => {

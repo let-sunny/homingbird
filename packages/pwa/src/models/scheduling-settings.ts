@@ -7,6 +7,7 @@ import {
   isPerson,
 } from '@homingbird/protocol'
 import { strings } from '../strings.ts'
+import { zoneShown } from './schedule-result.ts'
 
 /**
  * "Your agent and meetings" in Settings: whether the agent joins scheduling rooms and adds settled
@@ -66,7 +67,7 @@ export const schedulingSettingsModel = (input: SchedulingSettingsInput): Schedul
       zoneNote:
         hours !== null && hours.timeZone !== input.timeZone
           ? strings.scheduling.delegation.hoursSavedZone({ saved: hours.timeZone, timeZone: input.timeZone })
-          : strings.scheduling.delegation.hoursZone({ timeZone: input.timeZone }),
+          : strings.scheduling.delegation.hoursZone({ timeZone: zoneShown(input.timeZone) }),
     },
     maxMinutes: {
       limited: scope.maxMinutes !== null,

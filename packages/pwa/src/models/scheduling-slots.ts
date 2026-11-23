@@ -1,5 +1,6 @@
 import { type AsRead, FREE_SLOTS_MAX, type MemberId } from '@homingbird/protocol'
 import { locale, strings } from '../strings.ts'
+import { zoneShown } from './schedule-result.ts'
 
 /**
  * The card on which a person picks the times they are free, one hour at a time, in their own time zone.
@@ -13,15 +14,36 @@ export const schedulingSlotsModel = (input: SchedulingSlotsInput): SchedulingSlo
   const attendee = schedule.attendees.find((one) => one.memberId === viewerId)
   if (attendee === undefined || !(input.hasAgent === false || attendee.answer === 'choosing')) return null
   const cells = freeTimeCells(schedule.window, input.now)
+  const dayLabel = dayFormat(timeZone)
+  const timeLabel = timeFormat(timeZone)
+  const hourOf = hourFormat(timeZone)
+  const isWorking = (cell: FreeTime): boolean => {
+    const hour = Number(hourOf.format(cell.startsAt)) % 24
+    return hour >= WORKING_FROM && hour < WORKING_TO
+  }
+  const hasNonWorking = cells.some((cell) => !isWorking(cell))
+  const showsAll = input.showAllHours === true
+  const shownCells = showsAll ? cells : cells.filter(isWorking)
   const chosen = new Set(input.chosen ?? chosenFrom(cells, ownSlots(debate, viewerId)))
   const picked = cells.filter((cell) => chosen.has(cell.startsAt))
   const slots = slotsFromCells(picked)
-  const dayLabel = dayFormat(timeZone)
-  const timeLabel = timeFormat(timeZone)
   return {
     title: strings.scheduling.pickTitle,
     hint: strings.scheduling.pickHint({ zone: zoneShown(timeZone) }),
-    days: groupedByDay(cells, (cell) => dayLabel.format(cell.startsAt)).map(([day, dayCells]) => ({
+    workingHint:
+      hasNonWorking && !showsAll
+        ? strings.scheduling.pickWorkingHint({
+            from: hourLabel(WORKING_FROM),
+            to: hourLabel(WORKING_TO),
+          })
+        : null,
+    hoursToggle: hasNonWorking
+      ? {
+          label: showsAll ? strings.scheduling.pickShowWorking : strings.scheduling.pickShowAll,
+          showsAll: !showsAll,
+        }
+      : null,
+    days: groupedByDay(shownCells, (cell) => dayLabel.format(cell.startsAt)).map(([day, dayCells]) => ({
       day,
       cells: dayCells.map((cell) => ({
         startsAt: cell.startsAt,
@@ -29,6 +51,7 @@ export const schedulingSlotsModel = (input: SchedulingSlotsInput): SchedulingSlo
         chosen: chosen.has(cell.startsAt),
       })),
     })),
+    chosenStarts: [...chosen],
     emptyText: cells.length === 0 ? strings.scheduling.pickNoTimes : null,
     count: strings.scheduling.pickedCount({ count: picked.length }),
     problem: slots.length > FREE_SLOTS_MAX ? strings.scheduling.pickTooMany({ max: FREE_SLOTS_MAX }) : null,
@@ -49,6 +72,8 @@ export interface SchedulingSlotsInput {
   readonly now: number
   /** The hours picked so far, by when each starts; what the person gave before when absent. */
   readonly chosen?: Iterable<number>
+  /** Every hour of the day rather than the working hours only. */
+  readonly showAllHours?: boolean
   /** An IANA time zone for tests; the browser's own when absent. */
   readonly timeZone?: string
 }
@@ -56,6 +81,10 @@ export interface SchedulingSlotsInput {
 export interface SchedulingSlotsModel {
   readonly title: string
   readonly hint: string
+  /** Says that only working hours are shown, when hours are hidden. */
+  readonly workingHint: string | null
+  /** The button that shows all hours or the working hours only, and what showing asks for; null when every hour is working time. */
+  readonly hoursToggle: { readonly label: string; readonly showsAll: boolean } | null
   readonly days: ReadonlyArray<{
     readonly day: string
     readonly cells: ReadonlyArray<{
@@ -64,6 +93,8 @@ export interface SchedulingSlotsModel {
       readonly chosen: boolean
     }>
   }>
+  /** Every hour ticked, hidden ones included, by when each starts. */
+  readonly chosenStarts: ReadonlyArray<number>
   /** Why there is nothing to pick, when the whole window has passed. */
   readonly emptyText: string | null
   /** For example "3 hours picked". */
@@ -109,6 +140,10 @@ export const slotsFromCells = (picked: ReadonlyArray<FreeTime>): ReadonlyArray<F
 
 const HOUR_MS = 3_600_000
 
+/** The hours of the day, in the viewer's time zone, that the card shows unless asked for all of them. */
+const WORKING_FROM = 8
+const WORKING_TO = 20
+
 const ownSlots = (debate: AsRead.Debate, viewerId: MemberId): ReadonlyArray<FreeTime> =>
   debate.schedule?.freeSlots?.find((given) => given.memberId === viewerId)?.slots ?? []
 
@@ -138,5 +173,12 @@ const timeFormat = (timeZone: string | undefined): Intl.DateTimeFormat =>
     ...(timeZone !== undefined && { timeZone }),
   })
 
-const zoneShown = (timeZone: string | undefined): string =>
-  timeZone ?? new Intl.DateTimeFormat(locale).resolvedOptions().timeZone
+const hourFormat = (timeZone: string | undefined): Intl.DateTimeFormat =>
+  new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    hourCycle: 'h23',
+    ...(timeZone !== undefined && { timeZone }),
+  })
+
+const hourLabel = (hour: number): string =>
+  new Intl.DateTimeFormat(locale, { hour: 'numeric', timeZone: 'UTC' }).format(Date.UTC(2000, 0, 1, hour))

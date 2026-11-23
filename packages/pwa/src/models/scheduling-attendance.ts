@@ -3,9 +3,9 @@ import { strings } from '../strings.ts'
 import { type CalendarFile, meetingCalendarFile } from './calendar-file.ts'
 
 /**
- * What a person can do about a settled meeting: have their agent add it to their calendar, say they added
- * it themself, take it out, and open the meeting link. A person without an agent also gets the time as a
- * calendar file. Whoever opened the room cancels the meeting for everyone by taking it out.
+ * What a person can do about a settled meeting, when it can work: have their agent add it to their
+ * calendar, say they added it themself, take it out, and open the meeting link. A person without an agent,
+ * or whose agent could not add it, also gets the time as a calendar file. Whoever opened the room cancels the meeting for everyone by taking it out.
  */
 export const schedulingAttendanceModel = (
   input: SchedulingAttendanceInput,
@@ -16,26 +16,29 @@ export const schedulingAttendanceModel = (
   if (debate.status !== 'closed' || schedule == null || settled?.kind !== 'slot') return null
   const attendee = schedule.attendees.find((one) => one.memberId === viewerId)
   if (attendee === undefined) return null
-  const state = attendee.attendance ?? 'waiting_invite'
+  const state = attendee.attendance ?? 'unknown'
   const isOpener = debate.createdBy === viewerId
-  const inCalendar = IN_CALENDAR.has(state)
-  const asking = !inCalendar && !CLOSED.has(state)
+  const mayAdd = state === 'asked' || state === 'by_hand'
+  const inCalendar = state === 'adding' || state === 'added'
+  const mayLeave = inCalendar || mayAdd || (state === 'waiting_invite' && !isOpener)
+  const mayGiveFile = state !== 'cancelled' && (state === 'by_hand' || !input.hasAgent)
   return {
     title: strings.scheduling.attendanceTitle,
     status: strings.scheduling.attendance[known(state)],
     meetingUrl: linkable(schedule.invite?.meetingUrl),
     meetingLinkLabel: strings.scheduling.meetingLink,
     actions: [
-      ...(asking
+      ...(mayAdd
         ? [
             {
               name: 'add' as const,
-              label: input.hasAgent ? strings.scheduling.addMeeting : strings.scheduling.addedMeetingMyself,
+              label:
+                state === 'by_hand' ? strings.scheduling.addedMeetingMyself : strings.scheduling.addMeeting,
               emphasis: 'primary' as const,
             },
           ]
         : []),
-      ...(inCalendar || asking
+      ...(mayLeave
         ? [
             {
               name: 'remove' as const,
@@ -45,9 +48,12 @@ export const schedulingAttendanceModel = (
           ]
         : []),
     ],
-    removeHint: isOpener && (inCalendar || asking) ? strings.scheduling.removeCancelsForEveryone : null,
+    removeHint: isOpener && mayLeave ? strings.scheduling.removeCancelsForEveryone : null,
     calendarFileLabel: strings.scheduling.getCalendarFile,
-    calendarFile: input.hasAgent || state === 'cancelled' ? null : calendarFileOf(input, settled, schedule),
+    calendarFile: mayGiveFile ? calendarFileOf(input, settled, schedule) : null,
+    delegation: input.hasAgent
+      ? { text: strings.scheduling.delegationNote, changeLabel: strings.scheduling.delegationChange }
+      : null,
   }
 }
 
@@ -76,10 +82,9 @@ export interface SchedulingAttendanceModel {
   readonly calendarFileLabel: string
   /** The time as a calendar file for a person without an agent; null when there is none to give. */
   readonly calendarFile: CalendarFile | null
+  /** Tells a person with an agent that it adds meetings for them, and where to change that; null without an agent. */
+  readonly delegation: { readonly text: string; readonly changeLabel: string } | null
 }
-
-const IN_CALENDAR: ReadonlySet<string> = new Set(['adding', 'added', 'by_hand'])
-const CLOSED: ReadonlySet<string> = new Set(['declined', 'removing', 'removed', 'cancelled'])
 
 const known = (state: string): keyof typeof strings.scheduling.attendance =>
   state in strings.scheduling.attendance ? (state as keyof typeof strings.scheduling.attendance) : 'unknown'

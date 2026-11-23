@@ -1,6 +1,7 @@
 import type { AsRead, MemberId } from '@homingbird/protocol'
 import { h } from '@homingbird/ui'
 import { schedulingAttendanceModel } from '../models/scheduling-attendance.ts'
+import { hrefFor } from '../routes.ts'
 import type { ViewContext } from './context.ts'
 import { section } from './debate-result.ts'
 
@@ -49,8 +50,8 @@ export const schedulingAttendanceCard = (
             on: {
               click: () =>
                 action.name === 'add'
-                  ? context.actions.addMeeting(debate.id)
-                  : context.actions.removeMeeting(debate.id),
+                  ? context.actions.addMeeting(debate.id, { attempt: 'meeting' })
+                  : context.actions.removeMeeting(debate.id, { attempt: 'meeting' }),
             },
           },
           action.label,
@@ -68,5 +69,12 @@ export const schedulingAttendanceCard = (
         ),
     ),
     model.removeHint !== null && h('small', { class: 'hint' }, model.removeHint),
+    model.delegation !== null &&
+      h(
+        'p',
+        { class: 'hint scheduling-delegation' },
+        `${model.delegation.text} `,
+        h('a', { href: hrefFor({ name: 'profile' }) }, model.delegation.changeLabel),
+      ),
   )
 }
