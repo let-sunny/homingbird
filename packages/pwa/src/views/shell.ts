@@ -37,6 +37,7 @@ import { renderAvatar, renderGroupAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { conversationActionItems } from './conversation-actions.ts'
 import { opensDialog } from './dialog.ts'
+import { hinted } from './hint.ts'
 import { startingPoints } from './home.ts'
 import { type MenuParts, actionMenu } from './menu.ts'
 import { mutedMark } from './mute-toggle.ts'
@@ -174,9 +175,8 @@ const titleBar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElem
  */
 const tabs = (context: ViewContext, agentUnavailable: string | null): Child => {
   const { state } = context
-  const shown = tabsModel(state.route.get(), state.serverInfo.get(), agentUnavailable).map((tab) => ({
-    tab,
-    link: h(
+  const shown = tabsModel(state.route.get(), state.serverInfo.get(), agentUnavailable).map((tab) => {
+    const link = h(
       'a',
       {
         href: tab.href,
@@ -188,12 +188,17 @@ const tabs = (context: ViewContext, agentUnavailable: string | null): Child => {
       h('span', { class: 'tab-label' }, tab.label),
       tab.mark !== null &&
         h('span', { class: 'agent-mark', role: 'img', 'aria-label': tab.mark, title: tab.mark }),
-    ),
-  }))
+    )
+    return {
+      tab,
+      link,
+      parts: tab.hint === null ? [link] : hinted(context, tab.hint.concept, tab.hint.text, link),
+    }
+  })
   const nav = h(
     'nav',
     { class: 'tabs', 'aria-label': strings.sections },
-    shown.map(({ link }) => link),
+    shown.flatMap(({ parts }) => parts),
   )
   const current = shown.find(({ tab }) => tab.current)?.link
   if (current !== undefined) context.page.nextFrame(() => scrollTabIntoView(nav, current))
@@ -355,7 +360,12 @@ const sidebar = (
     h(
       'div',
       { class: 'sidebar-section-head sidebar-list-head' },
-      h('h2', { class: 'sidebar-title' }, strings.conversations),
+      ...hinted(
+        context,
+        'directNotes',
+        strings.hints.directNotes,
+        h('h2', { class: 'sidebar-title' }, strings.conversations),
+      ),
       newMessageLink(context),
     ),
     region(

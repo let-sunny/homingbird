@@ -863,7 +863,7 @@ members but reaches each member's agent, so never put confidential material in i
 
 ## Insights
 
-Every member sees their own agent's numbers under **My agent** ([guide](guide.md#see-how-far-you-can-trust-your-agent)):
+Every member sees their own agent's numbers under **Nest** ([guide](guide.md#see-how-far-you-can-trust-your-agent)):
 how many of its drafts were sent as written, edited or discarded, what it skipped, and how quickly the
 member decided. Administrators see **Insights** in the administration area: people who sent notes,
 notes per person, reply rate and typical time to the first reply, the approval mix, the share of quick
@@ -884,7 +884,7 @@ force. Figures are per group, so at a minimum of 1 a group with one member shows
 - A period in which fewer than `HB_INSIGHTS_MINIMUM_GROUP` people sent notes shows no
   numbers at all, and the block count is shown only as a number, and only once the organization has
   that many members.
-- A channel, or direct messages together, appears on its own only when at least that many people
+- A channel, or direct notes together, appears on its own only when at least that many people
   contributed to it. When the left-out groups together would still be fewer people, the next smallest
   group is left out too, so the organization's totals minus the shown groups never reveal a small one.
 - Debate results sent are shown only once at least that many people sent one in the period.
@@ -895,7 +895,7 @@ force. Figures are per group, so at a minimum of 1 a group with one member shows
   one up, and its total of notes received that many people without an agent, or none.
 - The member's own route is for people only: an agent credential cannot read how its person approves.
 
-Principles that members teach their agents ([guide](guide.md#my-agent)) are private to each member and
+Principles that members teach their agents ([guide](guide.md#nest)) are private to each member and
 never appear in Insights. The audit trail records that a principle was created, changed or deleted, never its text.
 
 Two settings shape the numbers. Both apply to everything already recorded, because Dovecote stores
@@ -930,10 +930,10 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `draftRequests` | on | People can no longer ask their agent for a draft from the web client |
 | `characters` | on | Everyone shows as their default character; nobody can change a character |
 | `webPush` | on | No notifications reach phones or computers |
-| `mute` | on | Nobody can mute a direct message or a channel or choose what notifies them; stored choices are kept and ignored |
-| `hideConversations` | on | Nobody can hide a direct or group message; rooms hidden before show in their person's list again, and the hides are kept |
-| `leaveGroups` | on | Nobody can leave a group message; each group keeps its people |
-| `tagging` | on | Nobody can tag people in a group message, so every note there asks every other person's agent for a draft; tags already sent stay on their notes and are ignored |
+| `mute` | on | Nobody can mute a direct note or a channel or choose what notifies them; stored choices are kept and ignored |
+| `hideConversations` | on | Nobody can hide a direct or group DN; rooms hidden before show in their person's list again, and the hides are kept |
+| `leaveGroups` | on | Nobody can leave a group DN; each group keeps its people |
+| `tagging` | on | Nobody can tag people in a group DN, so every note there asks every other person's agent for a draft; tags already sent stay on their notes and are ignored |
 | `answeringFlow` | on | Agents draft without the organization's steps |
 | `earlierAnswers` | on | **Answered before** no longer shows earlier answers above a question, and agents no longer read them before asking a channel ([guide](guide.md#answered-before)) |
 | `teaching` | on | Principles are kept but not used, and nobody can add one; How it is doing shows each place without its steps |
@@ -951,10 +951,10 @@ again. Every change is audited. `server.info` lists which features are on, so ev
 | `cloudDesk` | **off** | No cloud desk is woken and nobody can set one up; saved wakes are kept. Offered only with `HB_SECRETS_KEY` ([Cloud desk](#cloud-desk)) |
 | `slack` | **off** | Nothing is taken from Slack or sent to it, and `/slack/events` answers 404; people's links are kept and anyone can still unlink. Offered only with the Slack app's token and signing secret in the environment, or with `HB_SECRETS_KEY` to keep the ones an administrator enters ([Slack](#slack)) |
 | `analytics` | **off** | No usage counts leave the server ([Product analytics](#product-analytics)) |
-| `autoSend` | **off** | No saved answer sends itself; every draft waits for its person. On: a person may switch a saved answer to send itself, word for word, only in the direct messages and open channels they choose ([guide](guide.md#let-a-saved-answer-send-itself), [decisions](decisions.md#a-saved-answer-may-send-itself-word-for-word-where-its-person-allowed)) |
-| `draftPreviews` | **off** | Nobody sees a colleague's agent's draft before its person checks it; on, each person chooses who may under **My agent → Early previews** ([guide](guide.md#let-colleagues-see-your-agents-drafts-early)) |
+| `autoSend` | **off** | No saved answer sends itself; every draft waits for its person. On: a person may switch a saved answer to send itself, word for word, only in the direct notes and open channels they choose ([guide](guide.md#let-a-saved-answer-send-itself), [decisions](decisions.md#a-saved-answer-may-send-itself-word-for-word-where-its-person-allowed)) |
+| `draftPreviews` | **off** | Nobody sees a colleague's agent's draft before its person checks it; on, each person chooses who may under **Nest → Early previews** ([guide](guide.md#let-colleagues-see-your-agents-drafts-early)) |
 
-Notes, drafts, approval, direct messages, sign-in and the audit trail are the core and cannot be turned
+Notes, drafts, approval, direct notes, sign-in and the audit trail are the core and cannot be turned
 off. `HB_FEATURES` seeds the switches at first start, such as `HB_FEATURES="teaching=off,characters=on"`;
 once an administrator saves settings, the saved switches win.
 
@@ -1012,7 +1012,7 @@ Off by default. With it, Homingbird works with the Slack workspace a team alread
 their Slack user and hears there, in a direct message from the app, that a draft waits for their
 decision. The message says nothing of the draft; it links to the card in the web client, where approval
 stays (security rules 2 and 3). The organization uses its own Slack app, with a bot token only: no user
-token, nothing that reads a person's direct messages, nothing that posts as a person. To offer it:
+token, nothing that reads a person's direct notes, nothing that posts as a person. To offer it:
 
 1. In Slack, create an app **from a manifest** (api.slack.com/apps → Create New App → From an app
    manifest) in your workspace. **Administration → Settings → Slack** shows the manifest with this
@@ -1221,7 +1221,7 @@ printf '[Service]\nEnvironmentFile=/home/hb-ana/model.env\n' |
 If your shell keeps a history of what you paste, write the key with an editor as `hb-ana` instead,
 and keep the file at mode `0600`.
 
-**3. In the web client, make a join code.** Under **My agent** → **Connection**, choose **Run on a
+**3. In the web client, make a join code.** Under **Nest** → **Connection**, choose **Run on a
 server**. The web client shows one line, with a button to copy it and how long it still works:
 
 ```sh
@@ -1235,7 +1235,7 @@ alone. Once it expires, the web client offers a new one.
 **4. On the server, paste the line as the runner's user.** `setup` refuses to install the service as
 root. It redeems the code, writes the agent credential where `homingbird login` would
 (`~/.config/homingbird/agents/`, mode `0600`), installs and starts the service, and prints the next
-step, never the token. `--name` is what the web client calls this connection under **My agent** →
+step, never the token. `--name` is what the web client calls this connection under **Nest** →
 **Connection**, and its drafts show as **Runner · build-1**; without it, the computer's host name is
 used. It passes `--timeout`, `--workdir` and `--split` on to the service like `service install`.
 
@@ -1467,7 +1467,7 @@ one person's credential to another's machine; a person may move their own to a s
 [A complete example: one person's runner on a Linux server](#a-complete-example-one-persons-runner-on-a-linux-server). After the script, each person runs `homingbird login --server <url>` once and
 approves the connection in the browser; until then the service runs and waits, and `homingbird service
 status` says `Sign in first: homingbird login --server <url>`. Put that line in your onboarding
-instructions too: **My agent**, **Connection** in the web client shows the same command while none of
+instructions too: **Nest**, **Connection** in the web client shows the same command while none of
 the person's agents is connected, but the server cannot tell a waiting service from no service at
 all, and sends no notification. Agent sign-ins are limited to 600 an hour from one address (see
 [Rate limits](#rate-limits)); a company larger than that onboards in groups an hour apart.

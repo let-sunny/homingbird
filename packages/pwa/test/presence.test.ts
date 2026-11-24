@@ -10,10 +10,10 @@ import {
 import { formats, strings } from '../src/strings.ts'
 
 describe('presenceShown', () => {
-  it('reads "Person online · Agent not awake" in words where the agent’s status is in words', () => {
+  it('reads "Person online · Resting" in words where the agent’s status is in words', () => {
     const shown = presenceShown({ humanOnline: true, agentOnline: false }, true)
     expect([shown.person.words, shown.agent.words]).toEqual([strings.humanOnline, strings.agentOffline])
-    expect([shown.person.words, shown.agent.words]).toEqual(['Person online', 'Agent not awake'])
+    expect([shown.person.words, shown.agent.words]).toEqual(['Person online', 'Resting'])
   })
 
   it('keeps narrow rows to the person’s dot, labelled for screen readers, and the agent only when online', () => {
@@ -54,7 +54,7 @@ describe('what each presence means', () => {
 
   it('names the person and their own agent on their own Connection', () => {
     const awake = presenceShown({ humanOnline: true, agentOnline: true }, true, 'mine')
-    expect([awake.person.words, awake.agent.words]).toEqual(['You: online', 'Your agent: awake'])
+    expect([awake.person.words, awake.agent.words]).toEqual(['You: online', 'Your agent: in the nest'])
     expect([awake.person.title, awake.agent.title]).toEqual([
       strings.selfPresence.onlineHint,
       strings.selfPresence.agentOnlineHint,
@@ -106,12 +106,12 @@ describe('presenceMarks', () => {
     expect(presenceMarks({ humanOnline: true, agentOnline: true }, 'Kai')).toEqual({
       person: { isOn: true, label: strings.presenceOf.online({ name: 'Kai' }) },
       agent: { state: 'on', label: strings.presenceOf.agentAwake({ name: 'Kai' }) },
-      words: 'Online · agent awake',
+      words: 'Online · agent in the nest',
     })
     expect(presenceMarks({ humanOnline: false, agentOnline: false }, 'Kai')).toEqual({
       person: { isOn: false, label: strings.presenceOf.away({ name: 'Kai' }) },
       agent: { state: 'off', label: strings.presenceOf.agentAsleep({ name: 'Kai' }) },
-      words: 'Away · agent not awake',
+      words: 'Away · agent resting',
     })
   })
 

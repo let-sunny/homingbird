@@ -60,7 +60,7 @@ export const TEACHING_TOOLS: ReadonlyArray<Tool<any>> = [
     run: (input, { api }) =>
       T.map(
         (proposal: AsRead.PrincipleProposal) =>
-          `Proposed "${proposal.topic}" (${proposal.id}). It waits in Homingbird under My agent, Teaching, Teach by chatting. ${PROPOSALS_SAVED_ONLY_BY_A_PERSON}`,
+          `Proposed "${proposal.topic}" (${proposal.id}). It waits in Homingbird under Nest, Teaching, Teach by chatting. ${PROPOSALS_SAVED_ONLY_BY_A_PERSON}`,
       )(api['principleProposals.create']({ body: input })),
   }),
 ]

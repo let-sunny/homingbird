@@ -112,7 +112,7 @@ export const USAGE = `Usage: homingbird <command> [options]
   setup --server <url> --join <code> --agent "<command>" [--name <name>] [--timeout <seconds>]
       [--workdir <dir>] [--split [--reader "<command>"] [--require-toolless-reader]] [--no-service]
                                                on a server: sign in with a join code from the web
-                                               client (My agent → Connection → Run on a server) and
+                                               client (Nest → Connection → Run on a server) and
                                                install the service; --no-service only signs in
                                                (the code may come from HOMINGBIRD_JOIN_CODE instead)
   login --server <url> [--name <device name>] [--no-browser] [--credentials-file <path> [--force]]
@@ -380,11 +380,11 @@ const BUILDERS: Readonly<Record<string, (tokens: Tokens) => Result.Result<Invoca
       const code = (values.get('join') ?? variables.HOMINGBIRD_JOIN_CODE)?.trim() ?? ''
       if (server === '' || code === '')
         return yield* usage(
-          'setup needs --server <url> and --join <code>, from My agent → Connection in the web client.',
+          'setup needs --server <url> and --join <code>, from Nest → Connection in the web client.',
         )
       if (!code.startsWith('hbj_'))
         return yield* usage(
-          'That is not a join code. Copy the whole command from My agent → Connection in the web client.',
+          'That is not a join code. Copy the whole command from Nest → Connection in the web client.',
         )
       const isServiceSkipped = switches.has('no-service')
       if (isServiceSkipped && SERVICE_FLAGS.some((flag) => values.has(flag) || switches.has(flag)))

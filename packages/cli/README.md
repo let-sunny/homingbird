@@ -22,7 +22,7 @@ homingbird login --server https://<server>
 `login` shows a code and opens the browser, where you confirm it. The agent credential it stores can
 read and draft, never send.
 
-On a server without a browser, use the line the web client gives you instead: **My agent** →
+On a server without a browser, use the line the web client gives you instead: **Nest** →
 **Connection** → **Run on a server** (or **Run on a server** in a channel agent's panel, for its
 managers). It signs the server in and installs the background service in one step:
 
@@ -180,7 +180,7 @@ of this has been run on Windows yet.
   never approve.
 - **Sign in once.** If you have not signed in to that server yet, the service starts anyway and waits;
   `service install` and `service status` print the command that ends the wait, `homingbird login
-  --server <url>` (on a server, the `homingbird setup` line from the web client does both), with `--credentials-file <path>` when the service reads one, and **My agent**,
+  --server <url>` (on a server, the `homingbird setup` line from the web client does both), with `--credentials-file <path>` when the service reads one, and **Nest**,
   **Connection** in the web client shows it while no agent of yours is connected. If the server later refuses
   the credential, it waits for a new sign-in. Other failures are retried after a minute.
 - **The log** is `~/.config/homingbird/logs/runner-<server>.log`, one timestamped line per step: note

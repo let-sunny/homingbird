@@ -154,6 +154,10 @@
   /* One whole turn of a bird: 16 directions at 140 ms, as in assets/pip/pip-turn.json. */
   --hb-duration-bird-turn: 2240ms;
   --hb-ease-pixel: steps(4, end);
+  --hb-duration-bird-fly: 700ms;
+  --hb-bird-fly-x: 3rem;
+  --hb-bird-fly-y: -2.5rem;
+  --hb-bird-fly-size: 0.9rem;
   --hb-scanlines: off;
 
   color-scheme: light dark;

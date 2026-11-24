@@ -37,7 +37,7 @@ export const leaveGroup = (
   })
 
 const NOT_A_GROUP = Conflict({
-  message: 'Only a group message can be left. Hide a direct message instead; leave a channel from its menu.',
+  message: 'Only a group DN can be left. Hide a direct note instead; leave a channel from its menu.',
 })
 
 /** A note the leaver's agent had picked up stops showing as "drafting reply" to the others. */

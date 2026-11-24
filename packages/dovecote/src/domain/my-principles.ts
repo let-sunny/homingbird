@@ -113,6 +113,6 @@ const placesTaught = (
       .sort((a, b) => b.drafted - a.drafted || (a.place ?? '\uffff').localeCompare(b.place ?? '\uffff'))
   })
 
-/** Whether a principle applies in a place: a principle for any channel applies everywhere, direct messages included. */
+/** Whether a principle applies in a place: a principle for any channel applies everywhere, direct notes included. */
 const appliesIn = (principle: { readonly place: PlaceName }, place: PlaceName): boolean =>
   principle.place === null || principle.place === place

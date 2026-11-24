@@ -1,6 +1,7 @@
 import type { AsRead, MemberId } from '@homingbird/protocol'
 import { archivedRooms, channelLabel, channelOfRoom, channelRooms, peopleConversations } from '../channels.ts'
 import { featureOn } from '../features.ts'
+import type { HintConcept } from '../hints.ts'
 import { type Route, hrefFor } from '../routes.ts'
 import { spriteOwner } from '../sprite-owner.ts'
 import { strings } from '../strings.ts'
@@ -27,10 +28,14 @@ export const tabsModel = (
     ...tab(strings.navMyAgent, { name: 'agent', section: null }, ['agent'], route, {
       glyph: 'agent',
       tour: 'connect',
+      hint: { concept: 'nest', text: strings.hints.nest },
     }),
     mark: agentUnavailable,
   },
-  tab(strings.navPeople, { name: 'people' }, ['people', 'group'], route, { glyph: 'people' }),
+  tab(strings.navPeople, { name: 'people' }, ['people', 'group'], route, {
+    glyph: 'people',
+    hint: { concept: 'keepers', text: strings.hints.keepers },
+  }),
   tab(strings.channels, { name: 'channels' }, ['channels', 'channel', 'channel-agent'], route, {
     glyph: 'channels',
     tour: 'channels',
@@ -65,7 +70,7 @@ export const userMenuModel = (me: AsRead.Me): UserMenu => ({
 })
 
 /**
- * The sidebar: direct messages, channel rooms and archived rooms, each as rows. It invites connecting an
+ * The sidebar: direct notes, channel rooms and archived rooms, each as rows. It invites connecting an
  * agent while none is, once a conversation exists; before that, the first steps on home say the same.
  * With the Waiting for you filter on, only the conversations the activity panel lists are shown, and no
  * archived room.
@@ -114,8 +119,15 @@ export interface Tab {
   readonly tour: string | null
   /** A state the tab's page tells about, as a small mark with these words for assistive technology. */
   readonly mark: string | null
+  /** A one-line hint of what the tab holds, shown while the person is new. */
+  readonly hint: TabHint | null
   /** The picture over the word in the phone's tab bar. */
   readonly glyph: TabGlyph | null
+}
+
+export interface TabHint {
+  readonly concept: HintConcept
+  readonly text: string
 }
 
 export type TabGlyph = 'notes' | 'agent' | 'people' | 'channels' | 'debates'
@@ -210,13 +222,14 @@ const tab = (
   target: Route,
   activeFor: ReadonlyArray<Route['name']>,
   route: Route,
-  shown: { readonly glyph?: TabGlyph; readonly tour?: string } = {},
+  shown: { readonly glyph?: TabGlyph; readonly tour?: string; readonly hint?: TabHint } = {},
 ): Tab => ({
   label,
   href: hrefFor(target),
   current: activeFor.includes(route.name),
   tour: shown.tour ?? null,
   mark: null,
+  hint: shown.hint ?? null,
   glyph: shown.glyph ?? null,
 })
 

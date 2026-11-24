@@ -104,7 +104,7 @@ export const conversations: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function
     { conversations: summaries },
     summaries
       .map((one) => `[${one.id}] ${one.with} — ${one.unreadCount} unread, ${one.draftCount} drafts waiting`)
-      .join('\n') || 'No direct messages or channels yet.',
+      .join('\n') || 'No direct notes or channels yet.',
   )
 })
 

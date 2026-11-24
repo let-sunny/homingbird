@@ -2607,3 +2607,19 @@ tool can read, set or widen it (rules 3 and 9), since knowing its scope would he
   +105 KB and +253 KB. A conversation fetches no more; the debates list adds one file of 28 KB.
   Browsers keep the files, so a later visit costs nothing. A screen that uses other characters
   fetches only the pieces for them.
+
+## The web client speaks in birds: Nest, Keepers and DN
+
+- **Names, in the words people read.** "My agent" is **Nest** (둥지): where a person's agent lives, its
+  connection, teaching and desk. "People" is **Keepers** (키퍼): colleagues who each keep their own bird,
+  their agent. "Direct messages", including group conversations, is **DN** (Direct Note); in sentences
+  English says "direct notes" and Korean "DN". Notes, Channels and Flocks keep their names. A sending note is
+  "Flying…" (날아가는 중…), an arriving one "A note flew in" (노트가 날아왔어요), and an agent that is
+  running is "in the nest" (둥지에 있음) or "resting" (쉬는 중).
+- **Why.** The product is named for a bird that carries notes home; its screens used the generic words
+  every messenger uses. The names make the idea show where people look, and each renamed tab and the
+  DN heading carries a one-line hint, through `hinted`, since a new word needs its meaning.
+- **Words only.** Routes (`#/agent`, `#/people`), API names, feature keys, tool names and code identifiers
+  stay, so nothing a script or a bookmark uses breaks. Slack's own direct messages keep their name.
+- **A small send animation.** A tiny bird flies off the Send button, in CSS only, its duration and
+  distance tokens in `tokens.css`, and none under `prefers-reduced-motion`.

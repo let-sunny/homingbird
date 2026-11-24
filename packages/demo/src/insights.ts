@@ -241,7 +241,7 @@ const figures = (
 
 /**
  * Each place as written, sent as written, edited and discarded. Over the month #deploys answers like
- * June, #billing is on its way, and direct messages slipped from the month before.
+ * June, #billing is on its way, and direct notes slipped from the month before.
  */
 const WEEK = figures(6, [
   ['deploys', 4, 3, 1, 0],

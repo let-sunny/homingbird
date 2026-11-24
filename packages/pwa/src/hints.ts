@@ -36,6 +36,9 @@ export const HINT_CONCEPTS = [
   'autoSend',
   'tagging',
   'newMessage',
+  'nest',
+  'keepers',
+  'directNotes',
   'newChannel',
   'browseChannels',
 ] as const
