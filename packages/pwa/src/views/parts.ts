@@ -3,7 +3,7 @@ import { type Child, type Properties, h } from '@homingbird/ui'
 import { channelLabel } from '../channels.ts'
 import type { SourceShown } from '../draft-basis.ts'
 import type { SlackReplyLines } from '../models/slack-reply.ts'
-import { checkingWords } from '../models/start.ts'
+import { type ListWait, checkingWords } from '../models/start.ts'
 import type { TimeShown } from '../models/time.ts'
 import { type PresenceMarks, presenceShown } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
@@ -152,6 +152,12 @@ export const checking = (context: Pick<ViewContext, 'state'>, words: string): HT
   const shown = checkingWords(context.state.workspace.get(), words)
   return shown === null ? null : h('p', { class: 'loading' }, shown)
 }
+
+/** Stands in place of a list that has not come: that it is checking, or that it took too long or failed, with a way to try again. */
+export const listWait = (wait: ListWait, retry: () => void): HTMLElement =>
+  wait.kind === 'checking'
+    ? h('p', { class: 'loading' }, wait.text)
+    : empty(wait.text, button(wait.retry, retry))
 
 /** Shown when a page or a part of one could not load its data, with a way to try again. */
 export const loadFailed = (retry: () => void): HTMLElement =>

@@ -12,6 +12,7 @@ import { type Action, type App, withApp } from '../app.ts'
 import { withChannel } from '../channels.ts'
 import { hrefFor } from '../routes.ts'
 import { loadGroups } from './groups.ts'
+import { loadingList } from './list-load.ts'
 import { loadConversations, loadKnownChannels, loadPeople } from './workspace.ts'
 
 export interface ChannelPage {
@@ -24,14 +25,17 @@ export const CHANNEL_PAGE = 20
 
 /** One page of the channel list, for what the person typed. */
 export const loadChannelPage = (query: string, cursor: string | null): Action<ChannelPage> =>
-  withApp(({ api }) =>
-    api['channels.list']({
-      query: {
-        limit: String(CHANNEL_PAGE),
-        ...(query !== '' && { q: query }),
-        ...(cursor !== null && { cursor }),
-      },
-    }),
+  loadingList(
+    'channels',
+    withApp(({ api }) =>
+      api['channels.list']({
+        query: {
+          limit: String(CHANNEL_PAGE),
+          ...(query !== '' && { q: query }),
+          ...(cursor !== null && { cursor }),
+        },
+      }),
+    ),
   )
 
 /** Opens a channel and keeps it in the list straight away; the person who opens it is its first manager. */

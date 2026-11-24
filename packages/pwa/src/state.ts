@@ -81,6 +81,7 @@ export const createState = (hash: string): AppState => {
     suggestions: signal<ReadonlyArray<AsRead.DebateSuggestion>>([]),
     debates: signal<ReadonlyArray<AsRead.DebateSummary>>([]),
     debatesLoaded: signal(false),
+    listLoads: { flocks: listLoad(), channels: listLoad() },
     shownDebate: signal<AsRead.Debate | 'missing' | null>(null),
     waitingOnly: signal(false),
     members: derived(
@@ -191,6 +192,8 @@ export interface AppState {
   readonly suggestions: Signal<ReadonlyArray<AsRead.DebateSuggestion>>
   readonly debates: Signal<ReadonlyArray<AsRead.DebateSummary>>
   readonly debatesLoaded: Signal<boolean>
+  /** How the lists that load when their page opens are going, for the words in place of a list that has not come. */
+  readonly listLoads: { readonly [List in ListName]: ListLoad }
   readonly shownDebate: Signal<AsRead.Debate | 'missing' | null>
   /** Whether the conversation list shows only what waits for the person. */
   readonly waitingOnly: Signal<boolean>
@@ -208,6 +211,20 @@ export interface AppState {
 
 /** Loading, slower than usual, too long (with a way to try again), or given up because the server stays away or refused. */
 export type Start = 'loading' | 'slow' | 'long' | 'failed' | 'refused'
+
+/** The lists that load on their own, each with its own load. */
+export type ListName = 'flocks' | 'channels'
+
+/** A list's first answer: still awaited, awaited too long, or not coming. */
+export type ListStep = 'loading' | 'long' | 'failed'
+
+/** The step of a list's latest load, and how many loads it has started; a load ends when it sees a newer one begin. */
+export interface ListLoad {
+  readonly step: Signal<ListStep>
+  readonly started: Signal<number>
+}
+
+const listLoad = (): ListLoad => ({ step: signal<ListStep>('loading'), started: signal(0) })
 
 /** The same steps for the workspace, which is loaded behind the drawn page; `'loaded'` once it is. */
 export type Workspace = 'loading' | 'slow' | 'long' | 'failed' | 'loaded'

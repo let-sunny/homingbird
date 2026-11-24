@@ -42,6 +42,7 @@ export const ko: Translation<typeof en> = {
     channels: '채널을 확인하는 중이에요…',
     people: '사람들을 확인하는 중이에요…',
     waiting: '기다리는 것을 확인하는 중이에요…',
+    flocks: '플록을 확인하는 중이에요…',
   },
   firstLoad: {
     retrying: '서버에 연결하는 중이에요…',
@@ -50,6 +51,12 @@ export const ko: Translation<typeof en> = {
     },
     tooLong: '너무 오래 걸리고 있어요. 다시 시도해 보세요.',
     failed: '서버에 연결하지 못했어요. 연결이 돌아오면 이 페이지가 알아서 다시 시도해요.',
+    refused: {
+      Forbidden: '이 서버를 쓸 권한이 없어요. 관리자에게 물어보세요.',
+      NotFound: '서버에서 이 페이지에 필요한 것을 찾지 못했어요. 주소를 확인하거나 관리자에게 물어보세요.',
+      Invalid: '서버가 요청을 받아들이지 않았어요. 페이지를 새로 고치거나 관리자에게 물어보세요.',
+      Conflict: '서버가 지금은 요청을 끝내지 못했어요. 잠시 후 다시 시도하거나 관리자에게 물어보세요.',
+    },
   },
   loadFailed: '불러오지 못했어요.',
   tryAgain: '다시 시도',

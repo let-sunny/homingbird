@@ -1,5 +1,5 @@
 import { type ApiError, DRAFT_CHANGED, SLACK_QUESTION_EDITED, SLACK_THREAD_MOVED } from '@homingbird/protocol'
-import { errorText, strings } from './strings.ts'
+import { errorText, locale, strings } from './strings.ts'
 
 export type Attempt =
   | 'device'
@@ -20,6 +20,26 @@ export const refusalText = (error: ApiError, attempt?: Attempt): string => {
   const known = attempt === undefined || error._tag !== 'Conflict' ? null : CONFLICTS[attempt]()
   return known ?? errorText(error)
 }
+
+/**
+ * What the page says when the server refuses it before the person is in. The server's words are in English, so
+ * another language gets a sentence of its own; English keeps the server's words when they say more than the status.
+ */
+export const firstScreenRefusal = (error: ApiError): string => {
+  if (
+    error._tag !== 'Forbidden' &&
+    error._tag !== 'NotFound' &&
+    error._tag !== 'Invalid' &&
+    error._tag !== 'Conflict'
+  )
+    return errorText(error)
+  const sentence = strings.firstLoad.refused[error._tag]
+  return locale === 'en' && saysMore(error.message) ? error.message : sentence
+}
+
+const saysMore = (message: string): boolean => message.trim() !== '' && !JUST_THE_STATUS.test(message.trim())
+
+const JUST_THE_STATUS = /^(forbidden|not found|invalid|bad request|conflict)\.?$/i
 
 const DRAFT_REFUSALS: Readonly<Record<string, () => string>> = {
   [DRAFT_CHANGED]: () => strings.refusals.draftChanged,

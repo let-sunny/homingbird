@@ -32,6 +32,7 @@ import {
   empty,
   emptyWithPip,
   field,
+  listWait,
   loading,
   page,
 } from './parts.ts'
@@ -78,9 +79,12 @@ export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement 
     strings.channels,
     h('div', { class: 'channels-intro' }, h('p', {}, strings.channelsIntro), newChannelButton(context)),
     field(strings.channelsSearchLabel, search),
-    region(life, [listed], () =>
-      renderChannelList(channelListModel(listed.get()), context, () =>
-        load(listed.get().query, listed.get()),
+    region(life, [listed, state.listLoads.channels.step], () =>
+      renderChannelList(
+        channelListModel(listed.get(), state.listLoads.channels.step.get()),
+        context,
+        () => load(listed.get().query, listed.get()),
+        () => load(query.get(), null),
       ),
     ),
   )
@@ -321,10 +325,15 @@ const askPage = (context: ViewContext, life: Lifetime, channel: AsRead.Channel):
   )
 }
 
-const renderChannelList = (model: ChannelListModel, context: ViewContext, more: () => void): Child => {
+const renderChannelList = (
+  model: ChannelListModel,
+  context: ViewContext,
+  more: () => void,
+  retry: () => void,
+): Child => {
   switch (model.kind) {
-    case 'loading':
-      return loading()
+    case 'waiting':
+      return listWait(model.wait, retry)
     case 'none-yet':
       return emptyWithPip(
         'searching',

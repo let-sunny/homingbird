@@ -1,6 +1,6 @@
 import { DEFAULT_DEBATE_LIMITS } from '@homingbird/protocol'
 import { lifetime } from '@homingbird/ui'
-import { fire, getByRole, textOf } from '@homingbird/ui/testing'
+import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
 import { debatesView, limitFields, limitsTypedIn } from '../../src/views/debates.ts'
@@ -15,8 +15,9 @@ describe('debatesView', () => {
   it('loads the flocks, says when there are none, and lists them with their stage', () => {
     const { context, called } = testContext()
     const shown = debatesView(context, lifetime(), me())
-    expect(called('loadDebates')).toHaveLength(1)
-    expect(textOf(shown)).toContain(strings.loading)
+    expect(called('loadDebateList')).toHaveLength(1)
+    expect(textOf(shown)).toContain(strings.checking.flocks)
+    expect(textOf(shown)).not.toContain(strings.debates.empty)
     context.state.debatesLoaded.set(true)
     expect(textOf(shown)).toContain(strings.debates.empty)
     context.state.debates.set([summary({ participantIds: [ANA, BEN], turnCount: 2, visibility: 'private' })])
@@ -24,6 +25,24 @@ describe('debatesView', () => {
     expect(textOf(shown)).toContain(strings.debates.private)
     context.state.directory.set([entry(BEN, 'Ben', { presence: { humanOnline: false, agentOnline: true } })])
     expect(textOf(shown)).toContain(strings.debates.stage.debating)
+  })
+
+  it('says it is taking too long or failed in place of the list, and Try again loads the list again', () => {
+    const { context, called } = testContext()
+    const shown = mount(debatesView(context, lifetime(), me()))
+    context.state.listLoads.flocks.step.set('long')
+    expect(textOf(shown)).toContain(strings.firstLoad.tooLong)
+    expect(textOf(shown)).not.toContain(strings.checking.flocks)
+    expect(textOf(shown)).not.toContain(strings.debates.empty)
+    getByRole(shown, 'button', { name: strings.tryAgain }).click()
+    expect(called('loadDebateList')).toHaveLength(2)
+    context.state.listLoads.flocks.step.set('failed')
+    expect(textOf(shown)).toContain(strings.loadFailed)
+    getByRole(shown, 'button', { name: strings.tryAgain }).click()
+    expect(called('loadDebateList')).toHaveLength(3)
+    context.state.debatesLoaded.set(true)
+    expect(textOf(shown)).toContain(strings.debates.empty)
+    expect(queryByRole(shown, 'button', { name: strings.tryAgain })).toBeNull()
   })
 
   it('opens a flock for a question with the colleagues invited and the limits typed', () => {
