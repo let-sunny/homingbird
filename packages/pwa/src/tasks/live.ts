@@ -1,9 +1,10 @@
 import { Task as T } from '@homingbird/kernel'
-import type { AsRead, ConversationId } from '@homingbird/protocol'
+import type { AsRead, ConversationId, NoteId } from '@homingbird/protocol'
 import { batch, later } from '@homingbird/ui'
-import type { Action, App } from '../app.ts'
+import { type Action, type App, withApp } from '../app.ts'
 import { channelLabel, channelOfRoom, withChannel, withoutRoom } from '../channels.ts'
 import { upsertRequest } from '../draft-requests.ts'
+import { ATTEMPT_LIMIT_SECONDS } from '../load-timing.ts'
 import type { Resource } from '../resource.ts'
 import { hrefFor } from '../routes.ts'
 import { signedIn } from '../state.ts'
@@ -17,6 +18,7 @@ import { closeDraftNotice } from './notifications.ts'
 import { loadPreviews, reloadPreviews } from './previews.ts'
 import { ACTIVITY, type ResourceKey, WORKSPACE, expire, invalidate, reread } from './resources.ts'
 import { refreshInterview } from './teaching-interview.ts'
+import { untilHolds } from './waiting-for.ts'
 import { followingWorkspace } from './workspace.ts'
 
 /** What each live event changes in the page, as one change: the state it updates and what it loads again. */
@@ -48,6 +50,15 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
   const refreshAgentsIfNoneKnown = (): void => {
     if (state.agentCredentials.get().length === 0) launch(invalidate('agentCredentials', 'draftRequests'))
   }
+  const notPosted = new Set<NoteId>()
+  const tellNotPosted = (note: AsRead.Note): void => {
+    const tell = (): void => {
+      if (notPosted.delete(note.id)) tellIfNotPosted(app, note)
+    }
+    if (note.posting !== 'failed') return
+    if (state.channelsLoaded.get()) tell()
+    else launch(T.map(tell)(untilChannelsCame))
+  }
   const apply = (event: AsRead.StreamEvent): void => {
     const body = event.body
     switch (body.type) {
@@ -59,7 +70,9 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         break
       case 'note.changed':
         rememberNote(state)(body.note)
-        tellIfNotPosted(app, body.note)
+        if (body.note.posting === 'failed') notPosted.add(body.note.id)
+        else notPosted.delete(body.note.id)
+        tellNotPosted(body.note)
         break
       case 'note.status':
         state.changes.count(body.conversationId)
@@ -198,7 +211,6 @@ const announceIfFresh = (app: App, note: AsRead.Note): void => {
 
 /** A reply given up on is told to its sender and the channel's managers, who can try it again. */
 const tellIfNotPosted = (app: App, note: AsRead.Note): void => {
-  if (note.posting !== 'failed') return
   const channel = channelOfRoom(app.state.channels.get(), note.conversationId)
   const isSender = (note.approvedBy ?? note.authorId) === signedIn(app.state)?.member.id
   if (!isSender && channel?.managing !== true) return
@@ -207,6 +219,13 @@ const tellIfNotPosted = (app: App, note: AsRead.Note): void => {
     text: strings.slack.notPostedNotice({ channel: channel?.link?.name ?? '' }),
   })
 }
+
+/** The channels say who is told and where; a list that does not come is not waited for longer than an attempt. */
+const untilChannelsCame: Action = withApp(({ state }) =>
+  T.asUnit(
+    T.result(T.timeout(ATTEMPT_LIMIT_SECONDS * 1000)(untilHolds(state.channelsLoaded, (loaded) => loaded))),
+  ),
+)
 
 const reloadShownDebate = (app: App, id: string): void => {
   const current = app.state.route.get()

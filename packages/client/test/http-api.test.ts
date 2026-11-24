@@ -3,7 +3,13 @@ import { arbitrary } from '@homingbird/kernel/testing'
 import { type Route, type RouteName, contract, fillPath } from '@homingbird/protocol'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { type Fetch, SAME_SITE_HEADER, authorizationHeaders, httpApi } from '../src/http-api.ts'
+import {
+  type Fetch,
+  SAME_SITE_HEADER,
+  authorizationHeaders,
+  httpApi,
+  isForeignAnswer,
+} from '../src/http-api.ts'
 
 interface Call {
   readonly url: string
@@ -205,5 +211,19 @@ describe('authorizationHeaders', () => {
     ],
   ])('builds headers for %j', (options, expected) => {
     expect(authorizationHeaders(options)).toEqual(expected)
+  })
+
+  it('tells a refusal the server wrote from one something in between answered with', async () => {
+    const answering = (body: string) =>
+      httpApi({ serverUrl: 'http://s', fetch: () => Promise.resolve(new Response(body, { status: 404 })) })
+    const errorOf = async (body: string) => {
+      const exit = await T.run(answering(body)['me.get']({}))
+      return exit._tag === 'Err' && exit.error._tag === 'Fail' ? exit.error.error : null
+    }
+    const page = await errorOf('<h1>404</h1>')
+    const foreignJson = await errorOf('{"detail":"Not Found"}')
+    const refusal = await errorOf('{"error":{"code":"NotFound","message":"no"}}')
+    expect([page, foreignJson, refusal].map((error) => error?._tag)).toEqual(Array(3).fill('NotFound'))
+    expect([page, foreignJson, refusal].map((error) => isForeignAnswer(error!))).toEqual([true, true, false])
   })
 })

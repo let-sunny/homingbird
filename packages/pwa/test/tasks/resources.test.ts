@@ -1,3 +1,5 @@
+import { httpApi } from '@homingbird/client'
+import { Task as T, makeTestClock } from '@homingbird/kernel'
 import type { AsRead, DraftRequest, NoteId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { TOO_LONG_LOAD_SECONDS } from '../../src/load-timing.ts'
@@ -142,6 +144,38 @@ describe('the resources', () => {
     expect(state.reviews.get()).toEqual([])
     expect(state.reviews.load.get()).toEqual({ loaded: true, step: 'idle', error: null })
   })
+
+  it.each(KEYS)(
+    'keep %s when something in between answers 404 with a page of its own, and read it again',
+    async (key) => {
+      let isBehindProxy = false
+      const clock = makeTestClock(0)
+      const api = httpApi({
+        serverUrl: 'http://localhost',
+        fetch: () => Promise.resolve(new Response('not found', { status: 404 })),
+      })
+      const test = start()
+      const app = {
+        ...test.app,
+        clock,
+        api: new Proxy(test.api, {
+          get: (routes, name) => (isBehindProxy ? api : routes)[name as keyof typeof api],
+        }),
+      }
+      await T.run(open(key), app)
+      const shown = test.state[key].get()
+      isBehindProxy = true
+      await T.run(refresh(key), app)
+      await clock.advance(15_000)
+      await settle()
+      expect(test.state[key].get()).toEqual(shown)
+      expect(test.state[key].load.get()).toMatchObject({ loaded: true, step: 'failed' })
+      isBehindProxy = false
+      await clock.advance(30_000)
+      await settle()
+      expect(test.state[key].load.get()).toMatchObject({ loaded: true, step: 'idle' })
+    },
+  )
 
   it.each(KEYS)('keep %s, and tell nobody, when a background request fails', async (key) => {
     let isDown = false

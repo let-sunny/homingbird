@@ -61,6 +61,42 @@ const onPage = () => {
 }
 
 describe('channelAgentView', () => {
+  it.each(['answers', 'teach'] as const)(
+    'keeps what is being done on its %s tab when the channels come again unchanged, and ends it when they change',
+    (tab) => {
+      const { context, called } = testContext()
+      context.state.serverInfo.set(everything())
+      context.state.session.set(me())
+      setLoad(context.state.channels, { loaded: true })
+      context.state.channels.set([wiki])
+      context.state.channelAgents.set(new Map([['payments-wiki', agentView()]]))
+      context.state.channelTeaching.set(
+        new Map([['payments-wiki', { instruction: '', sources: [], principles: [], limit: 20 } as never]]),
+      )
+      const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null, tab))
+      const asked = tab === 'teach' ? 'loadChannelTeaching' : 'loadChannelAgent'
+      const typed = shown.querySelector('textarea')
+      if (tab === 'teach') fire.type(typed!, 'Half an instruction')
+      context.state.channels.set([{ ...wiki }])
+      context.state.channels.set([{ ...wiki }, channel('other')])
+      expect(called(asked)).toHaveLength(1)
+      if (tab === 'teach') expect(shown.querySelector('textarea')!.value).toBe('Half an instruction')
+      context.state.channels.set([{ ...wiki, memberCount: 9 }])
+      expect(called(asked)).toHaveLength(2)
+    },
+  )
+
+  it('keeps a join code on screen when the channels come again unchanged', () => {
+    const { context, called, dialog } = onPage()
+    called('loadChannelAgent')[0]!.then!.done!(undefined)
+    context.state.channelAgents.set(new Map([['payments-wiki', agentView()]]))
+    const make = dialog.querySelector<HTMLButtonElement>('.join-code button, .join-code-section button')
+    expect(make).not.toBeNull()
+    const section = make!.parentElement!
+    context.state.channels.set([{ ...wiki }])
+    expect(dialog.contains(section)).toBe(true)
+  })
+
   it('shows the agent’s state on its page, as a person’s agent is shown', () => {
     const { context } = testContext()
     context.state.serverInfo.set(everything())

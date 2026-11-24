@@ -609,7 +609,7 @@ sequenceDiagram
   cursor, and the lists wait for its response, at most `STREAM_WAIT_SECONDS` (1), so that an event sent once
   is either in a list or arrives after it was asked for. When the stream is later than that, the lists that
   such events feed are asked for once more, after those the page is first drawn from. Rooms are drawn
-  with the people who name them, unless those take longer than usual. What a live event changes while a list is on its
+  with the people who name them, unless those take longer than usual, and stay drawn while they are asked for again. What a live event changes while a list is on its
   way is made again on the answer, so a room left meanwhile does not come back; a list that only hears "look
   again" is asked for once more after the running request. A list that never answers holds back neither the
   stream, nor the page, nor the other lists. The Channels tab loads when it opens and says "Checking…", then
@@ -630,12 +630,13 @@ sequenceDiagram
   | `invalidate` | It changed: one request after the running one, however many ask |
   | `refresh` | As `invalidate`, and ends with that request, never with one that ran already |
   | `reread` | As `refresh` for several, after an action: it waits at most 5 seconds and never fails |
-  | `again` | Try again, and a reconnect: ends the running request and asks afresh |
+  | `again` | Try again, and `online` for what failed: ends the running request and asks afresh |
 
   A change made on the page or by an event (an answer decided, a room left, a presence change) is applied at once and again on
   the answer of the attempt on its way, so it must mean the same made twice. A lost connection, a 5xx or a 429 keeps
   the value, is repeated after 1, 2, 4 and 8 seconds and then quietly every 30; a refusal empties it at
-  once and is not repeated by itself, since what the person may no longer read must not stay shown (rules 2 and 6).
+  once and is not repeated by itself (only one the server wrote: an answer that is no `ErrorBody`, as a proxy's page, counts as a server
+  that is away), since what the person may no longer read must not stay shown (rules 2 and 6).
   Nobody is told of a background failure while a list is shown; a list that failed and was never read stays
   told until it is read or the person tries again. Runs follow the session's signal, and
   `forgetSession` resets every resource. An attempt that has not answered within `ATTEMPT_LIMIT_SECONDS`
@@ -651,8 +652,8 @@ sequenceDiagram
   answers, and starts the page anew when another person signed in meanwhile in another tab
   (`pwa/src/tasks/reconnect.ts`). Only then does it ask again for what events that are
   never replayed bring up to date: the reviews, suggestions and flocks, the conversations, people, channels
-  and agents, and, where the page holds them, the groups, the teaching chat and the flock on screen. Once for
-  each reconnect, and not for each poll.
+  and agents, and, where the page holds them, the groups, the teaching chat and the flock on screen. Each is asked for on its
+  own, after a request on its way, and the previews wait for none of them. Once for each reconnect, and not for each poll.
 - **Session end.** A 401 on any request or on the event stream, and signing out, end the session in the
   page (`endSession` in `pwa/src/app.ts`): the one `AbortSignal` that every launched task, the stream,
   the visibility reports and the delayed reloads follow is aborted, so no late answer is applied;

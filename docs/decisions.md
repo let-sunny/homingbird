@@ -789,8 +789,8 @@ states the decision first, then the reason. Add new entries at the top of their 
   leaves a few microtasks in which an answer already taken in, or the queue, could still be used. The
   conversations, people, contacts, channels, agents and draft requests are resources too, and how loading the
   workspace is going is derived from them. Their first request waits for the event stream to open, at most a second:
-  one round trip at each opening, for no event sent once being lost between a list and the stream. Reconnects of a stream
-  that comes and goes never end the request of a list that was never read. Threads keep their own rule.
+  one round trip at each opening, for no event sent once being lost between a list and the stream. A reconnect never ends a request on its way, so that a
+  stream that comes and goes cannot hold a slow list back; one that hangs ends after its 30 seconds. Threads keep their own rule.
 - **A debate room's rules are one pure state machine in `protocol`; Dovecote loads, applies and
   stores.** `stepDebate` and `settleDebateRoom` in `protocol/src/debate-room.ts` take a room's facts
   (who takes part, turns, drafts, votes, limits, time) and return the next stage and the effects to

@@ -27,6 +27,13 @@ export const createState = (hash: string): AppState => {
   const channels = resource<ReadonlyArray<AsRead.Channel>>([])
   const agentCredentials = resource<ReadonlyArray<AsRead.Credential>>([])
   const draftRequests = resource<ReadonlyArray<DraftRequest>>([])
+  const conversationsLoaded = signal(false)
+  const followRooms = (): void =>
+    conversationsLoaded.set(
+      conversations.load.get().loaded && (conversationsLoaded.get() || areNamesSettled(directory.load.get())),
+    )
+  conversations.load.subscribe(followRooms)
+  directory.load.subscribe(followRooms)
   const notNamedYet = derived(
     [conversations, directory.load],
     (rooms, people) => (people.loaded ? [] : rooms.flatMap((room) => room.participantIds)),
@@ -54,7 +61,7 @@ export const createState = (hash: string): AppState => {
     branding: signal<Branding>({ name: 'Homingbird', logo: null }),
     route: signal<Route>(parseRoute(hash)),
     conversations,
-    conversationsLoaded: derived([conversations.load, directory.load], areRoomsDrawn),
+    conversationsLoaded,
     threads,
     draftsRead,
     directory,
@@ -161,7 +168,7 @@ export interface AppState {
   readonly branding: Signal<Branding>
   readonly route: Signal<Route>
   readonly conversations: Resource<ReadonlyArray<AsRead.Conversation>>
-  /** The rooms may be drawn: they were read, and so were the people who name them unless that takes longer than usual. */
+  /** The rooms are drawn: from when they were read, and the people who name them too unless that takes longer than usual. */
   readonly conversationsLoaded: ReadableSignal<boolean>
   readonly threads: Signal<ReadonlyMap<ConversationId, Thread>>
   /** Each draft's text and room as the person last read them on this page. */
@@ -277,8 +284,8 @@ const isSignal = (held: object): held is Signal<unknown> => 'get' in held && 'se
 
 const isChangeCounter = (held: object): held is ChangeCounter => 'changesTo' in held
 
-const areRoomsDrawn = (rooms: Load, people: Load): boolean =>
-  rooms.loaded && (people.loaded || (people.step !== 'idle' && people.step !== 'loading'))
+/** The people came, or take longer than usual. */
+const areNamesSettled = ({ loaded, step }: Load): boolean => loaded || (step !== 'idle' && step !== 'loading')
 
 /** Someone in a room before the people were read, who must not read as having left the organization. */
 const unnamed = (id: MemberId): AsRead.Member => ({

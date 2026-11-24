@@ -22,6 +22,9 @@ export interface HttpApiOptions {
   readonly sendsCookies?: boolean
 }
 
+/** Whether a refusal was read from an answer the server did not write, as a proxy's own 404 page. */
+export const isForeignAnswer = (error: ApiError): boolean => foreignAnswers.has(error)
+
 export const SAME_SITE_HEADER = 'x-homingbird-request'
 
 export const httpApi = (options: HttpApiOptions): Api =>
@@ -68,7 +71,7 @@ const callRoute = (options: HttpApiOptions, route: Route, request: RouteRequest)
     )
     const payload = yield* T.tryPromise(
       () => response.json() as Promise<unknown>,
-      () => fromStatus(response.status, `The server answered ${response.status} without a readable body.`),
+      () => foreign(response.status, `The server answered ${response.status} without a readable body.`),
     )
     if (!response.ok) return yield* T.fail(errorFrom(response.status, payload))
     const decoded = route.response.read(payload)
@@ -91,8 +94,16 @@ const urlFor = (serverUrl: string, route: Route, request: RouteRequest): string 
 
 const errorFrom = (status: number, payload: unknown): ApiError => {
   const body = ErrorBody.decode(payload)
-  return body._tag === 'Ok' ? fromErrorBody(body.value) : fromStatus(status, `The server answered ${status}.`)
+  return body._tag === 'Ok' ? fromErrorBody(body.value) : foreign(status, `The server answered ${status}.`)
 }
+
+const foreign = (status: number, message: string): ApiError => {
+  const error = fromStatus(status, message)
+  foreignAnswers.add(error)
+  return error
+}
+
+const foreignAnswers = new WeakSet<ApiError>()
 
 /**
  * A change is sent with `keepalive` so that one asked for as the page closes still reaches the server;

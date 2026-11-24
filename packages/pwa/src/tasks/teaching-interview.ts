@@ -1,13 +1,23 @@
 import { Task as T } from '@homingbird/kernel'
-import type { AsRead, PrincipleKind, ProposalId } from '@homingbird/protocol'
+import type { ApiError, AsRead, PrincipleKind, ProposalId } from '@homingbird/protocol'
+import { isSameData } from '@homingbird/ui'
 import { type Action, withApp } from '../app.ts'
+import { isTransient, refusalOfServer } from '../refusals.ts'
 import { refreshPrinciples } from './teaching.ts'
 
-/** The pasted document and the proposals waiting; a failure says so in the section. */
+/**
+ * The pasted document and the proposals waiting; a failure says so in the section, unless it shows what it
+ * has and the server is only away. The same data again draws nothing, so what the person types there stays.
+ */
 export const refreshInterview: Action = withApp(({ api, state }) =>
   T.fold(
-    () => state.interview.set('failed'),
-    (loaded: AsRead.TeachingInterview) => state.interview.set(loaded),
+    (error: ApiError) => {
+      const isShown = state.interview.get() !== null && state.interview.get() !== 'failed'
+      if (!isShown || !isTransient(refusalOfServer(error))) state.interview.set('failed')
+    },
+    (loaded: AsRead.TeachingInterview) => {
+      if (!isSameData(loaded, state.interview.get())) state.interview.set(loaded)
+    },
   )(api['principleProposals.list']({})),
 )
 

@@ -88,11 +88,14 @@ export const channelAgentView = (
   const { state, actions } = context
   actions.loadKnownChannels()
   const tabs = channelAgentTabsModel(slug, state.serverInfo.get(), asked)
+  const shown = slice([state.channels, state.channelsLoaded], () =>
+    channelAgentPageModel(state.channels.get(), state.channelsLoaded.get(), slug),
+  )
   return h(
     'div',
     { class: 'channel-agent-page' },
-    region(life, [state.channels, state.channelsLoaded], () => {
-      const page = channelAgentPageModel(state.channels.get(), state.channelsLoaded.get(), slug)
+    region(life, [shown], (drawing) => {
+      const page = shown.get()
       if (page.kind === 'loading') return loading()
       if (page.kind === 'missing') return h('p', { class: 'hint' }, page.text)
       return pageOf(
@@ -100,8 +103,8 @@ export const channelAgentView = (
         page.agentState !== null && channelAgentStateLine(page.agentState),
         renderTabs(tabs),
         tabs.shown === 'teach'
-          ? channelTeachingSection(context, life, slug, page.channel.agent?.name ?? channelLabel(slug))
-          : agentPanel(context, life, page.channel, focus, 'page'),
+          ? channelTeachingSection(context, drawing, slug, page.channel.agent?.name ?? channelLabel(slug))
+          : agentPanel(context, drawing, page.channel, focus, 'page'),
       )
     }),
   )

@@ -1,8 +1,9 @@
 import type { AsRead, NoteId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
+import { ATTEMPT_LIMIT_SECONDS } from '../../src/load-timing.ts'
 import { loadPreviews, reloadPreviews } from '../../src/tasks/previews.ts'
 import { type Transport, catchUp } from '../../src/tasks/reconnect.ts'
-import { open } from '../../src/tasks/resources.ts'
+import { invalidate, open } from '../../src/tasks/resources.ts'
 import { fail, hold, settle, testApp } from '../support/app.ts'
 import {
   BEN,
@@ -298,7 +299,7 @@ describe('catchUp with the lists that events sent once bring up to date', () => 
     await settle()
     connect('stream')
     await settle()
-    expect(aborted).toEqual(['debates.list'])
+    expect(aborted).toEqual([])
     before.release({ debates: [] })
     await settle()
     expect(state.debates.get()).toEqual([summary()])
@@ -320,6 +321,101 @@ describe('catchUp with the lists that events sent once bring up to date', () => 
     await settle()
     expect(listsAsked(routes())).toEqual(LISTS)
     expect(clock.pending()).toBe(0)
+  })
+
+  it.each(['never read', 'read before'])(
+    'lets a list %s arrive although streams come and go faster than it answers',
+    async (when) => {
+      const answers: Array<(answer: unknown) => void> = []
+      const { connect, app, state, aborted, run } = start({
+        'directory.list': () => {
+          const one = hold<unknown>()
+          answers.push(one.release)
+          return one.waiting
+        },
+      })
+      connect('stream')
+      const name = (text: string) => ({ entries: [entry(BEN, text)] })
+      app.launch(open('directory'))
+      await settle()
+      if (when === 'read before') {
+        answers.shift()!(name('Ben Then'))
+        await settle()
+        app.launch(invalidate('directory'))
+        await settle()
+      }
+      const ended = aborted.length
+      for (let drop = 0; drop < 5; drop++) {
+        connect('stream')
+        await settle()
+      }
+      expect(aborted).toHaveLength(ended)
+      answers.shift()!(name('Ben Between'))
+      await settle()
+      expect(state.directory.get()).toEqual([entry(BEN, 'Ben Between')])
+      answers.shift()!(name('Ben Now'))
+      await settle()
+      expect(state.directory.get()).toEqual([entry(BEN, 'Ben Now')])
+      expect(answers).toEqual([])
+      await run(open('directory'))
+    },
+  )
+
+  it('shows the previews and keeps the other parts coming while one part never answers, through later polls', async () => {
+    const answers = { groups: hold<unknown>(), debate: hold<unknown>() }
+    const { connect, state, routes, shown, clock, aborted } = start(
+      {
+        'previews.list': () => ({ previews: [preview('note_p2')] }),
+        'groups.list': () => answers.groups.waiting,
+        'principleProposals.list': () => ({ document: null, proposals: [], limit: 20 }),
+        'debates.get': () => answers.debate.waiting,
+      },
+      true,
+    )
+    const info = everything()
+    state.serverInfo.set({ ...info, features: { ...info.features, draftPreviews: true } })
+    state.groupsLoaded.set(true)
+    state.interview.set('failed')
+    state.route.set({ name: 'debate', id: 'deb_1' } as never)
+    connect('stream')
+    connect('poll')
+    await settle()
+    expect(shown()).toEqual([preview('note_p2')])
+    expect(state.interview.get()).toEqual({ document: null, proposals: [], limit: 20 })
+    for (let poll = 0; poll < 3; poll++) {
+      connect('poll')
+      await settle()
+    }
+    expect(aborted).toEqual([])
+    answers.debate.release({ id: 'deb_1' })
+    await settle()
+    expect(state.shownDebate.get()).toEqual({ id: 'deb_1' })
+    for (const route of ['groups.list', 'debates.get', 'debates.list', 'directory.list'])
+      expect(
+        routes().filter((one) => one === route),
+        route,
+      ).toHaveLength(1)
+    await clock.advance(ATTEMPT_LIMIT_SECONDS * 1000)
+    expect(aborted).toContain('groups.list')
+    expect(state.notice.get()).toBeNull()
+  })
+
+  it('still owes the lists when the stream is lost again before the server said who is signed in', async () => {
+    const who = [hold<unknown>(), hold<unknown>()]
+    let asked = 0
+    const { connect, missed, routes } = start({ 'me.get': () => who[asked++]!.waiting }, true)
+    connect('stream')
+    connect('stream')
+    await settle()
+    missed.lost()
+    who[0]!.release(me())
+    await settle()
+    expect(listsAsked(routes())).toEqual([])
+    connect('stream')
+    await settle()
+    who[1]!.release(me())
+    await settle()
+    expect(listsAsked(routes())).toEqual(LISTS)
   })
 
   it('keeps the request of a list never read on its way, so that streams that come and go never hold it back', async () => {

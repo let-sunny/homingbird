@@ -1,11 +1,11 @@
 import { Schedule, Task as T } from '@homingbird/kernel'
 import { type Action, type App, withApp } from '../app.ts'
-import { QUIET_RETRY_SECONDS } from '../load-timing.ts'
+import { ATTEMPT_LIMIT_SECONDS, QUIET_RETRY_SECONDS } from '../load-timing.ts'
 import { isTransient } from '../refusals.ts'
 import { loadDebate } from './debates.ts'
 import { loadGroups } from './groups.ts'
 import { hidePreviews, loadPreviews } from './previews.ts'
-import { again, invalidate } from './resources.ts'
+import { invalidate } from './resources.ts'
 import { requireSamePerson } from './same-person.ts'
 import { refreshInterview } from './teaching-interview.ts'
 import { untilHolds } from './waiting-for.ts'
@@ -29,11 +29,11 @@ export const catchUp = (app: App): CatchUp => {
     const running = T.runFork(T.result(reading), app, app.ended)
     stopReading = () => void running.interrupt()
   }
-  const readMissedLists: Action = T.gen(function* () {
+  const askWhatWasMissed: Action = T.gen(function* () {
     yield* T.retry({ schedule: untilAnswered, while: isTransient })(requireSamePerson)
+    app.launch(askMissed)
+    for (const part of partsShown(app)) app.launch(withinAttempt(part))
     owesCatchUp = false
-    yield* askMissed
-    yield* rereadShown
   })
   const hideAll = (): void => hidePreviews(app.state, [...app.state.previews.get().keys()])
   const lost = (): void => {
@@ -54,7 +54,7 @@ export const catchUp = (app: App): CatchUp => {
       if (!owesCatchUp) read(readPreviews)
       else {
         hideAll()
-        read(T.flatMap(() => readPreviews)(readMissedLists))
+        read(T.flatMap(() => readPreviews)(askWhatWasMissed))
       }
       connected = transport
     },
@@ -79,32 +79,26 @@ const isNextPoll = (connected: Transport | null, transport: Transport): boolean 
 const ACTIVITY_LISTS = ['reviews', 'suggestions', 'debates'] as const
 const WORKSPACE_LISTS = ['conversations', 'directory', 'channels', 'agentCredentials'] as const
 
-/** One that was never read keeps the request on its way, so that a stream that comes and goes never holds it back. */
-const askMissed: Action = withApp(({ state }) => {
-  const isRead = (key: (typeof WORKSPACE_LISTS)[number]): boolean => state[key].load.get().loaded
-  return T.asUnit(
-    T.all([
-      again(...ACTIVITY_LISTS, ...WORKSPACE_LISTS.filter(isRead)),
-      invalidate(...WORKSPACE_LISTS.filter((key) => !isRead(key))),
-    ]),
-  )
-})
+/** After a request on its way, so that a stream that comes and goes never holds a slow list back. */
+const askMissed: Action = T.suspend(() => invalidate(...ACTIVITY_LISTS, ...WORKSPACE_LISTS))
 
 /** After what the page is first drawn from, which on a slow line must not wait behind what is asked twice. */
 const askOnceMore: Action = withApp(({ state }) =>
-  T.flatMap(() => invalidate(...ACTIVITY_LISTS, ...WORKSPACE_LISTS))(
-    untilHolds(state.workspace, (step) => step !== 'loading'),
-  ),
+  T.flatMap(() => askMissed)(untilHolds(state.workspace, (step) => step !== 'loading')),
 )
 
-/** The rest that such events bring up to date, where this page holds it. */
-const rereadShown: Action = T.gen(function* () {
-  const { state } = yield* T.ask<App>()
+/** The rest that such events bring up to date, where this page holds it, each read on its own. */
+const partsShown = ({ state }: App): ReadonlyArray<Action<unknown>> => {
   const shown = state.route.get()
-  if (state.groupsLoaded.get()) yield* T.result(loadGroups)
-  if (state.interview.get() !== null) yield* refreshInterview
-  if (shown.name === 'debate') yield* T.result(loadDebate(shown.id))
-})
+  return [
+    ...(state.groupsLoaded.get() ? [loadGroups] : []),
+    ...(state.interview.get() !== null ? [refreshInterview] : []),
+    ...(shown.name === 'debate' ? [loadDebate(shown.id)] : []),
+  ]
+}
+
+const withinAttempt = (part: Action<unknown>): Action =>
+  T.asUnit(T.result(T.timeout(ATTEMPT_LIMIT_SECONDS * 1000)(part)))
 
 const untilAnswered = (): Iterable<number> => Schedule.exponential(1000, 2, QUIET_RETRY_SECONDS * 1000)
 

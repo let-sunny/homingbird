@@ -39,6 +39,24 @@ describe('createState', () => {
     }
   })
 
+  it('keeps the rooms drawn while the people are asked for again, until the rooms themselves are lost', () => {
+    const state = createState('')
+    setLoad(state.conversations, { loaded: true })
+    setLoad(state.directory, { step: 'failed' })
+    for (const step of ['idle', 'loading', 'failed', 'loading'] as const) {
+      setLoad(state.directory, { step })
+      expect(state.conversationsLoaded.get()).toBe(true)
+    }
+    setLoad(state.conversations, { step: 'failed' })
+    expect(state.conversationsLoaded.get()).toBe(false)
+    setLoad(state.conversations, { loaded: true })
+    expect(state.conversationsLoaded.get()).toBe(false)
+    setLoad(state.directory, { loaded: true })
+    expect(state.conversationsLoaded.get()).toBe(true)
+    forgetSession(state)
+    expect(state.conversationsLoaded.get()).toBe(false)
+  })
+
   it('never takes someone for a former member before the people came, and follows the rooms only until then', () => {
     const state = createState('')
     let changes = 0

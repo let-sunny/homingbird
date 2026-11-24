@@ -4,6 +4,7 @@ export {
   SAME_SITE_HEADER,
   authorizationHeaders,
   httpApi,
+  isForeignAnswer,
 } from './http-api.ts'
 export { type EventStreamOptions, type Transport, eventStream } from './event-stream.ts'
 export { type ServerSentMessage, parseServerSentEvents } from './server-sent-events.ts'

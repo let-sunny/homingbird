@@ -1,7 +1,8 @@
 import { Task as T } from '@homingbird/kernel'
-import type { ApiError, AsRead, ConversationId, DraftRequest } from '@homingbird/protocol'
+import type { Api, ApiError, AsRead, ConversationId, DraftRequest } from '@homingbird/protocol'
 import { type Action, type App, withApp } from '../app.ts'
 import { featureOn } from '../features.ts'
+import { refusalOfServer } from '../refusals.ts'
 import type { Load, Resource, Source } from '../resource.ts'
 import { closeSettledReviewNotices } from './notifications.ts'
 import { untilHolds } from './waiting-for.ts'
@@ -178,9 +179,10 @@ const sourceOf = <Key extends ResourceKey>(app: App, key: Key): Source<Resources
   const { state, clock, ended, endSession, launch } = app
   const connection = state.connection.get()
   const ask: Action<Resources[Key]> = ASKS[key]
+  const asking: App = { ...app, api: hearingServerOnly(app.api) }
   return {
     ask: T.make((_, signal) =>
-      (state.stream.get() === 'awaited' ? T.flatMap(() => ask)(untilStreamSettled) : ask).run(app, signal),
+      (state.stream.get() === 'awaited' ? T.flatMap(() => ask)(untilStreamSettled) : ask).run(asking, signal),
     ),
     clock,
     ended,
@@ -194,6 +196,13 @@ const sourceOf = <Key extends ResourceKey>(app: App, key: Key): Source<Resources
     broke: (defect) => state.notice.set({ kind: 'error', text: String(defect) }),
   }
 }
+
+/** The server's API, where an answer it did not write never empties a list as a refusal of its own would. */
+const hearingServerOnly = (api: Api): Api =>
+  new Proxy(api, {
+    get: (routes, name) => (request: never) =>
+      T.mapError(refusalOfServer)(routes[name as keyof Api](request) as T.Task<unknown, ApiError>),
+  })
 
 const untilStreamSettled: Action = withApp(({ state }) =>
   untilHolds(state.stream, (stream) => stream !== 'awaited'),

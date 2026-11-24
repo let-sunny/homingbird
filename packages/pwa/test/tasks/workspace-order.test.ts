@@ -493,6 +493,8 @@ describe('each change an event or an action makes', () => {
         const same = <A>(change: (value: A) => A, value: A) =>
           expect(change(change(value))).toEqual(change(value))
         same((all) => withChannel(all, { ...of, joined: flag }), known)
+        same((all) => withChannel(all, { ...CHANNEL, joined: flag }), known)
+        same((all) => withAgentPresence(withoutRoom(withChannel(all, CHANNEL), HALL, flag), presence), known)
         same((all) => withoutRoom(all, of.conversationId, flag), known)
         same((all) => withAgentPresence(all, presence), known)
         same((all) => withPresence(all, presence), people)
