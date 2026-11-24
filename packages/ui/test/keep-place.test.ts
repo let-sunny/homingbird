@@ -47,6 +47,20 @@ describe('keepingPlace', () => {
     expect(document.activeElement).not.toBe(before)
   })
 
+  it('keeps the caret in a text that stayed the same, and not in one that changed', () => {
+    const { host } = scrolledPage()
+    const text = (value: string, caret: number) =>
+      Object.assign(h('textarea', { value }), { selectionStart: caret, selectionEnd: caret })
+    replaceChildren(host, text('Hello', 2))
+    ;(host.firstChild as HTMLElement).focus()
+    const caret = () => (host.firstChild as HTMLTextAreaElement).selectionStart
+    keepingPlace(host, () => replaceChildren(host, text('Hello', 5)))
+    expect(caret()).toBe(2)
+    keepingPlace(host, () => replaceChildren(host, text('Other', 5)))
+    expect(caret()).toBe(5)
+    expect(document.activeElement).toBe(host.firstChild)
+  })
+
   it('holds the new control where the old one was when what is above it changed size', () => {
     const { host, scroller } = scrolledPage()
     replaceChildren(host, switches(true))

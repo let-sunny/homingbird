@@ -13,6 +13,7 @@ import { roomKindOf, schedulingRoomModel } from '../models/scheduling-room.ts'
 import { type DebateTab, hrefFor } from '../routes.ts'
 import { locale, strings } from '../strings.ts'
 import { authorButton } from './author-details.ts'
+import { unlessComposing } from './composing.ts'
 import type { ViewContext } from './context.ts'
 import {
   citedText,
@@ -68,7 +69,8 @@ export const debateView = (
   let focusPending = true
   const pickedHours = signal<ReadonlySet<number> | null>(null)
   const showsAllHours = signal(false)
-  const unsaved: Unsaved = new Map()
+  if (state.debateUnsaved.get().id !== id) state.debateUnsaved.set({ id, typed: new Map() })
+  const unsaved: Unsaved = state.debateUnsaved.get().typed
   const roomNow = (): DebateRoomModel =>
     debateRoomModel({
       debate: state.shownDebate.get(),
@@ -102,62 +104,65 @@ export const debateView = (
           }
         : roomNow(),
   )
-  return region(
-    life,
-    [shown],
-    () => {
-      drawn.end()
-      const current = state.shownDebate.get()
-      if (isScheduling(current)) {
-        const enabled = featureOn('schedulingRooms', state.serverInfo.get())
-        const room = schedulingRoomModel({
-          debate: current,
-          viewerId: me.member.id,
-          enabled,
-          members: state.members.get(),
-          timeZone: context.page.timeZone(),
-        })
-        const agents = state.agentCredentials.get()
-        const person = { debate: current, viewerId: me.member.id, hasAgent: agents.length > 0 }
-        return renderSchedulingRoom(
-          room,
-          room.kind === 'room'
-            ? [
-                schedulingAgentCard(context, { ...person, agents, unsaved }),
-                schedulingSlotsCard(context, drawn, {
-                  ...person,
-                  picked: pickedHours,
-                  showsAll: showsAllHours,
-                }),
-                schedulingAttendanceCard(context, {
-                  ...person,
-                  directory: state.directory.get(),
-                  members: state.members.get(),
-                }),
-                schedulingRetryCard(context, person),
-              ]
-            : [],
-        )
-      }
-      const model = roomNow()
-      const view = renderDebateRoom(model, context, drawn, unsaved)
-      if (model.kind === 'room' && model.focusTurn !== null && focusPending) {
-        focusPending = false
-        const cited = `.debate-turn[data-position="${model.focusTurn}"]`
-        context.page.nextFrame(() => {
-          const shown = view.ownerDocument.querySelector<HTMLElement>(cited)
-          shown?.scrollIntoView({ block: 'start' })
-          shown?.focus({ preventScroll: true })
-        })
-      } else if (model.kind === 'room' && model.focusesTab && focusPending) {
-        focusPending = false
-        context.page.nextFrame(() =>
-          view.ownerDocument.querySelector<HTMLElement>(CURRENT_TAB)?.focus({ preventScroll: true }),
-        )
-      }
-      return view
-    },
-    { class: 'debate-room-host' },
+  const { drawn: redrawn, watch } = unlessComposing(context, life, shown)
+  return watch(
+    region(
+      life,
+      [redrawn],
+      () => {
+        drawn.end()
+        const current = state.shownDebate.get()
+        if (isScheduling(current)) {
+          const enabled = featureOn('schedulingRooms', state.serverInfo.get())
+          const room = schedulingRoomModel({
+            debate: current,
+            viewerId: me.member.id,
+            enabled,
+            members: state.members.get(),
+            timeZone: context.page.timeZone(),
+          })
+          const agents = state.agentCredentials.get()
+          const person = { debate: current, viewerId: me.member.id, hasAgent: agents.length > 0 }
+          return renderSchedulingRoom(
+            room,
+            room.kind === 'room'
+              ? [
+                  schedulingAgentCard(context, { ...person, agents, unsaved }),
+                  schedulingSlotsCard(context, drawn, {
+                    ...person,
+                    picked: pickedHours,
+                    showsAll: showsAllHours,
+                  }),
+                  schedulingAttendanceCard(context, {
+                    ...person,
+                    directory: state.directory.get(),
+                    members: state.members.get(),
+                  }),
+                  schedulingRetryCard(context, person),
+                ]
+              : [],
+          )
+        }
+        const model = roomNow()
+        const view = renderDebateRoom(model, context, drawn, unsaved)
+        if (model.kind === 'room' && model.focusTurn !== null && focusPending) {
+          focusPending = false
+          const cited = `.debate-turn[data-position="${model.focusTurn}"]`
+          context.page.nextFrame(() => {
+            const shown = view.ownerDocument.querySelector<HTMLElement>(cited)
+            shown?.scrollIntoView({ block: 'start' })
+            shown?.focus({ preventScroll: true })
+          })
+        } else if (model.kind === 'room' && model.focusesTab && focusPending) {
+          focusPending = false
+          context.page.nextFrame(() =>
+            view.ownerDocument.querySelector<HTMLElement>(CURRENT_TAB)?.focus({ preventScroll: true }),
+          )
+        }
+        return view
+      },
+      { class: 'debate-room-host' },
+    ),
   )
 }
 
@@ -539,8 +544,14 @@ const optInSection = (
           submit: (event) => {
             event.preventDefault()
             const agent = optIn.agents.find((one) => one.value === choice.value)
-            if (agent !== undefined)
-              context.actions.optInAgent(debate.id, agent.value as CredentialId, brief.value)
+            if (agent === undefined) return
+            const saved = brief.value
+            context.actions.optInAgent(debate.id, agent.value as CredentialId, saved, {
+              done: () => {
+                forgetTyped(unsaved, 'opt-in agent', agent.value)
+                forgetTyped(unsaved, 'opt-in brief', saved)
+              },
+            })
           },
         },
       },
@@ -653,8 +664,11 @@ const postForm = (
             return channel.focus()
           }
           context.actions.postResult(debate.id, destination, {
-            done: (draft) =>
-              context.page.go(hrefFor({ name: 'conversation', id: draft.conversationId, draft: null })),
+            done: (draft) => {
+              forgetTyped(unsaved, 'post channel', channel.value)
+              forgetTyped(unsaved, 'post person', person.value)
+              context.page.go(hrefFor({ name: 'conversation', id: draft.conversationId, draft: null }))
+            },
           })
         },
       },

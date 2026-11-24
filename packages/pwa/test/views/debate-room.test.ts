@@ -332,6 +332,50 @@ describe('debateView', () => {
     expect(shown.querySelector<HTMLDetailsElement>('details.debate-opt-in-advice')!.open).toBe(true)
     fire.submit(shown.querySelector('form.debate-opt-in-form')!)
     expect(called('optInAgent')[0]!.args.slice(1)).toEqual(['cred_laptop', 'Use the Q3 budget.'])
+    called('optInAgent')[0]!.then!.done!(undefined)
+    context.state.shownDebate.set(debate())
+    expect(shown.querySelector<HTMLTextAreaElement>('.debate-opt-in-form textarea')!.value).toBe('')
+  })
+
+  it('keeps an unsaved note when another tab is chosen, and only for that flock', () => {
+    const { context } = testContext()
+    const id = debate().id
+    const taking = debate({ participants: [participant(ANA), participant(BEN)], brief: 'Q3 only.' })
+    context.state.shownDebate.set(taking)
+    const note = (shown: HTMLElement) =>
+      shown.querySelector<HTMLTextAreaElement>('.debate-brief-form textarea')!
+    const first = lifetime()
+    fire.type(note(debateView(context, first, me(), id, 'turns')), 'Public figures only.')
+    first.end()
+    expect(note(debateView(context, lifetime(), me(), id, 'turns')).value).toBe('Public figures only.')
+    const other = debateView(context, lifetime(), me(), 'debate_other0000000', 'turns')
+    context.state.shownDebate.set({ ...taking, id: 'debate_other0000000' as never })
+    expect(note(other).value).toBe('Q3 only.')
+  })
+
+  it('does not draw the note anew while a character is being composed in it', () => {
+    const { context, page } = testContext()
+    const shown = mount(debateView(context, lifetime(), me(), 'debate_1', 'turns'))
+    const taking = debate({ participants: [participant(ANA), participant(BEN)] })
+    context.state.shownDebate.set(taking)
+    const note = () => shown.querySelector<HTMLTextAreaElement>('.debate-brief-form textarea')!
+    const field = note()
+    field.focus()
+    fire.event(field, 'compositionstart')
+    fire.type(field, '하')
+    context.state.shownDebate.set({ ...taking, question: 'Asked anew?' })
+    expect(note()).toBe(field)
+    fire.event(field, 'compositionend')
+    expect(note()).toBe(field)
+    page.runFrames()
+    expect(textOf(shown)).toContain('Asked anew?')
+    expect(note().value).toBe('하')
+    expect(document.activeElement).toBe(note())
+    fire.event(note(), 'compositionstart')
+    fire.event(note(), 'compositionend')
+    const drawn = note()
+    page.runFrames()
+    expect(note()).toBe(drawn)
   })
 
   it('keeps the note and the limits a person is changing while turns come, until they are saved', () => {

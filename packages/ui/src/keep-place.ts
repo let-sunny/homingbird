@@ -4,8 +4,8 @@
  * Removing the focused element makes the browser blur it and lay the page out at once, while the old
  * content is gone and the new is not yet in: every container that scrolls around the host shrinks to
  * what is left and loses its place. So the scroll of each one is put back, and the focus moves to the
- * control that stands where the focused one stood, held at the same place on screen. An element with a
- * `data-key` is followed by its key, so a row that moved keeps the focus on its own control.
+ * control that stands where the focused one stood, held at the same place on screen, with the caret where
+ * it was in a text that stayed the same. An element with a `data-key` is followed by its key, so a row that moved keeps the focus on its own control.
  */
 export const keepingPlace = (host: Element, change: () => void): void => {
   const focused = host.ownerDocument.activeElement
@@ -16,6 +16,7 @@ export const keepingPlace = (host: Element, change: () => void): void => {
   const path = pathTo(host, focused)
   const scrolled = scrollPositions(host)
   const top = focused.getBoundingClientRect().top
+  const caret = caretIn(focused)
   change()
   for (const place of scrolled) {
     place.element.scrollTop = place.top
@@ -24,6 +25,8 @@ export const keepingPlace = (host: Element, change: () => void): void => {
   const counterpart = nodeAt(host, path)
   if (!isCounterpart(counterpart, focused)) return
   counterpart.focus({ preventScroll: true })
+  if (caret !== null && caret.text === (counterpart as HTMLTextAreaElement).value)
+    Object.assign(counterpart, { selectionStart: caret.start, selectionEnd: caret.end })
   scrollAncestorsBy(counterpart, counterpart.getBoundingClientRect().top - top)
 }
 
@@ -91,6 +94,19 @@ const childAt = (parent: Node, step: PathStep): Node | null =>
         parent.childNodes,
         (child: Node) => child.nodeType === 1 && (child as Element).getAttribute('data-key') === step.key,
       ) ?? null)
+
+/** Where the caret is in a multi-line text; an input keeps none for some of its types. */
+const caretIn = (focused: Element): Caret | null => {
+  if (focused.localName !== 'textarea') return null
+  const { value, selectionStart, selectionEnd } = focused as HTMLTextAreaElement
+  return { text: value, start: selectionStart, end: selectionEnd }
+}
+
+interface Caret {
+  readonly text: string
+  readonly start: number
+  readonly end: number
+}
 
 /** The same kind of control, so focus never lands on something else that took its place. */
 const isCounterpart = (node: Node | null, focused: Element): node is HTMLElement =>

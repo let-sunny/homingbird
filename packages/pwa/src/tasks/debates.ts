@@ -24,15 +24,17 @@ export const askDebateListAgain: Action = again('debates')
 
 /**
  * Reads the flock shown on screen again; a flock the person may not see is shown as missing. An answer
- * for a flock that is no longer the one at the address is dropped.
+ * for a flock that is no longer the one at the address is dropped, and so is one asked for before the
+ * newest answer shown.
  */
 export const loadDebate = (id: string): Action =>
   withApp(({ api, state }) =>
-    T.catchTag('NotFound', () => T.sync(() => showIfAtAddress(state, id, 'missing')))(
-      T.map((debate: AsRead.Debate) => showIfAtAddress(state, id, debate))(
-        api['debates.get']({ params: { id } }),
-      ),
-    ),
+    T.suspend(() => {
+      const show = showInOrder(state)
+      return T.catchTag('NotFound', () => T.sync(() => show(id, 'missing')))(
+        T.map((debate: AsRead.Debate) => show(id, debate))(api['debates.get']({ params: { id } })),
+      )
+    }),
   )
 
 export interface DebateWish {
@@ -110,9 +112,18 @@ export const exportDebate = (
   withApp(({ api }) => api['debates.export']({ params: { id }, body: { format, language } }))
 
 const shown = (state: AppState, change: T.Task<AsRead.Debate, ApiError>): Action =>
-  T.map((debate: AsRead.Debate) => showIfAtAddress(state, debate.id, debate))(change)
+  T.suspend(() => {
+    const show = showInOrder(state)
+    return T.map((debate: AsRead.Debate) => show(debate.id, debate))(change)
+  })
 
-const showIfAtAddress = (state: AppState, id: string, shownNow: AsRead.Debate | 'missing'): void => {
-  const at = state.route.get()
-  if (at.name === 'debate' && at.id === id) state.shownDebate.set(shownNow)
+const showInOrder = (state: AppState): ((id: string, shownNow: AsRead.Debate | 'missing') => void) => {
+  const asked = state.debateAnswers.get().asked + 1
+  state.debateAnswers.update((answers) => ({ ...answers, asked }))
+  return (id, shownNow) => {
+    const at = state.route.get()
+    if (at.name !== 'debate' || at.id !== id || asked < state.debateAnswers.get().shown) return
+    state.debateAnswers.update((answers) => ({ ...answers, shown: asked }))
+    state.shownDebate.set(shownNow)
+  }
 }

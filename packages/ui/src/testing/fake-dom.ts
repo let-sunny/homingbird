@@ -275,6 +275,8 @@ interface Internal {
 const HTML = 'http://www.w3.org/1999/xhtml'
 
 const BUBBLING = new Set([
+  'compositionstart',
+  'compositionend',
   'click',
   'input',
   'change',
