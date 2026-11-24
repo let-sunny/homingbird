@@ -124,6 +124,27 @@ describe('showApp', () => {
     expect(context.state.route.get()).toEqual({ name: 'channels' })
   })
 
+  it('draws a page once when two address changes, each waiting for its transition, end at the same address', () => {
+    const { context, page, launched } = start()
+    context.state.session.set(me())
+    page.state.reducedMotion = false
+    const waiting: Array<() => void> = []
+    Object.assign(document, {
+      startViewTransition: (change: () => void) => {
+        waiting.push(change)
+        return { ready: Promise.reject(new Error('skipped')) }
+      },
+    })
+    page.state.hash = '#/channels'
+    page.emit('hashchange')
+    page.state.hash = '#/people'
+    page.emit('hashchange')
+    const before = launched.mock.calls.length
+    for (const change of waiting) change()
+    expect(context.state.route.get()).toEqual({ name: 'people' })
+    expect(launched.mock.calls.length - before).toBe(1)
+  })
+
   it('shows a page reached to connect an agent on its own, and the shell again after', () => {
     const { context, root } = start('#/consent/consent_1')
     context.state.session.set(me())

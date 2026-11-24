@@ -1,5 +1,5 @@
 import type { AsRead } from '@homingbird/protocol'
-import { type Lifetime, h, later, lifetime, region, replaceChildren } from '@homingbird/ui'
+import { type Lifetime, h, isSameData, later, lifetime, region, replaceChildren } from '@homingbird/ui'
 import { track } from '../analytics.ts'
 import { startModel } from '../models/start.ts'
 import { NOTICE_MS, toastModel } from '../models/toast.ts'
@@ -28,7 +28,10 @@ export const showApp = (
   const { state, page } = context
   page.on('hashchange', () => {
     if (replaceOldAddress(context)) return
-    inTransition(context, () => state.route.set(parseRoute(page.hash())))
+    inTransition(context, () => {
+      const route = parseRoute(page.hash())
+      if (!isSameData(route, state.route.get())) state.route.set(route)
+    })
   })
   replaceOldAddress(context)
   const appLife = lifetime()
