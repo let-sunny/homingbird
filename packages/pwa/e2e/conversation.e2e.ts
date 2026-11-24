@@ -59,7 +59,7 @@ const scenario = async (): Promise<void> => {
     await visitor.context.close()
 
     const ana = await signIn('ana@example.com', 'Ana')
-    await ana.page.waitForSelector('text=No direct messages yet')
+    await ana.page.waitForSelector('text=No notes have flown in yet')
     await ana.page.locator('.starting-points:visible:has-text("Connect your agent")').waitFor()
     await capture(ana.page, 'empty-home-with-first-steps')
 

@@ -72,7 +72,7 @@ describe('overview', () => {
     const w = world({ stubs: READING, signedIn: 'agent' })
     await w.run('overview')
     expect(w.lines[0]).toMatch(
-      /^Signed in as Ana on https:\/\/hb\.example\.com\n\nDirect messages and channels\n.*\n\nWaiting for a reply\n[\s\S]*\n\nDrafts waiting for approval\n/,
+      /^Signed in as Ana on https:\/\/hb\.example\.com\n\nDirect notes and channels\n.*\n\nWaiting for a reply\n[\s\S]*\n\nDrafts waiting for approval\n/,
     )
   })
 

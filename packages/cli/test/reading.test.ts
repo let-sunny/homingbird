@@ -172,7 +172,7 @@ describe('conversations', () => {
     expect(stranger.lines[0]).toContain('Ana, Unknown member')
     const none = world({ stubs: { ...READING, 'conversations.list': () => ({ conversations: [] }) } })
     await none.run('conversations')
-    expect(none.lines).toEqual(['No direct messages or channels yet.'])
+    expect(none.lines).toEqual(['No direct notes or channels yet.'])
   })
 })
 

@@ -367,8 +367,8 @@ const scenario = async (): Promise<void> => {
     await ben.page.goto(`${base}/#/c/${direct.id}`)
     await ben.page.waitForSelector('.draft:has-text("ahead of the usual eight")')
 
-    // -- 11a: from the My agent tab to its Connection section, and back --------------------------
-    await ben.page.click('.tab:has-text("My agent")')
+    // -- 11a: from the Nest tab to its Connection section, and back --------------------------
+    await ben.page.click('.tab:has-text("Nest")')
     await ben.page.click('.my-agent-tabs a:has-text("Connection")')
     await ben.page.waitForFunction(() => (globalThis as any).location.hash === '#/agent/connection')
     await ben.page.waitForSelector(`.desk-recommendation:has-text("${en.deskTitle}")`)
@@ -421,7 +421,7 @@ const scenario = async (): Promise<void> => {
     await ben.page.fill('.have-a-code input[name=code]', device.user_code)
     await ben.page.click('.have-a-code button[type=submit]')
     await ben.page.waitForSelector('.connect-window .back-to-app:has-text("Back to Homingbird")')
-    await ben.page.waitForSelector('.connect-window .back-to-connect:has-text("Back to My agent")')
+    await ben.page.waitForSelector('.connect-window .back-to-connect:has-text("Back to Nest")')
     await inThemes(ben.page, 'device-approval-offers-a-way-back', false)
     await ben.page.click('.connect-window .back-to-connect')
     await ben.page.waitForSelector('.app .desk-recommendation')
@@ -525,7 +525,7 @@ const scenario = async (): Promise<void> => {
     await visitor.page.goto('about:blank')
     await visitor.page.goto(`${base}/#/c/${billing}`)
     await visitor.page.waitForSelector(
-      '.empty:has-text("This direct message or channel does not exist, or you are not in it.")',
+      '.empty:has-text("This direct note or channel does not exist, or you are not in it.")',
     )
     await visitor.page.waitForTimeout(500)
     assert.equal(

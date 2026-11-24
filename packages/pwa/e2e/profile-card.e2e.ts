@@ -45,7 +45,7 @@ const scenario = async (): Promise<void> => {
     const room = (await api(ben, 'GET', '/channels/billing')).conversationId as string
     await sendThroughApi(ben, { channel: 'billing', body: 'Who signs off refunds over 500?' })
 
-    // -- Wide: from a note's author to a direct message in two clicks ---------------------------------
+    // -- Wide: from a note's author to a direct note in two clicks ---------------------------------
     await ana.page.goto(`${base}/#/c/${room}`)
     const author = ana.page.locator('.note.is-theirs .author-button').first()
     await author.waitFor()
@@ -54,7 +54,7 @@ const scenario = async (): Promise<void> => {
     await card.waitFor()
     await card.getByText('Ben', { exact: true }).waitFor()
     await card.locator('.profile-note').waitFor()
-    assert.equal(await card.getByRole('link', { name: 'Open in People' }).count(), 1)
+    assert.equal(await card.getByRole('link', { name: 'Open in Keepers' }).count(), 1)
     const authorBox = await author.boundingBox()
     const cardBox = await card.boundingBox()
     assert.ok(cardBox!.y >= authorBox!.y, 'the card opens beside the face that opened it')
@@ -67,7 +67,7 @@ const scenario = async (): Promise<void> => {
     )
     assert.equal(await ana.page.locator('#profile-card:popover-open').count(), 0)
 
-    // -- Once a direct message exists, the same two clicks open it -----------------------------------
+    // -- Once a direct note exists, the same two clicks open it -----------------------------------
     const anaId = (await api(ana, 'GET', '/me')).member.id as string
     await sendThroughApi(ben, { to: [anaId], body: 'Lunch at noon?' })
     await ana.page.goto(`${base}/#/c/${room}`)
@@ -78,10 +78,10 @@ const scenario = async (): Promise<void> => {
     assert.ok(direct.startsWith('#/c/') && direct !== `#/c/${room}`)
     await ana.page.locator('.thread-who h1').getByText('Ben').waitFor()
 
-    // -- A direct message's name opens the same card; Open in People brings the person into view ------
+    // -- A direct note's name opens the same card; Open in Keepers brings the person into view ------
     await ana.page.locator('.thread-who .people-title').click()
     await card.waitFor()
-    await card.getByRole('link', { name: 'Open in People' }).click()
+    await card.getByRole('link', { name: 'Open in Keepers' }).click()
     await ana.page.waitForSelector(`.person.is-focused[data-member-id="${benId}"]`)
 
     // -- A channel's agent gets no Message ----------------------------------------------------------

@@ -102,7 +102,7 @@ const scenario = async (): Promise<void> => {
     await ben.page.waitForFunction(() => (globalThis as any).location.hash === '#/channels')
     assert.equal((await api(ben, 'GET', '/channels/billing')).joined, false)
 
-    // -- My agent lists exactly the channels where answering is on ----------------------------------
+    // -- Nest lists exactly the channels where answering is on ----------------------------------
     await ben.page.goto(`${base}/#/agent/connection`)
     await ben.page.waitForSelector('.my-channels .channel-chip:has-text("#deploys")')
     assert.equal(await ben.page.locator('.my-channels .channel-chip:has-text("#billing")').count(), 0)
@@ -124,7 +124,7 @@ const scenario = async (): Promise<void> => {
     await ben.page.waitForSelector('.thread-head .private-mark .lock-mark')
     await capture(ben.page, 'private-room-shows-a-lock-and-the-word-private')
 
-    // -- Members panel: add from People, and the group that manages it -----------------------
+    // -- Members panel: add from Keepers, and the group that manages it -----------------------
     await ben.page.locator('.room-more').click()
     await ben.page.locator('.room-menu').getByRole('button', { name: 'Members' }).click()
     await ben.page.waitForSelector('dialog[open] .channel-member')

@@ -13,7 +13,7 @@ After each answer, turn it into one principle and call propose_principle: a shor
 
 Never propose anything no agent may do, such as approving or sending notes, changing contacts or a character, or touching credentials: such proposals are refused.
 
-Tell me in one line what you proposed, then ask the next question. At the end, call open_homingbird and show me the link: the proposals wait under My agent, Teaching, Teach by chatting, where I save, edit or remove each one, or save them all.
+Tell me in one line what you proposed, then ask the next question. At the end, call open_homingbird and show me the link: the proposals wait under Nest, Teaching, Teach by chatting, where I save, edit or remove each one, or save them all.
 
 You cannot save a principle, and no tool can: a proposal waits in the Homingbird web client until your human saves it. Never say a principle was saved."
 `;

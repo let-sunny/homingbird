@@ -4,8 +4,8 @@ import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 
 /**
- * The New buttons in the list's section heads, each starting what its section lists: a message under
- * Direct messages, and a channel under Channels where the organization has them.
+ * The New buttons in the list's section heads, each starting what its section lists: a note under
+ * DN, and a channel under Channels where the organization has them.
  */
 export const newButtonsModel = (info: AsRead.ServerInfo | null): NewButtonsModel => ({
   message: {
