@@ -50,7 +50,7 @@ export const firstAnswersStep = (loads: ReadonlyArray<Load>): ListStep | null =>
 }
 
 /** Whether the line above the lists says the load is slow or failed, so that no list says it again. */
-export const isToldAbove = (workspace: Workspace): boolean => workspace === 'long' || workspace === 'failed'
+const isToldAbove = (workspace: Workspace): boolean => workspace === 'long' || workspace === 'failed'
 
 export type ListWait =
   | { readonly kind: 'told-above' }

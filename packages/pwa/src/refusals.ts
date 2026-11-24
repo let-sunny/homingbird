@@ -1,4 +1,11 @@
-import { type ApiError, DRAFT_CHANGED, SLACK_QUESTION_EDITED, SLACK_THREAD_MOVED } from '@homingbird/protocol'
+import { isForeignAnswer } from '@homingbird/client'
+import {
+  type ApiError,
+  DRAFT_CHANGED,
+  SLACK_QUESTION_EDITED,
+  SLACK_THREAD_MOVED,
+  Unavailable,
+} from '@homingbird/protocol'
 import { errorText, locale, strings } from './strings.ts'
 
 export type Attempt =
@@ -40,6 +47,10 @@ export const firstScreenRefusal = (error: ApiError): string => {
 /** Whether waiting may mend it: the server is away or too busy, rather than refusing. */
 export const isTransient = (error: ApiError): boolean =>
   error._tag === 'Unavailable' || error._tag === 'RateLimited'
+
+/** A refusal as a list may act on: one the server itself did not write, as a proxy's page, means it is away. */
+export const refusalOfServer = (error: ApiError): ApiError =>
+  isForeignAnswer(error) ? Unavailable({ message: error.message }) : error
 
 const saysMore = (message: string): boolean => message.trim() !== '' && !JUST_THE_STATUS.test(message.trim())
 

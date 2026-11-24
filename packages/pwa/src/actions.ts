@@ -20,11 +20,11 @@ import * as mutes from './tasks/mutes.ts'
 import * as notes from './tasks/notes.ts'
 import * as people from './tasks/people.ts'
 import * as previews from './tasks/previews.ts'
+import * as resources from './tasks/resources.ts'
 import * as scheduling from './tasks/scheduling.ts'
 import * as slack from './tasks/slack.ts'
 import * as interview from './tasks/teaching-interview.ts'
 import * as teaching from './tasks/teaching.ts'
-import * as workspace from './tasks/workspace.ts'
 
 /**
  * What a view may ask for, by name: each starts its task and reports a failure as a notice. A view
@@ -44,18 +44,17 @@ export const createActions = (launch: Launch): Actions =>
 /** Every task a view may start; a task takes no optional argument, so a trailing `Then` is never mistaken for one. */
 export const TASKS = {
   startAgain: () => startAgain,
-  loadWorkspace: () => workspace.loadWorkspace,
-  loadAgents: () => workspace.loadAgents,
-  loadConversations: () => workspace.loadConversations,
+  loadAgents: () => resources.open('agentCredentials', 'draftRequests'),
+  reloadAgents: () => resources.invalidate('agentCredentials', 'draftRequests'),
   loadActivity: () => activity.loadActivity,
   loadAwaitedThreads: () => activity.loadAwaitedThreads,
   loadDraftThreads: () => activity.loadDraftThreads,
-  askActivityAgain: () => activity.askActivityAgain,
+  askActivityAgain: () => resources.againWhatIsStuck,
   acceptSuggestion: debateSuggestions.acceptSuggestion,
   dismissSuggestion: debateSuggestions.dismissSuggestion,
-  loadPeople: () => workspace.loadPeople,
-  loadKnownChannels: () => workspace.loadKnownChannels,
-  refreshKnownChannels: () => channels.refreshKnownChannels,
+  loadPeople: () => resources.open('directory', 'contacts'),
+  loadKnownChannels: () => resources.open('channels'),
+  reloadKnownChannels: () => resources.invalidate('channels'),
   openThread: notes.openThread,
   loadOlderNotes: notes.loadOlderNotes,
   sendNote: notes.sendNote,

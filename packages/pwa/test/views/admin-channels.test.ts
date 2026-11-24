@@ -7,17 +7,20 @@ import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import { channel } from '../support/fixtures.ts'
+import { setLoad, setWorkspace } from '../support/resource-load.ts'
 
 usingFakeDom()
 
 describe('adminChannelsSection', () => {
-  it('offers a retry when channels could not load, and says when there are none', () => {
+  it('lets the line above offer to try again when channels could not load, and says when there are none', () => {
     const { context, called } = testContext()
     const shown = adminChannelsSection(context, lifetime())
-    called('loadKnownChannels')[0]!.then!.failed!({ _tag: 'Unavailable', message: 'down' })
-    getByRole(shown, 'button', { name: strings.tryAgain }).click()
-    expect(called('loadKnownChannels')).toHaveLength(2)
-    context.state.channelsLoaded.set(true)
+    expect(called('loadKnownChannels')).toHaveLength(1)
+    expect(textOf(shown)).toContain(strings.loading)
+    setWorkspace(context.state, 'failed')
+    expect(textOf(shown)).not.toContain(strings.loading)
+    expect(textOf(shown)).not.toContain(strings.adminNoChannels)
+    setLoad(context.state.channels, { loaded: true })
     expect(textOf(shown)).toContain(strings.adminNoChannels)
   })
 
@@ -25,7 +28,7 @@ describe('adminChannelsSection', () => {
     const { context, called } = testContext()
     mount(dialogHost())
     context.state.channels.set([channel('billing'), channel('ops')])
-    context.state.channelsLoaded.set(true)
+    setLoad(context.state.channels, { loaded: true })
     const shown = mount(adminChannelsSection(context, lifetime()))
     const billing = shown.querySelector('[data-slug="billing"]')!
     getByRole(billing, 'button', { name: strings.editChannel }).click()

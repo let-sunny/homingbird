@@ -4,7 +4,7 @@ import { createApp } from '@homingbird/pwa/src/app.ts'
 import { browserDocument } from '@homingbird/pwa/src/page-document.ts'
 import { createState } from '@homingbird/pwa/src/state.ts'
 import { boot } from '@homingbird/pwa/src/tasks/boot.ts'
-import { loadConversations } from '@homingbird/pwa/src/tasks/workspace.ts'
+import { invalidate } from '@homingbird/pwa/src/tasks/resources.ts'
 import { showApp } from '@homingbird/pwa/src/views/app-shell.ts'
 import { createViewContext } from '@homingbird/pwa/src/views/context.ts'
 import { fakePage } from '@homingbird/pwa/test/support/context.ts'
@@ -42,7 +42,7 @@ const startDemo = async (hash = '#/') => {
       page,
       random: { id: () => 'page-id', seed: () => 7 },
     },
-    loadConversations,
+    invalidate('conversations'),
   )
   const root = document.createElement('div')
   document.body.append(root)

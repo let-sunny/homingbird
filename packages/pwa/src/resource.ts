@@ -44,7 +44,7 @@ export const resource = <A>(empty: A): Resource<A> => {
     }
     const own: Run<A> = { changes: [], waiting: null, isResting: false, interrupt: () => {} }
     run = own
-    if (telling === 'told') load.update((now) => ({ ...now, step: 'loading' }))
+    if (telling === 'told') load.update((now) => (isGivenUp(now) ? now : { ...now, step: 'loading' }))
     const task = T.map((exit: T.Exit<void, never>) => settleBroken(source, own, exit))(
       T.exit(attempts(source, own, telling)),
     )
@@ -124,7 +124,7 @@ export const resource = <A>(empty: A): Resource<A> => {
   }
 
   const sayWhileNotLoaded = (step: 'slow' | 'long'): void =>
-    load.update((now) => (now.loaded ? now : { ...now, step }))
+    load.update((now) => (now.loaded || isGivenUp(now) ? now : { ...now, step }))
 
   const stop = (): void => {
     cancelRepair()
@@ -137,6 +137,10 @@ export const resource = <A>(empty: A): Resource<A> => {
   const endWaiting = (): void => {
     next?.resolve(false)
     next = null
+  }
+
+  const expire = (): void => {
+    newestAnswerAskedAt = Number.NEGATIVE_INFINITY
   }
 
   const wasJustAsked = (source: Source<A>): boolean => {
@@ -162,12 +166,14 @@ export const resource = <A>(empty: A): Resource<A> => {
     again: (source) =>
       T.sync(() => {
         stop()
+        load.update((now) => (isGivenUp(now) ? { ...now, step: 'idle' } : now))
         askNext(source)
       }),
+    expire,
     reset: () => {
       stop()
       endWaiting()
-      newestAnswerAskedAt = Number.NEGATIVE_INFINITY
+      expire()
       batch(() => {
         value.set(empty)
         load.set(NOT_ASKED)
@@ -194,6 +200,8 @@ export interface Resource<A> extends Signal<A> {
   readonly refresh: (source: Source<A>) => T.Task<boolean>
   /** Try again: ends the running request and asks afresh. */
   readonly again: (source: Source<A>) => T.Task<void>
+  /** It changed and is asked for shortly: until then a page that opens asks, however new the last answer is. */
+  readonly expire: () => void
   /** The session ended: ends whatever runs or waits, and leaves it as it was before it was first asked for. */
   readonly reset: () => void
 }
@@ -230,6 +238,9 @@ interface Run<A> {
 
 /** A quiet run repairs a failure that was told already, or that nobody had to be told of. */
 type Telling = 'told' | 'quiet'
+
+/** One that was never read and failed stays told until it is read or the person tries again. */
+const isGivenUp = ({ loaded, step }: Load): boolean => !loaded && step === 'failed'
 
 const NOT_ASKED: Load = { loaded: false, step: 'idle', error: null }
 

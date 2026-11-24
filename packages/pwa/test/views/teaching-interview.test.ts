@@ -65,6 +65,31 @@ describe('interviewSection', () => {
     expect(context.state.notice.get()).toEqual({ kind: 'info', text: strings.teach.chat.documentRemoved })
   })
 
+  it('keeps what the person typed and has not saved when a new proposal or a saved card draws it again', () => {
+    const { context, called, shown } = shownWith([proposal()], 'Old notes')
+    const documentNow = () =>
+      getByRole(shown, 'textbox', { name: /Principles document/ }) as HTMLTextAreaElement
+    const cardNow = () => shown.querySelector<HTMLElement>('[data-proposal="prop_aaaaaaaaaaaa"]')!
+    const ruleNow = () => cardNow().querySelector('textarea')!
+    fire.type(documentNow(), 'Half a document')
+    fire.type(ruleNow(), 'Half a rule')
+    const second = proposal({ id: 'prop_bbbbbbbbbbbb' as never, topic: 'Holidays' })
+    context.state.interview.set({ document: 'Old notes', proposals: [proposal(), second], limit: 20 })
+    expect(documentNow().value).toBe('Half a document')
+    expect(ruleNow().value).toBe('Half a rule')
+    expect(cardNow().querySelector('details')!.hasAttribute('open')).toBe(true)
+    getByRole(shown, 'button', { name: strings.teach.chat.documentSave }).click()
+    called('saveTeachingDocument')[0]!.then!.done!(undefined)
+    fire.type(ruleNow(), proposal().rule)
+    context.state.interview.set({ document: 'Saved elsewhere', proposals: [proposal()], limit: 20 })
+    expect(documentNow().value).toBe('Saved elsewhere')
+    expect(cardNow().querySelector('details')!.hasAttribute('open')).toBe(false)
+    fire.type(documentNow(), 'Typed again')
+    getByRole(shown, 'button', { name: strings.teach.chat.documentRemove }).click()
+    context.state.interview.set({ document: null, proposals: [], limit: 20 })
+    expect(documentNow().value).toBe('')
+  })
+
   it('sends an emptied document as none', () => {
     const { called, shown } = shownWith([])
     fire.type(getByRole(shown, 'textbox', { name: /Principles document/ }), '   ')

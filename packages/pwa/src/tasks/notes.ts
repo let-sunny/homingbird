@@ -6,11 +6,11 @@ import { keepComposerTexts, withComposerText } from '../composer-texts.ts'
 import { asShown } from '../drafts-read.ts'
 import { featureOn } from '../features.ts'
 import { type MISSING, orMissing } from '../missing.ts'
+import type { Load } from '../resource.ts'
 import { type AppState, signedIn } from '../state.ts'
 import { tagsToSend } from '../tagging.ts'
 import { isUnreadBy, withFirstPageReloaded, withNoteFiled, withoutNote } from '../thread.ts'
-import { reloadQuietly } from './quiet-reload.ts'
-import { loadConversations } from './workspace.ts'
+import { invalidate, reread } from './resources.ts'
 
 export const openThread = (id: ConversationId): Action<void | typeof MISSING> => orMissing(loadThread(id))
 
@@ -49,18 +49,24 @@ export const sendNote = (conversationId: ConversationId, body: string): Action =
     )(deliverNote(conversationId, body)),
   )
 
-/** Marks a note read and lowers its conversation's unread count at once, as the server now counts it. */
+/**
+ * Marks a note read and lowers its conversation's unread count at once, as the server now counts it. A list
+ * on its way, or that came meanwhile, may have counted before or after that, so it is asked for once more.
+ */
 export const markRead = (note: AsRead.Note): Action =>
-  withApp(({ api, state }) =>
-    T.map((read: AsRead.Note) => {
-      const viewer = signedIn(state)?.member.id
-      batch(() => {
-        rememberNote(state)(read)
-        if (viewer !== undefined && isUnreadBy(note, viewer) && !isUnreadBy(read, viewer))
-          lowerUnread(state, read.conversationId)
-      })
-    })(api['notes.read']({ params: { id: note.id } })),
-  )
+  T.gen(function* () {
+    const { api, state } = yield* T.ask<App>()
+    const before = state.conversations.load.get()
+    const read = yield* api['notes.read']({ params: { id: note.id } })
+    const viewer = signedIn(state)?.member.id
+    const isNowRead = viewer !== undefined && isUnreadBy(note, viewer) && !isUnreadBy(read, viewer)
+    batch(() => {
+      rememberNote(state)(read)
+      if (isNowRead) lowerUnread(state, read.conversationId)
+    })
+    const isSettled = before === state.conversations.load.get() && !isRunning(before)
+    if (isNowRead && !isSettled) yield* invalidate('conversations')
+  })
 
 export const chooseReplyTarget = (conversationId: ConversationId, noteId: NoteId | null): Action =>
   withApp(({ state }) =>
@@ -117,7 +123,7 @@ export const shownNote = (state: AppState, id: NoteId): AsRead.Note | null => {
 /** Takes back a note the person's saved answer sent: recipients stop seeing it; the person sees it recalled. */
 export const recallNote = (note: AsRead.Note): Action =>
   withApp(({ api, state }) =>
-    T.flatMap(() => reloadQuietly(loadConversations))(
+    T.flatMap(() => reread('conversations'))(
       T.map(rememberNote(state))(api['notes.recall']({ params: { id: note.id } })),
     ),
   )
@@ -236,7 +242,7 @@ const deliverNote = (conversationId: ConversationId, body: string): Action =>
       state.replyTargets.update((targets) => withoutKey(targets, conversationId))
       state.composerTags.update((all) => withoutKey(all, conversationId))
     })
-    yield* reloadQuietly(loadConversations)
+    yield* reread('conversations')
   })
 
 const withoutKey = <K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> => {
@@ -245,9 +251,14 @@ const withoutKey = <K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> => 
   return copy
 }
 
-const lowerUnread = (state: AppState, id: ConversationId): void =>
+const isRunning = ({ step }: Load): boolean => step !== 'idle' && step !== 'failed'
+
+const lowerUnread = (state: AppState, id: ConversationId): void => {
+  const shown = state.conversations.get().find((room) => room.id === id)?.unreadCount ?? 0
+  if (shown === 0) return
   state.conversations.update((all) =>
     all.map((room) =>
-      room.id === id && room.unreadCount > 0 ? { ...room, unreadCount: room.unreadCount - 1 } : room,
+      room.id === id ? { ...room, unreadCount: Math.min(room.unreadCount, shown - 1) } : room,
     ),
   )
+}

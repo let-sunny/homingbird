@@ -1,4 +1,3 @@
-import { Task as T } from '@homingbird/kernel'
 import { describe, expect, it } from 'vitest'
 import {
   ATTEMPT_LIMIT_SECONDS,
@@ -11,20 +10,15 @@ import {
 import { testApp } from './support/app.ts'
 
 describe('growingSlow', () => {
-  it('says slower than usual, then too long, by the clock, and then runs what follows', async () => {
+  it('says slower than usual, then too long, by the clock', async () => {
     const { run, clock } = testApp()
     const said: string[] = []
-    const running = run(
-      growingSlow(
-        (step) => said.push(step),
-        T.sync(() => void said.push('then')),
-      ),
-    )
+    const running = run(growingSlow((step) => said.push(step)))
     await clock.advance(USUAL_LOAD_SECONDS * 1000)
     expect(said).toEqual(['slow'])
     await clock.advance((TOO_LONG_LOAD_SECONDS - USUAL_LOAD_SECONDS) * 1000)
     await running
-    expect(said).toEqual(['slow', 'long', 'then'])
+    expect(said).toEqual(['slow', 'long'])
   })
 })
 

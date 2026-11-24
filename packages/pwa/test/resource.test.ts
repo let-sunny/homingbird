@@ -414,6 +414,29 @@ describe('refresh', () => {
   })
 })
 
+describe('a list that failed and was never read', () => {
+  it('stays told while it is asked for again in the background, until it is read or the person tries again', async () => {
+    const { ids, source, go, running, refuse, reply, clock } = setUp()
+    const steps: string[] = []
+    go(ids.open(source()))
+    await settle()
+    refuse(running()[0]!, { _tag: 'Forbidden', message: 'no' })
+    await settle()
+    ids.load.subscribe(({ step }) => steps.push(step))
+    go(ids.invalidate(source()))
+    await clock.advance(TOO_LONG_LOAD_SECONDS * 1000)
+    refuse(running()[0]!, { _tag: 'Forbidden', message: 'no' })
+    await settle()
+    expect(new Set(steps)).toEqual(new Set(['failed']))
+    go(ids.again(source()))
+    await settle()
+    expect(ids.load.get().step).toBe('loading')
+    reply(running()[0]!)
+    await settle()
+    expect(ids.load.get()).toMatchObject({ loaded: true, step: 'idle' })
+  })
+})
+
 describe('open', () => {
   it('joins the running request, shares the one just asked for, and asks again after two seconds', async () => {
     const { ids, source, run, requests, running, reply, clock } = setUp()

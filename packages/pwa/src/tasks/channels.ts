@@ -14,7 +14,7 @@ import { hrefFor } from '../routes.ts'
 import { loadGroups } from './groups.ts'
 import { loadingList } from './list-load.ts'
 import { reloadQuietly } from './quiet-reload.ts'
-import { loadConversations, loadKnownChannels, loadPeople } from './workspace.ts'
+import { reread } from './resources.ts'
 
 export interface ChannelPage {
   readonly channels: ReadonlyArray<AsRead.Channel>
@@ -43,9 +43,6 @@ export const loadChannelPage = (
       }),
     ),
   )
-
-/** Brings the known channels up to date beside a list that tells its own failure, so a failure is not told twice. */
-export const refreshKnownChannels: Action = T.asUnit(T.result(loadKnownChannels))
 
 /** Opens a channel and keeps it in the list straight away; the person who opens it is its first manager. */
 export const createChannel = (
@@ -116,7 +113,7 @@ export const askChannel = (slug: string, body: string): Action<ConversationId> =
       params: { id: draft.id },
       body: { expected: { body, conversationId: draft.conversationId } },
     })
-    yield* reloadQuietly(loadConversations)
+    yield* reread('conversations')
     return draft.conversationId
   })
 
@@ -124,7 +121,7 @@ export const askChannel = (slug: string, body: string): Action<ConversationId> =
 export const enterRoom = (conversationId: string): Action =>
   T.gen(function* () {
     const { page } = yield* T.ask<App>()
-    yield* reloadQuietly(loadConversations)
+    yield* reread('conversations')
     page.go(hrefFor({ name: 'conversation', id: conversationId, draft: null }))
   })
 
@@ -157,5 +154,5 @@ export const archiveChannel = (slug: string, moveMembersTo: string | null): Acti
   )
 
 const afterChannelChange: Action = T.suspend(() =>
-  reloadQuietly(T.asUnit(T.all([loadKnownChannels, loadConversations, loadPeople]))),
+  reread('channels', 'conversations', 'directory', 'contacts'),
 )

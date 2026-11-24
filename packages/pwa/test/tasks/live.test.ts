@@ -1,8 +1,10 @@
 import type { AsRead } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
+import { ATTEMPT_LIMIT_SECONDS } from '../../src/load-timing.ts'
 import { strings } from '../../src/strings.ts'
 import { loadActivity } from '../../src/tasks/activity.ts'
 import { DIRECTORY_SETTLE_MS, liveEvents } from '../../src/tasks/live.ts'
+import { open } from '../../src/tasks/resources.ts'
 import { settle, testApp } from '../support/app.ts'
 import {
   ANA,
@@ -44,6 +46,9 @@ const live = () => {
   })
   test.state.session.set(me())
   test.state.directory.set([entry(BEN, 'Ben')])
+  setLoad(test.state.directory, { loaded: true })
+  setLoad(test.state.conversations, { loaded: true })
+  setLoad(test.state.channels, { loaded: true })
   return { ...test, apply: liveEvents(test.app) }
 }
 
@@ -103,6 +108,52 @@ describe('liveEvents', () => {
       kind: 'error',
       text: strings.slack.notPostedNotice({ channel: 'eng-help' }),
     })
+  })
+
+  it('tells of a reply given up on once the channels came, by its channel and to its managers, unless it was posted since', async () => {
+    const { apply, state, clock } = live()
+    const link = {
+      tool: 'slack',
+      name: 'eng-help',
+      isPrivate: false,
+      memberCount: 4,
+      state: 'active',
+    } as const
+    setLoad(state.channels, { step: 'loading' })
+    apply(event({ type: 'note.changed', note: note('n1', { posting: 'failed' }) }))
+    apply(event({ type: 'note.changed', note: note('n1', { posting: 'posted' }) }))
+    await settle()
+    state.channels.set([channel('help', { conversationId: ROOM, managing: true, link })])
+    setLoad(state.channels, { loaded: true })
+    await settle()
+    expect(state.notice.get()).toBeNull()
+    setLoad(state.channels, { step: 'loading' })
+    apply(event({ type: 'note.changed', note: note('n2', { posting: 'failed' }) }))
+    await settle()
+    expect(state.notice.get()).toBeNull()
+    setLoad(state.channels, { loaded: true })
+    await settle()
+    const told = { kind: 'error', text: strings.slack.notPostedNotice({ channel: 'eng-help' }) }
+    expect(state.notice.get()).toEqual(told)
+    state.notice.set(null)
+    setLoad(state.channels, { step: 'loading' })
+    apply(event({ type: 'note.changed', note: note('n3', { posting: 'failed', authorId: ANA }) }))
+    await settle()
+    expect(state.notice.get()).toBeNull()
+    await clock.advance(ATTEMPT_LIMIT_SECONDS * 1000)
+    await settle()
+    expect(state.notice.get()).toEqual(told)
+  })
+
+  it('announces nothing before it knows who wrote it and whether the room is muted', () => {
+    const { apply, state, clock } = live()
+    for (const unread of [state.directory, state.conversations]) {
+      setLoad(state.directory, { loaded: true })
+      setLoad(state.conversations, { loaded: true })
+      setLoad(unread, { step: 'loading' })
+      apply(event({ type: 'note.sent', note: note('n1', { sentAt: clock.now() }) }))
+      expect(state.announcement.get()).toBe('')
+    }
   })
 
   it('announces nothing from a conversation the person muted, and still files its note', () => {
@@ -342,6 +393,18 @@ describe('liveEvents', () => {
     await clock.advance(1)
     await settle()
     expect(routes().filter((route) => route === 'groups.list')).toHaveLength(1)
+  })
+
+  it('lets a page that opens in between read the people at once, however new the last answer is', async () => {
+    const { apply, state, run, routes } = live()
+    state.connection.set('live')
+    const asked = () => routes().filter((route) => route === 'directory.list').length
+    await run(open('directory'))
+    await run(open('directory'))
+    expect(asked()).toBe(1)
+    apply(event({ type: 'directory.changed', memberId: BEN }, 0))
+    await run(open('directory'))
+    expect(asked()).toBe(2)
   })
 
   it('reads the waiting answers again once a run of review changes settles', async () => {

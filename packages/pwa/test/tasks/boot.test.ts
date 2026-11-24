@@ -1,8 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { QUIET_RETRY_SECONDS, TOO_LONG_LOAD_SECONDS, USUAL_LOAD_SECONDS } from '../../src/load-timing.ts'
+import {
+  ATTEMPT_LIMIT_SECONDS,
+  QUIET_RETRY_SECONDS,
+  STREAM_WAIT_SECONDS,
+  TOO_LONG_LOAD_SECONDS,
+  USUAL_LOAD_SECONDS,
+} from '../../src/load-timing.ts'
 import { locale, strings, useLanguage } from '../../src/strings.ts'
 import { boot, startAgain } from '../../src/tasks/boot.ts'
-import { DIRECTORY_SETTLE_MS } from '../../src/tasks/live.ts'
 import { open } from '../../src/tasks/resources.ts'
 import { fail, hold, settle, testApp } from '../support/app.ts'
 import { ANA, BEN, ROOM, conversation, entry, everything, me, note } from '../support/fixtures.ts'
@@ -13,7 +18,7 @@ const USUAL_MS = USUAL_LOAD_SECONDS * 1000
 const TOO_LONG_MS = TOO_LONG_LOAD_SECONDS * 1000
 const QUIET_RETRY_MS = QUIET_RETRY_SECONDS * 1000
 
-/** Lets the page's live stream be counted, and say what the server holds after a given event. */
+/** Lets the page's live stream, which stays open, be counted, and say what the server holds after a given event. */
 const withStreams = (
   out: ReturnType<typeof testApp>,
   frames: (after: string | null) => string = () => '',
@@ -22,7 +27,9 @@ const withStreams = (
   Object.assign(out.page.page, {
     fetch: (url: string, init?: RequestInit) => {
       streams.push(url)
-      return Promise.resolve(new Response(frames(new Headers(init?.headers).get('last-event-id'))))
+      if (!url.includes('/events/')) return Promise.resolve(new Response(''))
+      const said = new TextEncoder().encode(frames(new Headers(init?.headers).get('last-event-id')))
+      return Promise.resolve(new Response(new ReadableStream({ start: (stream) => stream.enqueue(said) })))
     },
   })
   return () => streams.filter((url) => url.includes('/events/stream')).length
@@ -205,7 +212,7 @@ describe('boot', () => {
       out.page.emit('offline')
     })
 
-    it('says the workspace takes longer, then too long, with live events started, and clears the line when it answers late', async () => {
+    it('says the workspace takes longer, then too long, with live events started from the first, and clears the line when it answers late', async () => {
       const list = hold<unknown>()
       const out = testApp({
         ...empty,
@@ -219,7 +226,7 @@ describe('boot', () => {
       const running = out.run(boot)
       await out.clock.advance(USUAL_MS)
       expect(out.state.workspace.get()).toBe('slow')
-      expect(streams()).toBe(0)
+      expect(streams()).toBe(1)
       await out.clock.advance(TOO_LONG_MS - USUAL_MS)
       expect(out.state.workspace.get()).toBe('long')
       expect(streams()).toBe(1)
@@ -253,16 +260,18 @@ describe('boot', () => {
       const running = out.run(boot)
       await out.clock.advance(TOO_LONG_MS)
       for (let round = 0; round < 5; round++) await settle()
-      expect(out.state.conversations.get()).toHaveLength(1)
       expect(out.state.threads.get().get(ROOM)?.notes).toEqual([arrived])
+      expect(listed).toBe(1)
       first.release({ conversations: [] })
       await running
+      for (let round = 0; round < 5; round++) await settle()
+      expect(listed).toBe(2)
       expect(out.state.conversations.get()).toHaveLength(1)
       expect(out.state.threads.get().get(ROOM)?.notes).toEqual([arrived])
       out.page.emit('offline')
     })
 
-    it('ends the slow workspace load when asked to try again and loads it afresh, then once more quietly, without a second stream', async () => {
+    it('ends the slow workspace load when asked to try again and loads it afresh, once, without a second stream', async () => {
       const first = hold<unknown>()
       let listed = 0
       const out = testApp({
@@ -278,7 +287,7 @@ describe('boot', () => {
       await out.run(startAgain)
       await running
       expect(out.aborted).toContain('conversations.list')
-      expect(listed).toBe(3)
+      expect(listed).toBe(2)
       expect(out.state.workspace.get()).toBe('loaded')
       expect(streams()).toBe(1)
       expect(out.page.listening('online')).toBe(1)
@@ -301,7 +310,7 @@ describe('boot', () => {
       return { out, streams, sessions, running, recover: () => (recovered = true) }
     }
 
-    describe('when a load finishes after the live events started', () => {
+    describe('when events arrive while the lists are on their way', () => {
       const entryNow = entry(BEN, 'Ben', { presence: { humanOnline: true, agentOnline: false } })
       const requestNow = {
         id: 'dreq_000000000000',
@@ -326,91 +335,163 @@ describe('boot', () => {
               .join('')
           : ''
 
-      const slowFirstLoad = () => {
+      it('keeps what they changed in directory, requests and reviews, however late the older answers, without loading everything twice', async () => {
         const firstDirectory = hold<unknown>()
-        let directoryCalls = 0
-        let requestCalls = 0
+        const firstRequests = hold<unknown>()
+        const firstReviews = hold<unknown>()
+        const asked = { directory: 0, requests: 0, reviews: 0 }
         const out = testApp({
           ...empty,
           'server.info': () => everything(),
           'me.get': () => me(),
           'events.poll': () => ({ events: [], cursor: 5 }),
-          'directory.list': () => (directoryCalls++ === 0 ? firstDirectory.waiting : { entries: [entryNow] }),
-          'draftRequests.list': () => ({ requests: requestCalls++ === 0 ? [] : [requestNow] }),
-          'reviews.list': () => ({
-            reviews: out.routes().filter((route) => route === 'inbox.list').length === 1 ? [] : [reviewNow],
-          }),
+          'directory.list': () =>
+            asked.directory++ === 0 ? firstDirectory.waiting : { entries: [entryNow] },
+          'draftRequests.list': () =>
+            asked.requests++ === 0 ? firstRequests.waiting : { requests: [requestNow] },
+          'reviews.list': () => (asked.reviews++ === 0 ? firstReviews.waiting : { reviews: [reviewNow] }),
         })
         withStreams(out, eventFrames)
-        return { out, firstDirectory }
-      }
-
-      it('loads the workspace once more, quietly, so what the events changed is kept in directory, requests and reviews', async () => {
-        const { out, firstDirectory } = slowFirstLoad()
         const running = out.run(boot)
         await out.clock.advance(TOO_LONG_MS)
         for (let round = 0; round < 5; round++) await settle()
-        await out.clock.advance(DIRECTORY_SETTLE_MS)
-        for (let round = 0; round < 5; round++) await settle()
         expect(out.state.draftRequests.get()).toEqual([requestNow])
-        expect(out.state.directory.get()).toEqual([entryNow])
         const seen: string[] = []
         out.state.workspace.subscribe((step) => seen.push(step))
         out.state.notice.subscribe((notice) => seen.push(`notice ${notice?.kind}`))
+        firstRequests.release({ requests: [] })
+        firstReviews.release({ reviews: [] })
         firstDirectory.release({ entries: [] })
         await running
-        expect(out.routes().filter((route) => route === 'inbox.list')).toHaveLength(2)
-        expect(out.routes().filter((route) => route === 'draftRequests.list')).toHaveLength(2)
+        for (let round = 0; round < 5; round++) await settle()
         expect(out.state.directory.get()).toEqual([entryNow])
         expect(out.state.draftRequests.get()).toEqual([requestNow])
         expect(out.state.reviews.get()).toEqual([reviewNow])
+        expect(asked).toEqual({ directory: 2, requests: 1, reviews: 2 })
+        expect(out.routes().filter((route) => route === 'inbox.list')).toHaveLength(1)
         expect(seen).toEqual(['loaded'])
         out.page.emit('offline')
       })
 
-      it('does not load again when the load finished before the events started', async () => {
+      it('asks for each list once when none arrives', async () => {
         const out = testApp({ ...empty, 'server.info': () => everything(), 'me.get': () => me() })
+        withStreams(out)
         await out.run(boot)
         for (let round = 0; round < 5; round++) await settle()
-        expect(out.routes().filter((route) => route === 'inbox.list')).toHaveLength(1)
+        for (const route of Object.keys(empty))
+          expect(
+            out.routes().filter((one) => one === route),
+            route,
+          ).toHaveLength(1)
         out.page.emit('offline')
       })
+    })
 
-      it('gives up on the quiet load after the limit and says nothing, leaving the page as it was', async () => {
-        const first = hold<unknown>()
-        const never = hold<unknown>()
-        let directoryCalls = 0
+    describe('the stream of events', () => {
+      const started = (answers: { stream?: Promise<Response>; lists?: object } = {}) => {
+        const order: string[] = []
+        const handlers = { ...empty, ...answers.lists }
         const out = testApp({
-          ...empty,
+          ...Object.fromEntries(
+            Object.entries(handlers).map(([route, answer]) => [
+              route,
+              () => {
+                order.push(route)
+                return (answer as () => unknown)()
+              },
+            ]),
+          ),
           'server.info': () => everything(),
           'me.get': () => me(),
-          'directory.list': () => (directoryCalls++ === 0 ? first.waiting : never.waiting),
         })
-        withStreams(out)
-        const running = out.run(boot)
-        await out.clock.advance(TOO_LONG_MS)
-        first.release({ entries: [] })
-        for (let round = 0; round < 5; round++) await settle()
-        expect(directoryCalls).toBe(2)
+        Object.assign(out.page.page, {
+          fetch: (url: string) => {
+            if (!url.includes('/events/')) return Promise.resolve(new Response('{}'))
+            order.push('stream')
+            return answers.stream ?? Promise.resolve(new Response(new ReadableStream()))
+          },
+        })
+        return { ...out, order }
+      }
+      const listed = (order: ReadonlyArray<string>) => order.filter((route) => route.endsWith('.list')).length
+      const rounds = async () => {
+        for (let round = 0; round < 10; round++) await settle()
+      }
+
+      it('answers before any list is asked for, also one a page asks for as it is drawn', async () => {
+        const answer = hold<Response>()
+        const out = started({ stream: (answer.waiting as { waitFor: Promise<Response> }).waitFor })
+        out.state.session.subscribe(() => out.app.launch(open('directory', 'debates')))
+        out.app.launch(boot)
+        await rounds()
+        expect(out.state.session.get()).toEqual(me())
+        expect(out.order).toEqual(['events.poll', 'stream'])
+        answer.release(new Response(new ReadableStream()))
+        await rounds()
         expect(out.state.workspace.get()).toBe('loaded')
-        await out.clock.advance(TOO_LONG_MS)
-        await running
-        expect(out.aborted).toContain('directory.list')
-        expect(out.state.workspace.get()).toBe('loaded')
-        expect(out.state.notice.get()).toBeNull()
-        out.page.emit('offline')
+        expect(out.order.slice(0, 3)).toEqual(['events.poll', 'stream', 'conversations.list'])
+        expect(out.order.filter((route) => route === 'directory.list')).toHaveLength(1)
+        expect(out.order.filter((route) => route === 'debates.list')).toHaveLength(1)
+        out.app.endSession()
       })
 
-      it('loads once more, quietly, after the quiet retry of a failed workspace finishes with the events live', async () => {
-        const { out, streams, running, recover } = await failingWorkspace(down, 15_000)
-        expect(streams()).toBe(1)
-        expect(out.routes().filter((route) => route === 'inbox.list')).toHaveLength(0)
-        recover()
-        await out.clock.advance(QUIET_RETRY_MS)
-        await running
-        expect(out.routes().filter((route) => route === 'inbox.list')).toHaveLength(2)
+      it('holds the lists back no longer than a second, and then what it may have missed is asked for once more', async () => {
+        const answer = hold<Response>()
+        const out = started({ stream: (answer.waiting as { waitFor: Promise<Response> }).waitFor })
+        out.app.launch(boot)
+        await rounds()
+        await out.clock.advance(STREAM_WAIT_SECONDS * 1000 - 1)
+        expect(listed(out.order)).toBe(0)
+        await out.clock.advance(1)
+        await rounds()
         expect(out.state.workspace.get()).toBe('loaded')
-        out.page.emit('offline')
+        answer.release(new Response(new ReadableStream()))
+        await rounds()
+        const times = (route: string) => out.order.filter((one) => one === route).length
+        for (const route of [
+          'conversations.list',
+          'directory.list',
+          'channels.list',
+          'reviews.list',
+          'debates.list',
+        ])
+          expect(times(route), route).toBe(2)
+        for (const route of ['contacts.list', 'draftRequests.list', 'inbox.list'])
+          expect(times(route), route).toBe(1)
+        expect(out.routes().filter((route) => route === 'me.get')).toHaveLength(1)
+        out.app.endSession()
+      })
+
+      it('holds nothing back when it cannot be reached', async () => {
+        const out = started({ stream: Promise.reject(new Error('down')) })
+        out.app.launch(boot)
+        await rounds()
+        expect(out.state.workspace.get()).toBe('loaded')
+        out.app.endSession()
+      })
+
+      it('is not waited for, nor is any other list, by a list that never answers: its own attempt ends after the limit', async () => {
+        const never = hold<unknown>()
+        let asked = 0
+        const out = started({
+          lists: {
+            'conversations.list': () => (asked++ === 0 ? never.waiting : { conversations: [conversation()] }),
+          },
+        })
+        out.app.launch(boot)
+        await rounds()
+        expect(out.state.connection.get()).toBe('live')
+        expect(out.state.directoryLoaded.get()).toBe(true)
+        expect(out.state.channelsLoaded.get()).toBe(true)
+        expect(out.state.workspace.get()).toBe('loading')
+        await out.clock.advance(ATTEMPT_LIMIT_SECONDS * 1000)
+        expect(out.state.workspace.get()).toBe('long')
+        await out.clock.advance(1000)
+        await rounds()
+        expect(out.aborted).toEqual(['conversations.list'])
+        expect(out.state.workspace.get()).toBe('loaded')
+        expect(out.state.conversations.get()).toHaveLength(1)
+        out.app.endSession()
       })
     })
 
@@ -421,7 +502,7 @@ describe('boot', () => {
       expect(out.state.workspaceRefusal.get()).toBe('')
       expect(out.state.notice.get()).toBeNull()
       expect(streams()).toBe(1)
-      expect(out.page.listening('online')).toBe(2)
+      expect(out.page.listening('online')).toBe(1)
       recover()
       await out.clock.advance(QUIET_RETRY_MS)
       await running

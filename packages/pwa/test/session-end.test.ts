@@ -143,7 +143,7 @@ describe('the end of a session', () => {
     await settle()
     isRevoked = true
     page.app.launch(boot)
-    page.context.actions.loadConversations()
+    page.app.launch(invalidate('conversations'))
     await settle()
     late.release({ entries: [entry(BEN, 'Ben')] })
     await settle()

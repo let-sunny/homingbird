@@ -8,7 +8,7 @@ import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import { ANA, BEN, entry, me, summary } from '../support/fixtures.ts'
-import { setLoad } from '../support/resource-load.ts'
+import { setLoad, setWorkspace } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -51,7 +51,7 @@ describe('debatesView', () => {
     const shown = mount(debatesView(context, lifetime(), me()))
     setLoad(context.state.debates, { step: 'failed' })
     for (const workspace of ['long', 'failed'] as const) {
-      context.state.workspace.set(workspace)
+      setWorkspace(context.state, workspace)
       expect(textOf(shown)).not.toContain(strings.loadFailed)
       expect(textOf(shown)).not.toContain(strings.debates.empty)
       expect(queryByRole(shown, 'button', { name: strings.tryAgain })).toBeNull()

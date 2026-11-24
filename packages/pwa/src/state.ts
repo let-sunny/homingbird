@@ -11,17 +11,37 @@ import type { Action } from './app.ts'
 import { type Roster, agentMembersOf } from './channels.ts'
 import { withDraftsAsRead, withReviewsAsRead } from './drafts-read.ts'
 import { HOLD_SECONDS } from './held-decisions.ts'
-import { type Resource, resource } from './resource.ts'
+import { type Load, type Resource, resource } from './resource.ts'
 import { type Route, parseRoute } from './routes.ts'
 import { type ChangeCounter, changeCounter } from './thread-changes.ts'
+import { workspaceRefusalText, workspaceStep } from './workspace-step.ts'
 
 /** Everything the web client knows, as signals the views redraw from; one per page, made at start. */
 export const createState = (hash: string): AppState => {
   const session = signal<AsRead.Me | null | 'loading'>('loading')
-  const directory = signal<ReadonlyArray<AsRead.DirectoryEntry>>([])
+  const conversations = resource<ReadonlyArray<AsRead.Conversation>>([])
+  const directory = resource<ReadonlyArray<AsRead.DirectoryEntry>>([])
+  const contacts = resource<ReadonlyArray<AsRead.Contact>>([])
   const threads = signal<ReadonlyMap<ConversationId, Thread>>(new Map())
   const draftsRead = signal<ReadonlyMap<NoteId, DraftAsShown>>(new Map())
-  const channels = signal<ReadonlyArray<AsRead.Channel>>([])
+  const channels = resource<ReadonlyArray<AsRead.Channel>>([])
+  const agentCredentials = resource<ReadonlyArray<AsRead.Credential>>([])
+  const draftRequests = resource<ReadonlyArray<DraftRequest>>([])
+  const conversationsLoaded = signal(false)
+  const followRooms = (): void =>
+    conversationsLoaded.set(
+      conversations.load.get().loaded && (conversationsLoaded.get() || areNamesSettled(directory.load.get())),
+    )
+  conversations.load.subscribe(followRooms)
+  directory.load.subscribe(followRooms)
+  const notNamedYet = derived(
+    [conversations, directory.load],
+    (rooms, people) => (people.loaded ? [] : rooms.flatMap((room) => room.participantIds)),
+    isSameData,
+  )
+  const loads = [conversations, directory, contacts, channels, agentCredentials, draftRequests].map(
+    (one) => one.load,
+  )
   const reviews = resource<ReadonlyArray<AsRead.Review>>([])
   const reviewsRead = signal<ReadonlyMap<NoteId, DraftAsShown>>(new Map())
   reviews.subscribe((all) => reviewsRead.update((read) => withReviewsAsRead(read, all)))
@@ -33,20 +53,20 @@ export const createState = (hash: string): AppState => {
     startRefusal: signal(''),
     startRetrying: signal(false),
     startRestarts: signal(0),
-    workspace: signal<Workspace>('loading'),
-    workspaceRefusal: signal(''),
+    stream: signal<StreamStart>('settled'),
+    workspace: derived(loads, (...now) => workspaceStep(now)),
+    workspaceRefusal: derived(loads, (...now) => workspaceRefusalText(now)),
     workspaceRestarts: signal(0),
     serverInfo: signal<AsRead.ServerInfo | null>(null),
     branding: signal<Branding>({ name: 'Homingbird', logo: null }),
     route: signal<Route>(parseRoute(hash)),
-    conversations: signal<ReadonlyArray<AsRead.Conversation>>([]),
-    conversationsLoaded: signal(false),
-    conversationLoads: { started: 0, applied: 0 },
+    conversations,
+    conversationsLoaded,
     threads,
     draftsRead,
     directory,
-    directoryLoaded: signal(false),
-    contacts: signal<ReadonlyArray<AsRead.Contact>>([]),
+    directoryLoaded: isLoaded(directory),
+    contacts,
     connection: signal<Connection>('connecting'),
     notice: signal<Notice | null>(null),
     held: signal<ReadonlyArray<HeldDecision>>([]),
@@ -54,15 +74,15 @@ export const createState = (hash: string): AppState => {
     draftEdits: signal<ReadonlyMap<NoteId, string>>(new Map()),
     announcement: signal(''),
     sendingIn: signal<ReadonlySet<ConversationId>>(new Set()),
-    draftRequests: signal<ReadonlyArray<DraftRequest>>([]),
-    agentCredentials: signal<ReadonlyArray<AsRead.Credential>>([]),
+    draftRequests,
+    agentCredentials,
     channels,
     awaitingReply: resource<ReadonlyArray<ConversationId>>([]),
     reviews,
     reviewsRead,
     channelAgents: signal<ReadonlyMap<string, AsRead.ChannelAgent>>(new Map()),
     channelTeaching: signal<ReadonlyMap<string, AsRead.ChannelTeaching | 'failed'>>(new Map()),
-    channelsLoaded: signal(false),
+    channelsLoaded: isLoaded(channels),
     groups: signal<ReadonlyArray<AsRead.Group>>([]),
     groupsLoaded: signal(false),
     rosters: signal<ReadonlyMap<string, Roster>>(new Map()),
@@ -86,9 +106,10 @@ export const createState = (hash: string): AppState => {
     shownDebate: signal<AsRead.Debate | 'missing' | null>(null),
     waitingOnly: signal(false),
     members: derived(
-      [directory, session, channels],
-      (entries, me, known): ReadonlyMap<MemberId, AsRead.Member> =>
+      [directory, session, channels, notNamedYet],
+      (entries, me, known, waiting): ReadonlyMap<MemberId, AsRead.Member> =>
         new Map([
+          ...waiting.map((id) => [id, unnamed(id)] as const),
           ...agentMembersOf(known),
           ...(me !== null && me !== 'loading' ? [[me.member.id, me.member] as const] : []),
           ...entries.map((entry) => [entry.member.id, entry.member] as const),
@@ -135,25 +156,26 @@ export interface AppState {
   readonly startRetrying: Signal<boolean>
   /** Counts the person's asks to start the first load afresh; a running start ends when it changes. */
   readonly startRestarts: Signal<number>
+  /** Whether the lists wait for the first stream of events to open, so that they miss no event sent once. */
+  readonly stream: Signal<StreamStart>
   /** How loading the person's workspace is going, which the lists and the line above them tell of. */
-  readonly workspace: Signal<Workspace>
+  readonly workspace: ReadableSignal<Workspace>
   /** What the server refused the workspace with, when `workspace` is `'failed'` for a reason waiting does not mend. */
-  readonly workspaceRefusal: Signal<string>
+  readonly workspaceRefusal: ReadableSignal<string>
   /** Counts the person's asks to load the workspace afresh. */
   readonly workspaceRestarts: Signal<number>
   readonly serverInfo: Signal<AsRead.ServerInfo | null>
   readonly branding: Signal<Branding>
   readonly route: Signal<Route>
-  readonly conversations: Signal<ReadonlyArray<AsRead.Conversation>>
-  readonly conversationsLoaded: Signal<boolean>
-  /** Which load of the conversation list started last and which answer was applied last, so an older answer never replaces a newer one. */
-  readonly conversationLoads: { started: number; applied: number }
+  readonly conversations: Resource<ReadonlyArray<AsRead.Conversation>>
+  /** The rooms are drawn: from when they were read, and the people who name them too unless that takes longer than usual. */
+  readonly conversationsLoaded: ReadableSignal<boolean>
   readonly threads: Signal<ReadonlyMap<ConversationId, Thread>>
   /** Each draft's text and room as the person last read them on this page. */
   readonly draftsRead: Signal<ReadonlyMap<NoteId, DraftAsShown>>
-  readonly directory: Signal<ReadonlyArray<AsRead.DirectoryEntry>>
-  readonly directoryLoaded: Signal<boolean>
-  readonly contacts: Signal<ReadonlyArray<AsRead.Contact>>
+  readonly directory: Resource<ReadonlyArray<AsRead.DirectoryEntry>>
+  readonly directoryLoaded: ReadableSignal<boolean>
+  readonly contacts: Resource<ReadonlyArray<AsRead.Contact>>
   readonly connection: Signal<Connection>
   readonly notice: Signal<Notice | null>
   /**
@@ -167,9 +189,9 @@ export interface AppState {
   readonly draftEdits: Signal<ReadonlyMap<NoteId, string>>
   readonly announcement: Signal<string>
   readonly sendingIn: Signal<ReadonlySet<ConversationId>>
-  readonly draftRequests: Signal<ReadonlyArray<DraftRequest>>
-  readonly agentCredentials: Signal<ReadonlyArray<AsRead.Credential>>
-  readonly channels: Signal<ReadonlyArray<AsRead.Channel>>
+  readonly draftRequests: Resource<ReadonlyArray<DraftRequest>>
+  readonly agentCredentials: Resource<ReadonlyArray<AsRead.Credential>>
+  readonly channels: Resource<ReadonlyArray<AsRead.Channel>>
   /** The conversations with notes waiting for the person's reply. */
   readonly awaitingReply: Resource<ReadonlyArray<ConversationId>>
   /** The channels' agents' answers waiting for this person, a manager of their channels. */
@@ -180,7 +202,7 @@ export interface AppState {
   readonly channelAgents: Signal<ReadonlyMap<string, AsRead.ChannelAgent>>
   /** What the managers taught the agents of the channels the person manages, as last loaded, by slug. */
   readonly channelTeaching: Signal<ReadonlyMap<string, AsRead.ChannelTeaching | 'failed'>>
-  readonly channelsLoaded: Signal<boolean>
+  readonly channelsLoaded: ReadableSignal<boolean>
   /** Every group, as the server shows them to the person; none while the organization has groups off. */
   readonly groups: Signal<ReadonlyArray<AsRead.Group>>
   readonly groupsLoaded: Signal<boolean>
@@ -262,10 +284,32 @@ const isSignal = (held: object): held is Signal<unknown> => 'get' in held && 'se
 
 const isChangeCounter = (held: object): held is ChangeCounter => 'changesTo' in held
 
+/** The people came, or take longer than usual. */
+const areNamesSettled = ({ loaded, step }: Load): boolean => loaded || (step !== 'idle' && step !== 'loading')
+
+/** Someone in a room before the people were read, who must not read as having left the organization. */
+const unnamed = (id: MemberId): AsRead.Member => ({
+  id,
+  email: '',
+  name: '…',
+  profile: '',
+  role: 'member',
+  status: 'active',
+  kind: 'person',
+  createdAt: 0,
+  character: null,
+})
+
+const isLoaded = ({ load }: Pick<Resource<unknown>, 'load'>): ReadableSignal<boolean> =>
+  derived([load], (now) => now.loaded)
+
 const listLoad = (): ListLoad => ({ step: signal<ListStep>('loading'), started: signal(0) })
 
 /** The same steps for the workspace, which is loaded behind the drawn page; `'loaded'` once it is. */
 export type Workspace = 'loading' | 'slow' | 'long' | 'failed' | 'loaded'
+
+/** The first stream of events: waited for, not open yet when the lists were asked for, or no concern of theirs. */
+export type StreamStart = 'awaited' | 'late' | 'settled'
 
 export type Connection = 'connecting' | 'live' | 'polling' | 'offline'
 

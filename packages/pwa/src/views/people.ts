@@ -10,25 +10,19 @@ import {
   type PersonCard,
   peopleModel,
 } from '../models/people.ts'
-import { isToldAbove } from '../models/start.ts'
 import type { Route } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { invitesSection } from './invites.ts'
 import { type MenuParts, actionMenu } from './menu.ts'
-import { button, channelChips, checking, empty, field, loadFailed, page, presenceBadges } from './parts.ts'
+import { button, channelChips, checking, empty, field, page, presenceBadges } from './parts.ts'
 import { opensProfile } from './profile-card.ts'
 
 /** People: everyone in the organization the person may see, and what they may do with each. */
 export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const { state, actions } = context
-  const failed = signal(false)
-  const load = (): void => {
-    failed.set(false)
-    actions.loadPeople({ failed: () => failed.set(true) })
-  }
-  load()
+  actions.loadPeople()
   actions.loadKnownChannels()
   actions.loadGroups()
   const query = signal('')
@@ -55,7 +49,6 @@ export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me):
       contactMode: me.contactMode,
       directory: state.directory.get(),
       loaded: state.directoryLoaded.get(),
-      failed: failed.get(),
       query: query.get(),
       channelFilter: channelFilter.get(),
       channels: state.channels.get(),
@@ -82,7 +75,6 @@ export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me):
       state.directory,
       state.directoryLoaded,
       state.workspace,
-      failed,
       query,
       channelFilter,
       state.channels,
@@ -90,7 +82,7 @@ export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me):
       groupFilter,
       groupMembers,
     ],
-    () => renderPeople(model(), context, load, reveal),
+    () => renderPeople(model(), context, reveal),
   )
   return page(
     strings.people,
@@ -129,12 +121,10 @@ const personAsked = (route: Route): string | undefined => (route.name === 'peopl
 const renderPeople = (
   model: PeopleModel,
   context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document' | 'state' | 'random'>,
-  retry: () => void,
   reveal: (card: HTMLElement) => void,
 ): HTMLElement | null => {
   const list = model.list
   if (list.kind === 'loading') return checking(context, strings.checking.people)
-  if (list.kind === 'failed') return isToldAbove(context.state.workspace.get()) ? null : loadFailed(retry)
   if (list.kind === 'empty') return empty(list.text)
   return h(
     'ul',

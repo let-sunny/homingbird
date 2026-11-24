@@ -143,13 +143,12 @@ export const deactivationModel = (
       }
 }
 
-/** Administration → Channels: loading, a retry, none, or each channel with its edit and archive. */
+/** Administration → Channels: loading, none, or each channel with its edit and archive. */
 export const adminChannelsModel = (
   channels: ReadonlyArray<AsRead.Channel>,
   loaded: boolean,
-  failed: boolean,
 ): AdminChannelsModel => {
-  if (!loaded) return failed ? { kind: 'failed' } : { kind: 'loading' }
+  if (!loaded) return { kind: 'loading' }
   if (channels.length === 0) return { kind: 'empty', text: strings.adminNoChannels }
   return {
     kind: 'channels',
@@ -274,7 +273,6 @@ export interface AdminMemberRow {
 
 export type AdminChannelsModel =
   | { readonly kind: 'loading' }
-  | { readonly kind: 'failed' }
   | { readonly kind: 'empty'; readonly text: string }
   | {
       readonly kind: 'channels'

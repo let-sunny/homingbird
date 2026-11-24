@@ -8,7 +8,6 @@ const base: PeopleInput = {
   contactMode: 'open',
   directory: [],
   loaded: true,
-  failed: false,
   query: '',
   channelFilter: '',
   channels: [],
@@ -25,9 +24,8 @@ const list = (input: Partial<PeopleInput>) => {
 }
 
 describe('peopleModel', () => {
-  it('waits, offers to try again after a failure, and says when nobody matches', () => {
+  it('waits, and says when nobody matches', () => {
     expect(peopleModel({ ...base, loaded: false }).list).toEqual({ kind: 'loading' })
-    expect(peopleModel({ ...base, loaded: false, failed: true }).list).toEqual({ kind: 'failed' })
     expect(peopleModel(base).list).toEqual({ kind: 'empty', text: strings.noPeople })
   })
 

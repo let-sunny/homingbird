@@ -7,7 +7,7 @@ import {
   refreshInterview,
   saveTeachingDocument,
 } from '../../src/tasks/teaching-interview.ts'
-import { testApp } from '../support/app.ts'
+import { fail, testApp } from '../support/app.ts'
 import { taught } from '../support/fixtures.ts'
 
 const INTERVIEW = { document: 'Refunds: 30 days.', proposals: [], limit: 20 }
@@ -20,6 +20,25 @@ describe('teaching chat tasks', () => {
     const failing = testApp({ 'principleProposals.list': () => ({ refusal: Forbidden({ message: 'no' }) }) })
     await failing.run(refreshInterview)
     expect(failing.state.interview.get()).toBe('failed')
+  })
+
+  it('keeps what it shows while the server is only away, and draws nothing for the same data', async () => {
+    const { run, state, ...test } = testApp({
+      'principleProposals.list': () =>
+        isAway ? fail({ _tag: 'Unavailable', message: 'down' }) : { ...INTERVIEW },
+    })
+    let isAway = false
+    await run(refreshInterview)
+    let draws = 0
+    state.interview.subscribe(() => {
+      draws++
+    })
+    await run(refreshInterview)
+    isAway = true
+    await run(refreshInterview)
+    expect(draws).toBe(0)
+    expect(state.interview.get()).toEqual(INTERVIEW)
+    expect(test.routes()).toHaveLength(3)
   })
 
   it('saves the document, saves or discards proposals, and shows what changed', async () => {

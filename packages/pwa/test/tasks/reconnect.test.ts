@@ -1,10 +1,22 @@
 import type { AsRead, NoteId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
+import { ATTEMPT_LIMIT_SECONDS } from '../../src/load-timing.ts'
 import { loadPreviews, reloadPreviews } from '../../src/tasks/previews.ts'
 import { type Transport, catchUp } from '../../src/tasks/reconnect.ts'
-import { open } from '../../src/tasks/resources.ts'
+import { invalidate, open } from '../../src/tasks/resources.ts'
 import { fail, hold, settle, testApp } from '../support/app.ts'
-import { BEN, CHANNEL_ROOM, ROOM, me, member, serverInfo, summary } from '../support/fixtures.ts'
+import {
+  BEN,
+  CHANNEL_ROOM,
+  ROOM,
+  entry,
+  everything,
+  me,
+  member,
+  serverInfo,
+  summary,
+} from '../support/fixtures.ts'
+import { setWorkspace } from '../support/resource-load.ts'
 
 const preview = (id: string): AsRead.DraftPreview => ({
   noteId: id as NoteId,
@@ -25,6 +37,10 @@ const start = (handlers: Parameters<typeof testApp>[0] = {}, hasLists = false) =
     'reviews.list': () => ({ reviews: [] }),
     'debateSuggestions.list': () => ({ suggestions: [] }),
     'debates.list': () => ({ debates: [] }),
+    'conversations.list': () => ({ conversations: [] }),
+    'directory.list': () => ({ entries: [] }),
+    'channels.list': () => ({ channels: [] }),
+    'credentials.list': () => ({ credentials: [] }),
     ...handlers,
   })
   test.state.session.set(me())
@@ -45,6 +61,11 @@ const start = (handlers: Parameters<typeof testApp>[0] = {}, hasLists = false) =
   const shown = () => test.state.previews.get().get(ROOM)
   return { ...test, missed, connect, shown }
 }
+
+const WORKSPACE_LISTS = ['channels.list', 'conversations.list', 'credentials.list', 'directory.list']
+
+const withoutLists = (routes: ReadonlyArray<string>) =>
+  routes.filter((route) => !WORKSPACE_LISTS.includes(route))
 
 describe('catchUp', () => {
   it('reads the previews held before the first connect, since one may be discarded until then', async () => {
@@ -168,7 +189,7 @@ describe('catchUp', () => {
     expect([...state.previewedBodies.get().keys()]).toEqual(['note_sent'])
     connect('stream')
     await settle()
-    expect(routes()).toEqual(['me.get', 'previews.list'])
+    expect(withoutLists(routes())).toEqual(['me.get', 'previews.list'])
   })
 
   it('keeps them hidden, without a notice, when the server does not answer', async () => {
@@ -190,12 +211,12 @@ describe('catchUp', () => {
     connect('stream')
     connect('poll')
     await settle()
-    expect(routes()).toEqual(['me.get', 'previews.list'])
+    expect(withoutLists(routes())).toEqual(['me.get', 'previews.list'])
     missed.asking('poll')
     expect(shown()).toHaveLength(1)
     missed.answered('poll')
     await settle()
-    expect(routes()).toEqual(['me.get', 'previews.list', 'previews.list'])
+    expect(withoutLists(routes())).toEqual(['me.get', 'previews.list', 'previews.list'])
   })
 
   it('hides them when a poll that answered before finds them unreadable', async () => {
@@ -252,7 +273,7 @@ describe('catchUp', () => {
 })
 
 describe('catchUp with the lists that events sent once bring up to date', () => {
-  const LISTS = ['debateSuggestions.list', 'debates.list', 'reviews.list']
+  const LISTS = ['debateSuggestions.list', 'debates.list', 'reviews.list', ...WORKSPACE_LISTS].sort()
   const listsAsked = (routes: ReadonlyArray<string>) => routes.filter((route) => LISTS.includes(route)).sort()
 
   it('asks for none at the first connect, and for each once at a reconnect, after who is signed in', async () => {
@@ -278,7 +299,7 @@ describe('catchUp with the lists that events sent once bring up to date', () => 
     await settle()
     connect('stream')
     await settle()
-    expect(aborted).toEqual(['debates.list'])
+    expect(aborted).toEqual([])
     before.release({ debates: [] })
     await settle()
     expect(state.debates.get()).toEqual([summary()])
@@ -300,6 +321,163 @@ describe('catchUp with the lists that events sent once bring up to date', () => 
     await settle()
     expect(listsAsked(routes())).toEqual(LISTS)
     expect(clock.pending()).toBe(0)
+  })
+
+  it.each(['never read', 'read before'])(
+    'lets a list %s arrive although streams come and go faster than it answers',
+    async (when) => {
+      const answers: Array<(answer: unknown) => void> = []
+      const { connect, app, state, aborted, run } = start({
+        'directory.list': () => {
+          const one = hold<unknown>()
+          answers.push(one.release)
+          return one.waiting
+        },
+      })
+      connect('stream')
+      const name = (text: string) => ({ entries: [entry(BEN, text)] })
+      app.launch(open('directory'))
+      await settle()
+      if (when === 'read before') {
+        answers.shift()!(name('Ben Then'))
+        await settle()
+        app.launch(invalidate('directory'))
+        await settle()
+      }
+      const ended = aborted.length
+      for (let drop = 0; drop < 5; drop++) {
+        connect('stream')
+        await settle()
+      }
+      expect(aborted).toHaveLength(ended)
+      answers.shift()!(name('Ben Between'))
+      await settle()
+      expect(state.directory.get()).toEqual([entry(BEN, 'Ben Between')])
+      answers.shift()!(name('Ben Now'))
+      await settle()
+      expect(state.directory.get()).toEqual([entry(BEN, 'Ben Now')])
+      expect(answers).toEqual([])
+      await run(open('directory'))
+    },
+  )
+
+  it('shows the previews and keeps the other parts coming while one part never answers, through later polls', async () => {
+    const answers = { groups: hold<unknown>(), debate: hold<unknown>() }
+    const { connect, state, routes, shown, clock, aborted } = start(
+      {
+        'previews.list': () => ({ previews: [preview('note_p2')] }),
+        'groups.list': () => answers.groups.waiting,
+        'principleProposals.list': () => ({ document: null, proposals: [], limit: 20 }),
+        'debates.get': () => answers.debate.waiting,
+      },
+      true,
+    )
+    const info = everything()
+    state.serverInfo.set({ ...info, features: { ...info.features, draftPreviews: true } })
+    state.groupsLoaded.set(true)
+    state.interview.set('failed')
+    state.route.set({ name: 'debate', id: 'deb_1' } as never)
+    connect('stream')
+    connect('poll')
+    await settle()
+    expect(shown()).toEqual([preview('note_p2')])
+    expect(state.interview.get()).toEqual({ document: null, proposals: [], limit: 20 })
+    for (let poll = 0; poll < 3; poll++) {
+      connect('poll')
+      await settle()
+    }
+    expect(aborted).toEqual([])
+    answers.debate.release({ id: 'deb_1' })
+    await settle()
+    expect(state.shownDebate.get()).toEqual({ id: 'deb_1' })
+    for (const route of ['groups.list', 'debates.get', 'debates.list', 'directory.list'])
+      expect(
+        routes().filter((one) => one === route),
+        route,
+      ).toHaveLength(1)
+    await clock.advance(ATTEMPT_LIMIT_SECONDS * 1000)
+    expect(aborted).toContain('groups.list')
+    expect(state.notice.get()).toBeNull()
+  })
+
+  it('still owes the lists when the stream is lost again before the server said who is signed in', async () => {
+    const who = [hold<unknown>(), hold<unknown>()]
+    let asked = 0
+    const { connect, missed, routes } = start({ 'me.get': () => who[asked++]!.waiting }, true)
+    connect('stream')
+    connect('stream')
+    await settle()
+    missed.lost()
+    who[0]!.release(me())
+    await settle()
+    expect(listsAsked(routes())).toEqual([])
+    connect('stream')
+    await settle()
+    who[1]!.release(me())
+    await settle()
+    expect(listsAsked(routes())).toEqual(LISTS)
+  })
+
+  it('keeps the request of a list never read on its way, so that streams that come and go never hold it back', async () => {
+    const slow = hold<unknown>()
+    let asked = 0
+    const { connect, app, state, aborted } = start({
+      'directory.list': () => (asked++ === 0 ? slow.waiting : { entries: [entry(BEN, 'Ben')] }),
+    })
+    connect('stream')
+    app.launch(open('directory'))
+    await settle()
+    for (let drop = 0; drop < 3; drop++) {
+      connect('stream')
+      await settle()
+    }
+    expect(aborted).toEqual([])
+    slow.release({ entries: [] })
+    await settle()
+    expect(state.directory.get()).toEqual([entry(BEN, 'Ben')])
+    expect(asked).toBe(2)
+  })
+
+  it('asks once more, without asking who is signed in, when the first stream opened only after the lists', async () => {
+    const { connect, routes, state, shown } = start(
+      { 'previews.list': () => ({ previews: [preview('note_p1')] }) },
+      true,
+    )
+    state.stream.set('late')
+    connect('stream')
+    expect(shown()).toHaveLength(1)
+    await settle()
+    expect(listsAsked(routes())).toEqual([])
+    setWorkspace(state, 'loaded')
+    await settle()
+    expect(listsAsked(routes())).toEqual(LISTS)
+    expect(routes()).not.toContain('me.get')
+    connect('poll')
+    await settle()
+    expect(routes().filter((route) => route === 'me.get')).toHaveLength(1)
+  })
+
+  it('reads again the groups, the teaching chat and the flock on screen, where the page holds them', async () => {
+    const handlers = {
+      'groups.list': () => ({ groups: [] }),
+      'principleProposals.list': () => ({ document: null, proposals: [] }),
+      'debates.get': () => fail({ _tag: 'NotFound', message: 'no' }),
+    }
+    const others = (routes: ReadonlyArray<string>) => routes.filter((route) => route in handlers)
+    const none = start(handlers)
+    none.connect('stream')
+    none.connect('stream')
+    await settle()
+    expect(others(none.routes())).toEqual([])
+    const held = start(handlers)
+    held.state.serverInfo.set(everything())
+    held.state.groupsLoaded.set(true)
+    held.state.interview.set('failed')
+    held.state.route.set({ name: 'debate', id: 'deb_1' } as never)
+    held.connect('stream')
+    held.connect('stream')
+    await settle()
+    expect(others(held.routes())).toEqual(['groups.list', 'principleProposals.list', 'debates.get'])
   })
 
   it('asks for none of another person’s', async () => {

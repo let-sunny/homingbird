@@ -12,7 +12,9 @@ export const setMuted = (conversationId: ConversationId, muted: boolean): Action
       ? yield* api['conversations.mute'](request)
       : yield* api['conversations.unmute'](request)
     state.conversations.update((list) =>
-      list.map((each) => (each.id === conversation.id ? conversation : each)),
+      list.map((each) =>
+        each.id === conversation.id ? { ...each, muted: conversation.muted === true } : each,
+      ),
     )
   })
 

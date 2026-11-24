@@ -28,12 +28,14 @@ export const testApp = (handlers: Handlers = {}, hash = '#/') => {
         ]
         const answer = handler === undefined ? {} : handler(request)
         if (isWaiting(answer))
-          return T.promise(
-            (signal) =>
-              new Promise((resolve) => {
-                signal.addEventListener('abort', () => aborted.push(String(route)), { once: true })
-                void answer.waitFor.then(resolve)
-              }),
+          return T.flatMap((late: unknown) => (isRefusal(late) ? T.fail(late.refusal) : T.succeed(late)))(
+            T.promise(
+              (signal) =>
+                new Promise((resolve) => {
+                  signal.addEventListener('abort', () => aborted.push(String(route)), { once: true })
+                  void answer.waitFor.then(resolve)
+                }),
+            ),
           )
         return isRefusal(answer) ? T.fail(answer.refusal) : T.succeed(answer)
       }),

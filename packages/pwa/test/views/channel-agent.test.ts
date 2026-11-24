@@ -9,7 +9,7 @@ import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import { ANA, CY, channel, draft, entry, everything, me, member, note } from '../support/fixtures.ts'
-import { setLoad } from '../support/resource-load.ts'
+import { setLoad, setWorkspace } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -54,18 +54,54 @@ const onPage = () => {
   const { context, called, page } = testContext()
   context.state.serverInfo.set(everything())
   context.state.session.set(me())
-  context.state.channelsLoaded.set(true)
+  setLoad(context.state.channels, { loaded: true })
   context.state.channels.set([wiki])
   const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null, 'answers'))
   return { context, called, page, dialog: shown }
 }
 
 describe('channelAgentView', () => {
+  it.each(['answers', 'teach'] as const)(
+    'keeps what is being done on its %s tab when the channels come again unchanged, and ends it when they change',
+    (tab) => {
+      const { context, called } = testContext()
+      context.state.serverInfo.set(everything())
+      context.state.session.set(me())
+      setLoad(context.state.channels, { loaded: true })
+      context.state.channels.set([wiki])
+      context.state.channelAgents.set(new Map([['payments-wiki', agentView()]]))
+      context.state.channelTeaching.set(
+        new Map([['payments-wiki', { instruction: '', sources: [], principles: [], limit: 20 } as never]]),
+      )
+      const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null, tab))
+      const asked = tab === 'teach' ? 'loadChannelTeaching' : 'loadChannelAgent'
+      const typed = shown.querySelector('textarea')
+      if (tab === 'teach') fire.type(typed!, 'Half an instruction')
+      context.state.channels.set([{ ...wiki }])
+      context.state.channels.set([{ ...wiki }, channel('other')])
+      expect(called(asked)).toHaveLength(1)
+      if (tab === 'teach') expect(shown.querySelector('textarea')!.value).toBe('Half an instruction')
+      context.state.channels.set([{ ...wiki, memberCount: 9 }])
+      expect(called(asked)).toHaveLength(2)
+    },
+  )
+
+  it('keeps a join code on screen when the channels come again unchanged', () => {
+    const { context, called, dialog } = onPage()
+    called('loadChannelAgent')[0]!.then!.done!(undefined)
+    context.state.channelAgents.set(new Map([['payments-wiki', agentView()]]))
+    const make = dialog.querySelector<HTMLButtonElement>('.join-code button, .join-code-section button')
+    expect(make).not.toBeNull()
+    const section = make!.parentElement!
+    context.state.channels.set([{ ...wiki }])
+    expect(dialog.contains(section)).toBe(true)
+  })
+
   it('shows the agent’s state on its page, as a person’s agent is shown', () => {
     const { context } = testContext()
     context.state.serverInfo.set(everything())
     context.state.session.set(me())
-    context.state.channelsLoaded.set(true)
+    setLoad(context.state.channels, { loaded: true })
     context.state.channels.set([
       {
         ...wiki,
@@ -398,7 +434,7 @@ describe('channelAgentView', () => {
   it('offers the answers and Teach as tabs, and shows what the agent was taught on Teach', () => {
     const { context, called } = testContext()
     context.state.serverInfo.set(everything())
-    context.state.channelsLoaded.set(true)
+    setLoad(context.state.channels, { loaded: true })
     context.state.channels.set([wiki])
     const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null, 'teach'))
     const tabs = getByRole(shown, 'navigation', {
@@ -418,7 +454,7 @@ describe('channelAgentView', () => {
     const { context } = testContext()
     context.state.serverInfo.set(everything())
     context.state.serverInfo.set({ ...everything(), features: { ...everything().features, teaching: false } })
-    context.state.channelsLoaded.set(true)
+    setLoad(context.state.channels, { loaded: true })
     context.state.channels.set([wiki])
     const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null, 'teach'))
     expect(queryByRole(shown, 'navigation')).toBeNull()
@@ -430,7 +466,7 @@ describe('channelAgentView', () => {
     const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', null, 'answers'))
     expect(called('loadKnownChannels')).toHaveLength(1)
     expect(shown.querySelector('.loading')).not.toBeNull()
-    context.state.channelsLoaded.set(true)
+    setLoad(context.state.channels, { loaded: true })
     expect(textOf(shown)).toContain(strings.channelAgent.notYours)
     context.state.channels.set([wiki])
     expect(textOf(shown)).toContain('The agent of #payments-wiki')
@@ -441,7 +477,7 @@ describe('channelAgentView', () => {
   it('brings the answer a notification opened into view, once', () => {
     const { context, page } = testContext()
     context.state.serverInfo.set(everything())
-    context.state.channelsLoaded.set(true)
+    setLoad(context.state.channels, { loaded: true })
     context.state.channels.set([wiki])
     const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', 'note_answer00000', 'answers'))
     context.state.reviews.set([review(), review({ note: draft('note_other000000', { authorId: AGENT }) })])
@@ -462,7 +498,7 @@ describe('the answer a stale notification opened', () => {
     const { context, called } = testContext()
     context.state.session.set(me())
     context.state.serverInfo.set(everything())
-    context.state.channelsLoaded.set(true)
+    setLoad(context.state.channels, { loaded: true })
     context.state.channels.set([wiki])
     context.state.directory.set([entry(CY, 'Cy')])
     const shown = mount(channelAgentView(context, lifetime(), 'payments-wiki', focus, 'answers'))
@@ -480,7 +516,7 @@ describe('the answer a stale notification opened', () => {
 
   it('never says that none waits before the list came: it is checked, or failed with the way to try again', () => {
     const { context, called, shown } = openedFor('note_answer00000')
-    context.state.workspace.set('loaded')
+    setWorkspace(context.state, 'loaded')
     expect(textOf(shown)).toContain(strings.checking.waiting)
     expect(textOf(shown)).not.toContain(strings.channelAgent.reviewsNone)
     setLoad(context.state.reviews, { step: 'failed' })
@@ -531,7 +567,7 @@ describe('the answer a stale notification opened', () => {
   it('asks nothing when no notification opened the page', () => {
     const { context, called } = testContext()
     context.state.serverInfo.set(everything())
-    context.state.channelsLoaded.set(true)
+    setLoad(context.state.channels, { loaded: true })
     context.state.channels.set([wiki])
     mount(channelAgentView(context, lifetime(), 'payments-wiki', null, 'answers'))
     called('refreshReviews')[0]!.then!.done!(true)

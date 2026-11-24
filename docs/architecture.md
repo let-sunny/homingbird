@@ -602,23 +602,26 @@ sequenceDiagram
   within that many seconds, then, after `TOO_LONG_LOAD_SECONDS`, that it is taking too long, with Try
   again; the attempt goes on behind that, and Try again ends it and starts one fresh one. A workspace
   that failed after its repeats keeps a line above the lists, loads again on `online` and every 30
-  seconds (not for a refusal), and goes on telling until a load works. Live events start once, when
-  the workspace has loaded or has taken too long, never earlier: an event that arrived during the load
-  would be overwritten by its older answers, except for the conversation list, where an answer never
-  replaces one that started later. A load that finishes with events already live (a slow one, or one
-  after Try again or the quiet retry) is followed by one more load that says nothing and gives up after
-  `TOO_LONG_LOAD_SECONDS`; it starts after those events, so the state ends current. That one is not
-  checked again, so a second load slower than the next event can still be overwritten until the one
-  after. The Channels tab loads when it opens and says "Checking…", then too long or failed
-  with Try again, in place of the list until it has loaded (`pwa/src/tasks/list-load.ts`); Try again
+  seconds (not for a refusal), and goes on telling until a load works. The workspace has no load of its own:
+  how it is going is derived (`pwa/src/workspace-step.ts`) from its lists, the conversations, people,
+  contacts, channels, agents and draft requests, each a resource (below); the line tells the worst step of
+  those never read, and Try again asks for the failed and slow ones only. The stream opens first, from the
+  cursor, and the lists wait for its response, at most `STREAM_WAIT_SECONDS` (1), so that an event sent once
+  is either in a list or arrives after it was asked for. When the stream is later than that, the lists that
+  such events feed are asked for once more, after those the page is first drawn from. Rooms are drawn
+  with the people who name them, unless those take longer than usual, and stay drawn while they are asked for again. What a live event changes while a list is on its
+  way is made again on the answer, so a room left meanwhile does not come back; a list that only hears "look
+  again" is asked for once more after the running request. A list that never answers holds back neither the
+  stream, nor the page, nor the other lists. The Channels tab loads when it opens and says "Checking…", then
+  too long or failed with Try again, in place of the list until it has loaded (`pwa/src/tasks/list-load.ts`); Try again
   ends the running load of that list and starts one. The flocks and the activity say the same in their place,
   of their resources. The figures come from 20 loads each against a built server with 30
   people and 50 conversations, measured from the page's first request: no throttling 0.2 s at the 95th
   percentile; Chromium's Fast 3G / Slow 4G 4.2 s, cold or warm cache; Slow 3G 11.8 s. "Usually" is the
   Fast 3G figure rounded up (5 s) and "too long" the Slow 3G figure with a margin (15 s, never under
   10). A deployment far from its people can differ, so the words only say "usually".
-- **Activity lists.** The conversations with notes awaiting a reply, the answers to review, the flock
-  suggestions and the flocks are each one resource (`pwa/src/resource.ts`), asked for in one place
+- **Lists.** The lists of the workspace, the conversations with notes awaiting a reply, the answers to
+  review, the flock suggestions and the flocks are each one resource (`pwa/src/resource.ts`), asked for in one place
   (`pwa/src/tasks/resources.ts`): one value, one request at a time.
 
   | Call | Meaning |
@@ -626,13 +629,16 @@ sequenceDiagram
   | `open` | A place shows it: joins the running request, or asks unless the last answer was asked for under 2 seconds ago and changes are heard of |
   | `invalidate` | It changed: one request after the running one, however many ask |
   | `refresh` | As `invalidate`, and ends with that request, never with one that ran already |
-  | `again` | Try again, and a reconnect: ends the running request and asks afresh |
+  | `reread` | As `refresh` for several, after an action: it waits at most 5 seconds and never fails |
+  | `again` | Try again, and `online` for what failed: ends the running request and asks afresh |
 
-  A change made on the page (an answer decided, a suggestion dismissed) is applied at once and again on
+  A change made on the page or by an event (an answer decided, a room left, a presence change) is applied at once and again on
   the answer of the attempt on its way, so it must mean the same made twice. A lost connection, a 5xx or a 429 keeps
   the value, is repeated after 1, 2, 4 and 8 seconds and then quietly every 30; a refusal empties it at
-  once and is not repeated, since what the person may no longer read must not stay shown (rules 2 and 6).
-  Nobody is told of a background failure while a list is shown. Runs follow the session's signal, and
+  once and is not repeated by itself (only one the server wrote: an answer that is no `ErrorBody`, as a proxy's page, counts as a server
+  that is away), since what the person may no longer read must not stay shown (rules 2 and 6).
+  Nobody is told of a background failure while a list is shown; a list that failed and was never read stays
+  told until it is read or the person tries again. Runs follow the session's signal, and
   `forgetSession` resets every resource. An attempt that has not answered within `ATTEMPT_LIMIT_SECONDS`
   (30) is ended and counts as a lost connection: the value stays, its late answer is dropped, and the repeat
   a second later serves whatever asked meanwhile. The limit is twice `TOO_LONG_LOAD_SECONDS` and more than double the
@@ -644,8 +650,10 @@ sequenceDiagram
   It reads them again after the first connect and, while it polls, after each poll. An answer counts only
   while no later load or hide of that conversation began (`previewReads` in `pwa/src/state.ts`). It also asks `me.get`, until the server
   answers, and starts the page anew when another person signed in meanwhile in another tab
-  (`pwa/src/tasks/reconnect.ts`). Only then does it ask again for the reviews, suggestions and flocks, whose
-  events are never replayed: once for each reconnect, and not for each poll.
+  (`pwa/src/tasks/reconnect.ts`). Only then does it ask again for what events that are
+  never replayed bring up to date: the reviews, suggestions and flocks, the conversations, people, channels
+  and agents, and, where the page holds them, the groups, the teaching chat and the flock on screen. Each is asked for on its
+  own, after a request on its way, and the previews wait for none of them. Once for each reconnect, and not for each poll.
 - **Session end.** A 401 on any request or on the event stream, and signing out, end the session in the
   page (`endSession` in `pwa/src/app.ts`): the one `AbortSignal` that every launched task, the stream,
   the visibility reports and the delayed reloads follow is aborted, so no late answer is applied;

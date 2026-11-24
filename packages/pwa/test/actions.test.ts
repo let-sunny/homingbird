@@ -6,18 +6,18 @@ import { ROOM } from './support/fixtures.ts'
 describe('createActions', () => {
   it('offers every task by name, passing its arguments and what comes next', async () => {
     const { app, sent } = testApp({
-      'conversations.list': () => ({ conversations: [] }),
+      'channels.list': () => ({ channels: [] }),
       'search.notes': () => ({ notes: [] }),
     })
     const actions = createActions(app.launch)
     expect(Object.keys(actions).sort()).toEqual(Object.keys(TASKS).sort())
     const done = vi.fn()
-    actions.loadConversations({ done })
+    actions.loadKnownChannels({ done })
     actions.searchNotes('release', { done })
     actions.chooseReplyTarget(ROOM, null)
     await settle()
     expect(done).toHaveBeenCalledTimes(2)
-    expect(sent.map((one) => one.route)).toEqual(['conversations.list', 'search.notes'])
+    expect(sent.map((one) => one.route).sort()).toEqual(['channels.list', 'search.notes'])
   })
 
   it('creates a channel on the way to sending a draft there', async () => {
