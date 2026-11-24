@@ -162,7 +162,7 @@ describe('peopleView', () => {
     expect(shown.querySelector('.group-start')).toBeNull()
     expect(shown.querySelector(`[data-member-id="${ANA}"] .with-others`)).toBeNull()
     expect(shown.querySelector(`[data-member-id="${CY}"] .with-others`)).toBeNull()
-    const link = getByRole(shown, 'link', { name: 'New message to Ben and others' })
+    const link = getByRole(shown, 'link', { name: 'New note to Ben and others' })
     expect(link.getAttribute('href')).toBe(`#/new?to=${BEN}`)
     expect(link.textContent).toBe(strings.newMessage.withOthers)
   })

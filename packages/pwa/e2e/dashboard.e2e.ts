@@ -210,7 +210,7 @@ const scenario = async (): Promise<void> => {
     assert.equal(await ana.page.locator('.trust-card').count(), 0)
 
     // -- The page, from the header: where it answers like you, verdict, numbers, trend, what is measured ----------------
-    await ana.page.click('.tab:has-text("My agent")')
+    await ana.page.click('.tab:has-text("Nest")')
     await ana.page.click('.my-agent-tabs a:has-text("How it is doing")')
     await ana.page.waitForFunction(() => (globalThis as any).location.hash === '#/agent/doing')
     await ana.page.waitForSelector('#trust-verdict:has-text("usually sent as written")')
@@ -275,7 +275,7 @@ const scenario = async (): Promise<void> => {
     // -- Korean ---------------------------------------------------------------------------------------
     const korean: Person = await newPage(browser, base, 'ko-KR')
     await submitDevelopmentLogin(korean.page, 'ana@example.com', 'Ana')
-    await korean.page.waitForSelector('.tab:has-text("내 에이전트")')
+    await korean.page.waitForSelector('.tab:has-text("둥지")')
     await korean.page.goto(`${base}/#/agent/doing`)
     await korean.page.waitForSelector('#trust-verdict:has-text("에이전트 초안은 대개 그대로 보내요")')
     await korean.page.waitForSelector(

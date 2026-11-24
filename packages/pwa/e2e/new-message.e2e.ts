@@ -21,8 +21,8 @@ const WIDE = { width: 1280, height: 800 }
 const PHONE = { width: 375, height: 812 }
 
 /**
- * From the list to a note sent to two people with the keyboard alone, wide and on a phone: New message
- * in the head of Direct messages, a name typed and Enter, twice, then the note and Enter. A key pressed while an input method
+ * From the list to a note sent to two people with the keyboard alone, wide and on a phone: New note
+ * in the head of DN, a name typed and Enter, twice, then the note and Enter. A key pressed while an input method
  * composes adds nobody, and a screen left before sending leaves no room behind.
  */
 const scenario = async (): Promise<void> => {
@@ -45,20 +45,20 @@ const scenario = async (): Promise<void> => {
       const ana: Person = await newPage(browser, base, 'en-US', { viewport })
       await submitDevelopmentLogin(ana.page, 'ana@example.com', 'Ana')
       await ana.page.waitForSelector('.app .sidebar')
-      await ana.page.waitForSelector('.sidebar-list-head .new-message-link[aria-label="New message"]')
+      await ana.page.waitForSelector('.sidebar-list-head .new-message-link[aria-label="New note"]')
       await ana.page.waitForSelector('.sidebar .section-actions .new-channel-link[aria-label="New channel"]')
       assert.equal(
         await ana.page.locator('.sidebar-list-head .new-channel-link').count(),
         0,
-        `${name}: Direct messages starts no channel`,
+        `${name}: DN starts no channel`,
       )
 
-      // -- New message, with the keyboard alone ------------------------------------------------------
+      // -- New note, with the keyboard alone ------------------------------------------------------
       await tabTo(ana.page, '.new-message-link')
       assert.equal(
         await focusedClass(ana.page),
         'section-add new-message-link',
-        `${name}: New message has the focus`,
+        `${name}: New note has the focus`,
       )
       await ana.page.waitForTimeout(400)
       await ana.page.screenshot({ path: join(screenshots, `${name}-1-list.png`) })

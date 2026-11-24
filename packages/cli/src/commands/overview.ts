@@ -39,7 +39,7 @@ export const overview: T.Task<Outcome, CliFailure, CliEnv> = T.gen(function* () 
     [
       `Signed in as ${me.member.name} on ${credential.serverUrl}`,
       '',
-      'Direct messages and channels',
+      'Direct notes and channels',
       parts.conversations.text,
       '',
       'Waiting for a reply',

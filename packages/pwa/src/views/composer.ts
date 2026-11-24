@@ -65,6 +65,7 @@ export const composer = (
     tags?.close()
     actions.keepComposerText(id, '')
     actions.sendNote(id, body, { attempt: 'draft' })
+    sendButton.classList.add('is-flying')
     sent()
     text.focus()
   }
@@ -82,6 +83,7 @@ export const composer = (
   })
   const sendButton = h('button', { type: 'submit', class: 'primary send' }, strings.send)
   keepsFocusIn(context, sendButton, text)
+  sendButton.addEventListener('animationend', () => sendButton.classList.remove('is-flying'))
   const ask =
     shown.asksAgent &&
     agentAsk(context, life, () => {

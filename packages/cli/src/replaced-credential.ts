@@ -26,6 +26,6 @@ export const revokeReplaced = (
     if (previous === null || previous.token === current.token) return
     if (yield* isRevokedOnServer(env.fetch, previous.serverUrl, previous.token)) return
     env.output.problem(
-      'Warning: the server did not confirm that it revoked the credential this sign-in replaced. Revoke the older connection under My agent → Connection in the web client.',
+      'Warning: the server did not confirm that it revoked the credential this sign-in replaced. Revoke the older connection under Nest → Connection in the web client.',
     )
   })

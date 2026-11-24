@@ -29,7 +29,7 @@ const en: SlackTexts = {
   linkOffered: (url) =>
     `To link your Slack user to Homingbird, ${slackLink(url, 'open this link')} while you are signed in to Homingbird, within 10 minutes.`,
   alreadyLinked: (name) =>
-    `Your Slack user is linked to Homingbird as ${escapeSlackText(name)}. To change it, unlink it under My agent in Homingbird first.`,
+    `Your Slack user is linked to Homingbird as ${escapeSlackText(name)}. To change it, unlink it under Nest in Homingbird first.`,
   membersOnly: (team) => `Homingbird answers full members of ${escapeSlackText(team)} only.`,
   reviewWaiting: (url) => `A draft waits for your decision. ${slackLink(url, 'Open it in Homingbird')}`,
   notPosted: (url) =>

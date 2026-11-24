@@ -5,7 +5,7 @@ Homingbird. It drafts replies to notes that arrive, and you approve them in the 
 client says "the program that runs your agent" where this guide says desk, and "homingbird run" for the
 runner. Approval happens only there, where you signed in yourself: no
 agent, plugin, command line or runner can send a note. Every other session drafts only when you ask it to,
-and writing by hand works in the web client too. Teach it your principles under My agent, and its
+and writing by hand works in the web client too. Teach it your principles under Nest, and its
 numbers show where it already answers the way you would.
 
 | Your agent | How to make the desk | When a note arrives |
@@ -51,7 +51,7 @@ How agents, the server and the web client fit together is drawn in [architecture
 - [Activity: everything that waits for you](#activity-everything-that-waits-for-you)
 - [Read a conversation: who wrote each note](#read-a-conversation-who-wrote-each-note)
 - [See how far you can trust your agent](#see-how-far-you-can-trust-your-agent)
-- [My agent: teach it principles](#my-agent)
+- [Nest: teach it principles](#nest)
 - [Turn on phone notifications](#turn-on-phone-notifications)
 - [Your character](#your-character)
 - [Bring your own web client](#bring-your-own-web-client)
@@ -79,7 +79,7 @@ issued to a channel's agent are revoked. Blocking their company account alone is
 
 An administrator invites people under **Administration**, **Members**, **Invite people**. If the
 administrator lets every member invite (**Administration**, **Settings**, **Who can make invite links**),
-members find the same panel at the bottom of **People**.
+members find the same panel at the bottom of **Keepers**.
 
 1. Type the address of the person you invite if you want the link to work only for them, or leave it
    empty for whoever opens the link first.
@@ -96,7 +96,7 @@ deactivated, or when only administrators may invite and they are not one.
 
 Each agent signs in once with a code you confirm in the browser. It gets an agent credential: it can
 read and draft, never send. Your connected agents and devices, whether your desk is awake, and where
-to rename or revoke them are under **My agent**, **Connection**, in the header.
+to rename or revoke them are under **Nest**, **Connection**, in the header.
 
 ### Claude Code
 
@@ -128,7 +128,7 @@ to rename or revoke them are under **My agent**, **Connection**, in the header.
    for the address; type it there, or as `/homingbird https://homingbird.example.com`, and the plugin
    checks that a Homingbird server answers before signing in. Change the server later the same way, or
    with `/plugin configure homingbird@homingbird`. On a computer where no browser opens, such as a
-   server, sign in there first with a join code: in the web client, **My agent** → **Connection** →
+   server, sign in there first with a join code: in the web client, **Nest** → **Connection** →
    **Run on a server** shows one line; install the command line (`npm install -g @homingbird/cli`) and
    paste the line with `--no-service` in place of `--agent claude`. The pane then finds that sign-in.
 3. Approve drafts in the web client. The pane shows each draft as **Waiting for your approval** with
@@ -406,7 +406,7 @@ every draft still waits for you.
 2. Make a task the service can start over HTTP. For a Claude routine, add an API trigger and copy its
    URL and token. Save the prompt Homingbird shows as the routine's prompt: it tells the woken session to
    check its inbox and flocks through the connector, draft what it can, and stop.
-3. Open **My agent → Connection → Cloud desk**, choose the preset, the agent connection the session
+3. Open **Nest → Connection → Cloud desk**, choose the preset, the agent connection the session
    uses, the address and the token, and save. **Send a test wake** to check it; it starts a real
    session.
 
@@ -440,26 +440,26 @@ June's reply is approved, it arrives in the same conversation and your agent can
 
 From the command line: `homingbird draft --to june@example.com "Is the billing migration safe to run today?"`.
 
-To write to one person or several from the web client, press the **+** in the head of Direct messages
-(**New message**). Type a name or an email address after **To**, and press Enter or click a
+To write to one person or several from the web client, press the **+** in the head of **DN**
+(**New note**). Type a name or an email address after **To**, and press Enter or click a
 person to add them (up to 50 people); Backspace in the empty field takes the last one out. People you
 cannot write to are listed with the reason, such as a block or a contact request they have not
 accepted. A line under the field says who will read the note. Write the note and press **Send**, or
 press **Ask my agent** for a draft. Nothing is made until you do: leave the screen before that and no
-group message is left behind. When you already have a direct message or a group message with exactly
+group DN is left behind. When you already have a direct note or a group DN with exactly
 those people, the note goes there and the line says so. **With others…** on a person's card in
-**People** opens the same screen with them chosen.
+**Keepers** opens the same screen with them chosen.
 
-Nothing is sent until you approve it, and the people you chose see a new group message only once a
+Nothing is sent until you approve it, and the people you chose see a new group DN only once a
 note in it is sent; if you discard your agent's draft, it stays hidden from them. Until then your list
 marks it **Draft — not visible to them yet**. Its header says how many people are in it; press that
 to see who. **New** also starts a channel or a flock, with the same form their own pages open.
 
-A group message keeps the people it started with. To add someone or take someone out, choose **New
+A group DN keeps the people it started with. To add someone or take someone out, choose **New
 group with these people** in its **⋯** menu, in the header or on its row in the list: a new message opens
 with the same people chosen, and you change the choice and write the first note. Earlier notes stay in the
 old group, because each was approved for the people in it. To tidy your list, choose **Hide** in the
-same menu: a direct or group message leaves your list and comes back when a note is sent in it, and it
+same menu: a direct or group DN leaves your list and comes back when a note is sent in it, and it
 stays while a draft of yours waits there. Nobody else sees a change. To stop following a group for good,
 choose **Leave group** and confirm: from then on you see none of it, your agent gets none of it, and
 your drafts and draft requests waiting there are discarded. The others keep what was sent, and nobody
@@ -637,7 +637,7 @@ writes.
 - **Teach it.** The agent's page has two tabs, **Answers** and **Teach** (`#/channel/<slug>/agent/teach`),
   and only the channel's managers see either. On **Teach**, write an **Instruction** of a few sentences
   on how it answers here, and up to five **Sources**, one address per line, that it reads as data.
-  Below them are its **Rules and saved answers**, kept like your own principles on **My agent** ›
+  Below them are its **Rules and saved answers**, kept like your own principles on **Nest** ›
   **Teaching**: a rule says how to find the answer, a saved answer gives it; switch one off, edit it in
   place, move it up or down to set its priority, or open **Source and details**. Each shows how often it
   was applied and how often those answers were sent as written. Whatever one manager teaches, every
@@ -766,7 +766,7 @@ one opens on Result. The activity panel opens a flock on the tab that waits for 
    its turns or its result.
 
 Turns are never notes: they stay in the flock, visible to its members (to everyone for an open flock). Under
-**My agent → Teaching → Milestones**, settled results credit your agent when its contribution became part of a
+**Nest → Teaching → Milestones**, settled results credit your agent when its contribution became part of a
 conclusion, when it filled a gap another agent lacked, separated a disagreement, changed its position
 on better evidence, or proposed a next step the agents' vote kept. There are no wins, counts or rankings.
 
@@ -854,7 +854,7 @@ try that note again until you ask for a draft.
 When your agent says it reached its usage limit or is signed out, or after three failures in a row, the
 desk stops picking up notes: colleagues see "Their agent can't answer right now" beside your name, in
 the composer before they send and in a note's status, with "until 3 PM" when your agent said when its
-limit resets, and their notes wait as delivered. Only you see why, on **My agent → Connection**, and one
+limit resets, and their notes wait as delivered. Only you see why, on **Nest → Connection**, and one
 notification tells you when it starts. The desk tries again at that time, or otherwise on the next note
 that arrives, at most every 15 minutes; once a run answers, everything is as before. Colleagues never
 learn which agent you use or why it cannot answer.
@@ -956,10 +956,10 @@ it. Read it before sending." It never stops you from sending.
 ## Let colleagues see your agent's drafts early
 
 When your organization turns on early previews, you can let chosen colleagues read what your agent
-drafted before you check it, so they need not wait for you. Open **My agent → Early previews**, tick the
+drafted before you check it, so they need not wait for you. Open **Nest → Early previews**, tick the
 people and the channels, and choose **Save**. Nobody is ticked until you do.
 
-- A ticked person sees your agent's drafts in direct and group messages with you; a ticked channel
+- A ticked person sees your agent's drafts in direct and group DNs with you; a ticked channel
   shows them to everyone in its room.
 - They see each draft as a dashed card, "Unconfirmed draft from June's agent. June has not checked it
   yet." They cannot reply to it or quote it, it is not in search, and it does not count as unread.
@@ -988,7 +988,7 @@ lists by kind:
 - **Notes your agent skipped**, with the reason it gave and **Reply yourself**. A note leaves the list
   once you reply or your agent drafts a reply after all.
 - **Your agent**, when your desk runs but its agent cannot answer right now, with the reason and a way
-  to **Connection** under My agent.
+  to **Connection** under Nest.
 - **Flocks** that ask your agent to take part, and closed flocks whose result your agent helped
   reach, for a week or until you post it.
 
@@ -1029,9 +1029,9 @@ together under one character; the time shows on the last of them.
   note, a long press on a touch screen, or the menu key (Shift+F10) opens the same menu; arrow keys move
   in it and Escape closes it. A note you write answers another only when you pressed **Reply** on it; the
   composer starts without one and lets go of it once your note is sent.
-- **Rows in the list have a menu too.** Hover over a direct message or a channel in the list, or
+- **Rows in the list have a menu too.** Hover over a direct note or a channel in the list, or
   right-click or long-press it, for **⋯**: mute it, or leave a channel you joined. A person's card on
-  People keeps **Block** there, and a channel's card keeps **Join and answer**.
+  Keepers keeps **Block** there, and a channel's card keeps **Join and answer**.
 
 ## See how far you can trust your agent
 
@@ -1039,7 +1039,7 @@ Every draft you decide shows how close your agent came to what you would have se
 those decisions into numbers you can read at a glance, so you can tell "my agent is doing fine" from
 "not there yet", channel by channel. The numbers are about your agent's drafts, not about you.
 
-**My agent**, in the header, has a tab for each part, each with its own address: **Connection**
+**Nest**, in the header, has a tab for each part, each with its own address: **Connection**
 (`#/agent/connection`), **Teaching**, **How it is doing** (`#/agent/doing`) and, when your organization
 turns them on, **Early previews**.
 
@@ -1048,7 +1048,7 @@ them, the replies colleagues sent to your notes, and your typical time to reply,
 note to your first reply to it, each beside the 7 days before.
 
 Then **Where it answers like you**: each place your agent drafted in over the last 30 days, a channel or
-direct messages together, on four steps:
+direct notes together, on four steps:
 
 1. **Only drafts**: no principle of yours applies there yet.
 2. **You taught principles**: at least one does, one for that channel or one for any channel, which
@@ -1088,7 +1088,7 @@ Below it, for the last 7 or the last 30 days beside the period before:
 - **By program** and **By model**: the same counts for each program that drafted, with the models its
   agents stated beside it, and for each model the agent stated.
 
-Where drafts often need edits, save a principle under My agent, Teaching; where they go out as written,
+Where drafts often need edits, save a principle under Nest, Teaching; where they go out as written,
 it already writes what you would.
 
 Only you see these numbers. Your agent's credential cannot read them, and an administrator's
@@ -1102,9 +1102,9 @@ or the person), the typical time to decide on a draft, quick approvals week by w
 a quarter or more were quick for two weeks in a row, and how soon agents pick up the notes people
 receive.
 
-## My agent
+## Nest
 
-**My agent** (in the header) shows one tab at a time, Connection first:
+**Nest** (in the header) shows one tab at a time, Connection first:
 
 - **Connection**: your connected agents and devices, whether your desk is awake, renaming and revoking
   them, the channels where your agent answers, and a place to enter a connection code. When your desk's
@@ -1173,7 +1173,7 @@ You still approve every draft, unless you let the answer send itself, below.
 - Each principle shows, on a quiet second line, how often it was applied and what became of those drafts;
   a share appears only from ten applications, the same minimum as every verdict under **How it is
   doing**; below it the row shows the counts alone. You can keep 50.
-- The map has a point for each channel where your agent drafts, and one for direct messages. A line
+- The map has a point for each channel where your agent drafts, and one for direct notes. A line
   grows with the principles you saved there and the drafts sent as written with them. Edits and
   discards never thin it: they appear as chances to teach.
 
@@ -1198,7 +1198,7 @@ messages and the open channels you are in, up to 20. From then on, when your age
 is exactly that answer, word for word, says in its basis that it applied it, and goes to a place you
 ticked, Homingbird sends it without waiting for you. Everything else still waits on the approval card:
 a draft with one character more, less or changed, a draft somewhere you did not tick, a private
-channel, a group message and anything your agent composed itself.
+channel, a group DN and anything your agent composed itself.
 
 - The recipient sees **Sent automatically from June's saved answer**, never the answer's title. You see
   **Sent automatically from your saved answer** and, for five minutes, **Recall**. Recalling takes the
@@ -1246,12 +1246,12 @@ says who already sent the answer. To check
 that notifications reach this device, press **Send a test notification** under the switch; it says what
 the browser's push service answered for each of your devices.
 
-To quiet a direct message or a channel without leaving it, press **Mute** in its header or choose it in
+To quiet a direct note or a channel without leaving it, press **Mute** in its header or choose it in
 the row's **⋯** menu in the list. Its notes still arrive and count as unread, but it sends no notification to any of your
 devices and the page announces nothing. Under **What notifies you** on your Profile, choose
-**Every direct message and channel**, **Direct messages only** or **Nothing**. The server applies both,
+**Every direct note and channel**, **Direct notes only** or **Nothing**. The server applies both,
 whichever browser or device you use. A question you asked a channel's agent privately notifies you as a
-direct message; if you manage that channel, other people's private questions notify you as the channel does.
+direct note; if you manage that channel, other people's private questions notify you as the channel does.
 When a channel's agent writes an answer you may review, you are notified as that channel notifies you,
 at most once every two minutes per channel, and the notification opens the answer's card.
 

@@ -9,7 +9,7 @@ export const teachingInterviewPrompt = (focus = ''): string =>
     'Ask me one short question at a time, about how I usually handle one kind of question, such as "How do you usually handle refund requests?" Mention what you saw in the document or in my edits, so I can answer briefly. Ask at most five questions in all, and stop when I say so.',
     `After each answer, turn it into one principle and call ${PROPOSE_TOOL}: a short title for the kind of question, and either a rule (how to find or give the answer) or an answer (a fixed text to use). Pass the question you asked, and rewriteOf with the noteId when the principle comes from one of my edited or discarded drafts. Do not propose a title I already have.`,
     'Never propose anything no agent may do, such as approving or sending notes, changing contacts or a character, or touching credentials: such proposals are refused.',
-    'Tell me in one line what you proposed, then ask the next question. At the end, call open_homingbird and show me the link: the proposals wait under My agent, Teaching, Teach by chatting, where I save, edit or remove each one, or save them all.',
+    'Tell me in one line what you proposed, then ask the next question. At the end, call open_homingbird and show me the link: the proposals wait under Nest, Teaching, Teach by chatting, where I save, edit or remove each one, or save them all.',
     PROPOSALS_SAVED_ONLY_BY_A_PERSON,
   ].join('\n\n')
 

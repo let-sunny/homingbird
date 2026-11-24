@@ -42,8 +42,10 @@ describe('tabsModel', () => {
       current: false,
       tour: 'connect',
       mark: null,
+      hint: { concept: 'nest', text: strings.hints.nest },
       glyph: 'agent',
     })
+    expect(tabs[2]?.hint).toEqual({ concept: 'keepers', text: strings.hints.keepers })
     expect(tabs.map((tab) => tab.glyph)).toEqual(['notes', 'agent', 'people', 'channels'])
     expect(tabs.every((tab) => tab.mark === null)).toBe(true)
     expect(
@@ -53,7 +55,7 @@ describe('tabsModel', () => {
     ).toEqual(expect.objectContaining({ label: strings.navDebates, glyph: 'debates' }))
   })
 
-  it('marks My agent, and only My agent, while the person’s agent cannot answer', () => {
+  it('marks Nest, and only Nest, while the person’s agent cannot answer', () => {
     const tabs = tabsModel({ name: 'home' }, serverInfo(), strings.activity.unavailableTitle)
     expect(tabs.filter((tab) => tab.mark !== null)).toEqual([
       expect.objectContaining({ label: strings.navMyAgent, mark: strings.activity.unavailableTitle }),
@@ -69,6 +71,7 @@ describe('searchLinkModel', () => {
       current: false,
       tour: null,
       mark: null,
+      hint: null,
       glyph: null,
     })
     expect(searchLinkModel({ name: 'search', query: 'refund' }).current).toBe(true)

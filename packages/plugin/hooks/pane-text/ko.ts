@@ -35,7 +35,7 @@ export const ko: PaneText = {
   drafting: '초안 작성 중',
   askedForDraft: '초안을 요청했어요',
   askedForDraftWith: (instruction) => `초안을 요청했어요: ${instruction}`,
-  conversations: 'DM과 채널',
+  conversations: 'DN과 채널',
   unread: (count) => `읽지 않음 ${count}`,
   newNote: '새 노트',
   reply: '답장',

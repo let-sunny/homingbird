@@ -226,7 +226,7 @@ const scenario = async (): Promise<void> => {
     })
     await api(ana, 'POST', `/drafts/${dm.id}/discard`)
 
-    // -- My agent, one tab at a time ------------------------------------------------------------------
+    // -- Nest, one tab at a time ------------------------------------------------------------------
     const pageShots = async (person: Person, prefix: string): Promise<void> => {
       await person.page.goto(`${base}/#/agent`)
       await person.page.waitForSelector('.connected-agents .credential')
@@ -265,11 +265,9 @@ const scenario = async (): Promise<void> => {
     assert.deepEqual(await crowdedFields(ana.page), [])
     await ana.page.click('.my-agent-tabs a[href="#/agent/teaching"]')
     await ana.page
-      .locator(
-        '.teach-chances .chance:has-text("Direct messages") button:has-text("Don’t ask in this channel")',
-      )
+      .locator('.teach-chances .chance:has-text("DN") button:has-text("Don’t ask in this channel")')
       .click()
-    await ana.page.waitForSelector('.teach-chances .chance:has-text("Direct messages")', {
+    await ana.page.waitForSelector('.teach-chances .chance:has-text("DN")', {
       state: 'detached',
     })
     await pageShots(ana, 'wide-light')

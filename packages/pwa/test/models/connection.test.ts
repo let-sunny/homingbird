@@ -111,7 +111,7 @@ describe('the desk recommendation', () => {
     expect(recommendation(false, true)).toEqual({ title: strings.deskTitle, body: strings.deskBodyWithJoin })
     expect(recommendation(false, false)).toEqual({ title: strings.deskTitle, body: strings.deskBody })
     expect(strings.deskBody).not.toContain('Run on a server')
-    expect(strings.deskBody).toContain('in its direct message or channel')
+    expect(strings.deskBody).toContain('in its direct note or channel')
   })
 })
 

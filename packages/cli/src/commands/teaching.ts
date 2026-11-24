@@ -49,7 +49,7 @@ export const propose = (input: ProposalWords): T.Task<Outcome, CliFailure, CliEn
     const proposal = yield* calling(api['principleProposals.create']({ body: decoded.value }))
     return outcome(
       { proposed: proposal.id, topic: proposal.topic },
-      `Proposed "${proposal.topic}" (${proposal.id}). It waits in Homingbird under My agent, Teaching, Teach by chatting. ${PROPOSALS_SAVED_ONLY_BY_A_PERSON}`,
+      `Proposed "${proposal.topic}" (${proposal.id}). It waits in Homingbird under Nest, Teaching, Teach by chatting. ${PROPOSALS_SAVED_ONLY_BY_A_PERSON}`,
     )
   })
 

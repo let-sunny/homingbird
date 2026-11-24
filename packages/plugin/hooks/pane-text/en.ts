@@ -36,7 +36,7 @@ export const en: PaneText = {
   drafting: 'drafting',
   askedForDraft: 'You asked for a draft',
   askedForDraftWith: (instruction) => `You asked for a draft: ${instruction}`,
-  conversations: 'Direct messages and channels',
+  conversations: 'Direct notes and channels',
   unread: (count) => `${count} unread`,
   newNote: 'New note',
   reply: 'Reply',
@@ -103,7 +103,7 @@ export const en: PaneText = {
   characterStarted:
     'Making your character: your agent drafts and checks it, then gives you a link to the editor. Only your click on "Use this character" saves it.',
   teachStarted:
-    'Teaching by chatting: your agent asks how you handle a few kinds of questions and proposes principles. They wait in the web client under My agent, Teaching, until you save them.',
+    'Teaching by chatting: your agent asks how you handle a few kinds of questions and proposes principles. They wait in the web client under Nest, Teaching, until you save them.',
 }
 
 const durationOf = (minutes: number): string =>

@@ -64,7 +64,7 @@ each other. Before a team relies on it, read [`SECURITY.md`](SECURITY.md), the
 Today a person approves every note, also when the agent runs as an always-on service, unless they let
 a saved answer send itself: with the organization's `autoSend` switch on (off by default), a person may
 switch one saved answer to send itself, and then a draft whose text is exactly that answer goes out in
-the direct messages and open channels they chose, marked as sent automatically and recallable for five
+the direct notes and open channels they chose, marked as sent automatically and recallable for five
 minutes ([decisions](docs/decisions.md#a-saved-answer-may-send-itself-word-for-word-where-its-person-allowed)).
 In a flock, several people's agents gather toward one result; in a debate they discuss one question in turns that are shown to the flock without approval, and
 only the result, once every person whose agent took part approved it, can leave the flock. Automatic
@@ -73,7 +73,7 @@ and off by default.
 
 | | |
 | --- | --- |
-| **Works today** | Notes between agents, each approved by a person in the web client; channels, groups and a channel's own agent; principles, stored answers and My agent's figures; flocks; the runner, MCP adapter, command line and Claude Code plugin; phone notifications; SQLite and PostgreSQL; a hash-chained audit trail checked by `dovecote audit verify`; deactivation that stops every credential of a person at once. Off by default: saved answers that send themselves word for word, where their person allowed. Experimental, off by default: the cloud desk, woken through a URL a person registers |
+| **Works today** | Notes between agents, each approved by a person in the web client; channels, groups and a channel's own agent; principles, stored answers and Nest figures; flocks; the runner, MCP adapter, command line and Claude Code plugin; phone notifications; SQLite and PostgreSQL; a hash-chained audit trail checked by `dovecote audit verify`; deactivation that stops every credential of a person at once. Off by default: saved answers that send themselves word for word, where their person allowed. Experimental, off by default: the cloud desk, woken through a URL a person registers |
 | **Still being wired up** | Insights per group and per channel's agent; confirming an approval on a second device; presence for remote MCP connectors; answering on its own with newly composed text, only after a team pilot and only inside a route a person opens. Experimental: the A2A gateway, MySQL, the Terraform setups (tested automatically, not yet used in a real deployment) |
 | **Not planned** | Approval by any agent or tool exposed to a model; streaks, points, rankings or rewards for sending; a task queue; structured notes against a registered schema; syncing channels with an outside chat tool |
 
@@ -121,7 +121,7 @@ Three parts are marked **experimental** wherever they appear. Experimental: test
 
 ## Screenshots
 
-<a href="docs/screenshots/draft-waiting-for-approval.png"><img src="docs/screenshots/draft-waiting-for-approval.png" width="800" height="533" alt="A direct message with Ana where an agent's reply draft waits for approval, shows what it is based on, says who receives it, and offers Send, Edit and Discard buttons"></a>
+<a href="docs/screenshots/draft-waiting-for-approval.png"><img src="docs/screenshots/draft-waiting-for-approval.png" width="800" height="533" alt="A direct note with Ana where an agent's reply draft waits for approval, shows what it is based on, says who receives it, and offers Send, Edit and Discard buttons"></a>
 
 Your agent's draft waits for you: **Send**, **Edit** or **Discard**.
 
@@ -135,14 +135,14 @@ Your agent's draft waits for you: **Send**, **Edit** or **Discard**.
   </tr>
   <tr>
     <td width="50%" valign="top"><a href="docs/screenshots/browse-channels.png"><img src="docs/screenshots/browse-channels.png" width="400" height="267" alt="The channels page with New channel at the top, the billing and private payroll channels I am in listed first with member counts, and deploys offering Join, Join and answer, and Ask"></a><br><sub>Join a channel to read along, or join and answer; a private channel shows a lock.</sub></td>
-    <td width="50%" valign="top"><a href="docs/screenshots/directory-with-characters.png"><img src="docs/screenshots/directory-with-characters.png" width="400" height="267" alt="The People page with each colleague's character, channels and presence in words: Person online, Agent not awake"></a><br><sub>People says in words whether a person is online and whether their agent is awake.</sub></td>
+    <td width="50%" valign="top"><a href="docs/screenshots/directory-with-characters.png"><img src="docs/screenshots/directory-with-characters.png" width="400" height="267" alt="The Keepers page with each colleague's character, channels and presence in words: Person online, Agent not awake"></a><br><sub>People says in words whether a person is online and whether their agent is awake.</sub></td>
   </tr>
   <tr>
     <td width="50%" valign="top"><a href="docs/screenshots/character-editor.png"><img src="docs/screenshots/character-editor.png" width="400" height="267" alt="The character editor with the name field, colour pickers and a cat character previewed on light and dark backgrounds"></a><br><sub>Make a character; only your click saves it.</sub></td>
-    <td width="50%" valign="top"><a href="docs/screenshots/conversation-in-korean.png"><img src="docs/screenshots/conversation-in-korean.png" width="400" height="267" alt="The same direct message with Ana, with the interface in Korean"></a><br><sub>Each person picks a language; here, Korean.</sub></td>
+    <td width="50%" valign="top"><a href="docs/screenshots/conversation-in-korean.png"><img src="docs/screenshots/conversation-in-korean.png" width="400" height="267" alt="The same direct note with Ana, with the interface in Korean"></a><br><sub>Each person picks a language; here, Korean.</sub></td>
   </tr>
   <tr>
-    <td width="50%" align="center" valign="top"><a href="docs/screenshots/phone-conversation.png"><img src="docs/screenshots/phone-conversation.png" width="240" height="480" alt="A direct message with Ana on a phone-width screen"></a><br><sub>A conversation on a phone.</sub></td>
+    <td width="50%" align="center" valign="top"><a href="docs/screenshots/phone-conversation.png"><img src="docs/screenshots/phone-conversation.png" width="240" height="480" alt="A direct note with Ana on a phone-width screen"></a><br><sub>A conversation on a phone.</sub></td>
     <td width="50%" align="center" valign="top"><a href="docs/screenshots/phone-channel-room.png"><img src="docs/screenshots/phone-channel-room.png" width="240" height="480" alt="A channel room with the Answer here switch on a phone-width screen"></a><br><sub>A channel room on a phone.</sub></td>
   </tr>
 </table>
@@ -224,7 +224,7 @@ docker run -p 127.0.0.1:8080:8080 -v homingbird-try:/data \
 Then open http://localhost:8080. Without `HB_ALLOWED_DOMAINS`, development login accepts any address,
 and the server says so when it starts.
 
-To keep an agent answering on a server that has no browser, open **My agent** → **Connection** →
+To keep an agent answering on a server that has no browser, open **Nest** → **Connection** →
 **Run on a server** in the web client and paste the line it shows on that server, after
 `npm install -g @homingbird/cli`. It signs the server in with a code that works once, for 10 minutes,
 and installs the background service:

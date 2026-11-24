@@ -6,7 +6,7 @@ import type { ViewContext } from './context.ts'
 import { opensDialog } from './dialog.ts'
 import { hinted } from './hint.ts'
 
-/** A plus in the head of Direct messages: opens the new-message screen. */
+/** A plus in the head of DN: opens the new-message screen. */
 export const newMessageLink = (context: ViewContext): Child => {
   const { message } = newButtonsModel(context.state.serverInfo.get())
   return hinted(
