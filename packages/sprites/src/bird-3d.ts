@@ -2,9 +2,10 @@ import { birdViews } from './bird-model.ts'
 import { BIRD_SLICES } from './bird-slices.ts'
 import { carveViews } from './carve.ts'
 import type { CharacterSpec } from './character-spec.ts'
-import { dressBird, paintBack, paintFlanks } from './flank-decals.ts'
+import { dressBird, paintFlanks } from './flank-decals.ts'
 import type { Pixels } from './render.ts'
 import { decodeSlices } from './slices.ts'
+import { TAIL_REACH, addTail } from './tail.ts'
 import { turnSheet } from './turn.ts'
 import type { Volume } from './volume.ts'
 
@@ -15,18 +16,15 @@ import type { Volume } from './volume.ts'
 export const birdTurnSheet = (spec: Pick<CharacterSpec, 'palette' | 'marks' | 'noFeet'>): Pixels =>
   turnSheet(dressBird(sharedBody(), spec), BIRD_SLICES.cell, { ...spec.palette })
 
-/** The carved body every character shares, with Pip's wing patches and eyes painted on its flanks. */
+/** The carved body every character shares, with its tail, and Pip's wing patches and eyes painted on its flanks. */
 export const carveBird = (): Volume => {
-  const carved = carveViews(birdViews(), BODY_HEIGHT)
+  const carved = addTail(carveViews(birdViews(), BODY_HEIGHT))
   const winged = paintFlanks(carved, 3, (row, z) => {
     const reach = wingReach(row, z)
     if (reach <= 1) return { color: 'D', shaded: reach > WING_EDGE }
     return reach <= WING_LIGHT && z > WING.z ? { color: 'B', shaded: false } : null
   })
-  const tailed = paintBack(winged, 2, (column, z) =>
-    isTail(column, z, carved.width) ? { color: 'D', shaded: isFeatherLine(column, carved.width) } : null,
-  )
-  return paintFlanks(tailed, 3, (row, z) => (isEye(row, z) ? { color: 'K', shaded: false } : null))
+  return paintFlanks(winged, 3, (row, z) => (isEye(row, z) ? { color: 'K', shaded: false } : null))
 }
 
 export const BODY_HEIGHT = 26
@@ -42,7 +40,7 @@ const sharedBody = (): Volume => {
 const wingReach = (row: number, z: number): number =>
   ((row - WING.row) / WING.length) ** 2 + ((z - WING.z) / WING.height) ** 2
 
-const WING = { row: 12, z: 11, length: 9, height: 5 } as const
+const WING = { row: 12 + TAIL_REACH, z: 11, length: 9, height: 5 } as const
 
 /**
  * The wing's rim is shaded and a band of lit body runs over it, so the wing stands out from the shaded
@@ -51,11 +49,6 @@ const WING = { row: 12, z: 11, length: 9, height: 5 } as const
 const WING_EDGE = 0.45
 const WING_LIGHT = 1.6
 
-/** A narrow fan of tail feathers down the middle of the back. */
-const isTail = (column: number, z: number, width: number): boolean =>
-  z >= 9 && z <= 19 && Math.abs(column + 0.5 - width / 2) <= 1.5 + (19 - z) / 4
+const isEye = (row: number, z: number): boolean => Math.abs(row - EYE_ROW) <= 1.5 && Math.abs(z - 17) <= 1.5
 
-/** Every other column of the tail is darker, which reads as separate feathers. */
-const isFeatherLine = (column: number, width: number): boolean => Math.abs(column + 0.5 - width / 2) % 2 < 1
-
-const isEye = (row: number, z: number): boolean => Math.abs(row - 20.5) <= 1.5 && Math.abs(z - 17) <= 1.5
+const EYE_ROW = 20.5 + TAIL_REACH

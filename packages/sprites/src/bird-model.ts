@@ -2,8 +2,8 @@ import type { View, Views } from './carve.ts'
 
 /**
  * Pip's body from above, from the side, from the front and from behind, each cropped to the bird: a round
- * body, a tail tuft, wing tips just proud of the flanks, a short wedge of a beak and two feet. Eyes and the
- * wing patch are painted on after carving, so they are not here.
+ * body, fuller behind, wing tips just proud of the flanks, a short wedge of a beak and two feet. The tail,
+ * the eyes and the wing patch go on after carving, so they are not here.
  */
 export const birdViews = (): Views => {
   const model = birdModel()
@@ -45,10 +45,8 @@ const MIDDLE = WIDTH / 2
 
 /** Later parts paint over earlier ones, as in a drawing. */
 const keyAt = (x: number, y: number, z: number): string | null => {
-  const isBody = ellipsoid(x, y, z, [14, MIDDLE, 13.2], [11.5, 11.5, 11])
-  let key: string | null = isBody ? 'B' : null
-  if (!isBody && ellipsoid(x, y, z, [2.4, MIDDLE, 14.8], [3.6, 3, 4.4])) key = 'D'
-  if (!isBody && ellipsoid(x, y, z, [5, MIDDLE, 11], [4.2, 3.4, 3.2])) key = 'B'
+  let key: string | null = null
+  if (ellipsoid(x, y, z, [14, MIDDLE, 13.2], [x < 14 ? 14 : 11.5, 11.5, 11])) key = 'B'
   if (ellipsoid(x, y, z, [8, MIDDLE, 12], [7.5, 12.3, 3.2]) && Math.abs(y - MIDDLE) > 10.9 && x < 14)
     key = 'D'
   if (
