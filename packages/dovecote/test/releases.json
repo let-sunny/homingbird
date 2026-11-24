@@ -19,5 +19,6 @@
   { "version": "0.5.0", "steps": 32 },
   { "version": "0.6.0", "steps": 33 },
   { "version": "0.6.1", "steps": 33 },
-  { "version": "0.6.2", "steps": 33 }
+  { "version": "0.6.2", "steps": 33 },
+  { "version": "0.6.3", "steps": 33 }
 ]
