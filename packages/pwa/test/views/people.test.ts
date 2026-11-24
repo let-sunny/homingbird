@@ -6,6 +6,7 @@ import { peopleView } from '../../src/views/people.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import { ANA, BEN, CY, OPS, TEAM, channel, entry, group, me, serverInfo } from '../support/fixtures.ts'
+import { setLoad, setWorkspace } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -14,7 +15,7 @@ const loaded = (
   directory: ReturnType<typeof entry>[],
 ) => {
   context.state.directory.set(directory)
-  context.state.directoryLoaded.set(true)
+  setLoad(context.state.directory, { loaded: true })
 }
 
 describe('peopleView', () => {
@@ -38,17 +39,17 @@ describe('peopleView', () => {
     expect(face.dataset.profile).toBe(CY)
   })
 
-  it('loads people and channels, and offers a retry when people could not load', () => {
+  it('opens people and channels, and lets the line above offer to try again when people could not load', () => {
     const { context, called } = testContext()
     const shown = peopleView(context, lifetime(), me())
     expect(called('loadKnownChannels')).toHaveLength(1)
     expect(textOf(shown)).toContain(strings.checking.people)
-    called('loadPeople')[0]!.then!.failed!({ _tag: 'Unavailable', message: 'down' })
-    context.state.workspace.set('failed')
+    expect(called('loadPeople')).toHaveLength(1)
+    setWorkspace(context.state, 'failed')
     expect(queryByRole(shown, 'button', { name: strings.tryAgain })).toBeNull()
-    context.state.workspace.set('loading')
-    getByRole(shown, 'button', { name: strings.tryAgain }).click()
-    expect(called('loadPeople')).toHaveLength(2)
+    expect(textOf(shown)).not.toContain(strings.checking.people)
+    expect(textOf(shown)).not.toContain(strings.noPeople)
+    setWorkspace(context.state, 'loading')
     expect(textOf(shown)).toContain(strings.checking.people)
   })
 

@@ -13,8 +13,7 @@ import { forgetComposerTexts } from '../composer-texts.ts'
 import { preferredLanguage } from '../languages.ts'
 import { signedIn } from '../state.ts'
 import { strings, useLanguage } from '../strings.ts'
-import { reloadQuietly } from './quiet-reload.ts'
-import { loadPeople } from './workspace.ts'
+import { reread } from './resources.ts'
 
 export const updateProfile = (name: string, profile: string): Action =>
   T.gen(function* () {
@@ -22,7 +21,7 @@ export const updateProfile = (name: string, profile: string): Action =>
     const member = yield* api['me.update']({ body: { name, profile } })
     const me = signedIn(state)
     if (me !== null) state.session.set({ ...me, member })
-    yield* reloadQuietly(loadPeople)
+    yield* reread('directory', 'contacts')
   })
 
 /** Uses a character, or the default pigeon again with null. */
@@ -33,7 +32,7 @@ export const useCharacter = (spec: CharacterSpec | null): Action =>
       spec === null ? yield* api['me.character.clear']({}) : yield* api['me.character.set']({ body: spec })
     const me = signedIn(state)
     if (me !== null) state.session.set({ ...me, member })
-    yield* reloadQuietly(loadPeople)
+    yield* reread('directory', 'contacts')
   })
 
 /** Chooses the language to read the web client in; null follows the browser. */

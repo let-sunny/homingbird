@@ -6,6 +6,7 @@ import { homeView, startingPoints } from '../../src/views/home.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import { ROOM, conversation, credential, note } from '../support/fixtures.ts'
+import { setLoad } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -14,7 +15,7 @@ describe('homeView', () => {
     const { context, tour, page } = testContext()
     const shown = homeView(context, lifetime())
     expect(shown.textContent).toBe(strings.checking.notes)
-    context.state.conversationsLoaded.set(true)
+    setLoad(context.state.conversations, { loaded: true })
     expect(getByRole(shown, 'heading', { name: strings.start.firstTitle })).toBeTruthy()
     const lines = [...shown.querySelectorAll('.start-step pre')].map(textOf)
     expect(lines).toEqual([
@@ -43,7 +44,7 @@ describe('homeView', () => {
     mount(sidebar)
     const shown = mount(homeView(context, lifetime()))
     context.state.conversations.set([conversation({ lastNote: note('n1') })])
-    context.state.conversationsLoaded.set(true)
+    setLoad(context.state.conversations, { loaded: true })
     expect(getByText(shown, strings.pickConversation)).toBeTruthy()
     page.runFrames()
     expect(page.visited).toEqual([`replace #/c/${ROOM}`])
@@ -54,7 +55,7 @@ describe('homeView', () => {
     const { context, page } = testContext()
     mount(homeView(context, lifetime()))
     context.state.conversations.set([conversation({ lastNote: note('n1') })])
-    context.state.conversationsLoaded.set(true)
+    setLoad(context.state.conversations, { loaded: true })
     page.runFrames()
     expect(page.visited).toEqual([])
   })

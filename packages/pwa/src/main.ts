@@ -10,7 +10,7 @@ import { guardRestoredPage } from './restored-page.ts'
 import { createState } from './state.ts'
 import { useLanguage } from './strings.ts'
 import { boot } from './tasks/boot.ts'
-import { loadConversations } from './tasks/workspace.ts'
+import { invalidate } from './tasks/resources.ts'
 import { showApp } from './views/app-shell.ts'
 import { createViewContext } from './views/context.ts'
 
@@ -26,7 +26,7 @@ const app = createApp(
       seed: () => crypto.getRandomValues(new Uint32Array(1))[0]!,
     },
   },
-  loadConversations,
+  invalidate('conversations'),
 )
 const context = createViewContext(
   app,

@@ -3,7 +3,7 @@ import { type AsRead, type GroupId, Invalid, type MemberId } from '@homingbird/p
 import { type Action, type App, withApp } from '../app.ts'
 import { featureOn } from '../features.ts'
 import { reloadQuietly } from './quiet-reload.ts'
-import { loadKnownChannels } from './workspace.ts'
+import { reread } from './resources.ts'
 
 /** Every group the person may see, kept in state; none while the organization has groups off. */
 export const loadGroups: Action<ReadonlyArray<AsRead.Group>> = withApp(({ api, state }) => {
@@ -62,5 +62,5 @@ export const readImportFile = (file: Blob): Action<string> =>
 
 /** A group's change can change who manages, and so who is in, its channels. */
 const afterGroupChange: Action = T.suspend(() =>
-  reloadQuietly(T.asUnit(T.all([loadGroups, loadKnownChannels]))),
+  T.asUnit(T.all([reloadQuietly(T.asUnit(loadGroups)), reread('channels')])),
 )

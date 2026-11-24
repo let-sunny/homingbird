@@ -44,6 +44,8 @@ const live = () => {
   })
   test.state.session.set(me())
   test.state.directory.set([entry(BEN, 'Ben')])
+  setLoad(test.state.directory, { loaded: true })
+  setLoad(test.state.conversations, { loaded: true })
   return { ...test, apply: liveEvents(test.app) }
 }
 
@@ -103,6 +105,17 @@ describe('liveEvents', () => {
       kind: 'error',
       text: strings.slack.notPostedNotice({ channel: 'eng-help' }),
     })
+  })
+
+  it('announces nothing before it knows who wrote it and whether the room is muted', () => {
+    const { apply, state, clock } = live()
+    for (const unread of [state.directory, state.conversations]) {
+      setLoad(state.directory, { loaded: true })
+      setLoad(state.conversations, { loaded: true })
+      setLoad(unread, { step: 'loading' })
+      apply(event({ type: 'note.sent', note: note('n1', { sentAt: clock.now() }) }))
+      expect(state.announcement.get()).toBe('')
+    }
   })
 
   it('announces nothing from a conversation the person muted, and still files its note', () => {

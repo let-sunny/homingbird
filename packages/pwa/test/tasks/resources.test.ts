@@ -1,14 +1,30 @@
-import type { AsRead, NoteId } from '@homingbird/protocol'
+import type { AsRead, DraftRequest, NoteId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
+import { TOO_LONG_LOAD_SECONDS } from '../../src/load-timing.ts'
 import { discardReview } from '../../src/tasks/channel-agents.ts'
+import { leaveGroup } from '../../src/tasks/conversation-actions.ts'
 import { dismissSuggestion } from '../../src/tasks/debate-suggestions.ts'
-import { type ResourceKey, again, invalidate, open, refresh } from '../../src/tasks/resources.ts'
+import { liveEvents } from '../../src/tasks/live.ts'
+import {
+  type ResourceKey,
+  again,
+  againWhatFailed,
+  againWhatIsStuck,
+  invalidate,
+  open,
+  refresh,
+  reread,
+} from '../../src/tasks/resources.ts'
 import { fail, hold, settle, testApp } from '../support/app.ts'
 import {
   ANA,
+  BEN,
   ROOM,
+  channel,
   conversation,
+  credential,
   draft,
+  entry,
   everything,
   me,
   member,
@@ -26,6 +42,12 @@ const review = (id: string): AsRead.Review => ({
 })
 
 const ROUTES = {
+  conversations: 'conversations.list',
+  directory: 'directory.list',
+  contacts: 'contacts.list',
+  channels: 'channels.list',
+  agentCredentials: 'credentials.list',
+  draftRequests: 'draftRequests.list',
   awaitingReply: 'inbox.list',
   reviews: 'reviews.list',
   suggestions: 'debateSuggestions.list',
@@ -35,11 +57,35 @@ const ROUTES = {
 const KEYS = Object.keys(ROUTES) as ResourceKey[]
 
 const lists = {
+  'conversations.list': () => ({ conversations: [conversation()] }),
+  'directory.list': () => ({ entries: [entry(BEN, 'Ben')] }),
+  'contacts.list': () => ({ contacts: [{ memberId: BEN, state: 'accepted', since: 1 }] }),
+  'channels.list': () => ({ channels: [channel('billing')], hasMore: false, cursor: null }),
+  'credentials.list': () => ({
+    credentials: [
+      credential('cred_agent'),
+      credential('cred_web', { kind: 'human' }),
+      credential('cred_old', { revokedAt: 1 }),
+    ],
+  }),
+  'draftRequests.list': () => ({ requests: [REQUEST] }),
   'inbox.list': () => ({ items: [{ conversation: conversation() }] }),
   'reviews.list': () => ({ reviews: [review('note_a')] }),
   'debateSuggestions.list': () => ({ suggestions: [suggestion()] }),
   'debates.list': () => ({ debates: [summary()] }),
 }
+
+const REQUEST = {
+  id: 'dreq_000000000000',
+  conversationId: ROOM,
+  inReplyTo: null,
+  instruction: '',
+  agentId: null,
+  createdAt: 1,
+  expiresAt: 2,
+  cancelledAt: null,
+  draftIds: [],
+} as unknown as DraftRequest
 
 const start = (handlers: Parameters<typeof testApp>[0] = {}) => {
   const test = testApp({ ...(lists as Parameters<typeof testApp>[0]), ...handlers })
@@ -53,6 +99,12 @@ describe('the resources', () => {
     const { run, routes, state } = start()
     await Promise.all([run(open(...KEYS)), run(open(...KEYS)), run(open('debates'))])
     expect([...routes()].sort()).toEqual(Object.values(ROUTES).sort())
+    expect(state.conversations.get()).toEqual([conversation()])
+    expect(state.directory.get()).toEqual([entry(BEN, 'Ben')])
+    expect(state.contacts.get()).toEqual([{ memberId: BEN, state: 'accepted', since: 1 }])
+    expect(state.channels.get()).toEqual([channel('billing')])
+    expect(state.agentCredentials.get().map((one) => one.id)).toEqual(['cred_agent'])
+    expect(state.draftRequests.get()).toEqual([REQUEST])
     expect(state.awaitingReply.get()).toEqual([ROOM])
     expect(state.reviews.get()).toEqual([review('note_a')])
     expect(state.suggestions.get()).toEqual([suggestion()])
@@ -62,10 +114,17 @@ describe('the resources', () => {
 
   it('whose feature is off are none, and nothing is asked', async () => {
     const { run, routes, state } = start()
-    state.serverInfo.set(serverInfo({ channelAgents: false, debateSuggestions: false, debateRooms: false }))
-    await run(open('reviews', 'suggestions', 'debates'))
+    state.serverInfo.set(
+      serverInfo({
+        draftRequests: false,
+        channelAgents: false,
+        debateSuggestions: false,
+        debateRooms: false,
+      }),
+    )
+    await run(open('draftRequests', 'reviews', 'suggestions', 'debates'))
     expect(routes()).toEqual([])
-    for (const key of ['reviews', 'suggestions', 'debates'] as const) {
+    for (const key of ['draftRequests', 'reviews', 'suggestions', 'debates'] as const) {
       expect(state[key].get()).toEqual([])
       expect(state[key].load.get().loaded).toBe(true)
     }
@@ -150,6 +209,116 @@ describe('the resources', () => {
     await run(open('debates'))
     await settle()
     expect(state.notice.get()).toMatchObject({ kind: 'error' })
+  })
+})
+
+describe('a list on its way', () => {
+  const left = async (
+    handlers: Parameters<typeof testApp>[0],
+    leave: (app: ReturnType<typeof start>) => void,
+  ) => {
+    const older = hold<unknown>()
+    const test = start({ 'conversations.list': () => older.waiting, ...handlers })
+    test.app.launch(open('conversations'))
+    await settle()
+    leave(test)
+    await settle()
+    const shown: number[] = []
+    test.state.conversations.subscribe((rooms) => shown.push(rooms.length))
+    older.release({ conversations: [conversation()] })
+    await settle()
+    return { ...test, shown }
+  }
+  const event = (body: unknown) => ({ seq: 1, at: 1, body }) as AsRead.StreamEvent
+
+  it.each([
+    { type: 'conversation.left', conversationId: ROOM, memberId: ANA },
+    { type: 'channel.left', slug: 'billing', conversationId: ROOM },
+  ])('never brings back a room that $type says was left meanwhile', async (body) => {
+    const { state, shown } = await left({}, ({ app }) => liveEvents(app)(event(body)))
+    expect(state.conversationsLoaded.get()).toBe(true)
+    expect(state.conversations.get()).toEqual([])
+    expect(shown.every((count) => count === 0)).toBe(true)
+  })
+
+  it('never brings back a room the person leaves here meanwhile', async () => {
+    const { state } = await left({}, ({ app }) => app.launch(leaveGroup(ROOM, 'left')))
+    expect(state.conversations.get()).toEqual([])
+  })
+
+  it('never replaces people read after it', async () => {
+    const older = hold<unknown>()
+    let asked = 0
+    const { app, run, state } = start({
+      'directory.list': () => (asked++ === 0 ? older.waiting : { entries: [entry(BEN, 'Ben Now')] }),
+    })
+    app.launch(open('directory'))
+    await settle()
+    const newer = run(refresh('directory'))
+    older.release({ entries: [entry(BEN, 'Ben Then')] })
+    await newer
+    await settle()
+    expect(state.directory.get()).toEqual([entry(BEN, 'Ben Now')])
+  })
+
+  it('keeps presence and a draft request that came meanwhile', async () => {
+    const people = hold<unknown>()
+    const requests = hold<unknown>()
+    const { app, state } = start({
+      'directory.list': () => people.waiting,
+      'draftRequests.list': () => requests.waiting,
+    })
+    app.launch(open('directory', 'draftRequests'))
+    await settle()
+    const apply = liveEvents(app)
+    apply(event({ type: 'presence', members: [{ memberId: BEN, humanOnline: true, agentOnline: false }] }))
+    apply(event({ type: 'draft.requested', request: REQUEST }))
+    people.release({ entries: [entry(BEN, 'Ben')] })
+    requests.release({ requests: [] })
+    await settle()
+    expect(state.directory.get()[0]!.presence.humanOnline).toBe(true)
+    expect(state.draftRequests.get()).toEqual([REQUEST])
+  })
+})
+
+describe('what an action reads again', () => {
+  it('is waited for, but not for long, and its failure is nobody’s', async () => {
+    const slow = hold<unknown>()
+    const { run, clock, state } = start({ 'channels.list': () => slow.waiting })
+    let isOver = false
+    const waiting = run(reread('conversations', 'channels')).then((outcome) => {
+      isOver = true
+      return outcome
+    })
+    await settle()
+    expect(state.conversationsLoaded.get()).toBe(true)
+    expect(isOver).toBe(false)
+    await clock.advance(5000)
+    expect((await waiting)._tag).toBe('Ok')
+    const down = start({ 'channels.list': () => fail({ _tag: 'Unavailable', message: 'down' }) })
+    expect((await down.run(reread('channels')))._tag).toBe('Ok')
+    expect(down.state.notice.get()).toBeNull()
+  })
+})
+
+describe('trying again', () => {
+  it('asks for the lists that failed or take too long, and after the network is back for those that failed', async () => {
+    const slow = hold<unknown>()
+    const { app, run, clock, routes, state } = start({
+      'directory.list': () => fail({ _tag: 'Forbidden', message: 'no' }),
+      'channels.list': () => slow.waiting,
+    })
+    app.launch(open('conversations', 'directory', 'channels'))
+    await clock.advance(TOO_LONG_LOAD_SECONDS * 1000)
+    expect(state.channels.load.get().step).toBe('long')
+    const asked = (route: string) => routes().filter((one) => one === route).length
+    await run(againWhatFailed)
+    await settle()
+    expect(['conversations.list', 'directory.list', 'channels.list'].map(asked)).toEqual([1, 2, 1])
+    await run(againWhatIsStuck)
+    await settle()
+    expect(['conversations.list', 'directory.list', 'channels.list'].map(asked)).toEqual([1, 3, 2])
+    app.endSession()
   })
 })
 

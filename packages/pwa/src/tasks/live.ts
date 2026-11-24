@@ -9,16 +9,15 @@ import { hrefFor } from '../routes.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import { isMuted, withAgentPresence, withPresence, withReceipts } from '../thread.ts'
-import { invalidateActivity } from './activity.ts'
 import { applyLeft } from './conversation-actions.ts'
 import { loadDebate } from './debates.ts'
 import { loadGroups } from './groups.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
 import { closeDraftNotice } from './notifications.ts'
 import { loadPreviews, reloadPreviews } from './previews.ts'
-import { invalidate } from './resources.ts'
+import { ACTIVITY, WORKSPACE, invalidate, reread } from './resources.ts'
 import { refreshInterview } from './teaching-interview.ts'
-import { loadAgents, loadConversations, loadKnownChannels, loadPeople, loadWorkspace } from './workspace.ts'
+import { followingWorkspace } from './workspace.ts'
 
 /** What each live event changes in the page, as one change: the state it updates and what it loads again. */
 export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
@@ -31,7 +30,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
       cancel = later(app.clock, DIRECTORY_SETTLE_MS, () => launch(load))
     }
   }
-  const reloadDirectorySoon = settled(T.all([loadPeople, loadKnownChannels, loadConversations]))
+  const reloadDirectorySoon = settled(invalidate('directory', 'contacts', 'channels', 'conversations'))
   const loadGroupsSoon = settled(loadGroups)
   const reloadGroupsSoon = (): void => {
     if (state.groupsLoaded.get()) loadGroupsSoon()
@@ -40,7 +39,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
   const reloadInterviewSoon = settled(refreshInterview)
   const reloadDebatesSoon = settled(invalidate('debates'))
   const refreshAgentsIfNoneKnown = (): void => {
-    if (state.agentCredentials.get().length === 0) launch(loadAgents)
+    if (state.agentCredentials.get().length === 0) launch(invalidate('agentCredentials', 'draftRequests'))
   }
   const apply = (event: AsRead.StreamEvent): void => {
     const body = event.body
@@ -49,7 +48,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         rememberNote(state)(body.note)
         if (body.note.authorId === signedIn(state)?.member.id) launch(closeDraftNotice(body.note.id))
         announceIfFresh(app, body.note)
-        launch(loadConversations)
+        launch(invalidate('conversations'))
         break
       case 'note.changed':
         rememberNote(state)(body.note)
@@ -71,7 +70,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         rememberNote(state)(body.note)
         if (body.note.inReplyTo !== null) forgetRelease(state, body.note.inReplyTo)
         if (body.note.origin !== 'human') refreshAgentsIfNoneKnown()
-        launch(loadConversations)
+        launch(invalidate('conversations'))
         break
       case 'draft.discarded':
         forgetNote(state, body.conversationId, body.noteId)
@@ -91,12 +90,12 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
             text: strings.draftDiscardedByArchive({ channel: channelLabel(channel) }),
           })
         }
-        launch(loadConversations)
+        launch(invalidate('conversations'))
         break
       case 'note.withdrawn':
         forgetNote(state, body.conversationId, body.noteId)
         if (state.threads.get().has(body.conversationId)) launch(loadThread(body.conversationId))
-        launch(loadConversations)
+        launch(invalidate('conversations'))
         break
       case 'note.released':
         state.releases.update((all) =>
@@ -109,14 +108,14 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         state.draftRequests.update((all) => upsertRequest(all, body.request))
         break
       case 'contact.changed':
-        launch(loadPeople)
+        launch(invalidate('directory', 'contacts'))
         break
       case 'directory.changed':
         reloadDirectorySoon()
         break
       case 'channel.changed':
         state.channels.update((all) => withChannel(all, body.channel))
-        if (body.channel.joined) launch(loadConversations)
+        if (body.channel.joined) launch(invalidate('conversations'))
         break
       case 'channel.left':
         state.channels.update((all) =>
@@ -183,7 +182,8 @@ const announceIfFresh = (app: App, note: AsRead.Note): void => {
   const isMine = note.authorId === signedIn(app.state)?.member.id
   const isFresh = app.clock.now() - (note.sentAt ?? 0) < FRESH_MS
   const room = app.state.conversations.get().find((conversation) => conversation.id === note.conversationId)
-  if (isMine || !isFresh || (room !== undefined && isMuted(room))) return
+  const knowsWho = app.state.conversationsLoaded.get() && app.state.directoryLoaded.get()
+  if (isMine || !isFresh || !knowsWho || (room !== undefined && isMuted(room))) return
   app.state.announcement.set(
     strings.incomingNote({ name: app.state.members.get().get(note.authorId)?.name ?? strings.formerMember }),
   )
@@ -208,8 +208,8 @@ const reloadShownDebate = (app: App, id: string): void => {
 }
 
 const reloadEverything = (app: App): void => {
-  app.launch(invalidateActivity)
-  app.launch(loadWorkspace)
+  app.launch(invalidate(...WORKSPACE, ...ACTIVITY))
+  app.launch(T.flatMap(() => followingWorkspace)(reread('conversations', 'awaitingReply')))
   if (app.state.groupsLoaded.get()) app.launch(loadGroups)
   const current = app.state.route.get()
   if (current.name === 'conversation') app.launch(loadThread(current.id as ConversationId))

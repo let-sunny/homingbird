@@ -366,10 +366,9 @@ describe('adminMembersModel', () => {
 
 describe('adminChannelsModel', () => {
   it('waits, offers a retry after a failure, says when there are none, and lists each channel', () => {
-    expect(adminChannelsModel([], false, false)).toEqual({ kind: 'loading' })
-    expect(adminChannelsModel([], false, true)).toEqual({ kind: 'failed' })
-    expect(adminChannelsModel([], true, false)).toEqual({ kind: 'empty', text: strings.adminNoChannels })
-    expect(adminChannelsModel([channel('billing')], true, false)).toEqual({
+    expect(adminChannelsModel([], false)).toEqual({ kind: 'loading' })
+    expect(adminChannelsModel([], true)).toEqual({ kind: 'empty', text: strings.adminNoChannels })
+    expect(adminChannelsModel([channel('billing')], true)).toEqual({
       kind: 'channels',
       rows: [
         {

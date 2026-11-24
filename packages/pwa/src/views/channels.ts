@@ -40,7 +40,7 @@ import {
 /** Channels: every channel the person may see, searchable, a page at a time. */
 export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement => {
   const { state, actions } = context
-  actions.refreshKnownChannels()
+  actions.loadKnownChannels()
   const query = signal('')
   const listed = signal<ListedChannels>({
     query: '',

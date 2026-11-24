@@ -24,11 +24,13 @@ import { slackSection } from './slack.ts'
 export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const { state, actions } = context
   const credentials = signal<ReadonlyArray<AsRead.Credential> | null>(null)
+  const listCredentials = (): void => actions.listCredentials({ done: (listed) => credentials.set(listed) })
   const reload = (): void => {
-    actions.loadAgents()
-    actions.listCredentials({ done: (listed) => credentials.set(listed) })
+    actions.reloadAgents()
+    listCredentials()
   }
-  reload()
+  actions.loadAgents()
+  listCredentials()
   actions.loadKnownChannels()
   const model = (): ConnectionModel =>
     connectionModel({

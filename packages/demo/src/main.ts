@@ -8,7 +8,7 @@ import { browserDocument } from '@homingbird/pwa/src/page-document.ts'
 import { createState } from '@homingbird/pwa/src/state.ts'
 import { useLanguage } from '@homingbird/pwa/src/strings.ts'
 import { boot } from '@homingbird/pwa/src/tasks/boot.ts'
-import { loadConversations } from '@homingbird/pwa/src/tasks/workspace.ts'
+import { invalidate } from '@homingbird/pwa/src/tasks/resources.ts'
 import { showApp } from '@homingbird/pwa/src/views/app-shell.ts'
 import { createViewContext } from '@homingbird/pwa/src/views/context.ts'
 import { demoPage } from './demo-page.ts'
@@ -44,7 +44,7 @@ const app = createApp(
         ? { id: () => crypto.randomUUID(), seed: () => crypto.getRandomValues(new Uint32Array(1))[0]! }
         : { id: () => `demo-page-${++draws}`, seed: () => ++draws },
   },
-  loadConversations,
+  invalidate('conversations'),
 )
 const context = createViewContext(
   app,

@@ -39,7 +39,6 @@ export interface PeopleInput {
   readonly contactMode: AsRead.Settings['contactMode']
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
   readonly loaded: boolean
-  readonly failed: boolean
   readonly query: string
   readonly channelFilter: string
   readonly channels: ReadonlyArray<AsRead.Channel>
@@ -60,7 +59,6 @@ export interface PeopleModel {
   readonly groupFilter: ReadonlyArray<FilterOption> | null
   readonly list:
     | { readonly kind: 'loading' }
-    | { readonly kind: 'failed' }
     | { readonly kind: 'empty'; readonly text: string }
     | { readonly kind: 'people'; readonly people: ReadonlyArray<PersonCard> }
 }
@@ -114,7 +112,7 @@ export interface PersonAction {
 }
 
 const peopleList = (input: PeopleInput): PeopleModel['list'] => {
-  if (!input.loaded) return input.failed ? { kind: 'failed' } : { kind: 'loading' }
+  if (!input.loaded) return { kind: 'loading' }
   const inGroup = input.groupsOn && input.groupFilter !== '' ? input.groupMembers : 'anyone'
   if (inGroup === null) return { kind: 'loading' }
   const query = input.query.trim().toLowerCase()

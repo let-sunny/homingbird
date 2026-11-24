@@ -12,9 +12,9 @@ describe('createViewContext', () => {
     expect(context.state).toBe(app.state)
     expect(context.document).toBe(page)
     expect(context.clock).toBe(app.clock)
-    context.actions.loadConversations()
+    context.actions.loadKnownChannels()
     await settle()
-    expect(routes()).toEqual(['conversations.list'])
+    expect(routes()).toEqual(['channels.list'])
     expect(
       context.justArrived(
         conversation({ lastNote: note('n1', { sentAt: app.clock.now() + 1 }) }),

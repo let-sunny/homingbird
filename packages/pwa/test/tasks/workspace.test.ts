@@ -1,14 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import {
-  loadAgents,
-  loadBranding,
-  loadConversations,
-  loadKnownChannels,
-  loadPeople,
-  loadWorkspace,
-} from '../../src/tasks/workspace.ts'
+import { ACTIVITY, WORKSPACE, open, refresh } from '../../src/tasks/resources.ts'
+import { afterWorkspace, loadBranding } from '../../src/tasks/workspace.ts'
+import { keepUnsettled, keptUnsettled } from '../../src/unsettled-decisions.ts'
 import { fail, hold, settle, testApp } from '../support/app.ts'
-import { BEN, channel, conversation, credential, draft, entry, serverInfo } from '../support/fixtures.ts'
+import {
+  ANA,
+  BEN,
+  channel,
+  conversation,
+  credential,
+  draft,
+  entry,
+  everything,
+  me,
+  member,
+  serverInfo,
+} from '../support/fixtures.ts'
+import { heldDecision } from '../support/held.ts'
+
+const openAll = open(...WORKSPACE, ...ACTIVITY)
 
 describe('loading the workspace', () => {
   it('loads conversations, people, contacts, agents, channels and what the bell counts, and marks them loaded', async () => {
@@ -29,7 +39,8 @@ describe('loading the workspace', () => {
       'debates.list': () => ({ debates: [] }),
       'debateSuggestions.list': () => ({ suggestions: [] }),
     })
-    await run(loadWorkspace)
+    await run(openAll)
+    expect(state.workspace.get()).toBe('loaded')
     expect(state.conversationsLoaded.get()).toBe(true)
     expect(state.directoryLoaded.get()).toBe(true)
     expect(state.channelsLoaded.get()).toBe(true)
@@ -59,10 +70,13 @@ describe('loading the workspace', () => {
       'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),
       'inbox.list': () => ({ items: [] }),
       'debates.list': () => ({ debates: [] }),
+      'debateSuggestions.list': () => ({ suggestions: [] }),
+      'draftRequests.list': () => ({ requests: [] }),
       'conversations.get': () => conversation({ unreadCount: 1 }),
       'conversations.notes': () => ({ notes: [], hasMore: false, notices: [released] }),
     })
-    await run(loadWorkspace)
+    await run(openAll)
+    await run(afterWorkspace)
     expect([...state.releases.get().keys()]).toEqual(['n_skipped'])
   })
 
@@ -75,26 +89,30 @@ describe('loading the workspace', () => {
       'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),
       'drafts.list': () => ({ drafts: [draft('d_open')] }),
       'inbox.list': () => ({ items: [] }),
+      'debates.list': () => ({ debates: [] }),
+      'debateSuggestions.list': () => ({ suggestions: [] }),
+      'draftRequests.list': () => ({ requests: [] }),
     })
     page.notifications.set('draft:d_open', 0).set('draft:d_sent', 0)
-    await run(loadWorkspace)
+    await run(openAll)
+    await run(afterWorkspace)
     expect(routes()).not.toContain('drafts.list')
     expect([...page.notifications.keys()]).toEqual(['draft:d_open', 'draft:d_sent'])
     page.state.push = true
-    await run(loadWorkspace)
+    await run(afterWorkspace)
     expect([...page.notifications.keys()]).toEqual(['draft:d_open'])
   })
 
   it('reads no draft requests where they are off or the server lacks them', async () => {
     const off = testApp({ 'credentials.list': () => ({ credentials: [] }) })
     off.state.serverInfo.set(serverInfo())
-    await off.run(loadAgents)
+    await off.run(open('agentCredentials', 'draftRequests'))
     expect(off.routes()).toEqual(['credentials.list'])
     const missing = testApp({
       'draftRequests.list': () => fail({ _tag: 'NotFound', message: 'no' }),
       'credentials.list': () => ({ credentials: [] }),
     })
-    await missing.run(loadAgents)
+    await missing.run(open('agentCredentials', 'draftRequests'))
     expect(missing.state.draftRequests.get()).toEqual([])
   })
 
@@ -105,32 +123,60 @@ describe('loading the workspace', () => {
       'conversations.list': () =>
         asked++ === 0 ? older.waiting : { conversations: [conversation({ lastActivityAt: 2 })] },
     })
-    const first = run(loadConversations)
+    const first = run(open('conversations'))
     await settle()
-    await run(loadConversations)
-    expect(state.conversations.get()).toHaveLength(1)
+    const second = run(refresh('conversations'))
+    await settle()
+    expect(asked).toBe(1)
     older.release({ conversations: [] })
     await first
+    await second
     expect(state.conversations.get()).toHaveLength(1)
   })
 
-  it('loads conversations, people and known channels on their own', async () => {
-    const { run, state } = testApp({
+  it('waits with what was settled elsewhere until each list was read, and the reviews too', async () => {
+    const reviews = hold<unknown>()
+    const { run, state, page, routes } = testApp({
       'conversations.list': () => ({ conversations: [] }),
       'directory.list': () => ({ entries: [] }),
       'contacts.list': () => ({ contacts: [] }),
+      'draftRequests.list': () => ({ requests: [] }),
+      'credentials.list': () => ({ credentials: [] }),
       'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),
+      'inbox.list': () => ({ items: [] }),
+      'reviews.list': () => reviews.waiting,
+      'debates.list': () => ({ debates: [] }),
+      'debateSuggestions.list': () => ({ suggestions: [] }),
     })
-    await run(loadConversations)
-    await run(loadPeople)
-    await run(loadKnownChannels)
-    expect([
-      state.conversationsLoaded.get(),
-      state.directoryLoaded.get(),
-      state.channelsLoaded.get(),
-    ]).toEqual([true, true, true])
+    state.session.set(me())
+    state.serverInfo.set(everything())
+    keepUnsettled(page.page.storage, ANA, heldDecision('note_a', { review: true }))
+    let isOver = false
+    const after = run(afterWorkspace).then(() => {
+      isOver = true
+    })
+    void run(open(...WORKSPACE, 'awaitingReply', 'suggestions', 'debates'))
+    await settle()
+    expect(state.workspace.get()).toBe('loaded')
+    void run(open('reviews'))
+    await settle()
+    expect(isOver).toBe(false)
+    expect(keptUnsettled(page.page.storage, ANA)).toHaveLength(1)
+    reviews.release({ reviews: [review] })
+    await after
+    expect(state.notice.get()).toMatchObject({ kind: 'error' })
+    expect(keptUnsettled(page.page.storage, ANA)).toEqual([])
+    expect(routes()).not.toContain('notes.get')
   })
 })
+
+const review = {
+  note: draft('note_a'),
+  question: null,
+  channel: 'wiki',
+  agent: member(BEN, 'Wiki'),
+  privately: false,
+}
 
 describe('loadBranding', () => {
   it('reads the organization’s name and logo, keeping the default for anything missing or broken', async () => {

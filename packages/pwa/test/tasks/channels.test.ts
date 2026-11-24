@@ -27,12 +27,6 @@ describe('channel tasks', () => {
     ])
   })
 
-  it('brings the known channels up to date, and leaves telling a failure to the list', async () => {
-    const down = testApp({ 'channels.list': () => fail({ _tag: 'Unavailable', message: 'down' }) })
-    expect(await down.run(tasks.refreshKnownChannels)).toMatchObject({ _tag: 'Ok' })
-    expect(down.state.notice.get()).toBeNull()
-  })
-
   it('opens a channel and keeps it in the known list after the reload', async () => {
     const { run, state, sent } = testApp(answers)
     expect(await run(tasks.createChannel('ops', 'Operations', 'open'))).toEqual({

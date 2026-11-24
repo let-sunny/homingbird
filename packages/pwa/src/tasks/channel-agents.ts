@@ -9,8 +9,7 @@ import { strings } from '../strings.ts'
 import { holdDecision } from './held.ts'
 import { loadThread } from './notes.ts'
 import { reloadQuietly } from './quiet-reload.ts'
-import { invalidate, refresh } from './resources.ts'
-import { loadConversations, loadKnownChannels } from './workspace.ts'
+import { invalidate, refresh, reread } from './resources.ts'
 
 /** The answers waiting for this person, as the server has them after this is asked; true when it answered. */
 export const refreshReviews: Action<boolean> = refresh('reviews')
@@ -156,13 +155,13 @@ export const askPrivately = (slug: string): Action =>
   T.gen(function* () {
     const { api, page } = yield* T.ask<App>()
     const room = yield* api['channels.askPrivately']({ params: { slug } })
-    yield* reloadQuietly(loadConversations)
+    yield* reread('conversations')
     page.go(hrefFor({ name: 'conversation', id: room.id, draft: null }))
   })
 
 const afterAgentChange = (slug: string): Action =>
   T.gen(function* () {
-    yield* reloadQuietly(T.asUnit(T.all([loadChannelAgent(slug), loadKnownChannels])))
+    yield* T.all([reloadQuietly(T.asUnit(loadChannelAgent(slug))), reread('channels')])
   })
 
 /** The question is left with nobody: the manager is offered to answer it themself, in its room. */

@@ -12,12 +12,12 @@ const answers = {
 }
 
 describe('mute tasks', () => {
-  it('mutes and unmutes a conversation, replacing only its row in the list', async () => {
+  it('mutes and unmutes a conversation, changing that alone and only in its row of the list', async () => {
     const { run, state, routes } = testApp(answers)
     const other = conversation({ id: OTHER })
     state.conversations.set([conversation(), other])
     await run(tasks.setMuted(ROOM, true))
-    expect(state.conversations.get()).toEqual([conversation({ muted: true, unreadCount: 3 }), other])
+    expect(state.conversations.get()).toEqual([conversation({ muted: true }), other])
     await run(tasks.setMuted(ROOM, false))
     expect(state.conversations.get()[0]).toMatchObject({ muted: false })
     expect(state.conversations.get()[1]).toBe(other)

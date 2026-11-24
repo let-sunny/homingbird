@@ -9,8 +9,8 @@ import type { AppState, HeldWords } from '../state.ts'
 import { holdDecision } from './held.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote, shownNote } from './notes.ts'
 import { reloadQuietly } from './quiet-reload.ts'
+import { reread } from './resources.ts'
 import { refreshAgentReport, refreshPrinciples } from './teaching.ts'
-import { loadConversations } from './workspace.ts'
 
 /**
  * Sends a draft, edited or as written, and discards the alternatives it was chosen from. The server
@@ -41,7 +41,7 @@ export const approveDraft = (
     yield* refreshAgentReport
     yield* refreshPrinciples
     yield* reloadQuietly(loadThread(draft.conversationId))
-    yield* reloadQuietly(loadConversations)
+    yield* reread('conversations')
   })
 
 /** Sends a draft once the moment to undo it is over; until it is sent its card says so in its place. */
@@ -89,7 +89,7 @@ export const discardDraft = (draft: AsRead.Note): Action =>
     forgetNote(state, draft.conversationId, draft.id)
     yield* refreshAgentReport
     yield* refreshPrinciples
-    yield* reloadQuietly(loadConversations)
+    yield* reread('conversations')
   })
 
 /** Sends a draft to another channel's room, and opens that room. */
@@ -98,7 +98,7 @@ export const readdressDraft = (draft: AsRead.Note, slug: string): Action =>
     const { api, state, page } = yield* T.ask<App>()
     const moved = yield* api['drafts.update']({ params: { id: draft.id }, body: { channel: slug } })
     rememberOwnChange(state)(moved)
-    yield* reloadQuietly(loadConversations)
+    yield* reread('conversations')
     page.go(hrefFor({ name: 'conversation', id: moved.conversationId, draft: null }))
   })
 

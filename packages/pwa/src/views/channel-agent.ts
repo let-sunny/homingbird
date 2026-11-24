@@ -137,7 +137,7 @@ const agentPanel = (
         name,
         element: joinCodeSection(context, life, { channel: channel.slug, name }, () => {
           actions.loadChannelAgent(channel.slug)
-          actions.loadKnownChannels()
+          actions.reloadKnownChannels()
         }),
       }
     return joinSection.element

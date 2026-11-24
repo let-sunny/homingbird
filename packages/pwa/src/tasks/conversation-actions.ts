@@ -17,7 +17,9 @@ export const setHidden = (conversationId: ConversationId, hidden: boolean, done:
       ? yield* app.api['conversations.hide'](request)
       : yield* app.api['conversations.unhide'](request)
     app.state.conversations.update((list) =>
-      list.map((each) => (each.id === conversation.id ? conversation : each)),
+      list.map((each) =>
+        each.id === conversation.id ? { ...each, hidden: conversation.hidden === true } : each,
+      ),
     )
     if (conversation.hidden !== true) return
     closeIfShown(app, conversationId)

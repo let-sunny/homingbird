@@ -1,38 +1,24 @@
 import { type AsRead, CHANNEL_DESCRIPTION_MAX } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
+import { type Child, type Lifetime, h, region } from '@homingbird/ui'
 import { slugFrom } from '../channels.ts'
 import { type AdminChannelsModel, adminChannelsModel, archiveModel } from '../models/admin.ts'
 import { strings } from '../strings.ts'
 import { privateMark } from './channel-membership.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, opensDialog } from './dialog.ts'
-import { channelCounts, dialogActions, empty, field, loadFailed, loading } from './parts.ts'
+import { channelCounts, checking, dialogActions, empty, field } from './parts.ts'
 
 /** Administration → Channels: every channel, to rename, describe again or archive. */
 export const adminChannelsSection = (context: ViewContext, life: Lifetime): HTMLElement => {
   const { state, actions } = context
-  const failed = signal(false)
-  const load = (): void => {
-    failed.set(false)
-    actions.loadKnownChannels({ failed: () => failed.set(true) })
-  }
-  load()
-  return region(life, [state.channels, state.channelsLoaded, failed], () =>
-    renderAdminChannels(
-      adminChannelsModel(state.channels.get(), state.channelsLoaded.get(), failed.get()),
-      context,
-      load,
-    ),
+  actions.loadKnownChannels()
+  return region(life, [state.channels, state.channelsLoaded, state.workspace], () =>
+    renderAdminChannels(adminChannelsModel(state.channels.get(), state.channelsLoaded.get()), context),
   )
 }
 
-const renderAdminChannels = (
-  model: AdminChannelsModel,
-  context: ViewContext,
-  retry: () => void,
-): HTMLElement => {
-  if (model.kind === 'loading') return loading()
-  if (model.kind === 'failed') return loadFailed(retry)
+const renderAdminChannels = (model: AdminChannelsModel, context: ViewContext): HTMLElement | null => {
+  if (model.kind === 'loading') return checking(context, strings.loading)
   if (model.kind === 'empty') return empty(model.text)
   return h(
     'ul',

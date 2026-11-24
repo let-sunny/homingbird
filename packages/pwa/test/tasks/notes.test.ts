@@ -18,7 +18,8 @@ import {
   replyTo,
   sendNote,
 } from '../../src/tasks/notes.ts'
-import { fail, testApp } from '../support/app.ts'
+import { invalidate } from '../../src/tasks/resources.ts'
+import { fail, hold, settle, testApp } from '../support/app.ts'
 import { ANA, BEN, CY, ROOM, conversation, everything, me, note } from '../support/fixtures.ts'
 
 const OTHER = 'conv_other0000000' as ConversationId
@@ -370,6 +371,27 @@ describe('keeping notes', () => {
     expect(state.conversations.get().map((room) => room.unreadCount)).toEqual([1, 1])
     await run(markRead(read))
     expect(state.conversations.get().map((room) => room.unreadCount)).toEqual([1, 1])
+  })
+
+  it('lowers the count to what was left, once, on a list that may have counted before or after, and asks for it again', async () => {
+    const first = hold<unknown>()
+    const lists = [first.waiting, { conversations: [conversation({ unreadCount: 1 })] }]
+    let asked = 0
+    const { app, run, state } = testApp({
+      'notes.read': ({ params }) => note(params.id, { authorId: BEN, receipts: [receipt(5)] }),
+      'conversations.list': () => lists[asked++],
+    })
+    state.session.set(me())
+    state.conversations.set([conversation({ unreadCount: 3 })])
+    app.launch(invalidate('conversations'))
+    await settle()
+    for (const id of ['n1', 'n2']) await run(markRead(note(id, { authorId: BEN, receipts: [receipt(null)] })))
+    const shown: number[] = []
+    state.conversations.subscribe((rooms) => shown.push(rooms[0]!.unreadCount))
+    first.release({ conversations: [conversation({ unreadCount: 2 })] })
+    await settle()
+    expect(shown).toEqual([1, 1])
+    expect(asked).toBe(2)
   })
 
   it('never lowers an unread count below none, nor while nobody is signed in', async () => {

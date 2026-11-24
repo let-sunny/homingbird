@@ -90,7 +90,7 @@ export const renderThreadHead = (context: ViewContext, model: ThreadHead): Child
                 on: {
                   click: () =>
                     context.actions.unlinkSlackChannel(channel.slug, {
-                      done: () => context.actions.loadKnownChannels(),
+                      done: () => context.actions.reloadKnownChannels(),
                     }),
                 },
               },

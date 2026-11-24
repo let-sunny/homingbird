@@ -7,6 +7,7 @@ import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, settle, usingFakeDom } from '../support/dom.ts'
 import { CY, channel, conversation, serverInfo } from '../support/fixtures.ts'
+import { setLoad, setWorkspace } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -54,14 +55,14 @@ describe('channelsView', () => {
     const shown = mount(channelsView(context, lifetime()))
     context.state.listLoads.channels.step.set('long')
     for (const workspace of ['long', 'failed'] as const) {
-      context.state.workspace.set(workspace)
+      setWorkspace(context.state, workspace)
       expect(textOf(shown)).not.toContain(strings.firstLoad.tooLong)
       expect(textOf(shown)).not.toContain(strings.noChannelsYet)
       expect(queryByRole(shown, 'button', { name: strings.tryAgain })).toBeNull()
     }
     context.state.workspaceRestarts.update((count) => count + 1)
     expect(called('loadChannelPage')).toHaveLength(2)
-    context.state.workspace.set('loaded')
+    setWorkspace(context.state, 'loaded')
     expect(textOf(shown)).toContain(strings.firstLoad.tooLong)
     called('loadChannelPage')[1]!.then!.done!(page([]))
     context.state.workspaceRestarts.update((count) => count + 1)
@@ -147,7 +148,7 @@ describe('channelView', () => {
     const { context } = testContext()
     const shown = channelView(context, lifetime(), 'billing')
     expect(textOf(shown)).toContain(strings.checking.channels)
-    context.state.channelsLoaded.set(true)
+    setLoad(context.state.channels, { loaded: true })
     expect(textOf(shown)).toContain(strings.unknownChannel)
   })
 
