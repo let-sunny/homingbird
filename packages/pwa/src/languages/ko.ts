@@ -37,6 +37,10 @@ export const ko: Translation<typeof en> = {
     Unavailable: '지금은 처리할 수 없어요. 연결을 확인하고 잠시 후 다시 시도해 주세요.',
   },
   loading: '불러오는 중…',
+  firstLoad: {
+    slow: '서버에 연결하는 중이에요…',
+    failed: '서버에 연결하지 못했어요. 연결이 돌아오면 이 페이지가 알아서 다시 시도해요.',
+  },
   loadFailed: '불러오지 못했어요.',
   tryAgain: '다시 시도',
   sections: '메뉴',

@@ -28,6 +28,8 @@ export const createState = (hash: string): AppState => {
   const composerTexts = signal<ReadonlyMap<ConversationId, string>>(new Map())
   return {
     session,
+    start: signal<Start>('loading'),
+    startRefusal: signal(''),
     serverInfo: signal<AsRead.ServerInfo | null>(null),
     branding: signal<Branding>({ name: 'Homingbird', logo: null }),
     route: signal<Route>(parseRoute(hash)),
@@ -100,6 +102,10 @@ export const signedIn = (state: Pick<AppState, 'session'>): AsRead.Me | null => 
 
 export interface AppState {
   readonly session: Signal<AsRead.Me | null | 'loading'>
+  /** How the first load is going while the session is `'loading'`. */
+  readonly start: Signal<Start>
+  /** What the server refused with when `start` is `'refused'`. */
+  readonly startRefusal: Signal<string>
   readonly serverInfo: Signal<AsRead.ServerInfo | null>
   readonly branding: Signal<Branding>
   readonly route: Signal<Route>
@@ -181,6 +187,9 @@ export interface AppState {
   /** Whom the person lets see their own agent's drafts early, once loaded. */
   readonly previewAllowance: Signal<AsRead.DraftPreviewAllowance | null>
 }
+
+/** Loading, still loading after an attempt failed, or given up, because the server stays away or refused. */
+export type Start = 'loading' | 'slow' | 'failed' | 'refused'
 
 export type Connection = 'connecting' | 'live' | 'polling' | 'offline'
 
