@@ -349,7 +349,7 @@ const sidebar = (
     region(
       life,
       [state.agentCredentials, state.session, slice(peopleSources, () => model().onboarding)],
-      () => model().onboarding && onboarding(),
+      () => model().onboarding && onboarding(context),
       {
         class: 'onboarding-host',
       },
@@ -441,23 +441,28 @@ const sidebar = (
 }
 
 /** The list's Waiting for you filter, a button that stays pressed while it is on. */
-const waitingFilter = (context: ViewContext, waiting: Waiting): HTMLElement => {
+const waitingFilter = (context: ViewContext, waiting: Waiting): Child => {
   const model = waitingFilterModel(context.state.waitingOnly.get(), waiting)
-  return h(
-    'button',
-    {
-      type: 'button',
-      class: 'waiting-filter',
-      'aria-pressed': String(model.pressed),
-      title: model.label,
-      on: { click: () => context.state.waitingOnly.update((on) => !on) },
-    },
-    model.text,
-    model.count !== null && h('span', { class: 'count', 'aria-hidden': 'true' }, model.count),
+  return hinted(
+    context,
+    'waitingFilter',
+    strings.hints.waitingFilter,
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'waiting-filter',
+        'aria-pressed': String(model.pressed),
+        on: { click: () => context.state.waitingOnly.update((on) => !on) },
+      },
+      model.text,
+      h('span', { class: 'visually-hidden' }, ` ${model.label}`),
+      model.count !== null && h('span', { class: 'count', 'aria-hidden': 'true' }, model.count),
+    ),
   )
 }
 
-const onboarding = (): HTMLElement =>
+const onboarding = (context: ViewContext): HTMLElement =>
   h(
     'div',
     { class: 'onboarding', role: 'note' },
@@ -466,10 +471,15 @@ const onboarding = (): HTMLElement =>
       { class: 'onboarding-text' },
       h('strong', {}, strings.onboardingTitle),
       h('p', {}, strings.onboardingHint),
-      h(
-        'a',
-        { class: 'button primary', href: hrefFor({ name: 'agent', section: 'connection' }) },
-        strings.connectAgent,
+      hinted(
+        context,
+        'connectAgent',
+        strings.hints.connectAgent,
+        h(
+          'a',
+          { class: 'button primary', href: hrefFor({ name: 'agent', section: 'connection' }) },
+          strings.connectAgent,
+        ),
       ),
     ),
   )

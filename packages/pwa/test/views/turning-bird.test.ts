@@ -17,7 +17,7 @@ describe('renderTurningBird', () => {
     expect(turning.getAttribute('role')).toBe('img')
     expect(turning.getAttribute('aria-label')).toBe('Ana as Owl')
     expect(turning.dataset.character).toBe('owl')
-    expect(turning.style.getPropertyValue('--turn-sheet')).toBe('url("data:image/png;fake,624x39")')
+    expect(turning.style.getPropertyValue('--turn-sheet')).toBe('url("data:image/png;fake,720x51")')
   })
 
   it("puts the character's flat sprite beside the turning bird for reduced motion", () => {

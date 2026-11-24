@@ -41,7 +41,12 @@ export const tabsModel = (
     tour: 'channels',
   }),
   ...(featureOn('debateRooms', info)
-    ? [tab(strings.navDebates, { name: 'debates' }, ['debates', 'debate'], route, { glyph: 'debates' })]
+    ? [
+        tab(strings.navDebates, { name: 'debates' }, ['debates', 'debate'], route, {
+          glyph: 'debates',
+          hint: { concept: 'flocksTab', text: strings.hints.flocksTab },
+        }),
+      ]
     : []),
 ]
 

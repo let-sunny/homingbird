@@ -25,6 +25,21 @@ import { heldDecision } from '../support/held.ts'
 usingFakeDom()
 
 describe('shell', () => {
+  it('explains the My agent tab, the activity bell and the Waiting for you filter on hover', () => {
+    const { context } = testContext()
+    context.state.session.set(me())
+    const shown = mount(shell(context, lifetime(), me(), document.createElement('main')))
+    const hintOf = (control: HTMLElement): string | undefined =>
+      (() => {
+        const siblings = [...control.parentElement!.children]
+        return siblings[siblings.indexOf(control) + 1]?.textContent ?? undefined
+      })()
+    expect(hintOf(getByRole(shown, 'link', { name: strings.navMyAgent }))).toBe(strings.hints.nest)
+    expect(hintOf(shown.querySelector<HTMLElement>('.activity-bell')!)).toBe(strings.hints.activityBell)
+    expect(hintOf(shown.querySelector<HTMLElement>('.waiting-filter')!)).toBe(strings.hints.waitingFilter)
+    expect(getByRole(shown, 'link', { name: strings.navNotes }).hasAttribute('aria-describedby')).toBe(false)
+  })
+
   it('shows the header, the user menu, the list and the page, the list alone on home', () => {
     const { context, called } = testContext()
     context.state.session.set(me())
@@ -248,7 +263,7 @@ describe('shell', () => {
     )
     const filter = getByRole(shown, 'button', { name: /Waiting for you/ })
     expect(filter.getAttribute('aria-pressed')).toBe('false')
-    expect(filter.getAttribute('title')).toBe(strings.waiting.filterLabel({ count: 1 }))
+    expect(filter.textContent).toContain(strings.waiting.filterLabel({ count: 1 }))
     expect(getByRole(shown, 'link', { name: /Quiet/ })).toBeTruthy()
     filter.click()
     expect(getByRole(shown, 'button', { name: /Waiting for you/ }).getAttribute('aria-pressed')).toBe('true')

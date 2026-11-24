@@ -275,7 +275,7 @@ const renderNotificationLevel = (context: ViewContext, model: NotificationLevelM
     h('small', {}, model.hint),
   )
 
-/** Profile's way back to the hints of what each Homingbird control does, after they retired. */
+/** Profile's way back to the inline hints a touch screen showed once, after they retired. */
 const hintsAgain = (context: ViewContext, me: AsRead.Me): HTMLElement => {
   const done = h('p', { class: 'hint', 'aria-live': 'polite' })
   return h(

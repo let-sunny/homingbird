@@ -1,8 +1,9 @@
 import type { PageStorage } from './browser-page.ts'
 
 /**
- * Whether a hint still shows for a concept: hints are for people who are new, so each retires once the
- * person has used its control, and all of them retire after the first two weeks.
+ * Whether a touch screen's inline hint has retired for a concept: those hints take up room, so each
+ * retires once the person has used its control, and all of them after the first two weeks. The hint a
+ * mouse or the keyboard focus brings up takes no room and never retires.
  */
 export const isHintRetired = (record: HintRecord, concept: HintConcept, now: number): boolean =>
   record.used.includes(concept) || now - record.since >= HINTS_RETIRE_AFTER_MS
@@ -40,6 +41,16 @@ export const HINT_CONCEPTS = [
   'keepers',
   'directNotes',
   'newChannel',
+  'flocksTab',
+  'waitingFilter',
+  'activityBell',
+  'teachAgent',
+  'changeChannel',
+  'withdrawRequest',
+  'replyTarget',
+  'connectAgent',
+  'debateKind',
+  'meetingKind',
   'browseChannels',
 ] as const
 

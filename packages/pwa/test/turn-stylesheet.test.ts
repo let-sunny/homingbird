@@ -7,11 +7,11 @@ import { turnStylesheet } from '../src/turn-stylesheet.ts'
 describe('turnStylesheet', () => {
   const css = turnStylesheet()
 
-  it('steps through the 16 directions of one row of 39-pixel cells, pixelated', () => {
-    expect(css).toContain('inline-size: calc(39px * var(--turn-scale))')
-    expect(css).toContain('background-size: calc(624px * var(--turn-scale)) calc(39px * var(--turn-scale))')
+  it('steps through the 16 directions of one row of 45 by 51 pixel cells, pixelated', () => {
+    expect(css).toContain('inline-size: calc(45px * var(--turn-scale))')
+    expect(css).toContain('background-size: calc(720px * var(--turn-scale)) calc(51px * var(--turn-scale))')
     expect(css).toContain('animation: bird-turn var(--hb-duration-bird-turn) steps(16) infinite')
-    expect(css).toContain('to { background-position: calc(-624px * var(--turn-scale)) 0; }')
+    expect(css).toContain('to { background-position: calc(-720px * var(--turn-scale)) 0; }')
     expect(css).toContain('image-rendering: pixelated')
     expect(css).toContain('background-image: var(--turn-sheet)')
   })

@@ -16,12 +16,12 @@ const counting = () => {
 }
 
 describe('turnSheetUrl', () => {
-  it('draws a character once, as 16 cells of 39 pixels, and reuses the address', () => {
+  it('draws a character once, as 16 cells of 45 by 51 pixels, and reuses the address', () => {
     const { drawn, page } = counting()
     const fox = PRESETS.find((preset) => preset.id === 'fox')!
     const first = turnSheetUrl(fox, page)
     expect(turnSheetUrl({ ...fox, name: 'Another name' }, page)).toBe(first)
-    expect(drawn).toEqual([[624, 39]])
+    expect(drawn).toEqual([[720, 51]])
   })
 
   it('draws a character with other colors or markings again', () => {
