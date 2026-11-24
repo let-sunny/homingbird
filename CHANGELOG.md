@@ -14,7 +14,7 @@ database schema.
   Homingbird now speaks in birds where you read it. "My agent" is the Nest, where your agent lives: its connection, teaching and desk. "People" is Keepers, the colleagues who each keep their own bird. Direct messages, group conversations included, are DN (Direct Note); in sentences they are direct notes. Notes, Channels and Flocks keep their names, and the Nest, Keepers and DN headings each show a one-line hint on hover.
 - **pwa:** explain unfamiliar buttons and words on hover (#174)
 
-  * feat(pwa): explain unfamiliar buttons and words on hover
+  Rest the mouse on a button or word you do not know, or reach it with the keyboard, and one short sentence says what it does: the Nest and Flocks tabs, the activity bell, Waiting for you, Teach, Change channel, Withdraw and the kinds of flock among them. These hints no longer go away after two weeks or after a click. On touch screens the inline hints still show only while you are new.
 
 ### Fixed
 
@@ -23,19 +23,19 @@ database schema.
   The title bar, sign-in page, loading screens, empty states, connect page and profile card show the flat Pip and characters again. The turning 3D bird now appears only in the character editor's preview, where you see your bird from every side while you make it.
 - **pwa:** start a note or a channel with a plus in its section head (#171)
 
-  The Direct messages and Channels heads in the sidebar now carry small icon buttons instead of the words "New message" and "New channel": a plus to start a note, a plus to start a channel, and a compass to browse channels. Each keeps its name for screen readers and its hover hint, and grows to a fingertip-sized target on touch screens.
+  The DN and Channels heads in the sidebar now carry small icon buttons instead of the words "New message" and "New channel": a plus to start a note, a plus to start a channel, and a compass to browse channels. Each keeps its name for screen readers and its hover hint, and grows to a fingertip-sized target on touch screens.
 - **sprites:** give the turning bird its speech-bubble tail (#175)
 
   The bird that turns in the character editor now has the tail of the flat bird and the logo: body-color steps at the bottom rear, down and back to a point, in your character's own colors and tail markings.
 - **pwa:** keep popups from covering what you are reading on phones (#176)
 
-  * fix(pwa): dock the tour above the tab bar on phones
+  On a phone the guided tour is a sheet above the tab bar, so Next can always be pressed, and dialogs open as sheets from the bottom that scroll on their own. Inline hints no longer squeeze the bell, the tabs or the plus buttons in the sidebar.
 - **plugin:** check characters with the bird that has a tail (#177)
 
-  * fix(plugin): check characters with the bird that has a tail
+  The Claude Code plugin's character rules now match the bird with the speech-bubble tail.
 - **pwa:** keep hints from covering what they explain (#180)
 
-  Hints no longer get in the way of what they explain. In the reply bar on a phone, the quoted note keeps its room and the cancel cross stays on screen, with the hint on its own line below. The New flock dialog no longer scrolls sideways the first time you open it. Hover hints are as wide as their sentence and move to the side that has room, so none is squeezed into a narrow column or lies over the tab bar. The hint on a hint-free focus returning after a dialog closes no longer pops up again.
+  Hints no longer get in the way of what they explain. In the reply bar on a phone, the quoted note keeps its room and the cancel cross stays on screen, with the hint on its own line below. The New flock dialog no longer scrolls sideways the first time you open it. Hover hints are as wide as their sentence and move to the side that has room, so none is squeezed into a narrow column or lies over the tab bar. A hint no longer reappears when you close a dialog with Escape.
 
 ## [0.6.0] - 2026-11-23
 
