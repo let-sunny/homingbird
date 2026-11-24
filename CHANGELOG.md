@@ -14,7 +14,7 @@ database schema.
   When you sent a note, approved or discarded a draft, decided on a channel agent's answer, or made another change, and the server accepted it, a failure while the page read the lists again could still show "could not send". A held send or discard then looked as if it never happened, and a card could come back inviting a second send. Now the change counts as done, and only the background reload is quiet; being signed out still ends the session.
 - **pwa:** end sessions fully and refresh previews on reconnect (#190)
 
-  * fix(pwa): end sessions fully and refresh previews on reconnect
+  When your session ends, in this tab or elsewhere, the page stops its live connection and empties everything it showed, and a page the browser brings back with the back button shows again only for the same person. Draft previews are hidden while the connection is down and read again when it is back, so a draft discarded meanwhile does not stay on screen.
 
 ## [0.6.2] - 2026-11-24
 
