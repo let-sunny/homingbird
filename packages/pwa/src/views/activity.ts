@@ -46,28 +46,32 @@ export const activityBell = (context: ViewContext, life: Lifetime, me: AsRead.Me
     [shown, onPage],
     () => {
       const { count, label, agent } = shown.get()
-      return h(
-        'a',
-        {
-          class: 'activity-bell',
-          href: hrefFor({ name: 'activity' }),
-          'aria-label': label,
-          'aria-controls': ACTIVITY_PANEL_ID,
-          'aria-current': onPage.get() && 'page',
-          title: label,
-          data: { tour: 'activity' },
-          on: {
-            click: (event) => {
-              const panel = context.document.byId(ACTIVITY_PANEL_ID)
-              if (panel === null || onPage.get() || !hasPopover(panel)) return
-              event.preventDefault()
-              panel.togglePopover()
+      return hinted(
+        context,
+        'activityBell',
+        strings.hints.activityBell,
+        h(
+          'a',
+          {
+            class: 'activity-bell',
+            href: hrefFor({ name: 'activity' }),
+            'aria-label': label,
+            'aria-controls': ACTIVITY_PANEL_ID,
+            'aria-current': onPage.get() && 'page',
+            data: { tour: 'activity' },
+            on: {
+              click: (event) => {
+                const panel = context.document.byId(ACTIVITY_PANEL_ID)
+                if (panel === null || onPage.get() || !hasPopover(panel)) return
+                event.preventDefault()
+                panel.togglePopover()
+              },
             },
           },
-        },
-        bellIcon(false),
-        count > 0 && h('span', { class: 'count activity-count', 'aria-hidden': 'true' }, String(count)),
-        agent !== null && h('span', { class: 'agent-mark', 'aria-hidden': 'true', title: agent }),
+          bellIcon(false),
+          count > 0 && h('span', { class: 'count activity-count', 'aria-hidden': 'true' }, String(count)),
+          agent !== null && h('span', { class: 'agent-mark', 'aria-hidden': 'true', title: agent }),
+        ),
       )
     },
     { class: 'activity-bell-host' },

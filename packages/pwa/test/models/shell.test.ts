@@ -52,7 +52,13 @@ describe('tabsModel', () => {
       tabsModel({ name: 'debate', id: 'x', tab: null }, serverInfo({ debateRooms: true })).find(
         (tab) => tab.current,
       ),
-    ).toEqual(expect.objectContaining({ label: strings.navDebates, glyph: 'debates' }))
+    ).toEqual(
+      expect.objectContaining({
+        label: strings.navDebates,
+        glyph: 'debates',
+        hint: { concept: 'flocksTab', text: strings.hints.flocksTab },
+      }),
+    )
   })
 
   it('marks Nest, and only Nest, while the person’s agent cannot answer', () => {
