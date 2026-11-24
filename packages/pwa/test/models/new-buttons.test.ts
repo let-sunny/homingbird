@@ -7,6 +7,7 @@ describe('newButtonsModel', () => {
   it('starts a message from Direct messages and a channel from Channels, each with its hint', () => {
     expect(newButtonsModel(everything())).toEqual({
       message: { label: strings.newMessageButton, hint: strings.hints.newMessage, href: '#/new' },
+      browse: { label: strings.browseChannels, hint: strings.hints.browseChannels, href: '#/channels' },
       channel: { label: strings.newChannel, hint: strings.hints.newChannel },
     })
   })

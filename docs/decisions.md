@@ -17,26 +17,25 @@ states the decision first, then the reason. Add new entries at the top of their 
   `read_debate`, the command `homingbird debates`, and the tables and columns. A tool description says "a
   flock (debate room)" once, where a model might look for the old name.
 
-- **Pip and each person's character turn in fake 3D where the bird is the subject.** Pip turns on the
-  sign-in page, while the page loads before sign-in, in a page's main empty state, and in the header in
-  place of the mark when the organization set no logo of its own; a person's own character turns in the
-  character editor's preview, on their profile card, and while their workspace loads after sign-in.
-  Everywhere else the flat 16-pixel characters stay, because a turning face beside every note would
-  stop telling the reader anything. The technique is sprite stacking, after Daniel White's MIT-licensed
-  `sprite-stacking`: `packages/sprites` draws Pip's body from four sides (`bird-model.ts`), carves them
-  into 26 slices of 34 × 26 voxels (`carve.ts`), paints the eyes, the wing patches and the tail
-  feathers onto the surface afterwards so that they hold still from every direction, and renders 16
-  directions by turning each slice, squashing it to 0.8 for a view from above and lifting each one 0.88
-  pixels over the one below, with one ink outline around the stack. The body is shared, as with the
-  flat characters: a character differs only in palette and markings, so its markings are painted on
-  both flanks where its side view puts them and its palette recolours the voxels. The carved body ships
-  to every client as `BIRD_SLICES`, about 5.5 KB of text, from which the web client draws a member's
-  sheet (16 cells of 39 × 39 pixels) in the browser, once per look, and hands it to the stylesheet as
-  a `data:` image; Pip's sheet is the checked-in `assets/pip/pip-turn@1x.png` (about 7 KB) with golden
-  tests, like the other brand assets. The turn is CSS `steps(16)` over 2.24 seconds
-  (`--hb-duration-bird-turn`), no script; with `prefers-reduced-motion` the bird faces the viewer and
-  holds still. A canvas per frame or a WebGL model would have needed script for every bird on the page
-  or a dependency, for no gain at this size.
+- **A character turns in fake 3D only in the character editor's preview.** Everywhere else, Pip and
+  the flat 16-pixel characters stay still: a turning face beside every note, in the title bar or on a
+  loading screen would stop telling the reader anything, and the maintainer wants the mark to stay a
+  mark. The preview is the one place where the bird is the subject: a person is making it, and seeing
+  it from every side shows what the markings do. The technique is sprite stacking, after Daniel
+  White's MIT-licensed `sprite-stacking`: `packages/sprites` draws Pip's body from four sides
+  (`bird-model.ts`), carves them into 26 slices of 34 × 26 voxels (`carve.ts`), paints the eyes, the
+  wing patches and the tail feathers onto the surface afterwards so that they hold still from every
+  direction, and renders 16 directions by turning each slice, squashing it to 0.8 for a view from above
+  and lifting each one 0.88 pixels over the one below, with one ink outline around the stack. The body
+  is shared, as with the flat characters: a character differs only in palette and markings, so its
+  markings are painted on both flanks where its side view puts them and its palette recolours the
+  voxels. The carved body ships to every client as `BIRD_SLICES`, about 5.5 KB of text, from which the
+  editor draws the sheet (16 cells of 39 × 39 pixels) in the browser, once per look, and hands it to
+  the stylesheet as a `data:` image. The turn is CSS `steps(16)` over 2.24 seconds
+  (`--hb-duration-bird-turn`), no script. With `prefers-reduced-motion` the 3D bird is hidden and the
+  character's flat sprite, the same image shown elsewhere, takes its place; the 3D bird's front frame
+  was tried and found ugly. A canvas per frame or a WebGL model would have needed script or a
+  dependency, for no gain at this size. Pip's own turn sheet is no longer generated or shipped.
 - **A debate room asks one agent at a time for a turn.** Until now the room asked every agent with
   turns left at once: all of them wrote, the first to post won, and the others were refused as stale
   and rewrote. Evaluation round 3 saw 96 of 149 turn attempts refused, 79 of them as stale, and in a

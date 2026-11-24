@@ -1,6 +1,4 @@
 import { type Lifetime, h, region } from '@homingbird/ui'
-import { featureOn } from '../features.ts'
-import { memberAvatarOf } from '../models/avatar.ts'
 import {
   type HomeModel,
   type StartInput,
@@ -10,11 +8,10 @@ import {
   homeModel,
   startingPointsModel,
 } from '../models/home.ts'
-import { type TurningBird, turningBirdOf } from '../models/turning-bird.ts'
 import { hrefFor } from '../routes.ts'
 import type { ViewContext } from './context.ts'
-import { commandLines, emptyWithPip } from './parts.ts'
-import { loadingWithBird, renderTurningPip } from './turning-bird.ts'
+import { commandLines, emptyWithPip, loading } from './parts.ts'
+import { pip } from './pip.ts'
 
 /** Home, which on a wide screen opens the most recent conversation by itself. */
 export const homeView = (context: ViewContext, life: Lifetime): HTMLElement => {
@@ -56,7 +53,7 @@ const renderStartingPoints = (model: StartingPoints, context: StartContext): HTM
   h(
     'section',
     { class: 'starting-points', 'aria-labelledby': 'starting-points-title' },
-    renderTurningPip(2),
+    pip('waving', 3),
     h('h2', { id: 'starting-points-title' }, model.title),
     h(
       'ol',
@@ -93,24 +90,12 @@ const sitsBesideTheList = (host: HTMLElement): boolean =>
   host.ownerDocument.querySelector<HTMLElement>('.sidebar')?.checkVisibility() === true
 
 const renderHome = (model: HomeModel, context: StartContext): HTMLElement => {
-  if (model.kind === 'loading') return loadingWithBird(context, ownBird(context))
+  if (model.kind === 'loading') return loading()
   if (model.kind === 'start') return renderStartingPoints(model.start, context)
-  return emptyWithPip(model.text)
+  return emptyWithPip('waving', model.text)
 }
 
 type StartContext = Pick<ViewContext, 'tour' | 'state' | 'page'>
-
-/** The person's own character, turning, while their workspace loads. */
-const ownBird = (context: StartContext): TurningBird => {
-  const me = context.state.session.get()
-  const member = me === null || me === 'loading' ? undefined : me.member
-  return turningBirdOf(
-    memberAvatarOf(member, featureOn('characters', context.state.serverInfo.get())),
-    TURNING_SCALE,
-  )
-}
-
-const TURNING_SCALE = 2
 
 const startInput = (context: StartContext): StartInput => ({
   agentConnected: context.state.agentCredentials.get().length > 0,

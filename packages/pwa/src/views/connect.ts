@@ -15,7 +15,6 @@ import { codeForm } from './connection.ts'
 import type { ViewContext } from './context.ts'
 import { button, field, loading } from './parts.ts'
 import { pip } from './pip.ts'
-import { renderTurningPip } from './turning-bird.ts'
 
 /** Approving a device sign-in: the code, then what the device asks for, then the outcome. */
 export const deviceView = (context: ViewContext, life: Lifetime, code: string | null): HTMLElement => {
@@ -148,9 +147,7 @@ const connectWindow = (
         h(
           'p',
           { class: 'connect-brand' },
-          branding.logo === null
-            ? renderTurningPip(1)
-            : h('img', { class: 'mark', src: logoOf(branding.logo), alt: '', width: '32', height: '32' }),
+          h('img', { class: 'mark', src: logoOf(branding.logo), alt: '', width: '32', height: '32' }),
           h('span', { class: 'wordmark' }, wordmark(branding.name)),
         ),
         content,

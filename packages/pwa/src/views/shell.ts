@@ -40,7 +40,7 @@ import { opensDialog } from './dialog.ts'
 import { startingPoints } from './home.ts'
 import { type MenuParts, actionMenu } from './menu.ts'
 import { mutedMark } from './mute-toggle.ts'
-import { newChannelButton, newMessageLink } from './new-buttons.ts'
+import { browseChannelsLink, newChannelButton, newMessageLink } from './new-buttons.ts'
 import {
   agentDot,
   archivedMark,
@@ -52,7 +52,6 @@ import {
   timeLabel,
 } from './parts.ts'
 import { switcher } from './switcher.ts'
-import { renderTurningPip } from './turning-bird.ts'
 import { watchWaiting } from './waiting.ts'
 
 /** The app around a page: the header with its tabs, the connection, the sidebar and the user menu. */
@@ -132,9 +131,7 @@ const titleBar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElem
     h(
       'a',
       { class: 'brand', href: '#/', 'aria-label': branding.name },
-      branding.logo === null
-        ? renderTurningPip(1)
-        : h('img', { class: 'mark', src: logoOf(branding.logo), alt: '', width: '32', height: '32' }),
+      h('img', { class: 'mark', src: logoOf(branding.logo), alt: '', width: '32', height: '32' }),
       h('span', { class: 'wordmark' }, wordmark(branding.name)),
     ),
     region(life, [state.route, agentUnavailable], () => tabs(context, agentUnavailable.get()), {
@@ -387,16 +384,7 @@ const sidebar = (
       'div',
       { class: 'sidebar-section-head' },
       h('h2', { class: 'sidebar-title' }, strings.channels),
-      h(
-        'div',
-        { class: 'section-actions' },
-        h(
-          'a',
-          { class: 'section-action browse-channels', href: hrefFor({ name: 'channels' }) },
-          strings.browseChannels,
-        ),
-        newChannelButton(context),
-      ),
+      h('div', { class: 'section-actions' }, browseChannelsLink(context), newChannelButton(context)),
     ),
     region(
       life,

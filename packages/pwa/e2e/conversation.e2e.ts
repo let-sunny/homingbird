@@ -296,7 +296,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.goto(`${base}/#/channels`)
     await ana.page.waitForSelector('.channel-card[data-slug="releases"]:not(.is-helping)')
     await ana.page.waitForSelector('.sidebar .empty:has-text("You are in no channel yet")')
-    await ana.page.waitForSelector('.sidebar .browse-channels:has-text("Browse channels")')
+    await ana.page.waitForSelector('.sidebar .browse-channels[aria-label="Browse channels"]')
     assert.equal(await ana.page.locator('.channel-rooms').count(), 0)
     await capture(ana.page, 'browse-channels-before-joining-any')
     await ana.page.click('.channels-intro button.new-channel')

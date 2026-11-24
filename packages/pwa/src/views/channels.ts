@@ -95,6 +95,7 @@ export const channelView = (context: ViewContext, life: Lifetime, slug: string):
       if (channel === null && !state.channelsLoaded.get()) return loading()
       if (channel === null)
         return emptyWithPip(
+          'failed',
           strings.unknownChannel,
           h(
             'div',
@@ -316,6 +317,7 @@ const renderChannelList = (model: ChannelListModel, context: ViewContext, more: 
       return loading()
     case 'none-yet':
       return emptyWithPip(
+        'searching',
         model.text,
         h(
           'div',

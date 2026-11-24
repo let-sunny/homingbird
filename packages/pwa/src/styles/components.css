@@ -1587,16 +1587,30 @@ a.quote:hover {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  column-gap: var(--hb-space-3);
-  row-gap: var(--hb-space-1);
+  column-gap: var(--hb-space-1);
 }
 
-.section-action,
-button.link.section-action {
-  font-weight: var(--hb-weight-label);
-  font-size: var(--hb-text-label);
+.section-add {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  align-self: center;
+  box-sizing: border-box;
+  inline-size: var(--hb-control-height-small);
+  block-size: var(--hb-control-height-small);
+  min-block-size: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--hb-color-muted);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.section-add:hover,
+.section-add:focus-visible {
   color: inherit;
-  white-space: nowrap;
 }
 
 .relation,
@@ -6571,7 +6585,7 @@ textarea:disabled {
     .todo-more,
     .todo-public,
     .brand,
-    .section-action,
+    .section-add,
     .channel-chip,
     .group-chip,
     button.link,
@@ -6601,7 +6615,7 @@ textarea:disabled {
     .todo-more,
     .todo-public,
     .brand,
-    .section-action,
+    .section-add,
     .channel-chip,
     .group-chip,
     button.link,

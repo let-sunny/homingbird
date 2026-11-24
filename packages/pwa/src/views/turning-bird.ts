@@ -1,42 +1,31 @@
 import { h } from '@homingbird/ui'
 import type { Page } from '../browser-page.ts'
-import { type TurnScale, type TurningBird, turningPip } from '../models/turning-bird.ts'
-import { strings } from '../strings.ts'
+import type { AvatarModel } from '../models/avatar.ts'
 import { turnSheetUrl } from '../turn-sheets.ts'
+import { type AvatarScreen, renderAvatar } from './character-avatar.ts'
 
 /**
- * A bird turning on the spot. The stylesheet steps through the sheet and holds the front still under
- * reduced motion; a member's sheet is drawn here and handed to it as a custom property.
+ * A character turning in fake 3D, for the character editor's preview. The stylesheet steps through a sheet
+ * drawn here and handed to it as a custom property; where reduced motion is asked for, it hides the 3D
+ * bird and shows the character's flat sprite, which sits beside it.
  */
-export const renderTurningBird = (screen: TurningScreen, bird: TurningBird): HTMLElement => {
-  const element = birdElement(bird)
-  if (bird.character !== null)
-    element.style.setProperty('--turn-sheet', `url("${turnSheetUrl(bird.character, screen.page)}")`)
-  return element
-}
-
-/** Pip turning, which needs nothing from the browser: its sheet is a file the stylesheet names. */
-export const renderTurningPip = (scale: TurnScale): HTMLElement => birdElement(turningPip(scale))
-
-/** A whole page waiting for its data, with a bird turning above the word. */
-export const loadingWithBird = (screen: TurningScreen, bird: TurningBird): HTMLElement =>
-  h(
-    'div',
-    { class: 'empty loading-bird', role: 'status' },
-    renderTurningBird(screen, bird),
-    h('p', {}, strings.loading),
-  )
-
-/** What drawing a member's bird needs from the browser. */
-export interface TurningScreen {
-  readonly page: Pick<Page, 'pngUrlOf'>
-}
-
-const birdElement = (bird: TurningBird): HTMLElement =>
-  h('span', {
-    class: `turning-bird turn-x${bird.scale}${bird.character === null ? ' is-pip' : ''}`,
-    role: bird.label === null ? 'presentation' : 'img',
-    'aria-label': bird.label ?? undefined,
-    'aria-hidden': bird.label === null && 'true',
-    data: { character: bird.character?.id ?? 'pip' },
+export const renderTurningBird = (screen: TurningScreen, avatar: AvatarModel): HTMLElement => {
+  const turning = h('span', {
+    class: 'turning-bird',
+    role: avatar.label === null ? 'presentation' : 'img',
+    'aria-label': avatar.label ?? undefined,
+    'aria-hidden': avatar.label === null && 'true',
+    data: { character: avatar.spec.id },
   })
+  turning.style.setProperty('--turn-sheet', `url("${turnSheetUrl(avatar.spec, screen.page)}")`)
+  const still = renderAvatar(screen, { ...avatar, scale: STILL_SCALE, motion: 'still' })
+  still.classList.add('turn-still')
+  return h('span', { class: 'character-turn' }, turning, still)
+}
+
+/** What drawing a turning bird needs from the browser. */
+export interface TurningScreen extends AvatarScreen {
+  readonly page: Pick<Page, 'pngUrlOf' | 'pixelRatio' | 'prefersReducedMotion'>
+}
+
+const STILL_SCALE = 4
