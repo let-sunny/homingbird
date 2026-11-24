@@ -597,7 +597,9 @@ sequenceDiagram
   event committed during the replay is either in a later page or in the hub's buffer, and events at or
   below the last replayed sequence number are dropped from the buffer. SSE and WebSocket share it.
   Long-poll answers at most 500 events and a cursor; the client polls again from that cursor, which
-  after a `resync` is the server's latest sequence number.
+  after a `resync` is the server's latest sequence number. A poll from past the end answers no events
+  and the latest sequence number; the web client takes its cursor that way before it loads anything, so
+  the stream it opens afterwards replays what changed during the load.
 - **Overflow.** A live subscriber whose buffer of 2048 events fills, also while it is still replaying,
   is closed after a `resync`.
 - **Web Push.** The notifier considers only `note.sent` from someone else and a new agent draft, and

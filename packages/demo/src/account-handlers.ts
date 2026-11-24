@@ -120,7 +120,7 @@ export const accountHandlers = (world: World): Handlers => {
       T.sync(() => {
         const after = Number(query.after ?? 0)
         const events = world.eventsAfter(viewerId, after)
-        return { events, cursor: events.at(-1)?.seq ?? after }
+        return { events, cursor: world.eventsAfter(viewerId, 0).at(-1)?.seq ?? 0 }
       }),
     'answeringFlow.get': () => T.succeed({ flow: null, updatedAt: null }),
     'insights.mine': (_, viewerId) =>

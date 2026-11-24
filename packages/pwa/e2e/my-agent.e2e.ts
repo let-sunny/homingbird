@@ -348,7 +348,6 @@ const scenario = async (): Promise<void> => {
     await ben.page.goto(`${base}/#/`)
     await ben.page.reload()
     await ben.page.waitForSelector('.app')
-    await ben.page.waitForSelector('.connection.is-connected')
     const benId = (await api(ben, 'GET', '/me')).member.id
     const live = await api(ana, 'POST', '/drafts', {
       to: [benId],
