@@ -22,7 +22,7 @@ export const channelDecisionsModel = (
     readonly now: number
   },
 ): ChannelDecisionsModel => {
-  if (wait !== null) return { kind: 'waiting', wait }
+  if (wait !== null) return { kind: 'waiting', title: strings.channelDecisions.title, wait }
   if (decisions === null) return { kind: 'hidden' }
   const { agent } = context
   const words = { agent, channel: channelLabel(decisions.channel), days: decisions.days }
@@ -41,7 +41,7 @@ export const channelDecisionsModel = (
 
 export type ChannelDecisionsModel =
   | { readonly kind: 'hidden' }
-  | { readonly kind: 'waiting'; readonly wait: ListWait }
+  | { readonly kind: 'waiting'; readonly title: string; readonly wait: ListWait }
   | {
       readonly kind: 'decisions'
       readonly title: string

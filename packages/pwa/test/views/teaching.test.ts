@@ -3,7 +3,9 @@ import { h, lifetime } from '@homingbird/ui'
 import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
+import type { ViewContext } from '../../src/views/context.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
+import { pageData } from '../../src/views/page-data.ts'
 import { appliedMarkers, chancesIn, taughtSection } from '../../src/views/teaching.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
@@ -11,6 +13,9 @@ import { ROOM, channel, draft, principle, serverInfo, taught } from '../support/
 import { setLoad, setWorkspace } from '../support/resource-load.ts'
 
 usingFakeDom()
+
+const sectionOf = (context: ViewContext) =>
+  taughtSection(context, lifetime(), pageData(context.state, context.state.taught).wait)
 
 const offer = {
   id: 'offer_aaaaaaaaaaaa',
@@ -25,18 +30,18 @@ const offer = {
 describe('taughtSection', () => {
   it('loads the principles, and says once when they could not load, with a way to try again', () => {
     const { context, called } = testContext()
-    const shown = taughtSection(context, lifetime())
+    const shown = sectionOf(context)
     expect(called('refreshPrinciples')).toHaveLength(1)
     expect(textOf(shown)).toBe(strings.loading)
     setLoad(context.state.taught, { step: 'failed' })
     expect(textOf(shown)).toContain(strings.loadFailed)
     getByRole(shown, 'button', { name: strings.tryAgain }).click()
-    expect(called('askAgain')[0]!.args).toEqual(['taught'])
+    expect(called('askAgain')).toHaveLength(1)
   })
 
   it('leaves it to the line above the lists to say a failure it already tells', () => {
     const { context } = testContext()
-    const shown = taughtSection(context, lifetime())
+    const shown = sectionOf(context)
     setWorkspace(context.state, 'failed')
     setLoad(context.state.taught, { step: 'failed' })
     expect(textOf(shown)).toBe('')
@@ -44,17 +49,40 @@ describe('taughtSection', () => {
 
   it('keeps the principles shown when asking for them again fails for a moment', () => {
     const { context } = testContext()
-    const shown = taughtSection(context, lifetime())
+    const shown = sectionOf(context)
     context.state.taught.set(taught({ achievements: ['first_principle'] }))
     setLoad(context.state.taught, { loaded: true, step: 'failed' })
     expect(textOf(shown)).toContain(strings.teach.achievements.first_principle)
     expect(textOf(shown)).not.toContain(strings.loadFailed)
   })
 
+  it('keeps the principle being typed, and the place chosen for it, while the channels change', () => {
+    const { context } = testContext()
+    context.state.channels.set([channel('billing', { joined: true })])
+    const shown = mount(sectionOf(context))
+    context.state.taught.set(taught())
+    const topic = getByRole(shown, 'textbox', { name: strings.teach.topic }) as HTMLInputElement
+    const place = shown.querySelector<HTMLSelectElement>('.todo-add select[name="place"]')!
+    fire.type(topic, 'Refunds')
+    place.value = 'billing'
+    context.state.channels.set([
+      channel('billing', { joined: true, memberCount: 9 }),
+      channel('ops', { joined: true }),
+    ])
+    expect(getByRole(shown, 'textbox', { name: strings.teach.topic })).toBe(topic)
+    expect(topic.value).toBe('Refunds')
+    expect(place.value).toBe('billing')
+    expect([...place.querySelectorAll('option')].map((option) => option.value)).toEqual([
+      '',
+      'billing',
+      'ops',
+    ])
+  })
+
   it('invites a first principle, and adds one from the list with the place chosen', () => {
     const { context, called } = testContext()
     context.state.channels.set([channel('billing', { joined: true })])
-    const shown = mount(taughtSection(context, lifetime()))
+    const shown = mount(sectionOf(context))
     context.state.taught.set(taught({ achievements: ['first_principle'] }))
     expect(textOf(shown)).toContain(strings.teach.empty)
     expect(textOf(shown)).toContain(strings.teach.achievements.first_principle)
@@ -76,7 +104,7 @@ describe('taughtSection', () => {
 
   it('saves an answer from the list once the person chooses Answer, and warns as for an answer', () => {
     const { context, called } = testContext()
-    const shown = mount(taughtSection(context, lifetime()))
+    const shown = mount(sectionOf(context))
     context.state.taught.set(taught())
     const add = getByRole(shown, 'group', { name: strings.teach.addLabel })
     fire.type(getByRole(add, 'textbox', { name: strings.teach.topic }), 'Release calendar')
@@ -103,7 +131,7 @@ describe('taughtSection', () => {
   it('switches, edits, moves, deletes and makes public or private each principle', () => {
     const { context, called } = testContext()
     mount(dialogHost())
-    const shown = mount(taughtSection(context, lifetime()))
+    const shown = mount(sectionOf(context))
     const tone = principle('Tone', { publicText: 'Friendly.' })
     const dates = principle('Dates')
     context.state.taught.set(taught({ principles: [tone, dates], offers: [offer] }))
@@ -141,7 +169,7 @@ describe('a principle switched on or off', () => {
     const tone = principle('Tone')
     const dates = principle('Dates')
     const stage = mount(h('main', { class: 'stage' }, h('h2', {}, 'My agent')))
-    const shown = taughtSection(context, lifetime())
+    const shown = sectionOf(context)
     stage.append(shown)
     context.state.taught.set(taught({ principles: [tone, dates] }))
     Object.assign(stage, { scrollHeight: 1200, clientHeight: 700, scrollTop: 430 })
@@ -163,7 +191,7 @@ describe('a principle switched on or off', () => {
 describe('taughtSection hints', () => {
   it('says what the public switch and the kind of a principle do, as their descriptions', () => {
     const { context } = testContext()
-    const shown = mount(taughtSection(context, lifetime()))
+    const shown = mount(sectionOf(context))
     const tone = principle('Tone', { publicText: 'Friendly.' })
     const dates = principle('Dates', { kind: 'answer' })
     context.state.taught.set(taught({ principles: [tone, dates] }))

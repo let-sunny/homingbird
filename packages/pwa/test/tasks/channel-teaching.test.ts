@@ -1,6 +1,7 @@
-import { Unavailable } from '@homingbird/protocol'
+import { type AsRead, Unavailable } from '@homingbird/protocol'
 import { lifetime } from '@homingbird/ui'
 import { describe, expect, it } from 'vitest'
+import { openChannelPage } from '../../src/tasks/channel-pages.ts'
 import {
   changeChannelPrinciple,
   deleteChannelPrinciple,
@@ -9,7 +10,8 @@ import {
   saveChannelInstruction,
   saveChannelPrinciple,
 } from '../../src/tasks/channel-teaching.ts'
-import { fail, testApp } from '../support/app.ts'
+import { fail, hold, settle, testApp } from '../support/app.ts'
+import { principle } from '../support/fixtures.ts'
 
 const teaching = (instruction = '') =>
   ({ channel: 'billing', instruction, sources: [], updatedAt: null, principles: [], limit: 50 }) as never
@@ -45,6 +47,10 @@ describe('channel teaching tasks', () => {
       'channels.agent.principles.reorder': () => teaching('Ordered.'),
     })
     const held = state.channelTeaching.use('billing', lifetime())
+    await run(saveChannelInstruction('billing', 'Too early.', []))
+    expect(held.get()).toBeNull()
+    sent.length = 0
+    held.set(teaching())
     await run(saveChannelInstruction('billing', 'Saved.', ['https://wiki.example/a']))
     expect(held.get()).toEqual(teaching('Saved.'))
     await run(
@@ -57,7 +63,7 @@ describe('channel teaching tasks', () => {
     )
     await run(changeChannelPrinciple('billing', 'p1', { enabled: false }))
     await run(reorderChannelPrinciples('billing', ['p2', 'p1']))
-    expect(held.get()).toEqual(teaching('Ordered.'))
+    expect(held.get()).toEqual(teaching())
     await run(deleteChannelPrinciple('billing', 'p1'))
     expect(sent.map((one) => [one.route, one.request])).toEqual([
       [
@@ -81,5 +87,27 @@ describe('channel teaching tasks', () => {
       ['channels.agent.principles.delete', { params: { slug: 'billing', id: 'p1' } }],
       ['channels.agent.teaching.get', { params: { slug: 'billing' } }],
     ])
+  })
+
+  it('keeps the instruction and the order on an answer on its way, and whatever else that answer changed', async () => {
+    const newer = hold<unknown>()
+    const [one, two] = [principle('One'), principle('Two')]
+    const taught = (instruction: string, principles: ReadonlyArray<AsRead.Principle>) =>
+      ({ channel: 'billing', instruction, sources: [], updatedAt: null, principles, limit: 50 }) as never
+    const { app, run, state } = testApp({
+      'channels.agent.teaching.get': () => newer.waiting,
+      'channels.agent.teaching.set': () => taught('Saved.', [one, two]),
+      'channels.agent.principles.reorder': () => taught('', [two, one]),
+    })
+    const held = state.channelTeaching.use('billing', lifetime())
+    held.set(taught('', [one, two]))
+    app.launch(openChannelPage('channelTeaching', 'billing'))
+    await settle()
+    await run(saveChannelInstruction('billing', 'Saved.', []))
+    await run(reorderChannelPrinciples('billing', [two.id, one.id]))
+    newer.release(taught('Older.', [one, two, principle('Three')]))
+    await settle()
+    expect(held.get()!.instruction).toBe('Saved.')
+    expect(held.get()!.principles.map((each) => each.topic)).toEqual(['Two', 'One', 'Three'])
   })
 })

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { open } from '../../src/tasks/resources.ts'
 import {
   changePrinciple,
   deletePrinciple,
@@ -10,8 +11,8 @@ import {
   savePrinciple,
   setAutoSend,
 } from '../../src/tasks/teaching.ts'
-import { testApp } from '../support/app.ts'
-import { report, taught } from '../support/fixtures.ts'
+import { hold, settle, testApp } from '../support/app.ts'
+import { principle, report, taught } from '../support/fixtures.ts'
 
 describe('teaching tasks', () => {
   it('refreshes the agent’s figures and the principles', async () => {
@@ -31,7 +32,7 @@ describe('teaching tasks', () => {
     await run(savePrinciple({ kind: 'answer', topic: 'Hours', rule: '9', source: null, place: null }))
     await run(changePrinciple('p1', { enabled: false }))
     await run(reorderPrinciples(['p2', 'p1']))
-    expect(state.taught.get()).toEqual(taught({ limit: 9 }))
+    expect(state.taught.get()).toEqual(taught())
     await run(deletePrinciple('p1'))
     await run(markPrincipleWrong('p1', 'n1' as never))
     await run(dismissOffer('o1', false))
@@ -66,5 +67,23 @@ describe('switching a saved answer to send itself', () => {
       ],
       ['principles.list', {}],
     ])
+  })
+
+  it('shows the new order on an answer on its way, and whatever else that answer changed', async () => {
+    const newer = hold<unknown>()
+    const [one, two] = [principle('One'), principle('Two')]
+    const { app, run, state } = testApp({
+      'principles.list': () => newer.waiting,
+      'principles.reorder': () => taught({ principles: [two, one] }),
+    })
+    state.taught.set(taught({ principles: [one, two] }))
+    app.launch(open('taught'))
+    await settle()
+    await run(reorderPrinciples([two.id, one.id]))
+    expect(state.taught.get()!.principles.map((each) => each.topic)).toEqual(['Two', 'One'])
+    newer.release(taught({ principles: [one, { ...two, rule: 'Said better.' }, principle('Three')] }))
+    await settle()
+    expect(state.taught.get()!.principles.map((each) => each.topic)).toEqual(['Two', 'One', 'Three'])
+    expect(state.taught.get()!.principles[0]!.rule).toBe('Said better.')
   })
 })

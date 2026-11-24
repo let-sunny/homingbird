@@ -1,5 +1,5 @@
 import type { AsRead } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
+import { type Child, type Lifetime, h, region } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
 import {
   type ConnectionModel,
@@ -9,13 +9,15 @@ import {
   firstStepsModel,
 } from '../models/connection.ts'
 import { serviceBannerModel } from '../models/service-banner.ts'
+import type { ListWait } from '../models/start.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { cloudDeskSection } from './cloud-desk.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { joinCodeSection } from './join-code.ts'
-import { channelChips, commandLines, field, loading, presenceBadges } from './parts.ts'
+import { pageData } from './page-data.ts'
+import { channelChips, checking, commandLines, field, listWait, presenceBadges } from './parts.ts'
 import { serviceBanner } from './service-banner.ts'
 import { freshSessionSuggestions } from './session-health-view.ts'
 import { slackSection } from './slack.ts'
@@ -23,14 +25,10 @@ import { slackSection } from './slack.ts'
 /** "Connection": the person's devices and agents, whether the desk is awake, and how to connect one. */
 export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const { state, actions } = context
-  const credentials = signal<ReadonlyArray<AsRead.Credential> | null>(null)
-  const listCredentials = (): void => actions.listCredentials({ done: (listed) => credentials.set(listed) })
-  const reload = (): void => {
-    actions.reloadAgents()
-    listCredentials()
-  }
+  const { shown: credentials, wait } = pageData(state, state.credentials)
+  const reload = (): void => actions.reloadCredentials()
   actions.loadAgents()
-  listCredentials()
+  actions.loadCredentials()
   actions.loadKnownChannels()
   const model = (): ConnectionModel =>
     connectionModel({
@@ -38,6 +36,7 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
       directory: state.directory.get(),
       credentials: credentials.get(),
       channels: state.channels.get(),
+      channelsCame: state.channelsLoaded.get() && state.directoryLoaded.get(),
       joinCodes: featureOn('joinCodes', state.serverInfo.get()),
     })
   return h(
@@ -68,13 +67,17 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
       { class: 'connected-agents', 'aria-labelledby': 'connected-agents' },
       h('h3', { id: 'connected-agents' }, strings.credentialsTitle),
       h('p', { class: 'trust-footnote' }, strings.credentialsIntro),
-      region(life, [credentials], () => renderCredentials(model(), context, reload)),
+      region(life, [credentials, wait], () => renderCredentials(model(), wait.get(), context, reload)),
     ),
     h(
       'fieldset',
       { class: 'appearance my-channels' },
       h('legend', {}, strings.profileAgent),
-      region(life, [state.channels, state.directory], () => renderHelped(model())),
+      region(
+        life,
+        [state.channels, state.directory, state.channelsLoaded, state.directoryLoaded, state.workspace],
+        () => renderHelped(model(), context),
+      ),
       h('a', { class: 'button', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
     ),
     featureOn('cloudDesk', state.serverInfo.get()) && cloudDeskSection(context, life, credentials),
@@ -130,8 +133,13 @@ const renderFirstSteps = (model: FirstStepsModel, context: ViewContext): HTMLEle
   )
 }
 
-const renderCredentials = (model: ConnectionModel, context: ViewContext, reload: () => void): Child => {
-  if (model.credentials === null) return loading()
+const renderCredentials = (
+  model: ConnectionModel,
+  wait: ListWait | null,
+  context: ViewContext,
+  reload: () => void,
+): Child => {
+  if (model.credentials === null) return listWait(wait, () => context.actions.askAgain())
   return [
     model.credentials.noAgents && h('p', { class: 'no-agents' }, strings.noAgentsYet),
     h(
@@ -268,5 +276,9 @@ const renderDeskState = (model: ConnectionModel, context: ViewContext): HTMLElem
         ...model.unavailable.map((line) => h('p', { class: 'hint', role: 'status' }, line)),
       )
 
-const renderHelped = (model: ConnectionModel): HTMLElement =>
-  model.helped.length === 0 ? h('p', {}, strings.noChannelsHelped) : channelChips(model.helped)
+const renderHelped = (model: ConnectionModel, context: ViewContext): HTMLElement | null =>
+  model.helped === null
+    ? checking(context, strings.checking.channels)
+    : model.helped.length === 0
+      ? h('p', {}, strings.noChannelsHelped)
+      : channelChips(model.helped)

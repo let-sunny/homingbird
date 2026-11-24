@@ -10,16 +10,20 @@ import {
 } from '../models/teaching-interview.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
-import { pageData } from './page-data.ts'
-import { button, field, listWait } from './parts.ts'
+import { type PageWait, pageData } from './page-data.ts'
+import { type Unsaved, button, field, forgetTyped, keepTyped, listWait } from './parts.ts'
 
 /** "Teach by chatting" on the Teaching tab, shown while teaching is on. */
-export const interviewSection = (context: ViewContext, life: Lifetime): HTMLElement | null => {
+export const interviewSection = (
+  context: ViewContext,
+  life: Lifetime,
+  wait: PageWait,
+): HTMLElement | null => {
   if (!featureOn('teaching', context.state.serverInfo.get())) return null
   const { state, actions } = context
   actions.refreshInterview()
   const unsaved: Unsaved = new Map()
-  const { shown, wait } = pageData(state, state.interview)
+  const { shown } = pageData(state, state.interview)
   return region(
     life,
     [shown, wait],
@@ -28,21 +32,12 @@ export const interviewSection = (context: ViewContext, life: Lifetime): HTMLElem
   )
 }
 
-/** What the person typed and has not saved, by field, so that drawing the section again keeps it. */
-type Unsaved = Map<string, string>
-
-const keepTyped = (unsaved: Unsaved, key: string, input: TextInput, value: string): void => {
-  input.value = unsaved.get(key) ?? value
-  input.addEventListener('input', () => {
-    if (input.value === value) unsaved.delete(key)
-    else unsaved.set(key, input.value)
-  })
-}
-
-type TextInput = HTMLInputElement | HTMLTextAreaElement
-
 const renderInterview = (model: InterviewModel, context: ViewContext, unsaved: Unsaved): Child => {
-  if (model.kind === 'waiting') return listWait(model.wait, () => context.actions.askAgain('interview'))
+  if (model.kind === 'waiting')
+    return [
+      h('h3', { id: 'teach-chat' }, model.title),
+      listWait(model.wait, () => context.actions.askAgain()),
+    ]
   const document = h('textarea', {
     name: 'document',
     rows: 4,
@@ -70,7 +65,7 @@ const renderInterview = (model: InterviewModel, context: ViewContext, unsaved: U
           const saved = document.value
           context.actions.saveTeachingDocument(saved.trim() === '' ? null : saved, {
             done: () => {
-              if (unsaved.get('document') === saved) unsaved.delete('document')
+              forgetTyped(unsaved, 'document', saved)
               notify(strings.teach.chat.documentSaved)()
             },
           })

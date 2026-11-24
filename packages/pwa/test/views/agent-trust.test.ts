@@ -6,6 +6,7 @@ import { agentTrustView } from '../../src/views/agent-trust.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import { everything, me, report, serverInfo } from '../support/fixtures.ts'
+import { setLoad } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -53,6 +54,23 @@ describe('agentTrustView', () => {
     page.runFrames()
     expect(document.activeElement).toBe(document.body)
   })
+
+  it.each(['failed', 'long'] as const)(
+    'tells once on Teaching of every part that is at %s, with one way to try again',
+    (step) => {
+      for (const stuck of [['interview', 'taught'], ['interview'], ['taught']] as const) {
+        const { context, called } = testContext()
+        context.state.serverInfo.set(everything())
+        const shown = mount(agentTrustView(context, lifetime(), me(), 'teaching'))
+        for (const key of stuck) setLoad(context.state[key], { step })
+        const again = allByRole(shown, 'button', { name: strings.tryAgain })
+        expect(again).toHaveLength(1)
+        again[0]!.click()
+        expect(called('askAgain').length).toBeGreaterThan(0)
+        expect(getByRole(shown, 'heading', { name: strings.teach.chat.title })).toBeTruthy()
+      }
+    },
+  )
 
   it('loads no report on Teaching', () => {
     const { context, called } = testContext()

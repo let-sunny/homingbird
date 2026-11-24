@@ -2,7 +2,6 @@ import type { AsRead, NoteId } from '@homingbird/protocol'
 import { CHANNEL_AGENT_NAME_MAX, DISCARD_REASON_MAX } from '@homingbird/protocol'
 import { type Child, type Lifetime, derived, h, linkedText, region, signal, slice } from '@homingbird/ui'
 import type { ChannelAgentState } from '../channel-answerers.ts'
-import { channelLabel } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import { heldLineFor } from '../held-decisions.ts'
 import { type ChannelAgentFiguresModel, channelAgentFiguresModel } from '../models/channel-agent-figures.ts'
@@ -21,7 +20,6 @@ import {
   type ChannelAgentTabs,
   channelAgentTabsModel,
 } from '../models/channel-teaching.ts'
-import { firstAnswersStep, listWaitModel } from '../models/start.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import { channelDecisionsSection } from './channel-decisions.ts'
@@ -34,8 +32,19 @@ import { renderHeldLine } from './held-toast.ts'
 import { hinted } from './hint.ts'
 import { joinCodeSection } from './join-code.ts'
 import { noteBody } from './note-body.ts'
-import { readPageData } from './page-data.ts'
-import { button, field, listWait, loading, page as pageOf, slackReplyLines, sourceList } from './parts.ts'
+import { type PageWait, pageData, pageWaits } from './page-data.ts'
+import {
+  type Unsaved,
+  button,
+  field,
+  forgetTyped,
+  keepTyped,
+  listWait,
+  loading,
+  page as pageOf,
+  slackReplyLines,
+  sourceList,
+} from './parts.ts'
 
 /** The agent's buttons among a channel's own controls: its panel for a manager, and asking it privately. */
 export const agentButtons = (context: ViewContext, channel: AsRead.Channel): Child => {
@@ -51,9 +60,7 @@ export const agentButtons = (context: ViewContext, channel: AsRead.Channel): Chi
           {
             type: 'button',
             class: 'channel-agent-open',
-            ...opensDialog(context, model.manage, (life) =>
-              agentPanel(context, life, channel, null, 'dialog'),
-            ),
+            ...opensDialog(context, model.manage, (life) => agentDialog(context, life, channel.slug)),
           },
           model.manage,
         ),
@@ -70,7 +77,6 @@ export const agentButtons = (context: ViewContext, channel: AsRead.Channel): Chi
   ]
 }
 
-/** Beside the conversations: how many answers wait for the person to review, and where. */
 /**
  * The page of a channel's agent, where a desk connected as it sends its managers to review its answers,
  * and a review notification opens one answer's card.
@@ -85,9 +91,8 @@ export const channelAgentView = (
   const { state, actions } = context
   actions.loadKnownChannels()
   const tabs = channelAgentTabsModel(slug, state.serverInfo.get(), asked)
-  const shown = slice([state.channels, state.channelsLoaded], () =>
-    channelAgentPageModel(state.channels.get(), state.channelsLoaded.get(), slug),
-  )
+  const { shown, agentState } = agentPageOf(context, slug)
+  const unsaved: Unsaved = new Map()
   return h(
     'div',
     { class: 'channel-agent-page' },
@@ -97,14 +102,38 @@ export const channelAgentView = (
       if (page.kind === 'missing') return h('p', { class: 'hint' }, page.text)
       return pageOf(
         page.title,
-        page.agentState !== null && channelAgentStateLine(page.agentState),
+        region(
+          drawing,
+          [agentState],
+          () => {
+            const now = agentState.get()
+            return now !== null && channelAgentStateLine(now)
+          },
+          { class: 'channel-agent-state-host' },
+        ),
         renderTabs(tabs),
         tabs.shown === 'teach'
-          ? channelTeachingSection(context, drawing, slug, page.channel.agent?.name ?? channelLabel(slug))
-          : agentPanel(context, drawing, page.channel, focus, 'page'),
+          ? channelTeachingSection(context, drawing, slug, page.agent, unsaved)
+          : answersPanel(context, drawing, slug, page.agent, focus, unsaved),
       )
     }),
   )
+}
+
+/** The page of a channel's agent apart from its state, which changes as its desks wake and sleep. */
+const agentPageOf = ({ state }: ViewContext, slug: string) => {
+  const sources = [state.channels, state.channelsLoaded]
+  const model = () => channelAgentPageModel(state.channels.get(), state.channelsLoaded.get(), slug)
+  return {
+    shown: slice(sources, () => {
+      const page = model()
+      return page.kind === 'channel' ? { ...page, agentState: null } : page
+    }),
+    agentState: slice(sources, () => {
+      const page = model()
+      return page.kind === 'channel' ? page.agentState : null
+    }),
+  }
 }
 
 const renderTabs = (model: ChannelAgentTabs): Child =>
@@ -115,38 +144,79 @@ const renderTabs = (model: ChannelAgentTabs): Child =>
     model.tabs.map((tab) => h('a', { href: tab.href, 'aria-current': tab.current && 'page' }, tab.label)),
   )
 
-/**
- * The agent of a channel the person manages: in the dialog its name, desks and retiring it, with a way to
- * its page; on its page the answers waiting first and what was recently decided, then the same, then how
- * it is doing.
- */
+/** The agent of a channel in a dialog, for as long as the person runs it. */
+const agentDialog = (context: ViewContext, life: Lifetime, slug: string): HTMLElement => {
+  const { shown } = agentPageOf(context, slug)
+  const unsaved: Unsaved = new Map()
+  return region(
+    life,
+    [shown],
+    (drawing) => {
+      const page = shown.get()
+      if (page.kind === 'loading') return loading()
+      if (page.kind === 'missing') return h('p', { class: 'hint' }, page.text)
+      const [wait] = pageWaits(context.state, [context.state.channelAgents.use(slug, drawing).load])
+      return agentPanel(context, drawing, slug, 'dialog', wait!, unsaved)
+    },
+    { class: 'dialog-body channel-agent-panel' },
+  )
+}
+
+/** On the agent's page: the answers waiting first and what was recently decided, then its panel, then how it is doing. */
+const answersPanel = (
+  context: ViewContext,
+  life: Lifetime,
+  slug: string,
+  agent: string,
+  focus: string | null,
+  unsaved: Unsaved,
+): HTMLElement => {
+  const { state } = context
+  const [answers, decisions, setup, figures] = pageWaits(state, [
+    state.reviews.load,
+    state.channelDecisions.use(slug, life).load,
+    state.channelAgents.use(slug, life).load,
+    state.channelAgentFigures.use(slug, life).load,
+  ])
+  const panel: HTMLElement = h(
+    'div',
+    { class: 'channel-agent-panel' },
+    waitingAnswers(context, life, slug, focus, answers!, (): HTMLElement => panel),
+    channelDecisionsSection(context, life, slug, agent, decisions!),
+    agentPanel(context, life, slug, 'page', setup!, unsaved),
+    agentFigures(context, life, slug, figures!),
+  )
+  return panel
+}
+
+/** The agent of a channel the person manages: its name, desks and retiring it, in the dialog with a way to its page. */
 const agentPanel = (
   context: ViewContext,
   life: Lifetime,
-  channel: AsRead.Channel,
-  focus: string | null,
+  slug: string,
   place: AgentPanelPlace,
+  wait: PageWait,
+  unsaved: Unsaved,
 ): HTMLElement => {
   const { state, actions } = context
-  const held = state.channelAgents.use(channel.slug, life)
-  const { shown, wait } = readPageData(state, held)
+  const { shown } = pageData(state, state.channelAgents.use(slug, life))
   let joinSection: { readonly name: string; readonly element: HTMLElement } | null = null
   const joinCodeFor = (name: string): HTMLElement | null => {
     if (!featureOn('joinCodes', state.serverInfo.get())) return null
     if (joinSection?.name !== name)
       joinSection = {
         name,
-        element: joinCodeSection(context, life, { channel: channel.slug, name }, () => {
-          actions.reloadAgentPage('channelAgents', channel.slug)
+        element: joinCodeSection(context, life, { channel: slug, name }, () => {
+          actions.reloadAgentPage('channelAgents', slug)
           actions.reloadKnownChannels()
         }),
       }
     return joinSection.element
   }
-  actions.openAgentPage('channelAgents', channel.slug)
+  actions.openAgentPage('channelAgents', slug)
   const retiring = { open: false }
   const people = slice([state.members], () => state.members.get())
-  const setup = region(life, [shown, wait, people], () =>
+  return region(life, [shown, wait, people], () =>
     renderPanel(
       agentPanelModel(
         shown.get(),
@@ -156,29 +226,21 @@ const agentPanel = (
         featureOn('joinCodes', state.serverInfo.get()),
       ),
       context,
-      channel,
+      slug,
       joinCodeFor,
       retiring,
+      unsaved,
     ),
   )
-  if (place === 'dialog') return h('div', { class: 'dialog-body channel-agent-panel' }, setup)
-  const panel: HTMLElement = h(
-    'div',
-    { class: 'channel-agent-panel' },
-    waitingAnswers(context, life, channel, focus, (): HTMLElement => panel),
-    channelDecisionsSection(context, life, channel),
-    setup,
-    agentFigures(context, life, channel),
-  )
-  return panel
 }
 
 /** The answers waiting in the channel; the one a notification opened is brought into view, once. */
 const waitingAnswers = (
   context: ViewContext,
   life: Lifetime,
-  channel: AsRead.Channel,
+  slug: string,
   focus: string | null,
+  wait: PageWait,
   host: () => HTMLElement,
 ): HTMLElement => {
   const { state, actions } = context
@@ -197,7 +259,6 @@ const waitingAnswers = (
       life.add(state.reviews.subscribe(learnWhatBecameOfFocus))
     },
   })
-  const awaited = slice([state.reviews.load], () => firstAnswersStep([state.reviews.load.get()]))
   const sources = [
     state.reviews,
     state.reviewsRead,
@@ -206,15 +267,13 @@ const waitingAnswers = (
     state.held,
     state.draftEdits,
     state.channels,
-    state.workspace,
-    awaited,
+    wait,
   ]
   return region(life, sources, () => {
     const settled = decided.get()
-    const step = awaited.get()
     const model = reviewCardsModel(
       state.reviews.get(),
-      channel.slug,
+      slug,
       state.reviewsRead.get(),
       state.members.get(),
       state.draftEdits.get(),
@@ -236,12 +295,9 @@ const waitingAnswers = (
           decidedAnswerModel(settled.note, signedIn(state)?.member.id ?? null, state.members.get()),
         ),
       model.none !== null &&
-        (step === null
+        (wait.get() === null
           ? h('p', { class: 'hint' }, model.none)
-          : listWait(
-              listWaitModel(step, state.workspace.get(), strings.checking.waiting),
-              actions.askActivityAgain,
-            )),
+          : listWait(wait.get(), () => actions.askAgain())),
       h(
         'ul',
         { class: 'review-cards' },
@@ -260,21 +316,20 @@ const waitingAnswers = (
 }
 
 /** How the agent is doing, read again whenever an answer in the channel is sent or discarded. */
-const agentFigures = (context: ViewContext, life: Lifetime, channel: AsRead.Channel): HTMLElement => {
+const agentFigures = (context: ViewContext, life: Lifetime, slug: string, wait: PageWait): HTMLElement => {
   const { state, actions } = context
-  const held = state.channelAgentFigures.use(channel.slug, life)
-  const { shown, wait } = readPageData(state, held)
+  const { shown } = pageData(state, state.channelAgentFigures.use(slug, life))
   const waitingHere = derived([state.reviews], (reviews) =>
     reviews
-      .filter((review) => review.channel === channel.slug)
+      .filter((review) => review.channel === slug)
       .map((review) => review.note.id)
       .join(' '),
   )
-  actions.openAgentPage('channelAgentFigures', channel.slug)
-  life.add(waitingHere.subscribe(() => actions.reloadAgentPage('channelAgentFigures', channel.slug)))
+  actions.openAgentPage('channelAgentFigures', slug)
+  life.add(waitingHere.subscribe(() => actions.reloadAgentPage('channelAgentFigures', slug)))
   return region(life, [shown, wait], () =>
-    renderFigures(channelAgentFiguresModel(shown.get(), wait.get(), channel.slug, FIGURES_DAYS), () =>
-      actions.askAgentPageAgain('channelAgentFigures', channel.slug),
+    renderFigures(channelAgentFiguresModel(shown.get(), wait.get(), slug, FIGURES_DAYS), () =>
+      actions.askAgain(),
     ),
   )
 }
@@ -283,7 +338,13 @@ const FIGURES_DAYS = 30
 
 const renderFigures = (model: ChannelAgentFiguresModel, askAgain: () => void): Child => {
   if (model.kind === 'hidden') return null
-  if (model.kind === 'waiting') return listWait(model.wait, askAgain)
+  if (model.kind === 'waiting')
+    return h(
+      'section',
+      { class: 'channel-agent-figures' },
+      h('h3', {}, model.title),
+      listWait(model.wait, askAgain),
+    )
   return h(
     'section',
     { class: 'channel-agent-figures' },
@@ -336,17 +397,21 @@ const bringIntoView = (card: HTMLElement | null): void => {
 const renderPanel = (
   model: AgentPanel,
   context: ViewContext,
-  channel: AsRead.Channel,
+  slug: string,
   joinCodeFor: (name: string) => HTMLElement | null,
   retiring: { open: boolean },
+  unsaved: Unsaved,
 ): Child => {
-  if (model.kind === 'waiting')
-    return listWait(model.wait, () => context.actions.askAgentPageAgain('channelAgents', channel.slug))
+  if (model.kind === 'waiting') return listWait(model.wait, () => context.actions.askAgain())
   if (model.kind === 'none')
     return [
       h('p', {}, model.intro),
       h('p', { class: 'hint' }, model.text),
-      nameForm(model.create, '', (name) => context.actions.createChannelAgent(channel.slug, name), 'primary'),
+      nameForm(
+        { label: model.create, value: '', key: 'create', emphasis: 'primary' },
+        unsaved,
+        (name, then) => context.actions.createChannelAgent(slug, name, then),
+      ),
     ]
   return [
     h('p', {}, model.intro),
@@ -362,10 +427,9 @@ const renderPanel = (
         h('small', { class: 'hint' }, model.page.hint),
       ),
     nameForm(
-      strings.channelAgent.rename,
-      model.name,
-      (name) => context.actions.renameChannelAgent(channel.slug, name),
-      'secondary',
+      { label: strings.channelAgent.rename, value: model.name, key: 'rename', emphasis: 'secondary' },
+      unsaved,
+      (name, then) => context.actions.renameChannelAgent(slug, name, then),
     ),
     h('h3', {}, model.desksTitle),
     model.desksNone !== null && h('p', { class: 'hint' }, model.desksNone),
@@ -380,7 +444,7 @@ const renderPanel = (
           desk.issuedBy !== null && h('small', {}, desk.issuedBy),
           desk.state !== null && h('small', { class: 'agent-desk-state' }, desk.state),
           desk.disconnect !== null &&
-            button(desk.disconnect, () => context.actions.disconnectAgentDesk(channel.slug, desk.id), {
+            button(desk.disconnect, () => context.actions.disconnectAgentDesk(slug, desk.id), {
               class: 'danger',
             }),
         ),
@@ -403,7 +467,7 @@ const renderPanel = (
           on: {
             submit: (event) => {
               event.preventDefault()
-              context.actions.retireChannelAgent(channel.slug, { done: () => closeDialog(context) })
+              context.actions.retireChannelAgent(slug, { done: () => closeDialog(context) })
             },
           },
         },
@@ -415,18 +479,22 @@ const renderPanel = (
 }
 
 const nameForm = (
-  label: string,
-  value: string,
-  save: (name: string) => void,
-  emphasis: 'primary' | 'secondary',
+  form: {
+    readonly label: string
+    readonly value: string
+    readonly key: string
+    readonly emphasis: 'primary' | 'secondary'
+  },
+  unsaved: Unsaved,
+  save: (name: string, then: { readonly done: () => void }) => void,
 ): HTMLElement => {
   const name = h('input', {
     name: 'name',
     required: true,
     maxlength: String(CHANNEL_AGENT_NAME_MAX),
     autocomplete: 'off',
-    value,
   })
+  keepTyped(unsaved, form.key, name, form.value)
   return h(
     'form',
     {
@@ -434,13 +502,13 @@ const nameForm = (
       on: {
         submit: (event) => {
           event.preventDefault()
-          const typed = name.value.trim()
-          if (typed !== '') save(typed)
+          const typed = name.value
+          if (typed.trim() !== '') save(typed.trim(), { done: () => forgetTyped(unsaved, form.key, typed) })
         },
       },
     },
     field(strings.channelAgent.nameLabel, name, strings.channelAgent.nameHint),
-    h('button', { type: 'submit', ...(emphasis === 'primary' && { class: 'primary' }) }, label),
+    h('button', { type: 'submit', ...(form.emphasis === 'primary' && { class: 'primary' }) }, form.label),
   )
 }
 

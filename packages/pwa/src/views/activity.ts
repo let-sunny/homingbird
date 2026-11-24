@@ -249,7 +249,7 @@ const activityContent = (context: ViewContext, life: Lifetime, me: AsRead.Me): H
       if (shown === null) return null
       if (shown.kind === 'none' || shown.kind === 'checking')
         return h('p', { class: 'activity-empty' }, shown.text)
-      return listWait(shown, actions.askActivityAgain)
+      return listWait(shown, actions.askAgain)
     }),
     region(life, [agent], () => {
       const notice = agent.get()

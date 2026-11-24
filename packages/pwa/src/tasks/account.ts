@@ -47,12 +47,6 @@ export const chooseLanguage = (chosen: Locale | null): Action =>
     state.session.set({ ...rest, member, ...(chosen !== null && { locale: chosen }) })
   })
 
-export const listCredentials: Action<ReadonlyArray<AsRead.Credential>> = withApp(({ api }) =>
-  T.map((listed: { credentials: ReadonlyArray<AsRead.Credential> }) => listed.credentials)(
-    api['credentials.list']({}),
-  ),
-)
-
 export const renameCredential = (id: CredentialId, name: string): Action =>
   withApp(({ api }) => T.asUnit(api['credentials.rename']({ params: { id }, body: { name } })))
 

@@ -34,6 +34,18 @@ export const appliedPrinciples = (
 ): AsRead.Principle[] =>
   appliedClaims(basis, principles).flatMap((claim) => (claim.principle === null ? [] : [claim.principle]))
 
+/** The same principles in the order of these ids, any other after them. */
+export const inOrder = <Taught extends { readonly principles: ReadonlyArray<AsRead.Principle> }>(
+  taught: Taught,
+  ids: ReadonlyArray<string>,
+): Taught => {
+  const place = (principle: AsRead.Principle): number => {
+    const index = ids.indexOf(principle.id)
+    return index === -1 ? ids.length : index
+  }
+  return { ...taught, principles: [...taught.principles].sort((a, b) => place(a) - place(b)) }
+}
+
 export interface AppliedClaim {
   readonly title: string
   readonly principle: AsRead.Principle | null

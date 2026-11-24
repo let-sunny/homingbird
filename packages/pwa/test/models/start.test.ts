@@ -3,7 +3,8 @@ import { USUAL_LOAD_SECONDS } from '../../src/load-timing.ts'
 import {
   checkingWords,
   firstAnswersStep,
-  pageWaitModel,
+  offersRetry,
+  pageWaitModels,
   startModel,
   workspaceLineModel,
 } from '../../src/models/start.ts'
@@ -26,23 +27,26 @@ describe('firstAnswersStep', () => {
   })
 })
 
-describe('pageWaitModel', () => {
+describe('pageWaitModels', () => {
   const load = (step: 'idle' | 'loading' | 'slow' | 'long' | 'failed', loaded = false) => ({
     loaded,
     step,
     error: null,
   })
 
+  const waitOf = (...given: [ReturnType<typeof load>, 'loaded' | 'long' | 'failed', string]) =>
+    pageWaitModels([given[0]], given[1], given[2])[0]
+
   it('says it is checking while the first answer is awaited, then the way to try again once it took too long or failed', () => {
     const checking = { kind: 'checking', text: strings.loading }
-    expect(pageWaitModel(load('idle'), 'loaded', strings.loading)).toEqual(checking)
-    expect(pageWaitModel(load('slow'), 'loaded', strings.loading)).toEqual(checking)
-    expect(pageWaitModel(load('long'), 'loaded', strings.loading)).toEqual({
+    expect(waitOf(load('idle'), 'loaded', strings.loading)).toEqual(checking)
+    expect(waitOf(load('slow'), 'loaded', strings.loading)).toEqual(checking)
+    expect(waitOf(load('long'), 'loaded', strings.loading)).toEqual({
       kind: 'long',
       text: strings.firstLoad.tooLong,
       retry: strings.tryAgain,
     })
-    expect(pageWaitModel(load('failed'), 'loaded', strings.loading)).toEqual({
+    expect(waitOf(load('failed'), 'loaded', strings.loading)).toEqual({
       kind: 'failed',
       text: strings.loadFailed,
       retry: strings.tryAgain,
@@ -51,15 +55,25 @@ describe('pageWaitModel', () => {
 
   it('leaves it to the line above the lists to say what it already says, so that a problem is told once', () => {
     for (const workspace of ['long', 'failed'] as const)
-      expect(pageWaitModel(load('failed'), workspace, strings.loading)).toEqual({ kind: 'told-above' })
+      expect(waitOf(load('failed'), workspace, strings.loading)).toEqual({ kind: 'told-above' })
   })
 
   it('does not wait for what has come, however its next request goes', () => {
-    expect(pageWaitModel(load('failed', true), 'loaded', strings.loading)).toEqual({
-      kind: 'checking',
-      text: strings.loading,
-    })
+    expect(waitOf(load('failed', true), 'loaded', strings.loading)).toBeNull()
   })
+
+  it.each(['long', 'failed'] as const)(
+    'tells of any part that is at %s once, in the place of the first that waits',
+    (step) => {
+      const parts = [load('idle', true), load('loading'), load(step), load(step)]
+      for (const loads of [parts, [...parts].reverse(), [load(step), ...parts]]) {
+        const waits = pageWaitModels(loads, 'loaded', strings.loading)
+        expect(waits.filter(offersRetry)).toHaveLength(1)
+        expect(waits.findIndex(offersRetry)).toBe(loads.findIndex((one) => !one.loaded))
+        expect(waits.map((wait) => wait === null)).toEqual(loads.map((one) => one.loaded))
+      }
+    },
+  )
 })
 
 describe('startModel', () => {

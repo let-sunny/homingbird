@@ -8,17 +8,42 @@ import type {
   GroupId,
   MemberId,
 } from '@homingbird/protocol'
+import { batch } from '@homingbird/ui'
 import { type Action, type App, withApp } from '../app.ts'
-import { type ListedChannels, withChannel } from '../channels.ts'
+import { type ChannelPageWish, type ListedChannels, answering, withChannel, withRowsOf } from '../channels.ts'
 import { hrefFor } from '../routes.ts'
 import { again, invalidate, open, reread } from './resources.ts'
+import { untilHolds } from './waiting-for.ts'
 
-/** The channel list for what the person typed, asked afresh; the next page follows the ones shown. */
+/**
+ * The channel list for what the person typed, asked afresh; the next page follows the ones shown. What
+ * answered an earlier word stays while the new answer comes quickly, and goes once it is late or fails.
+ */
 export const loadChannelPage = (query: string, after: ListedChannels | null): Action =>
   withApp(({ state }) => {
-    state.channelPageWish.set({ query, after })
-    return again('channelPage')
+    const wish = { query, after }
+    batch(() => {
+      const shown = state.channelPage.get()
+      const mayStay = state.channelPage.load.get().loaded || shown.channels.length > 0
+      state.channelPageWish.set(wish)
+      state.channelPage.reset()
+      state.channelPage.set(after ?? (mayStay ? shown : answering(query, shown)))
+    })
+    return T.flatMap(() => dropLateRows(wish))(again('channelPage'))
   })
+
+const dropLateRows = (wish: ChannelPageWish): Action =>
+  withApp(({ state: { channelPage, channelPageWish } }) =>
+    T.map(() => {
+      if (channelPageWish.get() === wish) channelPage.update((listed) => answering(wish.query, listed))
+    })(
+      T.result(
+        T.timeout(QUICK_SEARCH_MS)(
+          untilHolds(channelPage.load, ({ loaded, step }) => loaded || step === 'failed'),
+        ),
+      ),
+    ),
+  )
 
 /** The first page, as the channels page opens; nothing of an earlier visit stays. */
 export const openChannelPage: Action = withApp(({ state }) => {
@@ -27,10 +52,11 @@ export const openChannelPage: Action = withApp(({ state }) => {
   return open('channelPage')
 })
 
-/** The channels changed: the first page of what was typed is asked for once more. */
+/** The known channels changed: a first page is asked for once more, the rows of several are updated in place. */
 export const reloadChannelPage: Action = withApp(({ state }) => {
-  state.channelPageWish.update((wish) => ({ ...wish, after: null }))
-  return invalidate('channelPage')
+  if (state.channelPageWish.get().after === null) return invalidate('channelPage')
+  state.channelPage.update((listed) => withRowsOf(listed, state.channels.get()))
+  return T.unit
 })
 
 /** Opens a channel and keeps it in the list straight away; the person who opens it is its first manager. */
@@ -143,3 +169,6 @@ export const archiveChannel = (slug: string, moveMembersTo: string | null): Acti
   )
 
 const afterChannelChange: Action = T.suspend(() => reread('channels', 'conversations', 'directory'))
+
+/** How long the rows of the word before stay while a search is on its way. */
+export const QUICK_SEARCH_MS = 1000

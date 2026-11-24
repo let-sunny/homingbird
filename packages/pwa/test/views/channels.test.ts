@@ -1,10 +1,13 @@
 import { lifetime } from '@homingbird/ui'
 import { allByRole, fire, getByRole, getByText, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
+import { browserDocument } from '../../src/page-document.ts'
 import type { AppState } from '../../src/state.ts'
 import { strings } from '../../src/strings.ts'
 import { channelView, channelsView } from '../../src/views/channels.ts'
+import { createViewContext } from '../../src/views/context.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
+import { hold, testApp } from '../support/app.ts'
 import { testContext } from '../support/context.ts'
 import { mount, settle, usingFakeDom } from '../support/dom.ts'
 import { CY, channel, conversation, serverInfo } from '../support/fixtures.ts'
@@ -92,16 +95,62 @@ describe('channelsView', () => {
     expect(getByRole(shown, 'link', { name: '#ops' })).toBeTruthy()
   })
 
-  it('reloads a short list when the known channels change, and updates a long one in place', () => {
-    const { context, called } = testContext()
-    const shown = channelsView(context, lifetime())
-    context.state.channels.set([channel('billing')])
-    expect(called('reloadChannelPage')).toHaveLength(1)
-    const many = Array.from({ length: 21 }, (_, index) => channel(`c${index}`))
-    listed(context.state, page(many))
-    context.state.channels.set([channel('c0', { description: 'Renamed' })])
-    expect(called('reloadChannelPage')).toHaveLength(1)
+  it('newest wins while channels change: one page is read again, several are updated in place, and a search is never undone', async () => {
+    const first = page(
+      [channel('a'), ...Array.from({ length: 19 }, (_, index) => channel(`c${index}`))],
+      true,
+    )
+    const next = [hold<unknown>(), hold<unknown>()]
+    const answers = [first, first, page([channel('b')]), next[0]!.waiting, next[1]!.waiting]
+    let asked = 0
+    const { app, state, sent } = testApp({
+      'channels.list': (request) =>
+        (request as { query: { limit: string } }).query.limit === '20'
+          ? answers[asked++]
+          : page([channel('a')]),
+    })
+    const context = createViewContext(
+      app,
+      browserDocument(() => document),
+    )
+    const shown = mount(channelsView(context, lifetime()))
+    await settle()
+    getByRole(shown, 'button', { name: strings.showMoreChannels }).click()
+    await settle()
+    expect(getByRole(shown, 'link', { name: '#b' })).toBeTruthy()
+    state.channels.set([channel('a', { description: 'Renamed' })])
+    await settle()
     expect(getByText(shown, 'Renamed')).toBeTruthy()
+    fire.type(getByRole(shown, 'searchbox'), 'z')
+    await settle()
+    state.channels.set([channel('a', { description: 'Renamed again' })])
+    next[0]!.release(page([channel('z')]))
+    await settle()
+    expect(getByRole(shown, 'link', { name: '#z' })).toBeTruthy()
+    expect(queryByRole(shown, 'link', { name: '#a' })).toBeNull()
+    next[1]!.release(page([channel('zz')]))
+    await settle()
+    expect(allByRole(shown, 'link').map((link) => link.textContent)).toContain('#zz')
+    expect(sent.filter((one) => JSON.stringify(one.request).includes('"q":"z"'))).toHaveLength(2)
+    app.endSession()
+  })
+
+  it('keeps the pages shown while the next is on its way, and says below them that it did not come, with Try again', () => {
+    const { context, called } = testContext()
+    const shown = mount(channelsView(context, lifetime()))
+    listed(context.state, page([channel('billing')], true))
+    context.state.channelPageWish.set({ query: '', after: context.state.channelPage.get() })
+    setLoad(context.state.channelPage, { step: 'loading' })
+    const more = getByRole(shown, 'button', { name: strings.showMoreChannels })
+    expect(textOf(shown)).toContain(strings.checking.channels)
+    expect(more).toBeTruthy()
+    setLoad(context.state.channelPage, { step: 'failed' })
+    expect(getByRole(shown, 'link', { name: '#billing' })).toBeTruthy()
+    expect(queryByRole(shown, 'button', { name: strings.showMoreChannels })).toBeNull()
+    const again = allByRole(shown, 'button', { name: strings.tryAgain })
+    expect(again).toHaveLength(1)
+    again[0]!.click()
+    expect(called('loadChannelPage')[0]!.args).toEqual(['', context.state.channelPage.get()])
   })
 
   it('creates a channel, warning about one that exists, and opens it', () => {

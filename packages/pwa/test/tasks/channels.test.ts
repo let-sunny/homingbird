@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { TOO_LONG_LOAD_SECONDS } from '../../src/load-timing.ts'
 import * as tasks from '../../src/tasks/channels.ts'
-import { fail, settle, testApp } from '../support/app.ts'
+import { fail, hold, settle, testApp } from '../support/app.ts'
 import { BEN, ROOM, TEAM, channel, conversation, group, note } from '../support/fixtures.ts'
 
 const answers = {
@@ -21,15 +22,121 @@ describe('channel tasks', () => {
     state.channelPage.set({ query: 'old', channels: [channel('old')], hasMore: false, cursor: null })
     await run(tasks.openChannelPage)
     expect(state.channelPage.get()).toMatchObject({ query: '', channels: [{ slug: 'billing' }] })
+    await run(tasks.loadChannelPage('bill', null))
+    await run(tasks.reloadChannelPage)
+    await settle()
     await run(tasks.loadChannelPage('bill', { ...state.channelPage.get(), cursor: 'next' }))
+    await settle()
     await run(tasks.reloadChannelPage)
     await settle()
     expect(sent.map((one) => one.request)).toEqual([
       { query: { limit: '20' } },
-      { query: { limit: '20', q: 'bill', cursor: 'next' } },
       { query: { limit: '20', q: 'bill' } },
+      { query: { limit: '20', q: 'bill' } },
+      { query: { limit: '20', q: 'bill', cursor: 'next' } },
     ])
-    expect(state.channelPageWish.get()).toEqual({ query: 'bill', after: null })
+    expect(state.channelPage.get().channels).toHaveLength(2)
+  })
+
+  it.each([
+    ['a search', 'bill', false],
+    ['the next page', '', true],
+  ] as const)(
+    'tells through its load that %s is on its way, hangs or fails, though the list had come',
+    async (_, query, isNext) => {
+      const slow = hold<unknown>()
+      let answer: unknown = { channels: [channel('a')], hasMore: true, cursor: 'next' }
+      const { app, run, state, clock } = testApp({ 'channels.list': () => answer })
+      await run(tasks.openChannelPage)
+      const shown = state.channelPage.get()
+      const load = () => state.channelPage.load.get()
+      answer = slow.waiting
+      app.launch(tasks.loadChannelPage(query, isNext ? shown : null))
+      await settle()
+      expect(load()).toMatchObject({ loaded: false, step: 'loading' })
+      expect(state.channelPage.get().channels).toEqual(shown.channels)
+      await clock.advance(tasks.QUICK_SEARCH_MS)
+      await settle()
+      expect(state.channelPage.get().channels).toEqual(isNext ? shown.channels : [])
+      await clock.advance(TOO_LONG_LOAD_SECONDS * 1000 - tasks.QUICK_SEARCH_MS)
+      expect(load()).toMatchObject({ loaded: false, step: 'long' })
+      answer = fail({ _tag: 'Forbidden', message: 'no' })
+      await run(tasks.loadChannelPage(query, isNext ? shown : null))
+      await settle()
+      expect(load()).toMatchObject({ loaded: false, step: 'failed' })
+      expect(state.channelPage.get().channels).toEqual([])
+      answer = fail({ _tag: 'Unavailable', message: 'down' })
+      app.launch(tasks.loadChannelPage(query, isNext ? shown : null))
+      await clock.advance(20_000)
+      await settle()
+      expect(load()).toMatchObject({ loaded: false, step: 'failed' })
+      expect(state.channelPage.get().channels).toEqual(isNext ? shown.channels : [])
+      answer = { channels: [channel('b')], hasMore: false, cursor: null }
+      await run(tasks.loadChannelPage(query, isNext ? shown : null))
+      await settle()
+      expect(load()).toMatchObject({ loaded: true, step: 'idle' })
+      expect(state.channelPage.get().channels.map((one) => one.slug)).toEqual(isNext ? ['a', 'b'] : ['b'])
+      expect(state.notice.get()).toBeNull()
+    },
+  )
+
+  it('never empties the list for a quick search, and never draws an older answer under a newer word', async () => {
+    const holds = [hold<unknown>(), hold<unknown>()]
+    let asked = 0
+    const found = (slug: string) => ({ channels: [channel(slug)], hasMore: false, cursor: null })
+    const { app, run, state, clock } = testApp({
+      'channels.list': () => (asked++ === 0 ? found('old') : holds[asked - 2]!.waiting),
+    })
+    await run(tasks.openChannelPage)
+    const rows: string[] = []
+    state.channelPage.subscribe(({ query, channels }) =>
+      rows.push(`${query}: ${channels.map((one) => one.slug).join()}`),
+    )
+    app.launch(tasks.loadChannelPage('a', null))
+    await clock.advance(600)
+    app.launch(tasks.loadChannelPage('ab', null))
+    await clock.advance(600)
+    await settle()
+    holds[0]!.release(found('a'))
+    await settle()
+    expect(state.channelPage.get()).toMatchObject({ query: '', channels: [{ slug: 'old' }] })
+    holds[1]!.release(found('ab'))
+    await settle()
+    await clock.advance(tasks.QUICK_SEARCH_MS)
+    await settle()
+    expect(state.channelPage.get()).toMatchObject({ query: 'ab', channels: [{ slug: 'ab' }] })
+    expect(new Set(rows)).toEqual(new Set([': old', 'ab: ab']))
+  })
+
+  it('drops the rows of the word before at once when the search fails', async () => {
+    let answer: unknown = { channels: [channel('old')], hasMore: false, cursor: null }
+    const { app, run, state } = testApp({ 'channels.list': () => answer })
+    await run(tasks.openChannelPage)
+    answer = fail({ _tag: 'Forbidden', message: 'no' })
+    await run(tasks.loadChannelPage('a', null))
+    expect(state.channelPage.get()).toMatchObject({ query: 'a', channels: [] })
+    expect(state.channelPage.load.get()).toMatchObject({ loaded: false, step: 'failed' })
+    answer = hold<unknown>().waiting
+    app.launch(tasks.loadChannelPage('ab', null))
+    await settle()
+    expect(state.channelPage.get()).toMatchObject({ query: 'ab', channels: [] })
+    app.endSession()
+  })
+
+  it('tells nobody when only reading the same list again fails', async () => {
+    let isDown = false
+    const { run, state, clock } = testApp({
+      ...answers,
+      'channels.list': () =>
+        isDown ? fail({ _tag: 'Unavailable', message: 'down' }) : answers['channels.list'](),
+    })
+    await run(tasks.openChannelPage)
+    isDown = true
+    await run(tasks.reloadChannelPage)
+    await clock.advance(20_000)
+    await settle()
+    expect(state.channelPage.get().channels).toHaveLength(1)
+    expect(state.channelPage.load.get().loaded).toBe(true)
   })
 
   it('opens a channel and keeps it in the known list after the reload', async () => {

@@ -245,7 +245,7 @@ describe('activityPanel', () => {
     setLoad(state.reviews, { step: 'failed' })
     expect(textOf(panel)).not.toContain(strings.activity.empty)
     getByRole(panel, 'button', { name: strings.tryAgain }).click()
-    expect(called('askActivityAgain')).toHaveLength(1)
+    expect(called('askAgain')).toHaveLength(1)
     state.reviews.set([review()])
     expect(textOf(panel)).toContain(strings.loadFailed)
     expect(panel.querySelector('.review-card')).not.toBeNull()

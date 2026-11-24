@@ -10,10 +10,11 @@ export const channelAgentFiguresModel = (
   slug: string,
   days: number,
 ): ChannelAgentFiguresModel => {
-  if (wait !== null) return { kind: 'waiting', wait }
+  const channel = channelLabel(slug)
+  const title = strings.channelAgent.figuresTitle({ channel })
+  if (wait !== null) return { kind: 'waiting', title, wait }
   if (report === null) return { kind: 'hidden' }
   const period = report.periods.find((each) => each.days === days) ?? report.periods[0]!
-  const channel = channelLabel(slug)
   const count = (value: number): string => formats.decimal.format(value)
   const time = (ms: number | null): string => (ms === null ? strings.trust.noneYet : durationOf(ms))
   const row = (label: string, value: (figures: AsRead.ChannelAgentFigures) => string) =>
@@ -21,7 +22,7 @@ export const channelAgentFiguresModel = (
   const labels = strings.channelAgent
   return {
     kind: 'figures',
-    title: labels.figuresTitle({ channel }),
+    title,
     intro: labels.figuresIntro({ channel }),
     headings: [
       strings.trust.what,
@@ -56,7 +57,7 @@ export const channelAgentFiguresModel = (
 
 export type ChannelAgentFiguresModel =
   | { readonly kind: 'hidden' }
-  | { readonly kind: 'waiting'; readonly wait: ListWait }
+  | { readonly kind: 'waiting'; readonly title: string; readonly wait: ListWait }
   | {
       readonly kind: 'figures'
       readonly title: string

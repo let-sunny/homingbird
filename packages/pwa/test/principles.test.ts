@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   appliedPrinciples,
   countsShown,
+  inOrder,
   needsConfirmation,
   offersIn,
   problemText,
@@ -118,3 +119,18 @@ const PROBLEM_TEXT = {
     'Write the public sentence in your own words; it may not repeat the private text or its source.',
   public_names_channel: 'Leave the channel’s name out of the public sentence.',
 }
+
+describe('inOrder', () => {
+  it('orders by the ids, leaves what they do not name after them, and means the same twice', () => {
+    const [one, two, three] = ['One', 'Two', 'Three'].map((topic) => ({
+      ...principle(topic),
+      id: `prin_${topic}` as Principle['id'],
+    }))
+    const taught = { limit: 9, principles: [one!, two!, three!] }
+    const ids = ['prin_Three', 'prin_Gone', 'prin_One']
+    const ordered = inOrder(taught, ids)
+    expect(ordered).toEqual({ limit: 9, principles: [three, one, two] })
+    expect(inOrder(ordered, ids)).toEqual(ordered)
+    expect(inOrder(taught, [])).toEqual(taught)
+  })
+})

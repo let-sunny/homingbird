@@ -1,7 +1,7 @@
 import { CHANNEL_DESCRIPTION_MAX, NOTE_BODY_MAX } from '@homingbird/protocol'
 import type { AsRead, GroupId } from '@homingbird/protocol'
 import { type Child, type Lifetime, h, region, replaceChildren, signal, slice } from '@homingbird/ui'
-import { CHANNEL_PAGE, channelNamed, slugFrom } from '../channels.ts'
+import { channelNamed, slugFrom } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import {
   type ChannelCard,
@@ -9,7 +9,6 @@ import {
   askPageModel,
   channelListModel,
   joinedRoom,
-  listAfterChange,
   nameCheck,
   slugToCreate,
 } from '../models/channels.ts'
@@ -42,20 +41,15 @@ export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement 
   actions.openChannelPage()
   const listed = state.channelPage
   const awaited = slice([listed.load], () => firstAnswersStep([listed.load.get()]))
-  life.add(
-    state.channels.subscribe((known) => {
-      const next = listAfterChange(listed.get(), known, CHANNEL_PAGE)
-      if (next === 'reload') actions.reloadChannelPage()
-      else listed.set(next)
-    }),
-  )
+  life.add(state.channels.subscribe(() => actions.reloadChannelPage()))
   const search = h('input', {
     type: 'search',
     name: 'q',
     placeholder: strings.channelsSearchPlaceholder,
     on: {
       input: () => {
-        actions.loadChannelPage(search.value.trim(), null)
+        const query = search.value.trim()
+        if (query !== state.channelPageWish.get().query) actions.loadChannelPage(query, null)
       },
     },
   })
@@ -65,10 +59,19 @@ export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement 
     field(strings.channelsSearchLabel, search),
     region(life, [listed, awaited, state.workspace], () =>
       renderChannelList(
-        channelListModel(listed.get(), awaited.get(), state.workspace.get()),
+        channelListModel(listed.get(), state.channelPageWish.get(), awaited.get(), state.workspace.get()),
         context,
-        () => actions.loadChannelPage(listed.get().query, listed.get()),
-        () => actions.loadChannelPage(state.channelPageWish.get().query, null),
+        () => {
+          const { query } = state.channelPageWish.get()
+          if (listed.get().query === query) actions.loadChannelPage(query, listed.get())
+        },
+        () => {
+          const { query, after } = state.channelPageWish.get()
+          actions.loadChannelPage(
+            query,
+            after === null || listed.get().channels.length === 0 ? null : listed.get(),
+          )
+        },
       ),
     ),
   )
@@ -341,6 +344,7 @@ const renderChannelList = (
         model.onlyOne !== null && h('p', { class: 'hint only-one-channel' }, model.onlyOne),
         model.more !== null &&
           h('button', { type: 'button', class: 'show-more', on: { click: more } }, model.more),
+        listWait(model.wait, retry),
       ]
   }
 }

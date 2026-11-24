@@ -55,6 +55,8 @@ const ASKS: { readonly [Key in ChannelPageKey]: (slug: string) => Action<Channel
     ),
 }
 
+export const CHANNEL_PAGE_KEYS = Object.keys(ASKS) as ReadonlyArray<ChannelPageKey>
+
 const ofHeld = <Key extends ChannelPageKey>(
   key: Key,
   slug: string,

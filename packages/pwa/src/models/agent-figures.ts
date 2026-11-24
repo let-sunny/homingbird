@@ -10,7 +10,7 @@ import type { ListWait } from './start.ts'
 export const figuresModel = (
   report: AsRead.AgentReport | null,
   days: number,
-  wait: ListWait,
+  wait: ListWait | null,
 ): FiguresModel => {
   if (report === null) return { kind: 'waiting', wait }
   const period = periodOf(report, days)
@@ -82,7 +82,7 @@ export const labelsTableModel = (
       }
 
 export type FiguresModel =
-  | { readonly kind: 'waiting'; readonly wait: ListWait }
+  | { readonly kind: 'waiting'; readonly wait: ListWait | null }
   | {
       readonly kind: 'figures'
       readonly report: AsRead.AgentReport

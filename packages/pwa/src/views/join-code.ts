@@ -1,5 +1,5 @@
 import type { AsRead } from '@homingbird/protocol'
-import { type Child, type Lifetime, type Signal, h, later, region, signal } from '@homingbird/ui'
+import { type Child, type Lifetime, type ReadableSignal, h, later, region, signal } from '@homingbird/ui'
 import {
   type JoinCodeModel,
   type JoinCodeState,
@@ -25,7 +25,7 @@ export const joinCodeSection = (
   life: Lifetime,
   agent: { readonly channel: string; readonly name: string } | null,
   connected: () => void = () => {},
-  credentials: Signal<ReadonlyArray<AsRead.Credential> | null> = signal<ReadonlyArray<AsRead.Credential> | null>(
+  credentials: ReadableSignal<ReadonlyArray<AsRead.Credential> | null> = signal<ReadonlyArray<AsRead.Credential> | null>(
     null,
   ),
 ): HTMLElement => {

@@ -5,18 +5,20 @@ import { strings } from '../../src/strings.ts'
 import { loadActivity } from '../../src/tasks/activity.ts'
 import { DIRECTORY_SETTLE_MS, liveEvents } from '../../src/tasks/live.ts'
 import { open } from '../../src/tasks/resources.ts'
-import { settle, testApp } from '../support/app.ts'
+import { hold, settle, testApp } from '../support/app.ts'
 import {
   ANA,
   BEN,
   CY,
   ROOM,
+  TEAM,
   channel,
   conversation,
   credential,
   draft,
   entry,
   everything,
+  group,
   me,
   member,
   note,
@@ -26,7 +28,7 @@ import { setLoad } from '../support/resource-load.ts'
 
 const event = (body: unknown, seq = 1): AsRead.StreamEvent => ({ seq, at: 1, body }) as AsRead.StreamEvent
 
-const live = () => {
+const live = (handlers: Parameters<typeof testApp>[0] = {}) => {
   const test = testApp({
     'conversations.list': () => ({ conversations: [] }),
     'directory.list': () => ({ entries: [] }),
@@ -42,6 +44,7 @@ const live = () => {
     'debates.get': () => ({}),
     'groups.list': () => ({ groups: [] }),
     'previews.list': () => ({ previews: [] }),
+    ...handlers,
   })
   test.state.session.set(me())
   test.state.directory.set([entry(BEN, 'Ben')])
@@ -330,19 +333,19 @@ describe('liveEvents', () => {
   })
 
   it('reloads a flock shown, or the list', async () => {
-    const { apply, state, routes } = live()
-    apply(event({ type: 'debate.changed', debateId: 'd1', participantIds: [] }))
+    const { apply, state, sent } = live()
+    const changed = async (debateId: string) => {
+      sent.length = 0
+      apply(event({ type: 'debate.changed', debateId, participantIds: [] }))
+      await settle()
+      return sent.map((one) => [one.route, one.request])
+    }
+    expect(await changed('d1')).toEqual([])
     state.route.set({ name: 'debates' })
-    apply(event({ type: 'debate.changed', debateId: 'd1', participantIds: [] }))
+    expect(await changed('d1')).toEqual([['debates.list', {}]])
     state.route.set({ name: 'debate', id: 'd1', tab: null })
-    apply(event({ type: 'debate.changed', debateId: 'd2', participantIds: [] }))
-    apply(event({ type: 'debate.changed', debateId: 'd1', participantIds: [] }))
-    await settle()
-    expect(
-      routes()
-        .filter((route) => route.startsWith('debates.'))
-        .sort(),
-    ).toEqual(['debates.get', 'debates.list'])
+    expect(await changed('d2')).toEqual([])
+    expect(await changed('d1')).toEqual([['debates.get', { params: { id: 'd1' } }]])
   })
 
   it('reads the list of rooms again once changes settle, for the activity panel, once it was loaded', async () => {
@@ -430,6 +433,29 @@ describe('liveEvents', () => {
     await settle()
     expect(routes().filter((route) => route === 'principleProposals.list')).toHaveLength(1)
   })
+
+  it.each([
+    ['groups', { type: 'group.changed', groupId: 'grp_team00000000' }],
+    ['interview', { type: 'proposals.changed' }],
+  ] as const)(
+    'reads the %s once more when they change while their first answer is on its way',
+    async (key, body) => {
+      const first = hold<unknown>()
+      let asked = 0
+      const newest = { groups: [group(TEAM)], document: 'Newest', proposals: [], limit: 20 }
+      const answer = () => (asked++ === 0 ? first.waiting : newest)
+      const { apply, state, app, clock } = live({ 'groups.list': answer, 'principleProposals.list': answer })
+      state.serverInfo.set(everything())
+      app.launch(open(key))
+      await settle()
+      apply(event(body))
+      await clock.advance(DIRECTORY_SETTLE_MS)
+      first.release({ groups: [], document: null, proposals: [], limit: 20 })
+      await settle()
+      expect(asked).toBe(2)
+      expect(state[key].get()).toEqual(key === 'groups' ? newest.groups : newest)
+    },
+  )
 
   it('reads the person’s debate suggestions again when they change', async () => {
     const { apply, state, routes } = live()

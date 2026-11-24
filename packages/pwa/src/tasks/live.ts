@@ -5,7 +5,6 @@ import { type Action, type App, withApp } from '../app.ts'
 import { channelLabel, channelOfRoom, withChannel, withoutRoom } from '../channels.ts'
 import { upsertRequest } from '../draft-requests.ts'
 import { ATTEMPT_LIMIT_SECONDS } from '../load-timing.ts'
-import type { Resource } from '../resource.ts'
 import { hrefFor } from '../routes.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
@@ -15,7 +14,7 @@ import { loadDebate } from './debates.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
 import { closeDraftNotice } from './notifications.ts'
 import { loadPreviews, reloadPreviews } from './previews.ts'
-import { ACTIVITY, type ResourceKey, WORKSPACE, expire, invalidate, reread } from './resources.ts'
+import { ACTIVITY, type ResourceKey, WORKSPACE, expire, invalidate, reread, wasAsked } from './resources.ts'
 import { untilHolds } from './waiting-for.ts'
 import { followingWorkspace } from './workspace.ts'
 
@@ -40,7 +39,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
   const reloadDirectorySoon = invalidateSoon('directory', 'channels', 'conversations')
   const invalidateGroupsSoon = invalidateSoon('groups')
   const reloadGroupsSoon = (): void => {
-    if (state.groups.load.get().loaded) invalidateGroupsSoon()
+    if (wasAsked(state.groups)) invalidateGroupsSoon()
   }
   const reloadReviewsSoon = invalidateSoon('reviews')
   const reloadInterviewSoon = invalidateSoon('interview')
@@ -158,7 +157,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         reloadReviewsSoon()
         break
       case 'proposals.changed':
-        if (state.interview.load.get().loaded) reloadInterviewSoon()
+        if (wasAsked(state.interview)) reloadInterviewSoon()
         break
       case 'suggestions.changed':
         launch(invalidate('suggestions'))
@@ -234,14 +233,11 @@ const reloadShownDebate = (app: App, id: string): void => {
 const reloadEverything = (app: App): void => {
   app.launch(invalidate(...WORKSPACE, ...ACTIVITY))
   app.launch(T.flatMap(() => followingWorkspace)(reread('conversations', 'awaitingReply')))
-  if (app.state.groups.load.get().loaded) app.launch(invalidate('groups'))
+  if (wasAsked(app.state.groups)) app.launch(invalidate('groups'))
   const current = app.state.route.get()
   if (current.name === 'conversation') app.launch(loadThread(current.id as ConversationId))
   app.launch(reloadPreviews)
 }
-
-const wasAsked = ({ load }: Pick<Resource<unknown>, 'load'>): boolean =>
-  load.get().step !== 'idle' || load.get().loaded
 
 /** A note counts as just arrived, and is announced, while it is this fresh. */
 const FRESH_MS = 30_000

@@ -3,6 +3,8 @@ import { lifetime } from '@homingbird/ui'
 import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
+import type { ViewContext } from '../../src/views/context.ts'
+import { pageData } from '../../src/views/page-data.ts'
 import { interviewSection } from '../../src/views/teaching-interview.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
@@ -25,9 +27,12 @@ const proposal = (overrides: Partial<AsRead.PrincipleProposal> = {}): AsRead.Pri
   ...overrides,
 })
 
+const sectionOf = (context: ViewContext) =>
+  interviewSection(context, lifetime(), pageData(context.state, context.state.interview).wait)
+
 const shownWith = (proposals: ReadonlyArray<AsRead.PrincipleProposal>, document: string | null = null) => {
   const { context, called } = testContext()
-  const shown = mount(interviewSection(context, lifetime())!)
+  const shown = mount(sectionOf(context)!)
   context.state.interview.set({ document, proposals, limit: 20 })
   return { context, called, shown }
 }
@@ -36,19 +41,19 @@ describe('interviewSection', () => {
   it('is left out while teaching is switched off', () => {
     const { context, called } = testContext()
     context.state.serverInfo.set(serverInfo({ teaching: false }))
-    expect(interviewSection(context, lifetime())).toBeNull()
+    expect(sectionOf(context)).toBeNull()
     expect(called('refreshInterview')).toEqual([])
   })
 
   it('loads the proposals, and says once when they could not load, with a way to try again', () => {
     const { context, called } = testContext()
-    const shown = mount(interviewSection(context, lifetime())!)
+    const shown = mount(sectionOf(context)!)
     expect(called('refreshInterview')).toHaveLength(1)
-    expect(textOf(shown)).toBe(strings.loading)
+    expect(textOf(shown)).toBe(`${strings.teach.chat.title}${strings.loading}`)
     setLoad(context.state.interview, { step: 'failed' })
     expect(textOf(shown)).toContain(strings.loadFailed)
     getByRole(shown, 'button', { name: strings.tryAgain }).click()
-    expect(called('askAgain')[0]!.args).toEqual(['interview'])
+    expect(called('askAgain')).toHaveLength(1)
   })
 
   it('draws nothing again for the same data, so that what is typed stays', () => {

@@ -16,7 +16,12 @@ describe('profileView', () => {
     const { context, called } = testContext()
     const shown = profileView(context, lifetime(), me())
     expect(called('loadGroups')).toHaveLength(1)
-    expect(textOf(shown)).not.toContain(strings.groups.yours)
+    expect(textOf(shown)).not.toContain(strings.groups.yoursNone)
+    expect(shown.querySelector('.my-groups .loading')).not.toBeNull()
+    setLoad(context.state.groups, { step: 'failed' })
+    getByRole(shown, 'button', { name: strings.tryAgain }).click()
+    expect(called('askAgain')).toHaveLength(1)
+    expect(textOf(shown)).not.toContain(strings.groups.yoursNone)
     setLoad(context.state.groups, { loaded: true })
     expect(textOf(shown)).toContain(strings.groups.yoursNone)
     context.state.groups.set([
