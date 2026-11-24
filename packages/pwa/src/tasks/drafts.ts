@@ -9,8 +9,7 @@ import type { AppState, HeldWords } from '../state.ts'
 import { holdDecision } from './held.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote, shownNote } from './notes.ts'
 import { reloadQuietly } from './quiet-reload.ts'
-import { reread } from './resources.ts'
-import { refreshAgentReport, refreshPrinciples } from './teaching.ts'
+import { invalidate, reread } from './resources.ts'
 
 /**
  * Sends a draft, edited or as written, and discards the alternatives it was chosen from. The server
@@ -38,8 +37,7 @@ export const approveDraft = (
       const discarded = yield* T.result(api['drafts.discard']({ params: { id: alternative.id }, body: {} }))
       if (discarded._tag === 'Ok') forgetNote(state, alternative.conversationId, alternative.id)
     }
-    yield* refreshAgentReport
-    yield* refreshPrinciples
+    yield* invalidate('agentReport', 'taught')
     yield* reloadQuietly(loadThread(draft.conversationId))
     yield* reread('conversations')
   })
@@ -87,8 +85,7 @@ export const discardDraft = (draft: AsRead.Note): Action =>
     const { api, state } = yield* T.ask<App>()
     yield* api['drafts.discard']({ params: { id: draft.id }, body: {} })
     forgetNote(state, draft.conversationId, draft.id)
-    yield* refreshAgentReport
-    yield* refreshPrinciples
+    yield* invalidate('agentReport', 'taught')
     yield* reread('conversations')
   })
 

@@ -1,3 +1,4 @@
+import { lifetime } from '@homingbird/ui'
 import { describe, expect, it } from 'vitest'
 import { type AppState, OUTLIVES_SESSION, createState, forgetSession, signedIn } from '../src/state.ts'
 import { ANA, BEN, ROOM, channel, conversation, draft, entry, me, member } from './support/fixtures.ts'
@@ -87,6 +88,52 @@ describe('createState', () => {
   })
 })
 
+describe('what a channel agent’s page holds', () => {
+  const held = (state: AppState) => {
+    const life = lifetime()
+    const all = [
+      state.channelAgents,
+      state.channelTeaching,
+      state.channelAgentFigures,
+      state.channelDecisions,
+    ]
+    const entries = all.map((one) => one.use('wiki', life))
+    for (const entry of entries) {
+      entry.set(PERSONAL as never)
+      setLoad(entry, { loaded: true })
+    }
+    return entries
+  }
+
+  it('stays while the person still runs the channel’s agent, and is emptied when they no longer do', () => {
+    const state = createState('')
+    const entries = held(state)
+    state.channels.set([channel('wiki', { runsAgent: true })])
+    setLoad(state.channels, { loaded: true })
+    for (const entry of entries) expect(entry.get()).not.toBeNull()
+    state.channels.set([channel('wiki', { runsAgent: false })])
+    for (const entry of entries) expect(entry.get()).toBeNull()
+  })
+
+  it('is emptied when the channel is gone from the list, as when the person left it', () => {
+    const state = createState('')
+    const entries = held(state)
+    state.channels.set([channel('wiki', { runsAgent: true })])
+    setLoad(state.channels, { loaded: true })
+    state.channels.set([channel('other', { runsAgent: true })])
+    for (const entry of entries) expect(entry.get()).toBeNull()
+  })
+
+  it('is emptied when the server refused the channels, and left alone while they are only not read yet', () => {
+    const state = createState('')
+    const entries = held(state)
+    setLoad(state.channels, { step: 'loading' })
+    for (const entry of entries) expect(entry.get()).not.toBeNull()
+    setLoad(state.channels, { step: 'failed' })
+    for (const entry of entries) expect(entry.get()).toBeNull()
+  })
+})
+
 describe('forgetSession', () => {
   it('empties every part of the state but what it names, so a new part cannot be forgotten', () => {
     const state = createState('#/people')
@@ -123,6 +170,8 @@ const fill = (part: unknown, name: string): void => {
   if (typeof part !== 'object' || part === null || part instanceof Map || Array.isArray(part))
     throw new Error(`forgetSession does not empty ${name}`)
   if ('changesTo' in part) return void (part as AppState['changes']).count(ROOM)
+  if ('use' in part)
+    return void (part as AppState['channelAgents']).use('wiki', lifetime()).set(PERSONAL as never)
   if ('reset' in part) fill((part as AppState['debates']).load, `${name}.load`)
   if ('set' in part && 'get' in part) {
     const signal = part as { get: () => unknown; set: (value: unknown) => void }
@@ -136,6 +185,10 @@ const held = (part: unknown): unknown => {
   if (typeof part === 'function' || typeof part === 'number') return null
   if (part instanceof Set) return [...part]
   if ('changesTo' in (part as object)) return (part as AppState['changes']).changesTo(ROOM)
+  if ('use' in (part as object)) {
+    const { find, load } = part as AppState['channelAgents']
+    return [find('wiki') === null, load.get()]
+  }
   if ('reset' in (part as object)) {
     const { get, load } = part as AppState['debates']
     return [get(), load.get()]

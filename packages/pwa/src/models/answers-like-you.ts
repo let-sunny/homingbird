@@ -13,13 +13,13 @@ import { type TimeShown, timeShown } from './time.ts'
  * teach. Without teaching, each place shows its count and sentence only.
  */
 export const answersLikeYouModel = (
-  report: AsRead.AgentReport | 'failed' | null,
-  taught: AsRead.MyPrinciples | 'failed' | null,
+  report: AsRead.AgentReport | null,
+  taught: AsRead.MyPrinciples | null,
   teaching: boolean,
 ): AnswersLikeYou | null => {
-  if (report === null || report === 'failed') return null
+  if (report === null) return null
   if (teaching && taught === null) return null
-  const routes = teaching && taught !== 'failed' && taught !== null ? taught.routes : null
+  const routes = teaching && taught !== null ? taught.routes : null
   const period = periodOf(report, TRACK_DAYS)
   const keys = new Set<PlaceName>([
     ...period.current.places.map((place) => place.place),

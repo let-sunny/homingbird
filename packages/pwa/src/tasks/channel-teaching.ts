@@ -2,15 +2,10 @@ import { Task as T } from '@homingbird/kernel'
 import type { AsRead, PrincipleKind, TaughtFrom } from '@homingbird/protocol'
 import { track } from '../analytics.ts'
 import { type Action, type App, withApp } from '../app.ts'
+import { rereadChannelPage } from './channel-pages.ts'
 
-/** What the channel's managers taught its agent; a failure is kept so the tab says so. */
-export const loadChannelTeaching = (slug: string): Action =>
-  withApp(({ api, state }) =>
-    T.fold(
-      () => keep(state, slug, 'failed'),
-      (teaching: AsRead.ChannelTeaching) => keep(state, slug, teaching),
-    )(api['channels.agent.teaching.get']({ params: { slug } })),
-  )
+/** What the channel's managers taught its agent, asked for again where its page is open. */
+export const loadChannelTeaching = (slug: string): Action => rereadChannelPage('channelTeaching', slug)
 
 export const saveChannelInstruction = (
   slug: string,
@@ -71,5 +66,5 @@ export interface ChannelPrincipleChange {
   readonly enabled?: boolean
 }
 
-const keep = (state: App['state'], slug: string, teaching: AsRead.ChannelTeaching | 'failed'): void =>
-  state.channelTeaching.update((all) => new Map(all).set(slug, teaching))
+const keep = (state: App['state'], slug: string, teaching: AsRead.ChannelTeaching): void =>
+  state.channelTeaching.find(slug)?.set(teaching)

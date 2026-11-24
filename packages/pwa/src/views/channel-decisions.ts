@@ -1,16 +1,16 @@
 import type { AsRead } from '@homingbird/protocol'
-import { type Child, type Lifetime, derived, h, region, signal } from '@homingbird/ui'
+import { type Child, type Lifetime, derived, h, region, slice } from '@homingbird/ui'
 import { channelLabel } from '../channels.ts'
 import {
   type ChannelDecisionsModel,
-  type ChannelDecisionsState,
   type DecisionRow,
   channelDecisionsModel,
 } from '../models/channel-decisions.ts'
 import { teachChannelAgent } from './channel-teaching.ts'
 import type { ViewContext } from './context.ts'
 import { noteBody } from './note-body.ts'
-import { loading, timeLabel } from './parts.ts'
+import { readPageData } from './page-data.ts'
+import { listWait, timeLabel } from './parts.ts'
 
 /**
  * Recent decisions on a channel agent's answers, on its page for its managers: read again whenever an
@@ -22,32 +22,26 @@ export const channelDecisionsSection = (
   channel: AsRead.Channel,
 ): HTMLElement => {
   const { state, actions } = context
-  const decisions = signal<ChannelDecisionsState>('loading')
-  let latest = 0
-  const load = (): void => {
-    const asked = ++latest
-    actions.loadChannelDecisions(channel.slug, {
-      done: (read) => asked === latest && decisions.set(read),
-      failed: () => asked === latest && decisions.set('failed'),
-    })
-  }
+  const held = state.channelDecisions.use(channel.slug, life)
+  const { shown, wait } = readPageData(state, held)
+  const people = slice([state.members], () => state.members.get())
   const waitingHere = derived([state.reviews], (reviews) =>
     reviews
       .filter((review) => review.channel === channel.slug)
       .map((review) => review.note.id)
       .join(' '),
   )
-  load()
-  life.add(waitingHere.subscribe(load))
+  actions.openAgentPage('channelDecisions', channel.slug)
+  life.add(waitingHere.subscribe(() => actions.reloadAgentPage('channelDecisions', channel.slug)))
   const agent = channel.agent?.name ?? channelLabel(channel.slug)
   return region(
     life,
-    [decisions, state.members, state.serverInfo],
+    [shown, wait, people, state.serverInfo],
     () =>
       renderDecisions(
-        channelDecisionsModel(decisions.get(), {
+        channelDecisionsModel(shown.get(), wait.get(), {
           agent,
-          members: state.members.get(),
+          members: people.get(),
           serverInfo: state.serverInfo.get(),
           now: context.clock.now(),
         }),
@@ -66,8 +60,8 @@ const renderDecisions = (
   agent: string,
 ): Child => {
   if (model.kind === 'hidden') return null
-  if (model.kind === 'loading') return loading()
-  if (model.kind === 'failed') return h('p', { class: 'hint', role: 'status' }, model.text)
+  if (model.kind === 'waiting')
+    return listWait(model.wait, () => context.actions.askAgentPageAgain('channelDecisions', slug))
   return h(
     'section',
     { class: 'channel-decisions' },

@@ -4,6 +4,7 @@ import { featureOn } from '../features.ts'
 import { hrefFor } from '../routes.ts'
 import { listOf, strings } from '../strings.ts'
 import { type CorrectionPrefill, correctionPrefill } from './channel-teaching.ts'
+import type { ListWait } from './start.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
 /**
@@ -12,7 +13,8 @@ import { type TimeShown, timeShown } from './time.ts'
  * discard and the principles it applied, with a way to teach the agent from it while teaching is on.
  */
 export const channelDecisionsModel = (
-  decisions: ChannelDecisionsState,
+  decisions: AsRead.ChannelDecisions | null,
+  wait: ListWait | null,
   context: {
     readonly agent: string
     readonly members: ReadonlyMap<MemberId, AsRead.Member>
@@ -20,9 +22,8 @@ export const channelDecisionsModel = (
     readonly now: number
   },
 ): ChannelDecisionsModel => {
+  if (wait !== null) return { kind: 'waiting', wait }
   if (decisions === null) return { kind: 'hidden' }
-  if (decisions === 'loading') return { kind: 'loading' }
-  if (decisions === 'failed') return { kind: 'failed', text: strings.channelDecisions.loadFailed }
   const { agent } = context
   const words = { agent, channel: channelLabel(decisions.channel), days: decisions.days }
   const teaching = featureOn('teaching', context.serverInfo)
@@ -38,13 +39,9 @@ export const channelDecisionsModel = (
   }
 }
 
-/** Null when the person does not manage the channel, so the section is not there at all. */
-export type ChannelDecisionsState = AsRead.ChannelDecisions | 'loading' | 'failed' | null
-
 export type ChannelDecisionsModel =
   | { readonly kind: 'hidden' }
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'failed'; readonly text: string }
+  | { readonly kind: 'waiting'; readonly wait: ListWait }
   | {
       readonly kind: 'decisions'
       readonly title: string

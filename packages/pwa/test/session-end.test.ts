@@ -183,7 +183,7 @@ describe('the end of a session', () => {
     const page = await signedInPage({
       [route]: () => (isRevoked ? fail({ _tag: 'Unauthorized', message: 'revoked' }) : answer()),
     })
-    page.state.serverInfo.set(serverInfo({ draftPreviews: true }))
+    page.state.serverInfo.set(serverInfo({ draftPreviews: true, teaching: true }))
     isRevoked = true
     page.state.previews.set(new Map([[ROOM, []]]))
     ask(page)

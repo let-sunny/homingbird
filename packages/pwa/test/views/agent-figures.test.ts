@@ -6,6 +6,7 @@ import { strings } from '../../src/strings.ts'
 import { periodChoice, renderFigures, renderLabelsTable } from '../../src/views/agent-figures.ts'
 import { usingFakeDom } from '../support/dom.ts'
 import { figures, report } from '../support/fixtures.ts'
+import { CHECKING } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -20,11 +21,12 @@ const host = (child: ReturnType<typeof renderFigures>) => {
 }
 
 describe('renderFigures', () => {
-  it('shows loading and a failure', () => {
-    expect(textOf(host(renderFigures(figuresModel(null, 7))))).toBe(strings.loading)
-    expect(getByRole(host(renderFigures(figuresModel('failed', 7))), 'alert').textContent).toBe(
-      strings.trust.loadFailed,
-    )
+  it('shows that it checks, and a way to try again when it took too long or failed', () => {
+    expect(textOf(host(renderFigures(figuresModel(null, 7, CHECKING))))).toBe(strings.loading)
+    const failed = { kind: 'failed', text: strings.loadFailed, retry: strings.tryAgain } as const
+    const shown = host(renderFigures(figuresModel(null, 7, failed)))
+    expect(textOf(shown)).toContain(strings.loadFailed)
+    expect(getByRole(shown, 'button').textContent).toBe(strings.tryAgain)
   })
 
   it('shows the verdict, the numbers, skips, labels, trend and what is measured', () => {
@@ -48,6 +50,7 @@ describe('renderFigures', () => {
             ],
           }),
           7,
+          CHECKING,
         ),
       ),
     )
@@ -67,6 +70,7 @@ describe('renderFigures', () => {
         figuresModel(
           report({ periods: [{ days: 7, current: figures({ skipped: 2 }), previous: figures() }] }),
           7,
+          CHECKING,
         ),
       ),
     )

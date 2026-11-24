@@ -1,5 +1,5 @@
 import { type AsRead, PRINCIPLE_TEXT_MAX, PRINCIPLE_TOPIC_MAX } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, region } from '@homingbird/ui'
+import { type Child, type Lifetime, h, region, slice } from '@homingbird/ui'
 import {
   type ChannelTeachingModel,
   type CorrectionPrefill,
@@ -11,7 +11,8 @@ import { type ChannelPrincipleRow, addRowWarnings, reordered } from '../models/t
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { opensDialog } from './dialog.ts'
-import { field, loading } from './parts.ts'
+import { pageData } from './page-data.ts'
+import { field, listWait } from './parts.ts'
 import { principleForm } from './principle-form.ts'
 import { todoList } from './todo-list.ts'
 
@@ -25,17 +26,14 @@ export const channelTeachingSection = (
   slug: string,
   agent: string,
 ): HTMLElement => {
-  context.actions.loadChannelTeaching(slug)
+  const { state, actions } = context
+  const held = state.channelTeaching.use(slug, life)
+  actions.openAgentPage('channelTeaching', slug)
+  const { shown, wait } = pageData(state, held)
   return region(
     life,
-    [context.state.channelTeaching],
-    () =>
-      renderTeaching(
-        channelTeachingModel(context.state.channelTeaching.get().get(slug) ?? 'loading', agent),
-        context,
-        slug,
-        agent,
-      ),
+    [shown, wait],
+    () => renderTeaching(channelTeachingModel(shown.get(), wait.get(), agent), context, slug, agent),
     { class: 'taught channel-teaching' },
   )
 }
@@ -67,8 +65,8 @@ const renderTeaching = (
   slug: string,
   agent: string,
 ): Child => {
-  if (model.kind === 'loading') return loading()
-  if (model.kind === 'failed') return h('p', { role: 'alert' }, model.text)
+  if (model.kind === 'waiting')
+    return listWait(model.wait, () => context.actions.askAgentPageAgain('channelTeaching', slug))
   return [
     h('p', { class: 'trust-footnote' }, model.intro),
     instructionForm(model.instruction, context, slug),

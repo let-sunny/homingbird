@@ -59,7 +59,6 @@ const byKey = (rows: ReadonlyArray<PlaceRow>, key: string): PlaceRow => rows.fin
 describe('answersLikeYouModel', () => {
   it('waits for the report, and for the principles while teaching is on, and shows nothing without a place', () => {
     expect(answersLikeYouModel(null, taught(), true)).toBeNull()
-    expect(answersLikeYouModel('failed', taught(), true)).toBeNull()
     expect(answersLikeYouModel(month([place('billing', 1, 0, 'too_few')]), null, true)).toBeNull()
     expect(answersLikeYouModel(month([]), taught(), true)).toBeNull()
   })
@@ -248,17 +247,13 @@ describe('answersLikeYouModel', () => {
     expect(rows.map((row) => row.key)).toEqual(['a', 'b', 'direct'])
   })
 
-  it('shows each place’s count and sentence alone without teaching, or when the principles could not load', () => {
+  it('shows each place’s count and sentence alone without teaching', () => {
     const report = month([place('billing', 9, 1, 'usually_as_written'), place(null, 3, 3, 'mixed')])
-    for (const model of [
-      answersLikeYouModel(report, null, false),
-      answersLikeYouModel(report, 'failed', true),
-    ]) {
-      expect(model!.steps).toBeNull()
-      expect(model!.rows.map((row) => [row.key, row.track, row.action, row.sentence])).toEqual([
-        ['billing', null, null, words.next.likeYou],
-        ['direct', null, null, words.next.tooFew({ count: 6, minimum: 10 })],
-      ])
-    }
+    const model = answersLikeYouModel(report, null, false)
+    expect(model!.steps).toBeNull()
+    expect(model!.rows.map((row) => [row.key, row.track, row.action, row.sentence])).toEqual([
+      ['billing', null, null, words.next.likeYou],
+      ['direct', null, null, words.next.tooFew({ count: 6, minimum: 10 })],
+    ])
   })
 })

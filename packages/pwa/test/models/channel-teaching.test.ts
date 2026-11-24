@@ -8,6 +8,7 @@ import {
 } from '../../src/models/channel-teaching.ts'
 import { strings } from '../../src/strings.ts'
 import { everything, principle, serverInfo } from '../support/fixtures.ts'
+import { CHECKING } from '../support/resource-load.ts'
 
 const teaching = (fields: Record<string, unknown> = {}) =>
   ({
@@ -50,16 +51,12 @@ describe('channelAgentTabsModel', () => {
 })
 
 describe('channelTeachingModel', () => {
-  it('waits while loading and says when it failed', () => {
-    expect(channelTeachingModel('loading', 'Billing desk')).toEqual({ kind: 'loading' })
-    expect(channelTeachingModel('failed', 'Billing desk')).toEqual({
-      kind: 'failed',
-      text: strings.channelTeach.loadFailed({ agent: 'Billing desk' }),
-    })
+  it('waits until what was taught has come', () => {
+    expect(channelTeachingModel(null, CHECKING, 'Billing desk')).toEqual({ kind: 'waiting', wait: CHECKING })
   })
 
   it('shows the instruction, one source per line, and invites a first principle', () => {
-    const model = channelTeachingModel(teaching(), 'Billing desk')
+    const model = channelTeachingModel(teaching(), CHECKING, 'Billing desk')
     if (model.kind !== 'taught') throw new Error('not taught')
     expect(model.intro).toBe(strings.channelTeach.intro({ agent: 'Billing desk', channel: '#billing' }))
     expect(model.instruction).toMatchObject({
@@ -86,7 +83,7 @@ describe('channelTeachingModel', () => {
       place: 'billing',
       counts: { applied: 10, sentAsWritten: 8, edited: 1, discarded: 1, missed: 0 },
     })
-    const model = channelTeachingModel(teaching({ principles: [taughtOne] }), 'Billing desk')
+    const model = channelTeachingModel(teaching({ principles: [taughtOne] }), CHECKING, 'Billing desk')
     if (model.kind !== 'taught') throw new Error('not taught')
     expect(model.empty).toBeNull()
     const [row] = model.principles

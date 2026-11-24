@@ -1,4 +1,4 @@
-import { type Child, type Lifetime, h, region } from '@homingbird/ui'
+import { type Child, type Lifetime, h, region, slice } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
 import {
   type InterviewModel,
@@ -10,17 +10,20 @@ import {
 } from '../models/teaching-interview.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
-import { button, field, loading } from './parts.ts'
+import { pageData } from './page-data.ts'
+import { button, field, listWait } from './parts.ts'
 
 /** "Teach by chatting" on the Teaching tab, shown while teaching is on. */
 export const interviewSection = (context: ViewContext, life: Lifetime): HTMLElement | null => {
   if (!featureOn('teaching', context.state.serverInfo.get())) return null
-  context.actions.refreshInterview()
+  const { state, actions } = context
+  actions.refreshInterview()
   const unsaved: Unsaved = new Map()
+  const { shown, wait } = pageData(state, state.interview)
   return region(
     life,
-    [context.state.interview],
-    () => renderInterview(interviewModel(context.state.interview.get()), context, unsaved),
+    [shown, wait],
+    () => renderInterview(interviewModel(shown.get(), wait.get()), context, unsaved),
     { class: 'teach-chat' },
   )
 }
@@ -39,8 +42,7 @@ const keepTyped = (unsaved: Unsaved, key: string, input: TextInput, value: strin
 type TextInput = HTMLInputElement | HTMLTextAreaElement
 
 const renderInterview = (model: InterviewModel, context: ViewContext, unsaved: Unsaved): Child => {
-  if (model.kind === 'loading') return loading()
-  if (model.kind === 'failed') return h('p', { role: 'alert' }, model.text)
+  if (model.kind === 'waiting') return listWait(model.wait, () => context.actions.askAgain('interview'))
   const document = h('textarea', {
     name: 'document',
     rows: 4,

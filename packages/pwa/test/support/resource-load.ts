@@ -1,7 +1,9 @@
 import type { ApiError } from '@homingbird/protocol'
 import type { Signal } from '@homingbird/ui'
+import type { ListWait } from '../../src/models/start.ts'
 import type { Load, Resource } from '../../src/resource.ts'
 import type { AppState, Workspace } from '../../src/state.ts'
+import { strings } from '../../src/strings.ts'
 import { ACTIVITY, WORKSPACE } from '../../src/tasks/resources.ts'
 
 /** Says how a resource's load is going, for a view or a model whose test asks nothing of a server. */
@@ -23,3 +25,6 @@ export const setWorkspace = (state: AppState, workspace: Workspace, error: ApiEr
 export const setRoomsDrawn = (state: AppState): void => {
   for (const key of ['conversations', 'directory'] as const) setLoad(state[key], { loaded: true })
 }
+
+/** What stands in place of page data that is being asked for as usual. */
+export const CHECKING: ListWait = { kind: 'checking', text: strings.loading }

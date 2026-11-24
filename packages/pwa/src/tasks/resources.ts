@@ -79,6 +79,9 @@ export interface Resources {
   readonly debates: ReadonlyArray<AsRead.DebateSummary>
   readonly groups: ReadonlyArray<AsRead.Group>
   readonly channelPage: ListedChannels
+  readonly taught: AsRead.MyPrinciples | null
+  readonly agentReport: AsRead.AgentReport | null
+  readonly interview: AsRead.TeachingInterview | null
 }
 
 export type ResourceKey = keyof Resources
@@ -114,6 +117,7 @@ const ASKS: { readonly [Key in ResourceKey]: Action<Resources[Key]> } = {
         api['draftRequests.list']({}),
       ),
     ),
+    [],
   ),
   awaitingReply: withApp(({ api }) =>
     T.map((inbox: { items: ReadonlyArray<AsRead.InboxItem> }) =>
@@ -125,6 +129,7 @@ const ASKS: { readonly [Key in ResourceKey]: Action<Resources[Key]> } = {
     withApp(({ api }) =>
       T.map((listed: { reviews: Resources['reviews'] }) => listed.reviews)(api['reviews.list']({})),
     ),
+    [],
   ),
   suggestions: whileOn(
     'debateSuggestions',
@@ -133,18 +138,36 @@ const ASKS: { readonly [Key in ResourceKey]: Action<Resources[Key]> } = {
         api['debateSuggestions.list']({}),
       ),
     ),
+    [],
   ),
   debates: whileOn(
     'debateRooms',
     withApp(({ api }) =>
       T.map((listed: { debates: Resources['debates'] }) => listed.debates)(api['debates.list']({})),
     ),
+    [],
   ),
   groups: whileOn(
     'groups',
     withApp(({ api }) =>
       T.map((listed: { groups: Resources['groups'] }) => listed.groups)(api['groups.list']({})),
     ),
+    [],
+  ),
+  taught: whileOn(
+    'teaching',
+    withApp(({ api }) => api['principles.list']({})),
+    null,
+  ),
+  agentReport: whileOn(
+    'agentFigures',
+    withApp(({ api }) => api['insights.mine']({})),
+    null,
+  ),
+  interview: whileOn(
+    'teaching',
+    withApp(({ api }) => api['principleProposals.list']({})),
+    null,
   ),
   channelPage: withApp(({ api, state }) => {
     const { query, after } = state.channelPageWish.get()
@@ -160,13 +183,10 @@ const ASKS: { readonly [Key in ResourceKey]: Action<Resources[Key]> } = {
   }),
 }
 
-function whileOn<A>(
-  feature: Parameters<typeof featureOn>[0],
-  ask: Action<ReadonlyArray<A>>,
-): Action<ReadonlyArray<A>> {
+function whileOn<A>(feature: Parameters<typeof featureOn>[0], ask: Action<A>, off: A): Action<A> {
   return withApp(({ state }) => {
-    if (!featureOn(feature, state.serverInfo.get())) return T.succeed([])
-    return T.catchTag('NotFound', () => T.succeed([] as ReadonlyArray<A>))(ask)
+    if (!featureOn(feature, state.serverInfo.get())) return T.succeed(off)
+    return T.catchTag('NotFound', () => T.succeed(off))(ask)
   })
 }
 
@@ -194,10 +214,13 @@ const resourceOf = <Key extends ResourceKey>({ state }: App, key: Key): Resource
   return held[key]
 }
 
-const sourceOf = <Key extends ResourceKey>(app: App, key: Key): Source<Resources[Key]> => {
+const sourceOf = <Key extends ResourceKey>(app: App, key: Key): Source<Resources[Key]> =>
+  sourceFor(app, ASKS[key], key)
+
+/** How an answer to `ask` is read: as the server's alone, ending the session when it refuses it. */
+export const sourceFor = <A>(app: App, ask: Action<A>, key: ResourceKey | null): Source<A> => {
   const { state, clock, ended, endSession, launch } = app
   const connection = state.connection.get()
-  const ask: Action<Resources[Key]> = ASKS[key]
   const asking: App = { ...app, api: hearingServerOnly(app.api) }
   return {
     ask: T.make((_, signal) =>
@@ -228,7 +251,13 @@ const untilStreamSettled: Action = withApp(({ state }) =>
 )
 
 /** Lists that only their own page shows, so that nothing asks for them until it opens. */
-const PAGE_LISTS = ['groups', 'channelPage'] as const satisfies ReadonlyArray<ResourceKey>
+const PAGE_LISTS = [
+  'groups',
+  'channelPage',
+  'taught',
+  'agentReport',
+  'interview',
+] as const satisfies ReadonlyArray<ResourceKey>
 
 const KNOWN_CHANNELS = 200
 

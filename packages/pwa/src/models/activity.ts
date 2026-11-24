@@ -112,8 +112,8 @@ export interface ActivityInput {
   readonly reviewsRead: ReadonlyMap<NoteId, DraftAsShown>
   readonly debates: ReadonlyArray<AsRead.DebateSummary>
   readonly suggestions: ReadonlyArray<AsRead.DebateSuggestion>
-  readonly taught: AsRead.MyPrinciples | 'failed' | null
-  readonly agentReport: AsRead.AgentReport | 'failed' | null
+  readonly taught: AsRead.MyPrinciples | null
+  readonly agentReport: AsRead.AgentReport | null
   readonly serverInfo: AsRead.ServerInfo | null
   readonly now: number
 }

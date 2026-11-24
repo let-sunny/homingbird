@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { USUAL_LOAD_SECONDS } from '../../src/load-timing.ts'
-import { checkingWords, firstAnswersStep, startModel, workspaceLineModel } from '../../src/models/start.ts'
+import {
+  checkingWords,
+  firstAnswersStep,
+  pageWaitModel,
+  startModel,
+  workspaceLineModel,
+} from '../../src/models/start.ts'
 import { strings } from '../../src/strings.ts'
 
 const start = (value: Parameters<typeof startModel>[0]['start'], retrying = false) =>
@@ -17,6 +23,42 @@ describe('firstAnswersStep', () => {
     expect(firstAnswersStep([load('idle'), load('slow')])).toBe('loading')
     expect(firstAnswersStep([load('loading'), load('long')])).toBe('long')
     expect(firstAnswersStep([load('long'), load('failed'), load('idle', true)])).toBe('failed')
+  })
+})
+
+describe('pageWaitModel', () => {
+  const load = (step: 'idle' | 'loading' | 'slow' | 'long' | 'failed', loaded = false) => ({
+    loaded,
+    step,
+    error: null,
+  })
+
+  it('says it is checking while the first answer is awaited, then the way to try again once it took too long or failed', () => {
+    const checking = { kind: 'checking', text: strings.loading }
+    expect(pageWaitModel(load('idle'), 'loaded', strings.loading)).toEqual(checking)
+    expect(pageWaitModel(load('slow'), 'loaded', strings.loading)).toEqual(checking)
+    expect(pageWaitModel(load('long'), 'loaded', strings.loading)).toEqual({
+      kind: 'long',
+      text: strings.firstLoad.tooLong,
+      retry: strings.tryAgain,
+    })
+    expect(pageWaitModel(load('failed'), 'loaded', strings.loading)).toEqual({
+      kind: 'failed',
+      text: strings.loadFailed,
+      retry: strings.tryAgain,
+    })
+  })
+
+  it('leaves it to the line above the lists to say what it already says, so that a problem is told once', () => {
+    for (const workspace of ['long', 'failed'] as const)
+      expect(pageWaitModel(load('failed'), workspace, strings.loading)).toEqual({ kind: 'told-above' })
+  })
+
+  it('does not wait for what has come, however its next request goes', () => {
+    expect(pageWaitModel(load('failed', true), 'loaded', strings.loading)).toEqual({
+      kind: 'checking',
+      text: strings.loading,
+    })
   })
 })
 

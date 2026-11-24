@@ -61,7 +61,7 @@ export const connectionSection = (context: ViewContext, life: Lifetime, me: AsRe
       joinCodeSection(context, life, null, reload, credentials),
     region(life, [state.agentReport], () => {
       const report = state.agentReport.get()
-      return report === null || report === 'failed' ? null : freshSessionSuggestions(report.sessions.latest)
+      return report === null ? null : freshSessionSuggestions(report.sessions.latest)
     }),
     h(
       'section',

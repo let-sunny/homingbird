@@ -56,7 +56,10 @@ const ROUTES = {
   suggestions: 'debateSuggestions.list',
   debates: 'debates.list',
   groups: 'groups.list',
-} as const satisfies Record<Exclude<ResourceKey, 'channelPage'>, string>
+} as const satisfies Record<Exclude<ResourceKey, 'channelPage' | PageKey>, string>
+
+/** What one page shows, which is none until it is asked for and is not a list. */
+type PageKey = 'taught' | 'agentReport' | 'interview'
 
 const KEYS = Object.keys(ROUTES) as Array<keyof typeof ROUTES>
 
@@ -114,6 +117,44 @@ describe('the resources', () => {
     expect(state.debates.get()).toEqual([summary()])
     expect(state.groups.get()).toEqual([group(TEAM, { memberIds: [BEN] })])
     for (const key of KEYS) expect(state[key].load.get().loaded).toBe(true)
+  })
+
+  it('of a page, the principles, the figures and the proposals, are asked for while their features are on', async () => {
+    const { run, routes, state } = start({
+      'principles.list': () => ({ principles: [] }) as never,
+      'insights.mine': () => ({ generatedAt: 1 }) as never,
+      'principleProposals.list': () => ({ document: null, proposals: [], limit: 20 }),
+    })
+    await run(open('taught', 'agentReport', 'interview'))
+    expect(routes().sort()).toEqual(['insights.mine', 'principleProposals.list', 'principles.list'])
+    for (const key of ['taught', 'agentReport', 'interview'] as const) {
+      expect(state[key].get()).not.toBeNull()
+      expect(state[key].load.get().loaded).toBe(true)
+    }
+  })
+
+  it('of a page are not asked for while their feature is off, and never read as something failed', async () => {
+    const { run, routes, state } = start()
+    state.serverInfo.set(serverInfo({ teaching: false, agentFigures: false }))
+    await run(open('taught', 'agentReport', 'interview'))
+    expect(routes()).toEqual([])
+    expect(state.taught.get()).toBeNull()
+    expect(state.taught.load.get()).toMatchObject({ loaded: true, step: 'idle' })
+  })
+
+  it('of a page empty at a refusal, since the person may no longer read them, and say it in their own place', async () => {
+    let isRefused = false
+    const { run, state } = start({
+      'principles.list': () =>
+        isRefused ? fail({ _tag: 'Forbidden', message: 'no' }) : ({ principles: [] } as never),
+    })
+    await run(open('taught'))
+    isRefused = true
+    await run(again('taught'))
+    await settle()
+    expect(state.taught.get()).toBeNull()
+    expect(state.taught.load.get()).toMatchObject({ loaded: false, step: 'failed' })
+    expect(state.notice.get()).toBeNull()
   })
 
   it('whose feature is off are none, and nothing is asked', async () => {

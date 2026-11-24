@@ -1,5 +1,6 @@
 import { Task as T } from '@homingbird/kernel'
 import type { ApiError } from '@homingbird/protocol'
+import { lifetime } from '@homingbird/ui'
 import { describe, expect, it } from 'vitest'
 import type { Action } from '../../src/app.ts'
 import { updateProfile, useCharacter } from '../../src/tasks/account.ts'
@@ -152,6 +153,7 @@ describe('a change the server accepted', () => {
     async (_, answers, action) => {
       const app = testApp(reloadsRefused(unavailable, answers))
       app.state.serverInfo.set(everything())
+      app.state.channelAgents.use('billing', lifetime())
       const outcome = await app.run(action)
       expect(outcome._tag).toBe('Ok')
       expect(app.routes().some((route) => RELOADS.includes(route))).toBe(true)
@@ -163,6 +165,7 @@ describe('a change the server accepted', () => {
     async (_, answers, action) => {
       const app = testApp(reloadsRefused(signedOut, answers))
       app.state.serverInfo.set(everything())
+      app.state.channelAgents.use('billing', lifetime())
       app.app.launch(action)
       for (let round = 0; round < 5; round++) await settle()
       expect(app.app.ended.aborted).toBe(true)

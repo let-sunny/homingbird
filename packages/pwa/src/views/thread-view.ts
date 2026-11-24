@@ -372,6 +372,4 @@ const roomState = (input: ThreadInput): unknown[] => {
 }
 
 const taughtTitles = (taught: ThreadInput['taught']): string =>
-  taught === null || taught === 'failed'
-    ? ''
-    : taught.principles.map((principle) => principle.topic).join(';')
+  taught === null ? '' : taught.principles.map((principle) => principle.topic).join(';')

@@ -7,6 +7,7 @@ import { interviewSection } from '../../src/views/teaching-interview.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import { serverInfo } from '../support/fixtures.ts'
+import { setLoad } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -39,13 +40,24 @@ describe('interviewSection', () => {
     expect(called('refreshInterview')).toEqual([])
   })
 
-  it('loads the proposals, and says when they could not load', () => {
+  it('loads the proposals, and says once when they could not load, with a way to try again', () => {
     const { context, called } = testContext()
     const shown = mount(interviewSection(context, lifetime())!)
     expect(called('refreshInterview')).toHaveLength(1)
     expect(textOf(shown)).toBe(strings.loading)
-    context.state.interview.set('failed')
-    expect(getByRole(shown, 'alert').textContent).toBe(strings.teach.chat.failed)
+    setLoad(context.state.interview, { step: 'failed' })
+    expect(textOf(shown)).toContain(strings.loadFailed)
+    getByRole(shown, 'button', { name: strings.tryAgain }).click()
+    expect(called('askAgain')[0]!.args).toEqual(['interview'])
+  })
+
+  it('draws nothing again for the same data, so that what is typed stays', () => {
+    const { context, shown } = shownWith([], 'Old notes')
+    const document = getByRole(shown, 'textbox', { name: /Principles document/ })
+    fire.type(document, 'Refunds: 30 days.')
+    context.state.interview.set({ document: 'Old notes', proposals: [], limit: 20 })
+    expect(getByRole(shown, 'textbox', { name: /Principles document/ })).toBe(document)
+    expect((document as HTMLTextAreaElement).value).toBe('Refunds: 30 days.')
   })
 
   it('says how to start, and saves or removes a pasted document', () => {

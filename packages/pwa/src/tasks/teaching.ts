@@ -2,22 +2,13 @@ import { Task as T } from '@homingbird/kernel'
 import type { AsRead, AutoSend, NoteId, PrincipleKind } from '@homingbird/protocol'
 import { track } from '../analytics.ts'
 import { type Action, withApp } from '../app.ts'
+import { reread } from './resources.ts'
 
-/** The person's own agent figures; a failure leaves the list as it is and says so on the card. */
-export const refreshAgentReport: Action = withApp(({ api, state }) =>
-  T.fold(
-    () => state.agentReport.set('failed'),
-    (report: AsRead.AgentReport) => state.agentReport.set(report),
-  )(api['insights.mine']({})),
-)
+/** The person's own agent figures, asked for again; the card shows what it had until the answer comes. */
+export const refreshAgentReport: Action = reread('agentReport')
 
-/** What the person taught their agent: principles, chances to teach, each place's progress. */
-export const refreshPrinciples: Action = withApp(({ api, state }) =>
-  T.fold(
-    () => state.taught.set('failed'),
-    (loaded: AsRead.MyPrinciples) => state.taught.set(loaded),
-  )(api['principles.list']({})),
-)
+/** What the person taught their agent, asked for again: principles, chances to teach, each place's progress. */
+export const refreshPrinciples: Action = reread('taught')
 
 export interface PrincipleInput {
   readonly kind?: PrincipleKind

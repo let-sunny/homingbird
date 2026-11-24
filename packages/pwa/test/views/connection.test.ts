@@ -32,7 +32,7 @@ describe('connectionSection', () => {
       }),
     )
     expect(textOf(shown)).toContain(strings.trust.sessions.freshSuggestion({ name: 'Laptop' }))
-    context.state.agentReport.set('failed')
+    context.state.agentReport.reset()
     expect(shown.querySelector('.fresh-session')).toBeNull()
   })
 

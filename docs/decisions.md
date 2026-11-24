@@ -774,6 +774,16 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Architecture
 
+- **The data of one page is a resource too, and a channel agent's page holds a family of them.** The
+  principles, the agent's figures and the teaching chat were read into signals that said `'failed'` for any
+  failure, so a moment's trouble after a good read emptied what was shown, nothing offered Try again, and an
+  answer that never came showed "Checking" forever. They are resources now, told in their own place as the lists
+  are. What a channel agent's page asks for by the channel's slug (the agent, its figures and decisions, what was
+  taught) is a family: an entry is made when a page holds its slug and let go of when the last page that holds it
+  ends (one tick later, so a page drawn again keeps it), so it holds no more than the pages show. When the
+  channels no longer say the person runs the agent, or the server refused them, every entry is emptied (rules 2
+  and 6). A task never makes an entry: nothing is asked for what no page shows. The roster of a channel,
+  threads and previews are not in it: they are drawn without a wait and have rules of their own.
 - **A list that several places of the web client show is one resource: one value, one request at a time.**
   The bell, the activity panel and page, the workspace and the Flocks tab each loaded the same lists, two or
   three times as the page opened, and nothing ordered the answers: an older one brought back an answer a
@@ -798,7 +808,7 @@ states the decision first, then the reason. Add new entries at the top of their 
   not a server feature: `hbInspect()` sets a flag in one browser. Text can enter its recording only as an own key of
   an object the code made (`CodeName`) or as one of the protocol's refusal tags, and a type test refuses a field of free text,
   so no note, name, id, address, token or header gets in (rules 2 and 5); it is kept in the page only and forgotten with
-  the session. A keyed resource would have an id in its path: name it by its key's kind before adding one. Shipping it behind a dynamic
+  the session. A keyed resource would have an id in its path: it is a family (`pwa/src/family.ts`), one row for its kind, counting its entries. Shipping it behind a dynamic
   import was refused: a release would serve a tool for reading a signed-in page to everyone, for a need that
   development meets. A release bundle grows by the hook, 146 bytes of gzip, and a test builds it to check that
   nothing else is in it. A request gets an API of its own while recorded, so that its HTTP status is its own.

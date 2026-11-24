@@ -59,9 +59,8 @@ describe('draftsBehindModel', () => {
     ).not.toBeNull()
   })
 
-  it('shows nothing while loading, after a failure, or with no miss in the period', () => {
+  it('shows nothing while loading, or with no miss in the period', () => {
     expect(draftsBehindModel(null, 7)).toBeNull()
-    expect(draftsBehindModel('failed', 7)).toBeNull()
     expect(draftsBehindModel(report(), 7)).toBeNull()
     expect(
       draftsBehindModel(report({ generatedAt: NOW, misses: [miss('edited', 'old000000000', 8)] }), 7),

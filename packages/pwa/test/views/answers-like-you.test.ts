@@ -8,6 +8,7 @@ import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import { ROOM, everything, figures, report, serverInfo, taught } from '../support/fixtures.ts'
+import { setLoad } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -50,6 +51,18 @@ const ROUTES = [
 ]
 
 describe('answersLikeYouSection', () => {
+  it('shows each place’s count and sentence alone when the principles are given up on, rather than nothing', () => {
+    const { context } = testContext()
+    context.state.serverInfo.set(everything())
+    mount(dialogHost())
+    const shown = mount(answersLikeYouSection(context, lifetime()))
+    context.state.agentReport.set(month([place('billing', 21, 12, 'mixed')]))
+    expect(shown.childNodes).toHaveLength(0)
+    setLoad(context.state.taught, { step: 'failed' })
+    expect(getByRole(shown, 'heading', { name: words.title })).toBeTruthy()
+    expect(shown.querySelector('[data-place="billing"] [aria-current]')).toBeNull()
+  })
+
   it('loads the principles, then draws each place on its track with a tooltip per step and its next action', () => {
     const { context, called } = testContext()
     context.state.serverInfo.set(everything())

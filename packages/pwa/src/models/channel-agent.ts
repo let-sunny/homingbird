@@ -16,6 +16,7 @@ import { type HeldChoices, heldWordsFor, keptEditLine } from '../held-decisions.
 import { hrefFor } from '../routes.ts'
 import { formats, strings } from '../strings.ts'
 import { type SlackReplyLines, slackAskerOf, slackReplyLines } from './slack-reply.ts'
+import type { ListWait } from './start.ts'
 
 /** What a channel's own controls offer about its agent: running it, for a manager, and asking it privately. */
 export const agentControlsModel = (
@@ -54,13 +55,13 @@ export const channelAgentPageModel = (
  * the dialog it leads to the agent's page, where its waiting answers and figures are.
  */
 export const agentPanelModel = (
-  agent: AsRead.ChannelAgent | null | 'loading' | 'failed',
+  agent: AsRead.ChannelAgent | null,
+  wait: ListWait | null,
   members: ReadonlyMap<MemberId, AsRead.Member>,
   place: AgentPanelPlace,
   joinCodes: boolean,
 ): AgentPanel => {
-  if (agent === 'loading') return { kind: 'loading' }
-  if (agent === 'failed') return { kind: 'failed', text: strings.channelAgent.loadFailed }
+  if (wait !== null) return { kind: 'waiting', wait }
   if (agent === null)
     return {
       kind: 'none',
@@ -390,8 +391,7 @@ export interface AgentControls {
 }
 
 export type AgentPanel =
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'failed'; readonly text: string }
+  | { readonly kind: 'waiting'; readonly wait: ListWait }
   | { readonly kind: 'none'; readonly intro: string; readonly text: string; readonly create: string }
   | {
       readonly kind: 'agent'

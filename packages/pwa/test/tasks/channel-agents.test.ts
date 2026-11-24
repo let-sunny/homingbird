@@ -1,12 +1,22 @@
 import type { AsRead, MemberId, NoteId } from '@homingbird/protocol'
 import { Conflict, Forbidden, NotFound } from '@homingbird/protocol'
+import { lifetime } from '@homingbird/ui'
 import { describe, expect, it } from 'vitest'
 import { heldWordsFor } from '../../src/held-decisions.ts'
 import { strings } from '../../src/strings.ts'
 import * as tasks from '../../src/tasks/channel-agents.ts'
 import { commitHeld } from '../../src/tasks/held.ts'
 import { fail, settle, testApp } from '../support/app.ts'
-import { CY, conversation, draft, everything, member, note, serverInfo } from '../support/fixtures.ts'
+import {
+  CY,
+  channel,
+  conversation,
+  draft,
+  everything,
+  member,
+  note,
+  serverInfo,
+} from '../support/fixtures.ts'
 
 const AGENT = 'mem_agent0000000' as MemberId
 
@@ -212,65 +222,18 @@ describe('the channel agent tasks', () => {
     expect((await refused.run(tasks.loadDecidedAnswer(answer.id)))._tag).toBe('Err')
   })
 
-  it('load a channel’s agent, forgetting it when there is none, and refusing other failures', async () => {
-    const found = testApp({ 'channels.agent.get': () => agentView })
-    expect(await found.run(tasks.loadChannelAgent('payments-wiki'))).toEqual({ _tag: 'Ok', value: agentView })
-    expect(found.state.channelAgents.get().get('payments-wiki')).toEqual(agentView)
-    const gone = testApp({
-      'channels.agent.get': () => fail(NotFound({ message: 'This channel has no agent.' })),
-    })
-    gone.state.channelAgents.set(new Map([['payments-wiki', agentView]]))
-    expect(await gone.run(tasks.loadChannelAgent('payments-wiki'))).toEqual({ _tag: 'Ok', value: null })
-    expect(gone.state.channelAgents.get().has('payments-wiki')).toBe(false)
-    const refused = testApp({ 'channels.agent.get': () => fail(Forbidden({ message: 'No.' })) })
-    expect((await refused.run(tasks.loadChannelAgent('payments-wiki')))._tag).toBe('Err')
-  })
-
-  it('load how the agent is doing for a manager, nothing for anyone else, and fail on other refusals', async () => {
-    const figures = {
-      generatedAt: 1,
-      channel: 'payments-wiki',
-      quickApprovalSeconds: 3,
-      minimumGroupSize: 5,
-      waiting: 0,
-      periods: [],
-    } satisfies AsRead.ChannelAgentReport
-    const found = testApp({ 'channels.agent.figures': () => figures })
-    expect(await found.run(tasks.loadChannelAgentFigures('payments-wiki'))).toEqual({
-      _tag: 'Ok',
-      value: figures,
-    })
-    const hidden = testApp({ 'channels.agent.figures': () => fail(NotFound({ message: 'Only managers.' })) })
-    expect(await hidden.run(tasks.loadChannelAgentFigures('payments-wiki'))).toEqual({
-      _tag: 'Ok',
-      value: null,
-    })
-    const refused = testApp({ 'channels.agent.figures': () => fail(Forbidden({ message: 'No.' })) })
-    expect((await refused.run(tasks.loadChannelAgentFigures('payments-wiki')))._tag).toBe('Err')
-  })
-
-  it('load what the managers recently decided for a manager, nothing for anyone else, and fail on other refusals', async () => {
-    const decisions = { channel: 'payments-wiki', days: 30, decisions: [] } satisfies AsRead.ChannelDecisions
-    const found = testApp({ 'channels.agent.decisions': () => decisions })
-    expect(await found.run(tasks.loadChannelDecisions('payments-wiki'))).toEqual({
-      _tag: 'Ok',
-      value: decisions,
-    })
-    const hidden = testApp({
-      'channels.agent.decisions': () => fail(NotFound({ message: 'Only managers.' })),
-    })
-    expect(await hidden.run(tasks.loadChannelDecisions('payments-wiki'))).toEqual({ _tag: 'Ok', value: null })
-    const refused = testApp({ 'channels.agent.decisions': () => fail(Forbidden({ message: 'No.' })) })
-    expect((await refused.run(tasks.loadChannelDecisions('payments-wiki')))._tag).toBe('Err')
-  })
-
   it('make, rename and retire the agent and disconnect a desk, reading the agent again each time', async () => {
     const { run, state, routes } = testApp({
       'channels.agent.get': () => agentView,
-      'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),
+      'channels.list': () => ({
+        channels: [channel('payments-wiki', { runsAgent: true })],
+        hasMore: false,
+        cursor: null,
+      }),
       'reviews.list': () => ({ reviews: [] }),
     })
     state.serverInfo.set(everything())
+    state.channelAgents.use('payments-wiki', lifetime())
     await run(tasks.createChannelAgent('payments-wiki', 'Payments wiki'))
     await run(tasks.renameChannelAgent('payments-wiki', 'Refunds wiki'))
     await run(tasks.retireChannelAgent('payments-wiki'))

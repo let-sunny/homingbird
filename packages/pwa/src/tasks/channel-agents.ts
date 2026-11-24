@@ -6,6 +6,7 @@ import { asRead, asShown, withDraftRead } from '../drafts-read.ts'
 import { hrefFor } from '../routes.ts'
 import type { AppState, HeldWords } from '../state.ts'
 import { strings } from '../strings.ts'
+import { rereadChannelPage } from './channel-pages.ts'
 import { holdDecision } from './held.ts'
 import { loadThread } from './notes.ts'
 import { reloadQuietly } from './quiet-reload.ts'
@@ -88,39 +89,6 @@ export const holdReviewDiscard = (review: AsRead.Review, reason: string, words: 
 export const confirmReviewRead = (review: AsRead.Review): Action =>
   withApp(({ state }) => T.sync(() => state.reviewsRead.update((read) => withDraftRead(read, review.note))))
 
-export const loadChannelAgent = (slug: string): Action<AsRead.ChannelAgent | null> =>
-  T.gen(function* () {
-    const { api, state } = yield* T.ask<App>()
-    const read = yield* T.result(api['channels.agent.get']({ params: { slug } }))
-    if (read._tag === 'Err' && read.error._tag !== 'NotFound') return yield* T.fail(read.error)
-    const agent = read._tag === 'Ok' ? read.value : null
-    state.channelAgents.update((all) => {
-      const known = new Map(all)
-      if (agent === null) known.delete(slug)
-      else known.set(slug, agent)
-      return known
-    })
-    return agent
-  })
-
-/** How the channel's agent is doing, or null for anyone who does not manage the channel. */
-export const loadChannelAgentFigures = (slug: string): Action<AsRead.ChannelAgentReport | null> =>
-  T.gen(function* () {
-    const { api } = yield* T.ask<App>()
-    const read = yield* T.result(api['channels.agent.figures']({ params: { slug } }))
-    if (read._tag === 'Ok') return read.value
-    return read.error._tag === 'NotFound' ? null : yield* T.fail(read.error)
-  })
-
-/** What the channel's managers recently decided on its agent's answers, or null for anyone who does not manage it. */
-export const loadChannelDecisions = (slug: string): Action<AsRead.ChannelDecisions | null> =>
-  T.gen(function* () {
-    const { api } = yield* T.ask<App>()
-    const read = yield* T.result(api['channels.agent.decisions']({ params: { slug } }))
-    if (read._tag === 'Ok') return read.value
-    return read.error._tag === 'NotFound' ? null : yield* T.fail(read.error)
-  })
-
 export const createChannelAgent = (slug: string, name: string): Action =>
   T.gen(function* () {
     const { api } = yield* T.ask<App>()
@@ -147,7 +115,7 @@ export const disconnectAgentDesk = (slug: string, id: CredentialId): Action =>
   T.gen(function* () {
     const { api } = yield* T.ask<App>()
     yield* api['channels.agent.credentials.revoke']({ params: { slug, id } })
-    yield* reloadQuietly(T.asUnit(loadChannelAgent(slug)))
+    yield* rereadChannelPage('channelAgents', slug)
   })
 
 /** Opens the person's own conversation with a channel's agent, and goes there. */
@@ -161,7 +129,7 @@ export const askPrivately = (slug: string): Action =>
 
 const afterAgentChange = (slug: string): Action =>
   T.gen(function* () {
-    yield* T.all([reloadQuietly(T.asUnit(loadChannelAgent(slug))), reread('channels')])
+    yield* T.all([rereadChannelPage('channelAgents', slug), reread('channels')])
   })
 
 /** The question is left with nobody: the manager is offered to answer it themself, in its room. */

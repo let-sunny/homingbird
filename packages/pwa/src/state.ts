@@ -16,6 +16,7 @@ import {
   agentMembersOf,
 } from './channels.ts'
 import { withDraftsAsRead, withReviewsAsRead } from './drafts-read.ts'
+import { type Family, family } from './family.ts'
 import { HOLD_SECONDS } from './held-decisions.ts'
 import { type Load, type Resource, resource } from './resource.ts'
 import { type Route, parseRoute } from './routes.ts'
@@ -50,6 +51,21 @@ export const createState = (hash: string): AppState => {
   reviews.subscribe((all) => reviewsRead.update((read) => withReviewsAsRead(read, all)))
   threads.subscribe((all) => draftsRead.update((read) => withDraftsAsRead(read, all)))
   const composerTexts = signal<ReadonlyMap<ConversationId, string>>(new Map())
+  const channelAgents = family<AsRead.ChannelAgent | null>(null)
+  const channelTeaching = family<AsRead.ChannelTeaching | null>(null)
+  const channelAgentFigures = family<AsRead.ChannelAgentReport | null>(null)
+  const channelDecisions = family<AsRead.ChannelDecisions | null>(null)
+  const followAccess = (): void => {
+    const { loaded, step } = channels.load.get()
+    if (!loaded && step !== 'failed') return
+    const run = new Set(
+      loaded ? channels.get().flatMap((one) => (one.runsAgent === true ? [one.slug] : [])) : [],
+    )
+    for (const held of [channelAgents, channelTeaching, channelAgentFigures, channelDecisions])
+      held.keepOnly(run)
+  }
+  channels.subscribe(followAccess)
+  channels.load.subscribe(followAccess)
   return {
     session,
     start: signal<Start>('loading'),
@@ -81,8 +97,10 @@ export const createState = (hash: string): AppState => {
     awaitingReply: resource<ReadonlyArray<ConversationId>>([]),
     reviews,
     reviewsRead,
-    channelAgents: signal<ReadonlyMap<string, AsRead.ChannelAgent>>(new Map()),
-    channelTeaching: signal<ReadonlyMap<string, AsRead.ChannelTeaching | 'failed'>>(new Map()),
+    channelAgents,
+    channelTeaching,
+    channelAgentFigures,
+    channelDecisions,
     channelsLoaded: isLoaded(channels),
     groups: resource<ReadonlyArray<AsRead.Group>>([]),
     channelPage: resource<ListedChannels>(NO_CHANNELS_LISTED),
@@ -99,9 +117,9 @@ export const createState = (hash: string): AppState => {
     archiveDiscards: signal<ReadonlyMap<ConversationId, ReadonlyArray<ArchiveDiscard>>>(new Map()),
     discardedAnswers: signal<ReadonlyMap<NoteId, string>>(new Map()),
     openedForThePerson: signal<ConversationId | null>(null),
-    agentReport: signal<AsRead.AgentReport | 'failed' | null>(null),
-    taught: signal<AsRead.MyPrinciples | 'failed' | null>(null),
-    interview: signal<AsRead.TeachingInterview | 'failed' | null>(null),
+    agentReport: resource<AsRead.AgentReport | null>(null),
+    taught: resource<AsRead.MyPrinciples | null>(null),
+    interview: resource<AsRead.TeachingInterview | null>(null),
     suggestions: resource<ReadonlyArray<AsRead.DebateSuggestion>>([]),
     debates: resource<ReadonlyArray<AsRead.DebateSummary>>([]),
     shownDebate: signal<AsRead.Debate | 'missing' | null>(null),
@@ -196,10 +214,14 @@ export interface AppState {
   readonly reviews: Resource<ReadonlyArray<AsRead.Review>>
   /** Each answer's text and room as the person first read it, like `draftsRead`. */
   readonly reviewsRead: Signal<ReadonlyMap<NoteId, DraftAsShown>>
-  /** The agents of the channels the person manages, as last loaded, by slug. */
-  readonly channelAgents: Signal<ReadonlyMap<string, AsRead.ChannelAgent>>
-  /** What the managers taught the agents of the channels the person manages, as last loaded, by slug. */
-  readonly channelTeaching: Signal<ReadonlyMap<string, AsRead.ChannelTeaching | 'failed'>>
+  /** The agents of the channels whose pages are open, by slug; null once read means the channel has none. */
+  readonly channelAgents: Family<AsRead.ChannelAgent | null>
+  /** What the managers taught the agents of the channels whose pages are open, by slug. */
+  readonly channelTeaching: Family<AsRead.ChannelTeaching | null>
+  /** How the agents of the channels whose pages are open are doing; null once read means not a manager. */
+  readonly channelAgentFigures: Family<AsRead.ChannelAgentReport | null>
+  /** What was recently decided on those agents' answers; null once read means not a manager. */
+  readonly channelDecisions: Family<AsRead.ChannelDecisions | null>
   readonly channelsLoaded: ReadableSignal<boolean>
   /** Every group, as the server shows them to the person; none while the organization has groups off. */
   readonly groups: Resource<ReadonlyArray<AsRead.Group>>
@@ -227,10 +249,10 @@ export interface AppState {
   /** Questions whose channel agent's answer this manager discarded here, with the agent's name. */
   readonly discardedAnswers: Signal<ReadonlyMap<NoteId, string>>
   readonly openedForThePerson: Signal<ConversationId | null>
-  readonly agentReport: Signal<AsRead.AgentReport | 'failed' | null>
-  readonly taught: Signal<AsRead.MyPrinciples | 'failed' | null>
+  readonly agentReport: Resource<AsRead.AgentReport | null>
+  readonly taught: Resource<AsRead.MyPrinciples | null>
   /** The pasted principles document and the proposals the person's agent made in a teaching chat. */
-  readonly interview: Signal<AsRead.TeachingInterview | 'failed' | null>
+  readonly interview: Resource<AsRead.TeachingInterview | null>
   /** The short debates the person's agent suggested, each a card until they open the room or answer alone. */
   readonly suggestions: Resource<ReadonlyArray<AsRead.DebateSuggestion>>
   readonly debates: Resource<ReadonlyArray<AsRead.DebateSummary>>
@@ -265,7 +287,7 @@ const makeInitial = (held: unknown, initial: unknown): void => {
       makeInitial(part, (initial as Readonly<Record<string, unknown>>)[key])
 }
 
-const isResource = (held: object): held is Resource<unknown> => 'reset' in held
+const isResource = (held: object): held is Resource<unknown> | Family<unknown> => 'reset' in held
 
 const isSignal = (held: object): held is Signal<unknown> => 'get' in held && 'set' in held
 

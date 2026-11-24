@@ -11,15 +11,18 @@ import {
 import { problemText } from '../principles.ts'
 import { strings } from '../strings.ts'
 import { placeName } from './places.ts'
+import type { ListWait } from './start.ts'
 
 /**
  * "Teach by chatting": how to start a chat with the person's own agent, the pasted document, and the
  * proposals it made, as cards in two groups, each with a way to save them all. The web client has no
  * model; it only shows what the agent proposed and saves what the person chooses.
  */
-export const interviewModel = (interview: AsRead.TeachingInterview | 'failed' | null): InterviewModel => {
-  if (interview === null) return { kind: 'loading' }
-  if (interview === 'failed') return { kind: 'failed', text: strings.teach.chat.failed }
+export const interviewModel = (
+  interview: AsRead.TeachingInterview | null,
+  wait: ListWait,
+): InterviewModel => {
+  if (interview === null) return { kind: 'waiting', wait }
   const chat = interview.proposals.filter((proposal) => !isFromRewrite(proposal))
   const rewrites = interview.proposals.filter(isFromRewrite)
   const groups = [
@@ -75,8 +78,7 @@ export const idsOf = (cards: ReadonlyArray<ProposalCard>): ProposalId[] =>
   cards.map((card) => card.proposal.id)
 
 export type InterviewModel =
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'failed'; readonly text: string }
+  | { readonly kind: 'waiting'; readonly wait: ListWait }
   | {
       readonly kind: 'shown'
       readonly title: string

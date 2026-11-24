@@ -614,7 +614,9 @@ sequenceDiagram
   again" is asked for once more after the running request. A list that never answers holds back neither the
   stream, nor the page, nor the other lists. The Channels tab loads its page when it opens and says "Checking…", then
   too long or failed with Try again, in place of the list until it has loaded; the page, the groups, the
-  flocks and the activity are resources as well, and say the same in their place, of their own loads. Try again
+  flocks and the activity are resources as well, and say the same in their place, of their own loads, and so
+  do the teaching pages (principles, figures, proposals) and a channel agent's page, whose entries are made by its
+  open pages (`pwa/src/family.ts`). Try again
   on the line asks for every list that failed or takes too long, and on a list for that list. The figures come from 20 loads each against a built server with 30
   people and 50 conversations, measured from the page's first request: no throttling 0.2 s at the 95th
   percentile; Chromium's Fast 3G / Slow 4G 4.2 s, cold or warm cache; Slow 3G 11.8 s. "Usually" is the

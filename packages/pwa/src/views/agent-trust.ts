@@ -12,6 +12,7 @@ import { connectionSection } from './connection.ts'
 import type { ViewContext } from './context.ts'
 import { renderDraftsBehind } from './drafts-behind.ts'
 import { hinted } from './hint.ts'
+import { pageData } from './page-data.ts'
 import { page } from './parts.ts'
 import { previewSettingsSection } from './preview-settings.ts'
 import { interviewSection } from './teaching-interview.ts'
@@ -82,6 +83,8 @@ const sectionContent = (
       return [previewSettingsSection(context, life, me)]
     case 'doing': {
       const days = signal(7)
+      const { state } = context
+      const { wait } = pageData(state, state.agentReport)
       return [
         region(life, [context.state.agentReport], () =>
           renderYourWeek(yourWeekModel(context.state.agentReport.get())),
@@ -90,10 +93,10 @@ const sectionContent = (
         periodChoice('trust-period', days),
         region(
           life,
-          [context.state.agentReport, days],
+          [context.state.agentReport, wait, days],
           () =>
             renderFigures(
-              figuresModel(context.state.agentReport.get(), days.get()),
+              figuresModel(context.state.agentReport.get(), days.get(), wait.get()),
               renderDraftsBehind(context, draftsBehindModel(context.state.agentReport.get(), days.get())),
               context,
             ),

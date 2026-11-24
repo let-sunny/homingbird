@@ -915,7 +915,6 @@ export const en = {
     promise: 'This draft makes a promise. Read it before sending.',
   },
   trust: {
-    loadFailed: 'Your agent’s numbers could not be loaded.',
     pageTitle: 'Nest',
     sections: {
       connection: 'Connection',
@@ -1177,7 +1176,6 @@ export const en = {
       savedAll: { one: 'One principle saved.', other: '{count} principles saved.' },
       discarded: 'Proposal discarded.',
       waiting: '{count} of {limit} proposals waiting',
-      failed: 'The proposals could not be loaded.',
       topicEmpty: 'Give it a title first.',
     },
     limit: '{count} of {limit} principles',
@@ -2192,7 +2190,6 @@ export const en = {
     intro:
       'One agent answers this channel’s questions. Its answers wait for its managers: any one of you sends an answer, and the first to send it wins.',
     none: 'This channel has no agent yet.',
-    loadFailed: 'The channel’s agent could not be loaded. Try again in a moment.',
     pageTitle: 'The agent of {channel}',
     writtenBy: 'Written by {agent}, the agent of {channel}',
     writtenByEdited: 'Written by {agent}, the agent of {channel}, edited by {name}',
@@ -2283,14 +2280,12 @@ export const en = {
       other: 'People who no longer manage the channel: {count} answers',
     },
     figuresApproved: { one: '{name}: {count} answer', other: '{name}: {count} answers' },
-    figuresLoadFailed: 'How the agent is doing could not be loaded. Try again in a moment.',
   },
   channelDecisions: {
     title: 'Recent decisions',
     intro:
       'What the managers of {channel} decided on the answers of {agent} in the last {days} days, newest first. Only they see this, and never a decision on a question they asked themselves.',
     none: 'No answer was sent or discarded in the last {days} days.',
-    loadFailed: 'The recent decisions could not be loaded. Try again in a moment.',
     listLabel: 'Recent decisions on the answers of {agent}',
     outcome: {
       sent_as_written: 'Sent as written',
@@ -2352,7 +2347,6 @@ export const en = {
     privacy:
       'Only the managers of {channel} see what {agent} was taught. The people who ask see its answers only.',
     audit: 'Your organization’s audit trail records which manager changed this and when, never what it says.',
-    loadFailed: 'What {agent} was taught could not be loaded. Try again in a moment.',
     fromCorrection: 'Teach from this correction',
     fromDiscard: 'Teach what it should have done',
     correctionHint:

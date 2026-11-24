@@ -16,7 +16,6 @@ import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
 import { closeDraftNotice } from './notifications.ts'
 import { loadPreviews, reloadPreviews } from './previews.ts'
 import { ACTIVITY, type ResourceKey, WORKSPACE, expire, invalidate, reread } from './resources.ts'
-import { refreshInterview } from './teaching-interview.ts'
 import { untilHolds } from './waiting-for.ts'
 import { followingWorkspace } from './workspace.ts'
 
@@ -44,7 +43,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
     if (state.groups.load.get().loaded) invalidateGroupsSoon()
   }
   const reloadReviewsSoon = invalidateSoon('reviews')
-  const reloadInterviewSoon = settled(refreshInterview)
+  const reloadInterviewSoon = invalidateSoon('interview')
   const reloadDebatesSoon = invalidateSoon('debates')
   const refreshAgentsIfNoneKnown = (): void => {
     if (state.agentCredentials.get().length === 0) launch(invalidate('agentCredentials', 'draftRequests'))
@@ -159,7 +158,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         reloadReviewsSoon()
         break
       case 'proposals.changed':
-        if (state.interview.get() !== null) reloadInterviewSoon()
+        if (state.interview.load.get().loaded) reloadInterviewSoon()
         break
       case 'suggestions.changed':
         launch(invalidate('suggestions'))

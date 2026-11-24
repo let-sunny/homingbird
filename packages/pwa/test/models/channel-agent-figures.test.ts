@@ -2,6 +2,7 @@ import type { AsRead, MemberId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { channelAgentFiguresModel } from '../../src/models/channel-agent-figures.ts'
 import { durationOf, strings } from '../../src/strings.ts'
+import { CHECKING } from '../support/resource-load.ts'
 
 const figures = (fields: Partial<AsRead.ChannelAgentFigures> = {}): AsRead.ChannelAgentFigures => ({
   written: 6,
@@ -30,17 +31,20 @@ const report: AsRead.ChannelAgentReport = {
 }
 
 describe('channelAgentFiguresModel', () => {
-  it('leaves the section out for someone who does not manage the channel, and says when it is loading or failed', () => {
-    expect(channelAgentFiguresModel(null, 'payments-wiki', 30)).toEqual({ kind: 'hidden' })
-    expect(channelAgentFiguresModel('loading', 'payments-wiki', 30)).toEqual({ kind: 'loading' })
-    expect(channelAgentFiguresModel('failed', 'payments-wiki', 30)).toEqual({
-      kind: 'failed',
-      text: strings.channelAgent.figuresLoadFailed,
+  it('leaves the section out for someone who does not manage the channel, once that is known', () => {
+    expect(channelAgentFiguresModel(null, null, 'payments-wiki', 30)).toEqual({ kind: 'hidden' })
+  })
+
+  it('waits rather than leave the section out while the answer has not come', () => {
+    expect(channelAgentFiguresModel(null, CHECKING, 'payments-wiki', 30)).toEqual({
+      kind: 'waiting',
+      wait: CHECKING,
     })
+    expect(channelAgentFiguresModel(report, CHECKING, 'payments-wiki', 30).kind).toBe('waiting')
   })
 
   it('gives each figure of the period beside the period before, and every manager’s count in order', () => {
-    const model = channelAgentFiguresModel(report, 'payments-wiki', 30)
+    const model = channelAgentFiguresModel(report, null, 'payments-wiki', 30)
     expect(model).toEqual({
       kind: 'figures',
       title: 'How the agent of #payments-wiki is doing',
@@ -71,7 +75,7 @@ describe('channelAgentFiguresModel', () => {
       ...report,
       periods: [{ days: 30, current: figures({ approvals: null }), previous: figures() }],
     }
-    const model = channelAgentFiguresModel(small, 'payments-wiki', 30)
+    const model = channelAgentFiguresModel(small, null, 'payments-wiki', 30)
     expect(model.kind === 'figures' && [model.approvals, model.approvalsHint]).toEqual([
       [],
       strings.channelAgent.figuresApprovalsHidden({ minimum: 5 }),
@@ -85,14 +89,14 @@ describe('channelAgentFiguresModel', () => {
         { days: 30, current: figures({ approvals: null, approvedByFormerManagers: 2 }), previous: figures() },
       ],
     }
-    const model = channelAgentFiguresModel(former, 'payments-wiki', 30)
+    const model = channelAgentFiguresModel(former, null, 'payments-wiki', 30)
     expect(model.kind === 'figures' && model.approvals).toEqual([
       'People who no longer manage the channel: 2 answers',
     ])
   })
 
   it('falls back to the first period when the one asked for is not there', () => {
-    const model = channelAgentFiguresModel(report, 'payments-wiki', 90)
+    const model = channelAgentFiguresModel(report, null, 'payments-wiki', 90)
     expect(model.kind === 'figures' && model.rows[0]).toEqual([strings.channelAgent.figuresWritten, '2', '6'])
   })
 })

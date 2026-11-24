@@ -4,9 +4,8 @@ import { durationOf, strings } from '../../src/strings.ts'
 import { report } from '../support/fixtures.ts'
 
 describe('yourWeekModel', () => {
-  it('shows nothing until the report has the week, and nothing for a report that failed', () => {
+  it('shows nothing until the report has the week', () => {
     expect(yourWeekModel(null)).toBeNull()
-    expect(yourWeekModel('failed')).toBeNull()
     expect(yourWeekModel(report())).toBeNull()
   })
 

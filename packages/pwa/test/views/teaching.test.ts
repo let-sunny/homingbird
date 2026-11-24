@@ -8,6 +8,7 @@ import { appliedMarkers, chancesIn, taughtSection } from '../../src/views/teachi
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import { ROOM, channel, draft, principle, serverInfo, taught } from '../support/fixtures.ts'
+import { setLoad, setWorkspace } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -22,13 +23,32 @@ const offer = {
 } as AsRead.PrincipleOffer
 
 describe('taughtSection', () => {
-  it('loads the principles, and says when they could not load', () => {
+  it('loads the principles, and says once when they could not load, with a way to try again', () => {
     const { context, called } = testContext()
     const shown = taughtSection(context, lifetime())
     expect(called('refreshPrinciples')).toHaveLength(1)
     expect(textOf(shown)).toBe(strings.loading)
-    context.state.taught.set('failed')
-    expect(getByRole(shown, 'alert').textContent).toBe(strings.trust.loadFailed)
+    setLoad(context.state.taught, { step: 'failed' })
+    expect(textOf(shown)).toContain(strings.loadFailed)
+    getByRole(shown, 'button', { name: strings.tryAgain }).click()
+    expect(called('askAgain')[0]!.args).toEqual(['taught'])
+  })
+
+  it('leaves it to the line above the lists to say a failure it already tells', () => {
+    const { context } = testContext()
+    const shown = taughtSection(context, lifetime())
+    setWorkspace(context.state, 'failed')
+    setLoad(context.state.taught, { step: 'failed' })
+    expect(textOf(shown)).toBe('')
+  })
+
+  it('keeps the principles shown when asking for them again fails for a moment', () => {
+    const { context } = testContext()
+    const shown = taughtSection(context, lifetime())
+    context.state.taught.set(taught({ achievements: ['first_principle'] }))
+    setLoad(context.state.taught, { loaded: true, step: 'failed' })
+    expect(textOf(shown)).toContain(strings.teach.achievements.first_principle)
+    expect(textOf(shown)).not.toContain(strings.loadFailed)
   })
 
   it('invites a first principle, and adds one from the list with the place chosen', () => {

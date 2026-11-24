@@ -1,4 +1,4 @@
-import { type Child, type Lifetime, h, region } from '@homingbird/ui'
+import { type Child, type Lifetime, h, region, slice } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
 import {
   type Action,
@@ -8,6 +8,7 @@ import {
   type Track,
   answersLikeYouModel,
 } from '../models/answers-like-you.ts'
+import { isGivenUp } from '../resource.ts'
 import type { ViewContext } from './context.ts'
 import { timeLabel } from './parts.ts'
 import { teachFromMiss } from './teaching.ts'
@@ -16,12 +17,18 @@ import { teachFromMiss } from './teaching.ts'
 export const answersLikeYouSection = (context: ViewContext, life: Lifetime): HTMLElement => {
   const teaching = featureOn('teaching', context.state.serverInfo.get())
   if (teaching) context.actions.refreshPrinciples()
+  const { state } = context
+  const principlesGivenUp = slice([state.taught.load], () => isGivenUp(state.taught.load.get()))
   return region(
     life,
-    [context.state.agentReport, context.state.taught],
+    [state.agentReport, state.taught, principlesGivenUp],
     () =>
       renderAnswersLikeYou(
-        answersLikeYouModel(context.state.agentReport.get(), context.state.taught.get(), teaching),
+        answersLikeYouModel(
+          state.agentReport.get(),
+          state.taught.get(),
+          teaching && !principlesGivenUp.get(),
+        ),
         context,
       ),
     { class: 'answers-like-you' },

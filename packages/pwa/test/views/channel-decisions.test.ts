@@ -18,6 +18,7 @@ import {
   member,
   serverInfo,
 } from '../support/fixtures.ts'
+import { setLoad } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -58,30 +59,37 @@ const shown = (info: AsRead.ServerInfo = everything()) => {
   context.state.directory.set([entry(ANA, 'June Park'), entry(BEN, 'Ben Okafor')])
   mount(dialogHost())
   const section = mount(channelDecisionsSection(context, lifetime(), billing))
-  return { context, called, section }
+  const held = context.state.channelDecisions.find('billing')!
+  const answered = (decisions: AsRead.ChannelDecisions | null): void => {
+    held.set(decisions)
+    setLoad(held, { loaded: true })
+  }
+  return { context, called, section, held, answered }
 }
 
 describe('channelDecisionsSection', () => {
   it('loads the channel’s decisions, waiting, and shows nothing to someone who does not manage it', () => {
-    const { called, section } = shown()
-    expect(called('loadChannelDecisions')[0]!.args).toEqual(['billing'])
+    const { called, section, answered } = shown()
+    expect(called('openAgentPage')[0]!.args).toEqual(['channelDecisions', 'billing'])
     expect(textOf(section)).toBe(strings.loading)
-    called('loadChannelDecisions')[0]!.then!.done!(null)
+    answered(null)
     expect(textOf(section)).toBe('')
   })
 
-  it('says when they could not be loaded, and when nothing was decided', () => {
-    const { called, section } = shown()
-    called('loadChannelDecisions')[0]!.then!.failed!(new Error('down'))
-    expect(getByRole(section, 'status').textContent).toBe(strings.channelDecisions.loadFailed)
-    called('loadChannelDecisions')[0]!.then!.done!(listed([]))
+  it('says once when they could not be loaded, with a way to try again, and when nothing was decided', () => {
+    const { called, section, held, answered } = shown()
+    setLoad(held, { step: 'failed' })
+    expect(textOf(section)).toContain(strings.loadFailed)
+    getByRole(section, 'button', { name: strings.tryAgain }).click()
+    expect(called('askAgentPageAgain')[0]!.args).toEqual(['channelDecisions', 'billing'])
+    answered(listed([]))
     expect(textOf(section)).toContain(strings.channelDecisions.none({ days: 30 }))
     expect(queryByRole(section, 'list')).toBeNull()
   })
 
   it('shows each decision with its question, the answer, the reason and the principles, and links to it', () => {
-    const { called, section } = shown()
-    called('loadChannelDecisions')[0]!.then!.done!(listed([decision()]))
+    const { section, answered } = shown()
+    answered(listed([decision()]))
     expect(getByRole(section, 'heading', { name: strings.channelDecisions.title })).toBeTruthy()
     const list = getByRole(section, 'list', {
       name: strings.channelDecisions.listLabel({ agent: 'Billing helper' }),
@@ -102,8 +110,8 @@ describe('channelDecisionsSection', () => {
   })
 
   it('sets the agent’s words above an edited answer, and marks a private question', () => {
-    const { called, section } = shown()
-    called('loadChannelDecisions')[0]!.then!.done!(
+    const { section, answered } = shown()
+    answered(
       listed([
         decision({
           outcome: 'sent_edited',
@@ -123,26 +131,23 @@ describe('channelDecisionsSection', () => {
   })
 
   it('opens the principle form prefilled from the decision, and offers no teaching while it is off', () => {
-    const { called, section } = shown()
-    called('loadChannelDecisions')[0]!.then!.done!(listed([decision()]))
+    const { section, answered } = shown()
+    answered(listed([decision()]))
     getByRole(section, 'button', { name: strings.channelTeach.fromDiscard }).click()
     const dialog = document.getElementById('dialog')!
     expect(textOf(dialog)).toContain(strings.channelTeach.dialogTitle({ agent: 'Billing helper' }))
     const off = shown(serverInfo({ channelAgents: true, teaching: false }))
-    off.called('loadChannelDecisions')[0]!.then!.done!(listed([decision()]))
+    off.answered(listed([decision()]))
     expect(queryByRole(off.section, 'button', { name: strings.channelTeach.fromDiscard })).toBeNull()
   })
 
-  it('reads them again when an answer in the channel is sent or discarded, keeping the latest request', () => {
-    const { context, called, section } = shown()
+  it('reads them again, without a word, when an answer in the channel is sent or discarded', () => {
+    const { context, called, section, answered } = shown()
+    answered(listed([decision()]))
     context.state.reviews.set([{ ...review(), channel: 'other' }])
-    expect(called('loadChannelDecisions')).toHaveLength(1)
+    expect(called('reloadAgentPage')).toHaveLength(0)
     context.state.reviews.set([{ ...review(), channel: 'billing' }])
-    expect(called('loadChannelDecisions')).toHaveLength(2)
-    const [first, second] = called('loadChannelDecisions')
-    second!.then!.done!(listed([decision()]))
-    first!.then!.done!(null)
-    first!.then!.failed!(new Error('late'))
+    expect(called('reloadAgentPage').map((one) => one.args)).toEqual([['channelDecisions', 'billing']])
     expect(section.querySelector('.decision-row')).not.toBeNull()
   })
 })

@@ -1,6 +1,6 @@
 import { Task as T, makeTestClock } from '@homingbird/kernel'
 import type { ApiError } from '@homingbird/protocol'
-import { signal } from '@homingbird/ui'
+import { lifetime, signal } from '@homingbird/ui'
 import { describe, expect, it } from 'vitest'
 import { type Source, resource } from '../../src/resource.ts'
 import { createState } from '../../src/state.ts'
@@ -108,6 +108,25 @@ describe('watchState', () => {
       'reset',
       '=> idle not loaded',
     ])
+  })
+
+  it('watches a family as one row of its own, for the kind of key and never a key or what it holds', async () => {
+    const state = createState('')
+    const recording = recordOf(state, clock)
+    const row = () => recording.snapshot().resources.find((one) => one.path === 'channelDecisions')!
+    expect(row()).toMatchObject({ running: false, items: 0, loaded: false })
+    const held = state.channelDecisions.use('SECRET-slug', lifetime())
+    held.set({ channel: 'SECRET-slug', days: 30, decisions: [] })
+    void T.run(held.open(sourceOf(T.promise(() => new Promise<never>(() => {})))))
+    await settle()
+    expect(row()).toMatchObject({ running: true, items: 1, attempts: 1, step: 'loading' })
+    state.channelDecisions.use('SECRET-other', lifetime())
+    expect(row()).toMatchObject({ items: 2 })
+    const everything = JSON.stringify([recording.snapshot(), timelineText(recording)])
+    expect(everything).not.toContain('SECRET')
+    expect(timelineText(recording)).toContain('channelDecisions asked')
+    state.channelDecisions.reset()
+    expect(row()).toMatchObject({ running: false, items: 0 })
   })
 
   it('tells of an attempt that failed and waits to be repeated, and of one that broke', async () => {

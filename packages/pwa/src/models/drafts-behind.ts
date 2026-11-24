@@ -9,11 +9,8 @@ import { type TimeShown, timeShown } from './time.ts'
  * Under the figures: the drafts the person edited or discarded and the notes their agent skipped in
  * the period, each a way into its conversation and a chance to teach. Nothing while there are none.
  */
-export const draftsBehindModel = (
-  report: AsRead.AgentReport | 'failed' | null,
-  days: number,
-): DraftsBehind | null => {
-  if (report === null || report === 'failed') return null
+export const draftsBehindModel = (report: AsRead.AgentReport | null, days: number): DraftsBehind | null => {
+  if (report === null) return null
   const from = report.generatedAt - days * DAY_MS
   const misses = (report.misses ?? []).filter((miss) => miss.at > from)
   const groups = OUTCOMES.flatMap((outcome): DraftsBehindGroup[] => {
