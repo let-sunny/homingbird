@@ -113,7 +113,6 @@ const keepLoadingWorkspace = (after: number): Action =>
         yield* reportVisibility
       })
     })
-    let toldOnce = false
     let quiet = false
     for (;;) {
       if (!quiet) state.workspace.set('loading')
@@ -141,8 +140,6 @@ const keepLoadingWorkspace = (after: number): Action =>
       if (attempt.error._tag === 'Unauthorized') return state.session.set(null)
       state.workspaceRefusal.set(isTransient(attempt.error) ? '' : refusalText(attempt.error))
       state.workspace.set('failed')
-      if (!toldOnce) state.notice.set({ kind: 'error', text: refusalText(attempt.error) })
-      toldOnce = true
       yield* startLive
       const woken = yield* T.race([
         T.map(AGAIN)(untilChanged(state.workspaceRestarts)),

@@ -593,7 +593,8 @@ sequenceDiagram
   branding, `server.info`, `me.get` and the event cursor, repeats after a network failure, a 5xx or a
   429, waiting 1, 2, 4 and 8 seconds; a refusal that is not a 401 is said as what it was, and only a
   401 from `me.get` shows sign-in. Once the person is known the page is drawn and the workspace loads in
-  the second phase, with the lists saying they are checking rather than that they are empty. Both phases
+  the second phase, with the lists saying they are checking rather than that they are empty. A problem is told in one place:
+  the line above the lists when the workspace is slow or failed, otherwise the list itself, never both. Both phases
   tell the person how it is going: "Loading…", then, after `USUAL_LOAD_SECONDS`, that it usually opens
   within that many seconds, then, after `TOO_LONG_LOAD_SECONDS`, that it is taking too long, with Try
   again; the attempt goes on behind that, and Try again ends it and starts one fresh one. A workspace

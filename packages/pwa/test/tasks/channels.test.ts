@@ -19,12 +19,18 @@ const answers = {
 describe('channel tasks', () => {
   it('loads a page of channels for a query and a cursor', async () => {
     const { run, sent } = testApp(answers)
-    await run(tasks.loadChannelPage('', null))
-    await run(tasks.loadChannelPage('bill', 'next'))
+    await run(tasks.loadChannelPage('', null, true))
+    await run(tasks.loadChannelPage('bill', 'next', false))
     expect(sent.map((one) => one.request)).toEqual([
       { query: { limit: '20' } },
       { query: { limit: '20', q: 'bill', cursor: 'next' } },
     ])
+  })
+
+  it('brings the known channels up to date, and leaves telling a failure to the list', async () => {
+    const down = testApp({ 'channels.list': () => fail({ _tag: 'Unavailable', message: 'down' }) })
+    expect(await down.run(tasks.refreshKnownChannels)).toMatchObject({ _tag: 'Ok' })
+    expect(down.state.notice.get()).toBeNull()
   })
 
   it('opens a channel and keeps it in the known list after the reload', async () => {

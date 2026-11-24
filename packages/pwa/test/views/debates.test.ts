@@ -45,6 +45,23 @@ describe('debatesView', () => {
     expect(queryByRole(shown, 'button', { name: strings.tryAgain })).toBeNull()
   })
 
+  it('says nothing of its own while the line above offers to try again, which loads the list again too', () => {
+    const { context, called } = testContext()
+    const shown = mount(debatesView(context, lifetime(), me()))
+    context.state.listLoads.flocks.step.set('failed')
+    for (const workspace of ['long', 'failed'] as const) {
+      context.state.workspace.set(workspace)
+      expect(textOf(shown)).not.toContain(strings.loadFailed)
+      expect(textOf(shown)).not.toContain(strings.debates.empty)
+      expect(queryByRole(shown, 'button', { name: strings.tryAgain })).toBeNull()
+    }
+    context.state.workspaceRestarts.update((count) => count + 1)
+    expect(called('loadDebateList')).toHaveLength(2)
+    context.state.debatesLoaded.set(true)
+    context.state.workspaceRestarts.update((count) => count + 1)
+    expect(called('loadDebateList')).toHaveLength(2)
+  })
+
   it('opens a flock for a question with the colleagues invited and the limits typed', () => {
     const { context, called, page } = testContext()
     mount(dialogHost())

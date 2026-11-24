@@ -40,7 +40,7 @@ import {
 /** Channels: every channel the person may see, searchable, a page at a time. */
 export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement => {
   const { state, actions } = context
-  actions.loadKnownChannels()
+  actions.refreshKnownChannels()
   const query = signal('')
   const listed = signal<ListedChannels>({
     query: '',
@@ -50,7 +50,7 @@ export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement 
     loaded: false,
   })
   const load = (typed: string, after: ListedChannels | null): void =>
-    actions.loadChannelPage(typed, after?.cursor ?? null, {
+    actions.loadChannelPage(typed, after?.cursor ?? null, !listed.get().loaded, {
       done: (found) => {
         if (query.get() === typed) listed.set(withPage(after, typed, found))
       },
@@ -75,13 +75,18 @@ export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement 
     },
   })
   load('', null)
+  life.add(
+    state.workspaceRestarts.subscribe(() => {
+      if (!listed.get().loaded) load(query.get(), null)
+    }),
+  )
   return page(
     strings.channels,
     h('div', { class: 'channels-intro' }, h('p', {}, strings.channelsIntro), newChannelButton(context)),
     field(strings.channelsSearchLabel, search),
-    region(life, [listed, state.listLoads.channels.step], () =>
+    region(life, [listed, state.listLoads.channels.step, state.workspace], () =>
       renderChannelList(
-        channelListModel(listed.get(), state.listLoads.channels.step.get()),
+        channelListModel(listed.get(), state.listLoads.channels.step.get(), state.workspace.get()),
         context,
         () => load(listed.get().query, listed.get()),
         () => load(query.get(), null),

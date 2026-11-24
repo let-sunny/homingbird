@@ -54,6 +54,7 @@ export const TASKS = {
   dismissSuggestion: debateSuggestions.dismissSuggestion,
   loadPeople: () => workspace.loadPeople,
   loadKnownChannels: () => workspace.loadKnownChannels,
+  refreshKnownChannels: () => channels.refreshKnownChannels,
   openThread: notes.openThread,
   loadOlderNotes: notes.loadOlderNotes,
   sendNote: notes.sendNote,

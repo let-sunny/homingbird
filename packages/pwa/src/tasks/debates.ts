@@ -25,7 +25,9 @@ export const loadDebates: Action = withApp(({ api, state }) =>
 )
 
 /** The flocks list as its page opens or asks to try again: the list is told how long the first answer takes. */
-export const loadDebateList: Action = loadingList('flocks', loadDebates)
+export const loadDebateList: Action = withApp(({ state }) =>
+  loadingList('flocks', !state.debatesLoaded.get(), loadDebates),
+)
 
 /** Reads the flock shown on screen again; a flock the person may not see is shown as missing. */
 export const loadDebate = (id: string): Action =>

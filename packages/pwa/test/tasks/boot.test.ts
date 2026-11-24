@@ -413,12 +413,12 @@ describe('boot', () => {
       })
     })
 
-    it('keeps the page up with a notice, the line and one live stream when the server stays away, and loads again without online once it is back', async () => {
+    it('keeps the page up with the line alone, and no notice beside it, and one live stream when the server stays away, and loads again without online once it is back', async () => {
       const { out, streams, sessions, running, recover } = await failingWorkspace(down, 15_000)
       expect(sessions).toEqual([me()])
       expect(out.state.workspace.get()).toBe('failed')
       expect(out.state.workspaceRefusal.get()).toBe('')
-      expect(out.state.notice.get()?.kind).toBe('error')
+      expect(out.state.notice.get()).toBeNull()
       expect(streams()).toBe(1)
       expect(out.page.listening('online')).toBe(2)
       recover()
