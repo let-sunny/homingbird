@@ -2,8 +2,9 @@ import type { AsRead, NoteId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { loadPreviews, reloadPreviews } from '../../src/tasks/previews.ts'
 import { type Transport, catchUp } from '../../src/tasks/reconnect.ts'
+import { open } from '../../src/tasks/resources.ts'
 import { fail, hold, settle, testApp } from '../support/app.ts'
-import { BEN, CHANNEL_ROOM, ROOM, me, member, serverInfo } from '../support/fixtures.ts'
+import { BEN, CHANNEL_ROOM, ROOM, me, member, serverInfo, summary } from '../support/fixtures.ts'
 
 const preview = (id: string): AsRead.DraftPreview => ({
   noteId: id as NoteId,
@@ -17,14 +18,24 @@ const preview = (id: string): AsRead.DraftPreview => ({
   updatedAt: 1,
 })
 
-const start = (handlers: Parameters<typeof testApp>[0] = {}) => {
+const start = (handlers: Parameters<typeof testApp>[0] = {}, hasLists = false) => {
   const test = testApp({
     'me.get': () => me(),
     'previews.list': () => ({ previews: [] }),
+    'reviews.list': () => ({ reviews: [] }),
+    'debateSuggestions.list': () => ({ suggestions: [] }),
+    'debates.list': () => ({ debates: [] }),
     ...handlers,
   })
   test.state.session.set(me())
-  test.state.serverInfo.set(serverInfo({ draftPreviews: true }))
+  test.state.serverInfo.set(
+    serverInfo({
+      draftPreviews: true,
+      channelAgents: hasLists,
+      debateSuggestions: hasLists,
+      debateRooms: hasLists,
+    }),
+  )
   test.state.previews.set(new Map([[ROOM, [preview('note_p1')]]]))
   const missed = catchUp(test.app)
   const connect = (transport: Transport): void => {
@@ -237,5 +248,95 @@ describe('catchUp', () => {
     expect(app.ended.aborted).toBe(true)
     expect(state.previews.get().size).toBe(0)
     expect(routes()).toEqual(['me.get'])
+  })
+})
+
+describe('catchUp with the lists that events sent once bring up to date', () => {
+  const LISTS = ['debateSuggestions.list', 'debates.list', 'reviews.list']
+  const listsAsked = (routes: ReadonlyArray<string>) => routes.filter((route) => LISTS.includes(route)).sort()
+
+  it('asks for none at the first connect, and for each once at a reconnect, after who is signed in', async () => {
+    const { connect, routes } = start({}, true)
+    connect('stream')
+    await settle()
+    expect(listsAsked(routes())).toEqual([])
+    connect('stream')
+    await settle()
+    expect(listsAsked(routes())).toEqual(LISTS)
+    expect(routes().indexOf('me.get')).toBeLessThan(routes().findIndex((route) => LISTS.includes(route)))
+  })
+
+  it('shows what was missed, also over an answer that was asked for before the drop', async () => {
+    const before = hold<unknown>()
+    let asked = 0
+    const { connect, app, state, aborted } = start(
+      { 'debates.list': () => (asked++ === 0 ? before.waiting : { debates: [summary()] }) },
+      true,
+    )
+    connect('stream')
+    app.launch(open('debates'))
+    await settle()
+    connect('stream')
+    await settle()
+    expect(aborted).toEqual(['debates.list'])
+    before.release({ debates: [] })
+    await settle()
+    expect(state.debates.get()).toEqual([summary()])
+  })
+
+  it('asks for none until the server says who is signed in, and asks that again while it is away', async () => {
+    let isAway = true
+    const { connect, routes, clock, shown } = start(
+      { 'me.get': () => (isAway ? fail({ _tag: 'Unavailable', message: 'away' }) : me()) },
+      true,
+    )
+    connect('stream')
+    connect('stream')
+    await settle()
+    expect(listsAsked(routes())).toEqual([])
+    expect(shown()).toEqual([])
+    isAway = false
+    await clock.advance(1000)
+    await settle()
+    expect(listsAsked(routes())).toEqual(LISTS)
+    expect(clock.pending()).toBe(0)
+  })
+
+  it('asks for none of another person’s', async () => {
+    const { connect, routes, page } = start(
+      { 'me.get': () => ({ ...me(), member: member(BEN, 'Ben') }) },
+      true,
+    )
+    connect('stream')
+    connect('stream')
+    await settle()
+    expect(page.visited).toEqual(['reload'])
+    expect(listsAsked(routes())).toEqual([])
+  })
+
+  it('asks once when it falls back to polling, not at each poll, though a poll may answer before the check', async () => {
+    const answer = hold<unknown>()
+    let asked = 0
+    const { connect, routes } = start({ 'me.get': () => (asked++ === 0 ? answer.waiting : me()) }, true)
+    connect('stream')
+    connect('poll')
+    await settle()
+    connect('poll')
+    await settle()
+    expect(listsAsked(routes())).toEqual(LISTS)
+    connect('poll')
+    await settle()
+    expect(listsAsked(routes())).toEqual(LISTS)
+  })
+
+  it('tells nobody when they cannot be read', async () => {
+    const { connect, state } = start(
+      { 'debates.list': () => fail({ _tag: 'Unavailable', message: 'down' }) },
+      true,
+    )
+    connect('stream')
+    connect('stream')
+    await settle()
+    expect(state.notice.get()).toBeNull()
   })
 })

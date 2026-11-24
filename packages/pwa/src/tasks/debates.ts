@@ -15,20 +15,12 @@ import type {
 import { track } from '../analytics.ts'
 import { type Action, withApp } from '../app.ts'
 import type { AppState } from '../state.ts'
-import { loadingList } from './list-load.ts'
-import { reloadQuietly } from './quiet-reload.ts'
+import { again, invalidate, open } from './resources.ts'
 
-export const loadDebates: Action = withApp(({ api, state }) =>
-  T.map((listed: { debates: ReadonlyArray<AsRead.DebateSummary> }) => {
-    state.debates.set(listed.debates)
-    state.debatesLoaded.set(true)
-  })(api['debates.list']({})),
-)
+/** The flocks list as its page opens, and as the person asks to try again. */
+export const openDebateList: Action = open('debates')
 
-/** The flocks list as its page opens or asks to try again: the list is told how long the first answer takes. */
-export const loadDebateList: Action = withApp(({ state }) =>
-  loadingList('flocks', !state.debatesLoaded.get(), loadDebates),
-)
+export const askDebateListAgain: Action = again('debates')
 
 /**
  * Reads the flock shown on screen again; a flock the person may not see is shown as missing. An answer
@@ -53,14 +45,14 @@ export interface DebateWish {
 export const createDebate = (wish: DebateWish): Action<AsRead.Debate> =>
   withApp(({ api }) =>
     T.tap((_: AsRead.Debate) =>
-      T.flatMap(() => reloadQuietly(loadDebates))(track('debate_opened', { visibility: wish.visibility })),
+      T.flatMap(() => invalidate('debates'))(track('debate_opened', { visibility: wish.visibility })),
     )(api['debates.create']({ body: wish })),
   )
 
 /** Opens a scheduling flock for the setup the person typed; the list is read again so the flock shows in it. */
 export const createSchedulingRoom = (setup: ScheduleSetup): Action<AsRead.Debate> =>
   withApp(({ api }) =>
-    T.tap((_: AsRead.Debate) => reloadQuietly(loadDebates))(api['scheduling.create']({ body: setup })),
+    T.tap((_: AsRead.Debate) => invalidate('debates'))(api['scheduling.create']({ body: setup })),
   )
 
 /** Gives the free times the person picked themself, none at all when they are busy throughout. */

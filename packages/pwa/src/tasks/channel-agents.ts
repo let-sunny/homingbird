@@ -1,25 +1,19 @@
 import { Task as T } from '@homingbird/kernel'
 import type { ApiError, AsRead, CredentialId, NoteId } from '@homingbird/protocol'
+import { withoutReview } from '../activity.ts'
 import { type Action, type App, withApp } from '../app.ts'
 import { asRead, asShown, withDraftRead } from '../drafts-read.ts'
-import { featureOn } from '../features.ts'
 import { hrefFor } from '../routes.ts'
 import type { AppState, HeldWords } from '../state.ts'
 import { strings } from '../strings.ts'
 import { holdDecision } from './held.ts'
 import { loadThread } from './notes.ts'
-import { closeSettledReviewNotices } from './notifications.ts'
 import { reloadQuietly } from './quiet-reload.ts'
+import { invalidate, refresh } from './resources.ts'
 import { loadConversations, loadKnownChannels } from './workspace.ts'
 
-/** The answers waiting for this person, read again whenever one changes; none while channel agents are off. */
-export const loadReviews: Action = T.gen(function* () {
-  const { api, state, clock } = yield* T.ask<App>()
-  if (!featureOn('channelAgents', state.serverInfo.get())) return
-  const requestedAt = clock.now()
-  state.reviews.set((yield* api['reviews.list']({})).reviews)
-  yield* closeSettledReviewNotices(requestedAt)
-})
+/** The answers waiting for this person, as the server has them after this is asked; true when it answered. */
+export const refreshReviews: Action<boolean> = refresh('reviews')
 
 /**
  * What became of an answer that a notification opened and that no longer waits: the note once someone
@@ -44,14 +38,14 @@ export const sendReview = (review: AsRead.Review, editedBody: string | null): Ac
       state.reviewsRead.get().get(review.note.id) ?? asRead(review.note),
       review.question,
     )
-    yield* T.tapError((error: ApiError) => (error._tag === 'Conflict' ? loadReviews : T.unit))(
+    yield* T.tapError((error: ApiError) => (error._tag === 'Conflict' ? invalidate('reviews') : T.unit))(
       api['drafts.send']({
         params: { id: review.note.id },
         body: editedBody === null ? { expected } : { body: editedBody, expected },
       }),
     )
-    state.reviews.update((all) => all.filter((one) => one.note.id !== review.note.id))
-    yield* reloadQuietly(loadReviews)
+    state.reviews.update(withoutReview(review.note.id))
+    yield* invalidate('reviews')
     if (state.threads.get().has(review.note.conversationId))
       yield* reloadQuietly(loadThread(review.note.conversationId))
   })
@@ -62,9 +56,9 @@ export const discardReview = (review: AsRead.Review, reason: string): Action =>
     const { api, state } = yield* T.ask<App>()
     const why = reason.trim()
     yield* api['drafts.discard']({ params: { id: review.note.id }, body: why === '' ? {} : { reason: why } })
-    state.reviews.update((all) => all.filter((one) => one.note.id !== review.note.id))
+    state.reviews.update(withoutReview(review.note.id))
     offerToReply(state, review)
-    yield* reloadQuietly(loadReviews)
+    yield* invalidate('reviews')
   })
 
 /** Sends an answer, as read or as edited, once the moment to undo it is over. */
@@ -147,7 +141,7 @@ export const retireChannelAgent = (slug: string): Action =>
     const { api } = yield* T.ask<App>()
     yield* api['channels.agent.retire']({ params: { slug } })
     yield* afterAgentChange(slug)
-    yield* reloadQuietly(loadReviews)
+    yield* invalidate('reviews')
   })
 
 export const disconnectAgentDesk = (slug: string, id: CredentialId): Action =>

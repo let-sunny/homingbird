@@ -37,6 +37,10 @@ export const firstScreenRefusal = (error: ApiError): string => {
   return locale === 'en' && saysMore(error.message) ? error.message : sentence
 }
 
+/** Whether waiting may mend it: the server is away or too busy, rather than refusing. */
+export const isTransient = (error: ApiError): boolean =>
+  error._tag === 'Unavailable' || error._tag === 'RateLimited'
+
 const saysMore = (message: string): boolean => message.trim() !== '' && !JUST_THE_STATUS.test(message.trim())
 
 const JUST_THE_STATUS = /^(forbidden|not found|invalid|bad request|conflict)\.?$/i

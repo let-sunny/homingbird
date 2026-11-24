@@ -40,7 +40,7 @@ import {
 } from '../../src/tasks/people.ts'
 import { reloadQuietly } from '../../src/tasks/quiet-reload.ts'
 import { retrySchedulingRoom } from '../../src/tasks/scheduling.ts'
-import { fail, testApp } from '../support/app.ts'
+import { fail, settle, testApp } from '../support/app.ts'
 import {
   ANA,
   BEN,
@@ -164,8 +164,9 @@ describe('a change the server accepted', () => {
     async (_, answers, action) => {
       const app = testApp(reloadsRefused(signedOut, answers))
       app.state.serverInfo.set(everything())
-      const outcome = await app.run(action)
-      expect(outcome).toMatchObject({ _tag: 'Err', error: { error: { _tag: 'Unauthorized' } } })
+      app.app.launch(action)
+      for (let round = 0; round < 5; round++) await settle()
+      expect(app.app.ended.aborted).toBe(true)
     },
   )
 })

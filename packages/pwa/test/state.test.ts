@@ -75,6 +75,7 @@ const fill = (part: unknown, name: string): void => {
   if (typeof part !== 'object' || part === null || part instanceof Map || Array.isArray(part))
     throw new Error(`forgetSession does not empty ${name}`)
   if ('changesTo' in part) return void (part as AppState['changes']).count(ROOM)
+  if ('reset' in part) fill((part as AppState['debates']).load, `${name}.load`)
   if ('set' in part && 'get' in part) {
     const signal = part as { get: () => unknown; set: (value: unknown) => void }
     return void signal.set(somethingElse(signal.get()))
@@ -87,6 +88,10 @@ const held = (part: unknown): unknown => {
   if (typeof part === 'function' || typeof part === 'number') return null
   if (part instanceof Set) return [...part]
   if ('changesTo' in (part as object)) return (part as AppState['changes']).changesTo(ROOM)
+  if ('reset' in (part as object)) {
+    const { get, load } = part as AppState['debates']
+    return [get(), load.get()]
+  }
   if ('get' in (part as object)) return (part as { get: () => unknown }).get()
   return Object.entries(part as object).map(([key, inner]) => [key, held(inner)])
 }

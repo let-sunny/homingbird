@@ -33,6 +33,7 @@ import {
   summary,
 } from '../support/fixtures.ts'
 import { heldDecision } from '../support/held.ts'
+import { setActivityLoaded, setLoad } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -231,7 +232,34 @@ describe('activityPanel', () => {
     state.threads.set(new Map([[ROOM, { notes: [], hasMore: false }]]))
     state.conversations.set([])
     state.workspace.set('loaded')
+    expect(textOf(panel)).toContain(strings.checking.waiting)
+    setActivityLoaded(state)
     expect(textOf(panel)).toContain(strings.activity.empty)
+  })
+
+  it('says a list failed in its place, once, with the way to try again, and keeps what waits', () => {
+    const { state, panel, called } = shown()
+    state.workspace.set('loaded')
+    panel.showPopover()
+    setLoad(state.debates, { step: 'failed' })
+    setLoad(state.reviews, { step: 'failed' })
+    expect(textOf(panel)).not.toContain(strings.activity.empty)
+    getByRole(panel, 'button', { name: strings.tryAgain }).click()
+    expect(called('askActivityAgain')).toHaveLength(1)
+    state.reviews.set([review()])
+    expect(textOf(panel)).toContain(strings.loadFailed)
+    expect(panel.querySelector('.review-card')).not.toBeNull()
+    setActivityLoaded(state)
+    expect(textOf(panel)).not.toContain(strings.loadFailed)
+  })
+
+  it('loads the conversations awaiting a reply as they become known later, once the workspace has loaded', () => {
+    const { state, called } = shown()
+    state.awaitingReply.set([ROOM])
+    expect(called('loadAwaitedThreads')).toHaveLength(0)
+    state.workspace.set('loaded')
+    state.awaitingReply.set([ROOM, CHANNEL_ROOM])
+    expect(called('loadAwaitedThreads')).toHaveLength(1)
   })
 
   it('shows a skipped note, the desk that cannot answer and a room, each with its way on', () => {

@@ -344,7 +344,7 @@ describe('threadView', () => {
       test.context.state.serverInfo.set(everything())
       test.context.state.session.set(me())
       mount(threadView(test.context, lifetime(), me(), ROOM, null, 'note_answer'))
-      expect(test.called('loadReviews')).toHaveLength(1)
+      expect(test.called('refreshReviews')).toHaveLength(1)
     })
 
     it('keeps a review card that did not change when the conversations and reviews reload', () => {

@@ -11,6 +11,7 @@ import type { Action } from './app.ts'
 import { type Roster, agentMembersOf } from './channels.ts'
 import { withDraftsAsRead, withReviewsAsRead } from './drafts-read.ts'
 import { HOLD_SECONDS } from './held-decisions.ts'
+import { type Resource, resource } from './resource.ts'
 import { type Route, parseRoute } from './routes.ts'
 import { type ChangeCounter, changeCounter } from './thread-changes.ts'
 
@@ -21,7 +22,7 @@ export const createState = (hash: string): AppState => {
   const threads = signal<ReadonlyMap<ConversationId, Thread>>(new Map())
   const draftsRead = signal<ReadonlyMap<NoteId, DraftAsShown>>(new Map())
   const channels = signal<ReadonlyArray<AsRead.Channel>>([])
-  const reviews = signal<ReadonlyArray<AsRead.Review>>([])
+  const reviews = resource<ReadonlyArray<AsRead.Review>>([])
   const reviewsRead = signal<ReadonlyMap<NoteId, DraftAsShown>>(new Map())
   reviews.subscribe((all) => reviewsRead.update((read) => withReviewsAsRead(read, all)))
   threads.subscribe((all) => draftsRead.update((read) => withDraftsAsRead(read, all)))
@@ -56,6 +57,7 @@ export const createState = (hash: string): AppState => {
     draftRequests: signal<ReadonlyArray<DraftRequest>>([]),
     agentCredentials: signal<ReadonlyArray<AsRead.Credential>>([]),
     channels,
+    awaitingReply: resource<ReadonlyArray<ConversationId>>([]),
     reviews,
     reviewsRead,
     channelAgents: signal<ReadonlyMap<string, AsRead.ChannelAgent>>(new Map()),
@@ -78,10 +80,9 @@ export const createState = (hash: string): AppState => {
     agentReport: signal<AsRead.AgentReport | 'failed' | null>(null),
     taught: signal<AsRead.MyPrinciples | 'failed' | null>(null),
     interview: signal<AsRead.TeachingInterview | 'failed' | null>(null),
-    suggestions: signal<ReadonlyArray<AsRead.DebateSuggestion>>([]),
-    debates: signal<ReadonlyArray<AsRead.DebateSummary>>([]),
-    debatesLoaded: signal(false),
-    listLoads: { flocks: listLoad(), channels: listLoad() },
+    suggestions: resource<ReadonlyArray<AsRead.DebateSuggestion>>([]),
+    debates: resource<ReadonlyArray<AsRead.DebateSummary>>([]),
+    listLoads: { channels: listLoad() },
     shownDebate: signal<AsRead.Debate | 'missing' | null>(null),
     waitingOnly: signal(false),
     members: derived(
@@ -169,8 +170,10 @@ export interface AppState {
   readonly draftRequests: Signal<ReadonlyArray<DraftRequest>>
   readonly agentCredentials: Signal<ReadonlyArray<AsRead.Credential>>
   readonly channels: Signal<ReadonlyArray<AsRead.Channel>>
+  /** The conversations with notes waiting for the person's reply. */
+  readonly awaitingReply: Resource<ReadonlyArray<ConversationId>>
   /** The channels' agents' answers waiting for this person, a manager of their channels. */
-  readonly reviews: Signal<ReadonlyArray<AsRead.Review>>
+  readonly reviews: Resource<ReadonlyArray<AsRead.Review>>
   /** Each answer's text and room as the person first read it, like `draftsRead`. */
   readonly reviewsRead: Signal<ReadonlyMap<NoteId, DraftAsShown>>
   /** The agents of the channels the person manages, as last loaded, by slug. */
@@ -206,9 +209,8 @@ export interface AppState {
   /** The pasted principles document and the proposals the person's agent made in a teaching chat. */
   readonly interview: Signal<AsRead.TeachingInterview | 'failed' | null>
   /** The short debates the person's agent suggested, each a card until they open the room or answer alone. */
-  readonly suggestions: Signal<ReadonlyArray<AsRead.DebateSuggestion>>
-  readonly debates: Signal<ReadonlyArray<AsRead.DebateSummary>>
-  readonly debatesLoaded: Signal<boolean>
+  readonly suggestions: Resource<ReadonlyArray<AsRead.DebateSuggestion>>
+  readonly debates: Resource<ReadonlyArray<AsRead.DebateSummary>>
   /** How the lists that load when their page opens are going, for the words in place of a list that has not come. */
   readonly listLoads: { readonly [List in ListName]: ListLoad }
   readonly shownDebate: Signal<AsRead.Debate | 'missing' | null>
@@ -231,8 +233,8 @@ export interface AppState {
 /** Loading, slower than usual, too long (with a way to try again), or given up because the server stays away or refused. */
 export type Start = 'loading' | 'slow' | 'long' | 'failed' | 'refused'
 
-/** The lists that load on their own, each with its own load. */
-export type ListName = 'flocks' | 'channels'
+/** The lists that load on their own and are no resource, each with its own load. */
+export type ListName = 'channels'
 
 /** A list's first answer: still awaited, awaited too long, or not coming. */
 export type ListStep = 'loading' | 'long' | 'failed'
@@ -246,12 +248,15 @@ export interface ListLoad {
 const makeInitial = (held: unknown, initial: unknown): void => {
   if (typeof held !== 'object' || held === null) return
   if (held instanceof Set) held.clear()
+  else if (isResource(held)) held.reset()
   else if (isSignal(held)) held.set((initial as Signal<unknown>).get())
   else if (isChangeCounter(held)) held.forget()
   else
     for (const [key, part] of Object.entries(held))
       makeInitial(part, (initial as Readonly<Record<string, unknown>>)[key])
 }
+
+const isResource = (held: object): held is Resource<unknown> => 'reset' in held
 
 const isSignal = (held: object): held is Signal<unknown> => 'get' in held && 'set' in held
 

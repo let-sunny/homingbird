@@ -1,29 +1,33 @@
 import { Task as T } from '@homingbird/kernel'
-import type { AsRead, ConversationId } from '@homingbird/protocol'
+import type { ConversationId } from '@homingbird/protocol'
 import { threadsForActivity } from '../activity.ts'
 import { type Action, type App, withApp } from '../app.ts'
-import { featureOn } from '../features.ts'
-import { loadReviews } from './channel-agents.ts'
-import { loadSuggestions } from './debate-suggestions.ts'
-import { loadDebates } from './debates.ts'
+import type { AppState } from '../state.ts'
 import { loadThread } from './notes.ts'
+import { type ResourceKey, again, invalidate, open } from './resources.ts'
 
 /**
- * Loads what the activity panel lists: the conversations with the person's drafts or with notes waiting
- * for their reply, the answers they review and the flocks. A part that fails is left as it was.
+ * Opens what the activity lists: the answers the person reviews, the suggestions and the flocks, and the
+ * conversations with their drafts or with notes waiting for their reply. It never fails: the list says so.
  */
-export const loadActivity: Action = T.gen(function* () {
-  const { api, state } = yield* T.ask<App>()
-  const inbox = yield* T.result(api['inbox.list']({ query: {} }))
-  const awaiting =
-    inbox._tag === 'Ok' ? inbox.value.items.map((item: AsRead.InboxItem) => item.conversation.id) : []
-  yield* T.all([
-    loadThreads(awaiting),
-    T.result(loadReviews),
-    featureOn('debateRooms', state.serverInfo.get()) ? T.result(loadDebates) : T.unit,
-    T.result(loadSuggestions),
-  ])
-})
+export const loadActivity: Action = T.asUnit(
+  T.all([
+    T.flatMap(() => loadAwaitedThreads)(open('awaitingReply')),
+    open('reviews', 'suggestions', 'debates'),
+  ]),
+)
+
+/** Asks for every list of the activity once more, as when changes may have been missed. */
+export const invalidateActivity: Action = T.suspend(() => invalidate(...ACTIVITY))
+
+/** Asks afresh for the lists of the activity that failed or take too long. */
+export const askActivityAgain: Action = withApp(({ state }) =>
+  again(...ACTIVITY.filter((key) => isStuck(state, key))),
+)
+
+export const loadAwaitedThreads: Action = withApp(({ state }) =>
+  T.suspend(() => loadThreads(state.awaitingReply.get())),
+)
 
 /** Loads the conversations that got the person's drafts since the panel was opened. */
 export const loadDraftThreads: Action = withApp(() => loadThreads([]))
@@ -45,3 +49,10 @@ const loadThreads = (awaiting: ReadonlyArray<ConversationId>): Action =>
       ),
     )
   })
+
+const ACTIVITY: ReadonlyArray<ResourceKey> = ['awaitingReply', 'reviews', 'suggestions', 'debates']
+
+const isStuck = (state: AppState, key: ResourceKey): boolean => {
+  const { step } = state[key].load.get()
+  return step === 'long' || step === 'failed'
+}

@@ -12,6 +12,7 @@ import { boot } from '../src/tasks/boot.ts'
 import { commitHeld, holdDecision } from '../src/tasks/held.ts'
 import { liveEvents } from '../src/tasks/live.ts'
 import { reloadPreviews } from '../src/tasks/previews.ts'
+import { invalidate } from '../src/tasks/resources.ts'
 import { refreshInterview } from '../src/tasks/teaching-interview.ts'
 import { refreshPrinciples } from '../src/tasks/teaching.ts'
 import { keptUnsettled } from '../src/unsettled-decisions.ts'
@@ -191,6 +192,24 @@ describe('the end of a session', () => {
     expect(page.routes()).toContain(route)
     expectNothingPersonal(page)
     await expectNothingRuns(page)
+  })
+
+  it('lets no late answer of a list write, and runs no repeat of a failed one, after it', async () => {
+    const late = hold<unknown>()
+    let asked = 0
+    const page = await signedInPage({
+      'reviews.list': () => (asked++ === 0 ? { reviews: [] } : late.waiting),
+      'debates.list': () => fail({ _tag: 'Unavailable', message: 'down' }),
+    })
+    page.app.launch(invalidate('reviews', 'debates'))
+    await settle()
+    expect(asked).toBe(2)
+    page.app.endSession()
+    late.release({ reviews: [{ note: NOTE, question: null, channel: 'wiki', agent: member(BEN, 'Ben') }] })
+    await settle()
+    expectNothingPersonal(page)
+    await expectNothingRuns(page)
+    expectNothingPersonal(page)
   })
 
   it('empties the page at sign-out, before it goes, and starts anew when brought back', async () => {

@@ -62,7 +62,7 @@ describe('the activity tasks', () => {
     ).toEqual(['note_q'])
     expect(state.draftsRead.get().has(draft('note_d1').id)).toBe(true)
     expect(routes()).toEqual(expect.arrayContaining(['inbox.list', 'reviews.list', 'debates.list']))
-    expect(state.debatesLoaded.get()).toBe(true)
+    expect(state.debates.load.get().loaded).toBe(true)
     expect(state.suggestions.get()).toEqual([suggestion()])
     expect(state.threadsLoading.size).toBe(0)
   })

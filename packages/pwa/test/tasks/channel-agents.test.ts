@@ -5,7 +5,7 @@ import { heldWordsFor } from '../../src/held-decisions.ts'
 import { strings } from '../../src/strings.ts'
 import * as tasks from '../../src/tasks/channel-agents.ts'
 import { commitHeld } from '../../src/tasks/held.ts'
-import { fail, testApp } from '../support/app.ts'
+import { fail, settle, testApp } from '../support/app.ts'
 import { CY, conversation, draft, everything, member, note, serverInfo } from '../support/fixtures.ts'
 
 const AGENT = 'mem_agent0000000' as MemberId
@@ -40,12 +40,13 @@ describe('the channel agent tasks', () => {
   it('load the waiting answers only while channel agents are on, and close the notices of the others', async () => {
     const { run, state, routes, page } = testApp({ 'reviews.list': () => ({ reviews: [review()] }) })
     state.serverInfo.set(serverInfo())
-    await run(tasks.loadReviews)
+    await run(tasks.refreshReviews)
     expect(routes()).toEqual([])
     state.serverInfo.set(everything())
     page.notifications.set(`review:${review().note.id}`, 0).set('review:note_sent000000', 0)
-    await run(tasks.loadReviews)
+    await run(tasks.refreshReviews)
     expect(state.reviews.get()).toEqual([review()])
+    await settle()
     expect([...page.notifications.keys()]).toEqual([`review:${review().note.id}`])
     expect(state.reviewsRead.get().get(review().note.id)).toEqual({
       body: review().note.body,
@@ -116,7 +117,9 @@ describe('the channel agent tasks', () => {
       sent.filter((one) => one.route === route).map((one) => (one.request as { body: unknown }).body)
     state.serverInfo.set(everything())
     await run(tasks.discardReview(review(), '  '))
+    await settle()
     await run(tasks.discardReview(review(), ' Out of date. '))
+    await settle()
     expect(routes()).toEqual(['drafts.discard', 'reviews.list', 'drafts.discard', 'reviews.list'])
     expect(bodies('drafts.discard')).toEqual([{}, { reason: 'Out of date.' }])
     expect(state.discardedAnswers.get().get('note_question000' as NoteId)).toBe('Payments wiki')
@@ -186,14 +189,16 @@ describe('the channel agent tasks', () => {
     })
     state.serverInfo.set(everything())
     await run(tasks.sendReview(review(), null))
+    await settle()
     expect(routes()).toEqual(['drafts.send', 'reviews.list'])
     state.threads.set(new Map([[review().note.conversationId, { notes: [], hasMore: false }]]))
     await run(tasks.sendReview(review(), null))
-    expect(routes().slice(2)).toEqual([
-      'drafts.send',
-      'reviews.list',
+    await settle()
+    expect(routes().slice(2).sort()).toEqual([
       'conversations.get',
       'conversations.notes',
+      'drafts.send',
+      'reviews.list',
     ])
   })
 

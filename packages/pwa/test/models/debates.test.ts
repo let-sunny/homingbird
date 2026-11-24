@@ -11,23 +11,22 @@ describe('debateListModel', () => {
   it('says it is taking too long or could not load, with Try again, and never says none before the list came', () => {
     const input = {
       debates: [],
-      loaded: false,
       directory: [],
       now: 0,
       schedulingOn: false,
       workspace: 'loaded',
     } as const
-    expect(debateListModel({ ...input, step: 'long' })).toEqual({
+    expect(debateListModel({ ...input, awaited: 'long' })).toEqual({
       kind: 'waiting',
       wait: { kind: 'long', text: strings.firstLoad.tooLong, retry: strings.tryAgain },
     })
-    expect(debateListModel({ ...input, step: 'failed' })).toEqual({
+    expect(debateListModel({ ...input, awaited: 'failed' })).toEqual({
       kind: 'waiting',
       wait: { kind: 'failed', text: strings.loadFailed, retry: strings.tryAgain },
     })
-    expect(debateListModel({ ...input, loaded: true, step: 'failed' }).kind).toBe('empty')
+    expect(debateListModel({ ...input, awaited: null }).kind).toBe('empty')
     for (const workspace of ['long', 'failed'] as const)
-      expect(debateListModel({ ...input, step: 'long', workspace })).toEqual({
+      expect(debateListModel({ ...input, awaited: 'long', workspace })).toEqual({
         kind: 'waiting',
         wait: { kind: 'told-above' },
       })
@@ -37,8 +36,7 @@ describe('debateListModel', () => {
     expect(
       debateListModel({
         debates: [],
-        loaded: false,
-        step: 'loading',
+        awaited: 'loading',
         workspace: 'loaded',
         directory: [],
         now: 0,
@@ -51,8 +49,7 @@ describe('debateListModel', () => {
     expect(
       debateListModel({
         debates: [],
-        loaded: true,
-        step: 'loading',
+        awaited: null,
         workspace: 'loaded',
         directory: [],
         now: 0,
@@ -67,8 +64,7 @@ describe('debateListModel', () => {
   it('shows each flock with its stage, privacy, counts and when it opened', () => {
     const model = debateListModel({
       debates: [summary({ visibility: 'private', participantIds: [ANA], turnCount: 0 })],
-      loaded: true,
-      step: 'loading',
+      awaited: null,
       workspace: 'loaded',
       directory: [],
       now: 10,
@@ -100,8 +96,7 @@ describe('debateListModel', () => {
     const stageWith = (directory: ReturnType<typeof entry>[]) => {
       const model = debateListModel({
         debates: [room],
-        loaded: true,
-        step: 'loading',
+        awaited: null,
         workspace: 'loaded',
         directory,
         now: 0,
@@ -129,8 +124,7 @@ describe('debateListModel with scheduling flocks', () => {
   const listed = (status: 'open' | 'closed' | 'ended' | 'unknown', schedulingOn = true) => {
     const model = debateListModel({
       debates: [{ ...meeting, status }],
-      loaded: true,
-      step: 'loading',
+      awaited: null,
       workspace: 'loaded',
       directory: [],
       now: 0,
@@ -158,8 +152,7 @@ describe('debateListModel with scheduling flocks', () => {
   it('says a scheduling flock that settled with no common time found none', () => {
     const none = debateListModel({
       debates: [{ ...meeting, status: 'closed', outcome: 'no_slot' }],
-      loaded: true,
-      step: 'loading',
+      awaited: null,
       workspace: 'loaded',
       directory: [],
       now: 0,

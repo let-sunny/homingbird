@@ -1,10 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import { USUAL_LOAD_SECONDS } from '../../src/load-timing.ts'
-import { checkingWords, startModel, workspaceLineModel } from '../../src/models/start.ts'
+import { checkingWords, firstAnswersStep, startModel, workspaceLineModel } from '../../src/models/start.ts'
 import { strings } from '../../src/strings.ts'
 
 const start = (value: Parameters<typeof startModel>[0]['start'], retrying = false) =>
   startModel({ start: value, retrying, brandingName: 'Acme', refusal: 'Not allowed.' })
+
+describe('firstAnswersStep', () => {
+  it('is none once every list has come, and tells a failure before a long wait before a usual one', () => {
+    const load = (step: 'idle' | 'loading' | 'slow' | 'long' | 'failed', loaded = false) => ({
+      loaded,
+      step,
+      error: null,
+    })
+    expect(firstAnswersStep([load('failed', true), load('loading', true)])).toBeNull()
+    expect(firstAnswersStep([load('idle'), load('slow')])).toBe('loading')
+    expect(firstAnswersStep([load('loading'), load('long')])).toBe('long')
+    expect(firstAnswersStep([load('long'), load('failed'), load('idle', true)])).toBe('failed')
+  })
+})
 
 describe('startModel', () => {
   it('shows plain loading, then what is usual, and says it is still trying only while repeating', () => {

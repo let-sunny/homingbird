@@ -1,16 +1,26 @@
 import { DEFAULT_DEBATE_LIMITS } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import * as tasks from '../../src/tasks/debates.ts'
-import { fail, hold, testApp } from '../support/app.ts'
+import { fail, hold, settle, testApp } from '../support/app.ts'
 import { debate } from '../support/fixtures.ts'
 
 const ID = 'debate_000000000000' as never
 
 describe('flock tasks', () => {
-  it('loads the list of flocks and marks it loaded', async () => {
-    const { run, state } = testApp({ 'debates.list': () => ({ debates: [] }) })
-    await run(tasks.loadDebates)
-    expect(state.debatesLoaded.get()).toBe(true)
+  it('opens the list of flocks and marks it loaded, and asks afresh at Try again', async () => {
+    const first = hold<unknown>()
+    let asked = 0
+    const { run, state, aborted } = testApp({
+      'debates.list': () => (asked++ === 0 ? first.waiting : { debates: [] }),
+    })
+    const opening = run(tasks.openDebateList)
+    await settle()
+    expect(state.debates.load.get()).toMatchObject({ loaded: false, step: 'loading' })
+    await run(tasks.askDebateListAgain)
+    await opening
+    await settle()
+    expect(aborted).toEqual(['debates.list'])
+    expect(state.debates.load.get()).toMatchObject({ loaded: true, step: 'idle' })
   })
 
   it('opens a scheduling flock and reloads the list', async () => {

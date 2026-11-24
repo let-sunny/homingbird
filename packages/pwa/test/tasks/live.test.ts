@@ -1,6 +1,7 @@
 import type { AsRead } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
+import { loadActivity } from '../../src/tasks/activity.ts'
 import { DIRECTORY_SETTLE_MS, liveEvents } from '../../src/tasks/live.ts'
 import { settle, testApp } from '../support/app.ts'
 import {
@@ -19,6 +20,7 @@ import {
   note,
   serverInfo,
 } from '../support/fixtures.ts'
+import { setLoad } from '../support/resource-load.ts'
 
 const event = (body: unknown, seq = 1): AsRead.StreamEvent => ({ seq, at: 1, body }) as AsRead.StreamEvent
 
@@ -33,6 +35,9 @@ const live = () => {
     'credentials.list': () => ({ credentials: [] }),
     'draftRequests.list': () => ({ requests: [] }),
     'debates.list': () => ({ debates: [] }),
+    'inbox.list': () => ({ items: [] }),
+    'reviews.list': () => ({ reviews: [] }),
+    'debateSuggestions.list': () => ({ suggestions: [] }),
     'debates.get': () => ({}),
     'groups.list': () => ({ groups: [] }),
     'previews.list': () => ({ previews: [] }),
@@ -283,7 +288,11 @@ describe('liveEvents', () => {
     apply(event({ type: 'debate.changed', debateId: 'd2', participantIds: [] }))
     apply(event({ type: 'debate.changed', debateId: 'd1', participantIds: [] }))
     await settle()
-    expect(routes().filter((route) => route.startsWith('debates.'))).toEqual(['debates.list', 'debates.get'])
+    expect(
+      routes()
+        .filter((route) => route.startsWith('debates.'))
+        .sort(),
+    ).toEqual(['debates.get', 'debates.list'])
   })
 
   it('reads the list of rooms again once changes settle, for the activity panel, once it was loaded', async () => {
@@ -292,7 +301,7 @@ describe('liveEvents', () => {
     await clock.advance(DIRECTORY_SETTLE_MS)
     await settle()
     expect(routes()).not.toContain('debates.list')
-    state.debatesLoaded.set(true)
+    setLoad(state.debates, { loaded: true })
     for (const debateId of ['d1', 'd2'])
       apply(event({ type: 'debate.changed', debateId, participantIds: [] }))
     await clock.advance(DIRECTORY_SETTLE_MS)
@@ -381,6 +390,16 @@ describe('liveEvents', () => {
       { params: { id: ROOM } },
       { params: { id: ROOM } },
     ])
+  })
+
+  it('reads every list of the activity again on a resync, although they were just read', async () => {
+    const { apply, state, routes, run } = live()
+    state.serverInfo.set(everything())
+    await run(loadActivity)
+    apply(event({ type: 'resync' }))
+    await settle()
+    for (const route of ['inbox.list', 'reviews.list', 'debateSuggestions.list', 'debates.list'])
+      expect(routes().filter((one) => one === route)).toHaveLength(2)
   })
 
   it('reloads the groups on a resync, once they were loaded', async () => {

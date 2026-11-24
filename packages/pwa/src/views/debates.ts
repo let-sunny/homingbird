@@ -1,5 +1,5 @@
 import { type AsRead, DEBATE_QUESTION_MAX, DEFAULT_DEBATE_LIMITS, type MemberId } from '@homingbird/protocol'
-import { type Lifetime, h, region, signal } from '@homingbird/ui'
+import { type Lifetime, h, region, signal, slice } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
 import {
   type DebateListModel,
@@ -9,6 +9,7 @@ import {
   typedLimits,
 } from '../models/debates.ts'
 import { roomCandidates } from '../models/people-picker.ts'
+import { firstAnswersStep } from '../models/start.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
@@ -21,12 +22,8 @@ import { schedulingForm } from './scheduling-form.ts'
 /** Flocks: the flocks the person may see, and a way to open one for a question. */
 export const debatesView = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const { state, actions } = context
-  actions.loadDebateList()
-  life.add(
-    state.workspaceRestarts.subscribe(() => {
-      if (!state.debatesLoaded.get()) actions.loadDebateList()
-    }),
-  )
+  actions.openDebateList()
+  const awaited = slice([state.debates.load], () => firstAnswersStep([state.debates.load.get()]))
   return page(
     strings.debates.title,
     h(
@@ -35,29 +32,18 @@ export const debatesView = (context: ViewContext, life: Lifetime, me: AsRead.Me)
       h('p', { class: 'hint' }, strings.debates.intro),
       newRoomButton(context, me),
     ),
-    region(
-      life,
-      [
-        state.debates,
-        state.debatesLoaded,
-        state.listLoads.flocks.step,
-        state.workspace,
-        state.directory,
-        state.serverInfo,
-      ],
-      () =>
-        renderDebateList(
-          debateListModel({
-            debates: state.debates.get(),
-            loaded: state.debatesLoaded.get(),
-            step: state.listLoads.flocks.step.get(),
-            workspace: state.workspace.get(),
-            directory: state.directory.get(),
-            now: context.clock.now(),
-            schedulingOn: featureOn('schedulingRooms', state.serverInfo.get()),
-          }),
-          actions.loadDebateList,
-        ),
+    region(life, [state.debates, awaited, state.workspace, state.directory, state.serverInfo], () =>
+      renderDebateList(
+        debateListModel({
+          debates: state.debates.get(),
+          awaited: awaited.get(),
+          workspace: state.workspace.get(),
+          directory: state.directory.get(),
+          now: context.clock.now(),
+          schedulingOn: featureOn('schedulingRooms', state.serverInfo.get()),
+        }),
+        actions.askDebateListAgain,
+      ),
     ),
   )
 }

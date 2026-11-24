@@ -2,7 +2,12 @@ import type { AsRead, ConversationId, DebateId, MemberId, NoteId } from '@homing
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import { heldWordsFor } from '../../src/held-decisions.ts'
-import { type ActivityInput, RESULT_LISTED_MS, activityModel } from '../../src/models/activity.ts'
+import {
+  type ActivityInput,
+  RESULT_LISTED_MS,
+  activityModel,
+  activityWaitModel,
+} from '../../src/models/activity.ts'
 import { formats, strings } from '../../src/strings.ts'
 import {
   ANA,
@@ -681,5 +686,39 @@ describe('activityModel', () => {
           }
       }),
     )
+  })
+})
+
+describe('activityWaitModel', () => {
+  const wait = (
+    empty: string | null,
+    awaited: 'loading' | 'long' | 'failed' | null,
+    workspace = 'loaded' as const,
+  ) => activityWaitModel({ empty, awaited, workspace })
+
+  it('says that nothing waits only once every list and the workspace have come', () => {
+    expect(wait('None.', null)).toEqual({ kind: 'none', text: 'None.' })
+    expect(wait(null, null)).toBeNull()
+    expect(wait('None.', 'loading')).toEqual({ kind: 'checking', text: strings.checking.waiting })
+    for (const workspace of ['loading', 'slow'] as const)
+      expect(activityWaitModel({ empty: 'None.', awaited: null, workspace })).toEqual({
+        kind: 'checking',
+        text: strings.checking.waiting,
+      })
+  })
+
+  it('says that lists took too long or failed, beside what waits too, and not that they are being checked', () => {
+    expect(wait(null, 'loading')).toBeNull()
+    for (const empty of ['None.', null]) {
+      expect(wait(empty, 'long')).toMatchObject({ kind: 'long', retry: strings.tryAgain })
+      expect(wait(empty, 'failed')).toMatchObject({ kind: 'failed', retry: strings.tryAgain })
+    }
+  })
+
+  it('leaves a problem to the line above while that tells one', () => {
+    for (const workspace of ['long', 'failed'] as const)
+      expect(activityWaitModel({ empty: 'None.', awaited: 'failed', workspace })).toEqual({
+        kind: 'told-above',
+      })
   })
 })

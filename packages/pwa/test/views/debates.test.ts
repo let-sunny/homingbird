@@ -8,6 +8,7 @@ import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import { ANA, BEN, entry, me, summary } from '../support/fixtures.ts'
+import { setLoad } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -15,10 +16,10 @@ describe('debatesView', () => {
   it('loads the flocks, says when there are none, and lists them with their stage', () => {
     const { context, called } = testContext()
     const shown = debatesView(context, lifetime(), me())
-    expect(called('loadDebateList')).toHaveLength(1)
+    expect(called('openDebateList')).toHaveLength(1)
     expect(textOf(shown)).toContain(strings.checking.flocks)
     expect(textOf(shown)).not.toContain(strings.debates.empty)
-    context.state.debatesLoaded.set(true)
+    setLoad(context.state.debates, { loaded: true })
     expect(textOf(shown)).toContain(strings.debates.empty)
     context.state.debates.set([summary({ participantIds: [ANA, BEN], turnCount: 2, visibility: 'private' })])
     expect(textOf(shown)).toContain(strings.debates.stage['waiting-for-agent'])
@@ -30,36 +31,31 @@ describe('debatesView', () => {
   it('says it is taking too long or failed in place of the list, and Try again loads the list again', () => {
     const { context, called } = testContext()
     const shown = mount(debatesView(context, lifetime(), me()))
-    context.state.listLoads.flocks.step.set('long')
+    setLoad(context.state.debates, { step: 'long' })
     expect(textOf(shown)).toContain(strings.firstLoad.tooLong)
     expect(textOf(shown)).not.toContain(strings.checking.flocks)
     expect(textOf(shown)).not.toContain(strings.debates.empty)
     getByRole(shown, 'button', { name: strings.tryAgain }).click()
-    expect(called('loadDebateList')).toHaveLength(2)
-    context.state.listLoads.flocks.step.set('failed')
+    expect(called('askDebateListAgain')).toHaveLength(1)
+    setLoad(context.state.debates, { step: 'failed' })
     expect(textOf(shown)).toContain(strings.loadFailed)
     getByRole(shown, 'button', { name: strings.tryAgain }).click()
-    expect(called('loadDebateList')).toHaveLength(3)
-    context.state.debatesLoaded.set(true)
+    expect(called('askDebateListAgain')).toHaveLength(2)
+    setLoad(context.state.debates, { loaded: true })
     expect(textOf(shown)).toContain(strings.debates.empty)
     expect(queryByRole(shown, 'button', { name: strings.tryAgain })).toBeNull()
   })
 
-  it('says nothing of its own while the line above offers to try again, which loads the list again too', () => {
+  it('says nothing of its own while the line above offers to try again', () => {
     const { context, called } = testContext()
     const shown = mount(debatesView(context, lifetime(), me()))
-    context.state.listLoads.flocks.step.set('failed')
+    setLoad(context.state.debates, { step: 'failed' })
     for (const workspace of ['long', 'failed'] as const) {
       context.state.workspace.set(workspace)
       expect(textOf(shown)).not.toContain(strings.loadFailed)
       expect(textOf(shown)).not.toContain(strings.debates.empty)
       expect(queryByRole(shown, 'button', { name: strings.tryAgain })).toBeNull()
     }
-    context.state.workspaceRestarts.update((count) => count + 1)
-    expect(called('loadDebateList')).toHaveLength(2)
-    context.state.debatesLoaded.set(true)
-    context.state.workspaceRestarts.update((count) => count + 1)
-    expect(called('loadDebateList')).toHaveLength(2)
   })
 
   it('opens a flock for a question with the colleagues invited and the limits typed', () => {

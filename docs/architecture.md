@@ -609,19 +609,43 @@ sequenceDiagram
   after Try again or the quiet retry) is followed by one more load that says nothing and gives up after
   `TOO_LONG_LOAD_SECONDS`; it starts after those events, so the state ends current. That one is not
   checked again, so a second load slower than the next event can still be overwritten until the one
-  after. Flocks and the Channels tab load when they open and say "Checking…", then too long or failed
+  after. The Channels tab loads when it opens and says "Checking…", then too long or failed
   with Try again, in place of the list until it has loaded (`pwa/src/tasks/list-load.ts`); Try again
-  ends the running load of that list and starts one. The figures come from 20 loads each against a built server with 30
+  ends the running load of that list and starts one. The flocks and the activity say the same in their place,
+  of their resources. The figures come from 20 loads each against a built server with 30
   people and 50 conversations, measured from the page's first request: no throttling 0.2 s at the 95th
   percentile; Chromium's Fast 3G / Slow 4G 4.2 s, cold or warm cache; Slow 3G 11.8 s. "Usually" is the
   Fast 3G figure rounded up (5 s) and "too long" the Slow 3G figure with a margin (15 s, never under
   10). A deployment far from its people can differ, so the words only say "usually".
+- **Activity lists.** The conversations with notes awaiting a reply, the answers to review, the flock
+  suggestions and the flocks are each one resource (`pwa/src/resource.ts`), asked for in one place
+  (`pwa/src/tasks/resources.ts`): one value, one request at a time.
+
+  | Call | Meaning |
+  | --- | --- |
+  | `open` | A place shows it: joins the running request, or asks unless the last answer was asked for under 2 seconds ago and changes are heard of |
+  | `invalidate` | It changed: one request after the running one, however many ask |
+  | `refresh` | As `invalidate`, and ends with that request, never with one that ran already |
+  | `again` | Try again, and a reconnect: ends the running request and asks afresh |
+
+  A change made on the page (an answer decided, a suggestion dismissed) is applied at once and again on
+  the answer of the attempt on its way, so it must mean the same made twice. A lost connection, a 5xx or a 429 keeps
+  the value, is repeated after 1, 2, 4 and 8 seconds and then quietly every 30; a refusal empties it at
+  once and is not repeated, since what the person may no longer read must not stay shown (rules 2 and 6).
+  Nobody is told of a background failure while a list is shown. Runs follow the session's signal, and
+  `forgetSession` resets every resource. An attempt that has not answered within `ATTEMPT_LIMIT_SECONDS`
+  (30) is ended and counts as a lost connection: the value stays, its late answer is dropped, and the repeat
+  a second later serves whatever asked meanwhile. The limit is twice `TOO_LONG_LOAD_SECONDS` and more than double the
+  Slow 3G figure above, so it ends requests that hang rather than slow ones; too long is still said at
+  15 seconds.
 - **Reconnecting.** The web client hides the draft previews it holds as soon as it knows its events are
   lost (offline, a stream that ended, broke or was refused) and shows them again only as the server then
   answers; a failed answer keeps them hidden, since a discarded draft's preview must not show (rule 2).
   It reads them again after the first connect and, while it polls, after each poll. An answer counts only
-  while no later load or hide of that conversation began (`previewReads` in `pwa/src/state.ts`). It also asks `me.get`, and starts the page anew when
-  another person signed in meanwhile in another tab (`pwa/src/tasks/reconnect.ts`).
+  while no later load or hide of that conversation began (`previewReads` in `pwa/src/state.ts`). It also asks `me.get`, until the server
+  answers, and starts the page anew when another person signed in meanwhile in another tab
+  (`pwa/src/tasks/reconnect.ts`). Only then does it ask again for the reviews, suggestions and flocks, whose
+  events are never replayed: once for each reconnect, and not for each poll.
 - **Session end.** A 401 on any request or on the event stream, and signing out, end the session in the
   page (`endSession` in `pwa/src/app.ts`): the one `AbortSignal` that every launched task, the stream,
   the visibility reports and the delayed reloads follow is aborted, so no late answer is applied;

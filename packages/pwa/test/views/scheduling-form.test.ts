@@ -7,6 +7,7 @@ import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import { ANA, BEN, CY, entry, me, serverInfo, summary } from '../support/fixtures.ts'
+import { setLoad } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -58,7 +59,7 @@ describe('the button to schedule a meeting', () => {
 
   it('lists a scheduling flock with its kind, and not at all while the feature is off', () => {
     const { context } = testContext()
-    context.state.debatesLoaded.set(true)
+    setLoad(context.state.debates, { loaded: true })
     context.state.debates.set([summary({ type: 'scheduling' })])
     context.state.serverInfo.set(serverInfo())
     const shown = mount(debatesView(context, lifetime(), me()))

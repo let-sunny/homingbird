@@ -1,6 +1,6 @@
 import type { AsRead, NoteId } from '@homingbird/protocol'
 import { CHANNEL_AGENT_NAME_MAX, DISCARD_REASON_MAX } from '@homingbird/protocol'
-import { type Child, type Lifetime, derived, h, linkedText, region, signal } from '@homingbird/ui'
+import { type Child, type Lifetime, derived, h, linkedText, region, signal, slice } from '@homingbird/ui'
 import type { ChannelAgentState } from '../channel-answerers.ts'
 import { channelLabel } from '../channels.ts'
 import { featureOn } from '../features.ts'
@@ -25,6 +25,7 @@ import {
   type ChannelAgentTabs,
   channelAgentTabsModel,
 } from '../models/channel-teaching.ts'
+import { firstAnswersStep, listWaitModel } from '../models/start.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import { channelDecisionsSection } from './channel-decisions.ts'
@@ -37,7 +38,7 @@ import { renderHeldLine } from './held-toast.ts'
 import { hinted } from './hint.ts'
 import { joinCodeSection } from './join-code.ts'
 import { noteBody } from './note-body.ts'
-import { button, field, loading, page as pageOf, slackReplyLines, sourceList } from './parts.ts'
+import { button, field, listWait, loading, page as pageOf, slackReplyLines, sourceList } from './parts.ts'
 
 /** The agent's buttons among a channel's own controls: its panel for a manager, and asking it privately. */
 export const agentButtons = (context: ViewContext, channel: AsRead.Channel): Child => {
@@ -190,12 +191,13 @@ const waitingAnswers = (
     askedWhatBecameOfFocus = true
     actions.loadDecidedAnswer(focus as NoteId, { done: (note) => decided.set({ note }) })
   }
-  actions.loadReviews({
-    done: () => {
-      learnWhatBecameOfFocus()
+  actions.refreshReviews({
+    done: (answered) => {
+      if (answered) learnWhatBecameOfFocus()
       life.add(state.reviews.subscribe(learnWhatBecameOfFocus))
     },
   })
+  const awaited = slice([state.reviews.load], () => firstAnswersStep([state.reviews.load.get()]))
   const sources = [
     state.reviews,
     state.reviewsRead,
@@ -204,9 +206,12 @@ const waitingAnswers = (
     state.held,
     state.draftEdits,
     state.channels,
+    state.workspace,
+    awaited,
   ]
   return region(life, sources, () => {
     const settled = decided.get()
+    const step = awaited.get()
     const model = reviewCardsModel(
       state.reviews.get(),
       channel.slug,
@@ -230,7 +235,13 @@ const waitingAnswers = (
           { class: 'hint review-decided', role: 'status' },
           decidedAnswerModel(settled.note, signedIn(state)?.member.id ?? null, state.members.get()),
         ),
-      model.none !== null && h('p', { class: 'hint' }, model.none),
+      model.none !== null &&
+        (step === null
+          ? h('p', { class: 'hint' }, model.none)
+          : listWait(
+              listWaitModel(step, state.workspace.get(), strings.checking.waiting),
+              actions.askActivityAgain,
+            )),
       h(
         'ul',
         { class: 'review-cards' },
