@@ -121,6 +121,24 @@ export interface Roster {
   readonly members: ReadonlyArray<ChannelMember>
 }
 
+/** The channel list as the person has searched and paged it. */
+export interface ListedChannels {
+  readonly query: string
+  readonly channels: ReadonlyArray<AsRead.Channel>
+  readonly hasMore: boolean
+  readonly cursor: string | null
+}
+
+/** What the channel list is asked for: the search, and the pages already shown that the next one follows. */
+export interface ChannelPageWish {
+  readonly query: string
+  readonly after: ListedChannels | null
+}
+
+export const CHANNEL_PAGE = 20
+
+export const NO_CHANNELS_LISTED: ListedChannels = { query: '', channels: [], hasMore: false, cursor: null }
+
 const isArchivedRoom = (conversation: AsRead.Conversation): boolean => conversation.archivedAt !== null
 
 const byTitle = (a: AsRead.Conversation, b: AsRead.Conversation): number =>

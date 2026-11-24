@@ -21,7 +21,7 @@ export const updateProfile = (name: string, profile: string): Action =>
     const member = yield* api['me.update']({ body: { name, profile } })
     const me = signedIn(state)
     if (me !== null) state.session.set({ ...me, member })
-    yield* reread('directory', 'contacts')
+    yield* reread('directory')
   })
 
 /** Uses a character, or the default pigeon again with null. */
@@ -32,7 +32,7 @@ export const useCharacter = (spec: CharacterSpec | null): Action =>
       spec === null ? yield* api['me.character.clear']({}) : yield* api['me.character.set']({ body: spec })
     const me = signedIn(state)
     if (me !== null) state.session.set({ ...me, member })
-    yield* reread('directory', 'contacts')
+    yield* reread('directory')
   })
 
 /** Chooses the language to read the web client in; null follows the browser. */

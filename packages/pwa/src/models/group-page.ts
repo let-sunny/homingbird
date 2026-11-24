@@ -1,9 +1,11 @@
 import { type AsRead, type MemberId, RECIPIENTS_MAX, isPerson } from '@homingbird/protocol'
 import { groupById, groupLabel } from '../groups.ts'
 import { hrefFor } from '../routes.ts'
+import type { Workspace } from '../state.ts'
 import { strings } from '../strings.ts'
 import { groupWith } from '../thread.ts'
 import { type AvatarModel, memberAvatarOf } from './avatar.ts'
+import { type ListStep, type ListWait, listWaitModel } from './start.ts'
 
 /**
  * A team's page: its name, who is in it, writing to one of them or to all of them at once, and, only where
@@ -11,7 +13,8 @@ import { type AvatarModel, memberAvatarOf } from './avatar.ts'
  * the channel instead.
  */
 export const groupPageModel = (input: GroupPageInput): GroupPageModel => {
-  if (!input.loaded) return input.failed ? { kind: 'failed' } : { kind: 'loading' }
+  if (input.awaited !== null)
+    return { kind: 'waiting', wait: listWaitModel(input.awaited, input.workspace, strings.loading) }
   const group = groupById(input.groups, input.id)
   if (group === null || group.kind !== 'team') return { kind: 'missing', text: strings.notFound }
   const title = groupLabel(group)
@@ -57,8 +60,9 @@ export const groupNameFrom = (typed: string): string => typed.trim()
 export interface GroupPageInput {
   readonly id: string
   readonly groups: ReadonlyArray<AsRead.Group>
-  readonly loaded: boolean
-  readonly failed: boolean
+  /** How the first answer of the groups is going, or null once they have come. */
+  readonly awaited: ListStep | null
+  readonly workspace: Workspace
   readonly members: ReadonlyMap<MemberId, AsRead.Member>
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
   readonly conversations: ReadonlyArray<AsRead.Conversation>
@@ -67,8 +71,7 @@ export interface GroupPageInput {
 }
 
 export type GroupPageModel =
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'failed' }
+  | { readonly kind: 'waiting'; readonly wait: ListWait }
   | { readonly kind: 'missing'; readonly text: string }
   | {
       readonly kind: 'group'

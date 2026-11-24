@@ -604,7 +604,7 @@ sequenceDiagram
   that failed after its repeats keeps a line above the lists, loads again on `online` and every 30
   seconds (not for a refusal), and goes on telling until a load works. The workspace has no load of its own:
   how it is going is derived (`pwa/src/workspace-step.ts`) from its lists, the conversations, people,
-  contacts, channels, agents and draft requests, each a resource (below); the line tells the worst step of
+  channels, agents and draft requests, each a resource (below); the line tells the worst step of
   those never read, and Try again asks for the failed and slow ones only. The stream opens first, from the
   cursor, and the lists wait for its response, at most `STREAM_WAIT_SECONDS` (1), so that an event sent once
   is either in a list or arrives after it was asked for. When the stream is later than that, the lists that
@@ -612,10 +612,10 @@ sequenceDiagram
   with the people who name them, unless those take longer than usual, and stay drawn while they are asked for again. What a live event changes while a list is on its
   way is made again on the answer, so a room left meanwhile does not come back; a list that only hears "look
   again" is asked for once more after the running request. A list that never answers holds back neither the
-  stream, nor the page, nor the other lists. The Channels tab loads when it opens and says "Checking…", then
-  too long or failed with Try again, in place of the list until it has loaded (`pwa/src/tasks/list-load.ts`); Try again
-  ends the running load of that list and starts one. The flocks and the activity say the same in their place,
-  of their resources. The figures come from 20 loads each against a built server with 30
+  stream, nor the page, nor the other lists. The Channels tab loads its page when it opens and says "Checking…", then
+  too long or failed with Try again, in place of the list until it has loaded; the page, the groups, the
+  flocks and the activity are resources as well, and say the same in their place, of their own loads. Try again
+  on the line asks for every list that failed or takes too long, and on a list for that list. The figures come from 20 loads each against a built server with 30
   people and 50 conversations, measured from the page's first request: no throttling 0.2 s at the 95th
   percentile; Chromium's Fast 3G / Slow 4G 4.2 s, cold or warm cache; Slow 3G 11.8 s. "Usually" is the
   Fast 3G figure rounded up (5 s) and "too long" the Slow 3G figure with a margin (15 s, never under

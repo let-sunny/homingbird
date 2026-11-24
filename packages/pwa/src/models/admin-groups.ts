@@ -2,8 +2,10 @@ import type { AsRead, MemberId } from '@homingbird/protocol'
 import { emailsFromCsv, importPreview } from '../group-import.ts'
 import { groupLabel, teamsByLabel } from '../groups.ts'
 import { hrefFor } from '../routes.ts'
+import type { Workspace } from '../state.ts'
 import { listOf, strings } from '../strings.ts'
 import type { GroupPageModel } from './group-page.ts'
+import { type ListStep, type ListWait, listWaitModel } from './start.ts'
 
 /**
  * Administration → Groups: every team with its members, each opening its editor. A channel's managers are
@@ -11,10 +13,10 @@ import type { GroupPageModel } from './group-page.ts'
  */
 export const adminGroupsModel = (
   groups: ReadonlyArray<AsRead.Group>,
-  loaded: boolean,
-  failed: boolean,
+  awaited: ListStep | null,
+  workspace: Workspace,
 ): AdminGroupsModel => {
-  if (!loaded) return failed ? { kind: 'failed' } : { kind: 'loading' }
+  if (awaited !== null) return { kind: 'waiting', wait: listWaitModel(awaited, workspace, strings.loading) }
   const teams = teamsByLabel(groups)
   return {
     kind: 'groups',
@@ -38,7 +40,8 @@ export const adminGroupsModel = (
  */
 export const adminGroupModel = (shown: GroupPageModel): AdminGroupModel => {
   const back = { label: strings.groups.backToGroups, href: hrefFor({ name: 'admin', section: 'groups' }) }
-  if (shown.kind !== 'group') return { kind: shown.kind, back }
+  if (shown.kind === 'waiting') return { kind: 'waiting', wait: shown.wait, back }
+  if (shown.kind === 'missing') return { kind: 'missing', back }
   return {
     kind: 'group',
     back,
@@ -85,8 +88,7 @@ export const importModel = (input: ImportInput): ImportModel => {
 }
 
 export type AdminGroupsModel =
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'failed' }
+  | { readonly kind: 'waiting'; readonly wait: ListWait }
   | {
       readonly kind: 'groups'
       readonly create: string
@@ -102,7 +104,8 @@ export interface AdminGroupRow {
 }
 
 export type AdminGroupModel =
-  | { readonly kind: 'loading' | 'failed' | 'missing'; readonly back: BackLink }
+  | { readonly kind: 'waiting'; readonly wait: ListWait; readonly back: BackLink }
+  | { readonly kind: 'missing'; readonly back: BackLink }
   | {
       readonly kind: 'group'
       readonly back: BackLink

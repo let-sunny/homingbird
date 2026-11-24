@@ -16,6 +16,7 @@ import {
   serverInfo,
   summary,
 } from '../support/fixtures.ts'
+import { setLoad } from '../support/resource-load.ts'
 import { setWorkspace } from '../support/resource-load.ts'
 
 const preview = (id: string): AsRead.DraftPreview => ({
@@ -374,7 +375,7 @@ describe('catchUp with the lists that events sent once bring up to date', () => 
     )
     const info = everything()
     state.serverInfo.set({ ...info, features: { ...info.features, draftPreviews: true } })
-    state.groupsLoaded.set(true)
+    setLoad(state.groups, { loaded: true })
     state.interview.set('failed')
     state.route.set({ name: 'debate', id: 'deb_1' } as never)
     connect('stream')
@@ -471,13 +472,13 @@ describe('catchUp with the lists that events sent once bring up to date', () => 
     expect(others(none.routes())).toEqual([])
     const held = start(handlers)
     held.state.serverInfo.set(everything())
-    held.state.groupsLoaded.set(true)
+    setLoad(held.state.groups, { loaded: true })
     held.state.interview.set('failed')
     held.state.route.set({ name: 'debate', id: 'deb_1' } as never)
     held.connect('stream')
     held.connect('stream')
     await settle()
-    expect(others(held.routes())).toEqual(['groups.list', 'principleProposals.list', 'debates.get'])
+    expect(others(held.routes()).sort()).toEqual(['debates.get', 'groups.list', 'principleProposals.list'])
   })
 
   it('asks for none of another person’s', async () => {

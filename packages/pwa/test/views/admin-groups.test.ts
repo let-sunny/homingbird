@@ -7,6 +7,7 @@ import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import { ANA, BEN, CY, OPS, TEAM, entry, group, managersOf, member } from '../support/fixtures.ts'
+import { setLoad } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -17,17 +18,18 @@ describe('adminGroupsSection', () => {
     const { context, called } = testContext()
     const shown = adminGroupsSection(context, lifetime())
     expect(textOf(shown)).toContain(strings.loading)
-    called('loadGroups')[0]!.then!.failed!({ _tag: 'Unavailable', message: 'down' })
+    expect(called('loadGroups')).toHaveLength(1)
+    setLoad(context.state.groups, { step: 'failed' })
     getByRole(shown, 'button', { name: strings.tryAgain }).click()
-    expect(called('loadGroups')).toHaveLength(2)
-    context.state.groupsLoaded.set(true)
+    expect(called('loadGroupsAgain')).toHaveLength(1)
+    setLoad(context.state.groups, { loaded: true })
     expect(textOf(shown)).toContain(strings.groups.none)
   })
 
   it('creates a group, with or without a name, and opens its page', () => {
     const { context, called, page } = testContext()
     mount(dialogHost())
-    context.state.groupsLoaded.set(true)
+    setLoad(context.state.groups, { loaded: true })
     const shown = mount(adminGroupsSection(context, lifetime()))
     getByRole(shown, 'button', { name: strings.groups.create }).click()
     fire.type(
@@ -46,7 +48,7 @@ describe('adminGroupsSection', () => {
   it('lists each team, linking to its editor, and no channel’s managers', () => {
     const { context } = testContext()
     context.state.groups.set([managersOf('billing', { memberIds: [ANA] }), group(OPS, { name: 'Ops' })])
-    context.state.groupsLoaded.set(true)
+    setLoad(context.state.groups, { loaded: true })
     const shown = adminGroupsSection(context, lifetime())
     expect(shown.querySelector(`[data-group-id="grp_billing00000"]`)).toBeNull()
     const ops = shown.querySelector(`[data-group-id="${OPS}"]`) as HTMLElement
@@ -63,9 +65,10 @@ describe('adminGroupEditor', () => {
     expect(getByRole(shown, 'link', { name: `← ${strings.groups.backToGroups}` }).getAttribute('href')).toBe(
       '#/admin/groups',
     )
-    called('loadGroups')[0]!.then!.failed!({ _tag: 'Unavailable', message: 'down' })
+    setLoad(context.state.groups, { step: 'failed' })
     getByRole(shown, 'button', { name: strings.tryAgain }).click()
-    context.state.groupsLoaded.set(true)
+    expect(called('loadGroupsAgain')).toHaveLength(1)
+    setLoad(context.state.groups, { loaded: true })
     expect(textOf(shown)).toContain(strings.notFound)
   })
 
@@ -75,7 +78,7 @@ describe('adminGroupEditor', () => {
     context.state.groups.set([
       group(TEAM, { name: 'Finance', memberIds: [ANA, BEN], mayAdd: true, mayRemove: true }),
     ])
-    context.state.groupsLoaded.set(true)
+    setLoad(context.state.groups, { loaded: true })
     const shown = adminGroupEditor(context, lifetime(), ANA, TEAM)
     expect(getByRole(shown, 'heading', { name: 'Finance' })).toBeTruthy()
     expect(getByRole(shown, 'button', { name: strings.groups.rename })).toBeTruthy()
@@ -88,7 +91,7 @@ describe('adminGroupEditor', () => {
     const { context, called, page } = testContext()
     mount(dialogHost())
     context.state.groups.set([group(OPS, { name: 'Ops' })])
-    context.state.groupsLoaded.set(true)
+    setLoad(context.state.groups, { loaded: true })
     const shown = mount(adminGroupEditor(context, lifetime(), ANA, OPS))
     getByRole(shown, 'button', { name: strings.groups.delete }).click()
     expect(textOf(dialog())).toContain(strings.groups.deleteTitle({ group: 'Ops' }))
@@ -106,7 +109,7 @@ describe('adminGroupEditor', () => {
     context.state.groups.set([
       group(TEAM, { name: 'Finance', memberIds: [ANA], mayAdd: true, mayRemove: true }),
     ])
-    context.state.groupsLoaded.set(true)
+    setLoad(context.state.groups, { loaded: true })
     const shown = mount(adminGroupEditor(context, lifetime(), ANA, TEAM))
     getByRole(shown, 'button', { name: strings.groups.importCsv }).click()
     expect(textOf(dialog())).toContain(strings.groups.importHint)
@@ -146,7 +149,7 @@ describe('adminGroupEditor', () => {
       group(TEAM, { name: 'Finance', memberIds: [ANA], mayAdd: true }),
       group(OPS, { name: 'Ops', mayRemove: true }),
     ])
-    context.state.groupsLoaded.set(true)
+    setLoad(context.state.groups, { loaded: true })
     const ops = adminGroupEditor(context, lifetime(), ANA, OPS)
     expect(queryByRole(ops, 'button', { name: strings.groups.importCsv })).toBeNull()
     expect(queryByRole(ops, 'button', { name: strings.groups.rename })).toBeNull()

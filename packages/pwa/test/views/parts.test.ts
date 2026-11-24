@@ -14,7 +14,6 @@ import {
   emptyWithPip,
   field,
   humanDot,
-  loadFailed,
   loading,
   page,
   presenceBadges,
@@ -82,11 +81,8 @@ describe('the parts of every page', () => {
     expect(shown.getAttribute('datetime')).toBe(new Date(0).toISOString())
   })
 
-  it('shows loading, a failure with a retry, and an empty page with or without Pip', () => {
+  it('shows loading, and an empty page with or without Pip', () => {
     expect(textOf(loading())).toBe(strings.loading)
-    const retry = vi.fn()
-    getByRole(loadFailed(retry), 'button', { name: strings.tryAgain }).click()
-    expect(retry).toHaveBeenCalled()
     expect(getByText(empty('Nothing', 'x'), 'Nothing')).toBeTruthy()
     expect(emptyWithPip('waving', 'Hello').querySelector('.pip')).not.toBeNull()
   })

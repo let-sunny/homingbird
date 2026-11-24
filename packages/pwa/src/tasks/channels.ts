@@ -9,40 +9,29 @@ import type {
   MemberId,
 } from '@homingbird/protocol'
 import { type Action, type App, withApp } from '../app.ts'
-import { withChannel } from '../channels.ts'
+import { type ListedChannels, withChannel } from '../channels.ts'
 import { hrefFor } from '../routes.ts'
-import { loadGroups } from './groups.ts'
-import { loadingList } from './list-load.ts'
-import { reloadQuietly } from './quiet-reload.ts'
-import { reread } from './resources.ts'
+import { again, invalidate, open, reread } from './resources.ts'
 
-export interface ChannelPage {
-  readonly channels: ReadonlyArray<AsRead.Channel>
-  readonly hasMore: boolean
-  readonly cursor: string | null
-}
+/** The channel list for what the person typed, asked afresh; the next page follows the ones shown. */
+export const loadChannelPage = (query: string, after: ListedChannels | null): Action =>
+  withApp(({ state }) => {
+    state.channelPageWish.set({ query, after })
+    return again('channelPage')
+  })
 
-export const CHANNEL_PAGE = 20
+/** The first page, as the channels page opens; nothing of an earlier visit stays. */
+export const openChannelPage: Action = withApp(({ state }) => {
+  state.channelPage.reset()
+  state.channelPageWish.set({ query: '', after: null })
+  return open('channelPage')
+})
 
-/** One page of the channel list, for what the person typed; a list still waited for tells its own failure. */
-export const loadChannelPage = (
-  query: string,
-  cursor: string | null,
-  isWaitedFor: boolean,
-): Action<ChannelPage> =>
-  loadingList(
-    'channels',
-    isWaitedFor,
-    withApp(({ api }) =>
-      api['channels.list']({
-        query: {
-          limit: String(CHANNEL_PAGE),
-          ...(query !== '' && { q: query }),
-          ...(cursor !== null && { cursor }),
-        },
-      }),
-    ),
-  )
+/** The channels changed: the first page of what was typed is asked for once more. */
+export const reloadChannelPage: Action = withApp(({ state }) => {
+  state.channelPageWish.update((wish) => ({ ...wish, after: null }))
+  return invalidate('channelPage')
+})
 
 /** Opens a channel and keeps it in the list straight away; the person who opens it is its first manager. */
 export const createChannel = (
@@ -56,7 +45,7 @@ export const createChannel = (
       body: { slug, description, visibility },
     })
     yield* afterChannelChange
-    yield* reloadQuietly(T.asUnit(loadGroups))
+    yield* reread('groups')
     state.channels.update((all) => withChannel(all, created))
     return created
   })
@@ -99,7 +88,7 @@ export const setChannelMember = (slug: string, memberId: MemberId, isMember: boo
 /** Adds the people in a team to a channel's managers, once; they join its room. */
 export const addTeam = (slug: string, groupId: GroupId): Action =>
   withApp(({ api }) =>
-    T.flatMap(() => T.asUnit(T.all([afterChannelChange, reloadQuietly(loadGroups)])))(
+    T.flatMap(() => T.asUnit(T.all([afterChannelChange, reread('groups')])))(
       api['channels.managers.addTeam']({ params: { slug }, body: { groupId } }),
     ),
   )
@@ -153,6 +142,4 @@ export const archiveChannel = (slug: string, moveMembersTo: string | null): Acti
     ),
   )
 
-const afterChannelChange: Action = T.suspend(() =>
-  reread('channels', 'conversations', 'directory', 'contacts'),
-)
+const afterChannelChange: Action = T.suspend(() => reread('channels', 'conversations', 'directory'))

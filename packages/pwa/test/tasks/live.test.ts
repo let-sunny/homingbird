@@ -30,7 +30,6 @@ const live = () => {
   const test = testApp({
     'conversations.list': () => ({ conversations: [] }),
     'directory.list': () => ({ entries: [] }),
-    'contacts.list': () => ({ contacts: [] }),
     'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),
     'conversations.get': () => conversation(),
     'conversations.notes': () => ({ notes: [], hasMore: false, notices: [] }),
@@ -384,7 +383,7 @@ describe('liveEvents', () => {
     await clock.advance(DIRECTORY_SETTLE_MS)
     await settle()
     expect(routes()).not.toContain('groups.list')
-    state.groupsLoaded.set(true)
+    setLoad(state.groups, { loaded: true })
     for (const groupId of ['grp_team00000000', 'grp_ops000000000', 'grp_team00000000'])
       apply(event({ type: 'group.changed', groupId }))
     await clock.advance(DIRECTORY_SETTLE_MS - 1)
@@ -467,7 +466,7 @@ describe('liveEvents', () => {
 
   it('reloads the groups on a resync, once they were loaded', async () => {
     const { apply, state, routes } = live()
-    state.groupsLoaded.set(true)
+    setLoad(state.groups, { loaded: true })
     apply(event({ type: 'resync' }))
     await settle()
     expect(routes()).toContain('groups.list')

@@ -1,5 +1,5 @@
 import { type AsRead, GROUP_NAME_MAX, type MemberId } from '@homingbird/protocol'
-import { type Child, type Lifetime, type ReadableSignal, h, region, signal } from '@homingbird/ui'
+import { type Child, type Lifetime, type ReadableSignal, h, region, slice } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
 import {
   type GroupMessage,
@@ -7,11 +7,12 @@ import {
   groupNameFrom,
   groupPageModel,
 } from '../models/group-page.ts'
+import { firstAnswersStep } from '../models/start.ts'
 import { strings } from '../strings.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, opensDialog } from './dialog.ts'
-import { button, dialogActions, emptyWithPip, field, loadFailed, loading, page, youMark } from './parts.ts'
+import { button, dialogActions, emptyWithPip, field, listWait, page, youMark } from './parts.ts'
 
 /** A team's page: its name and its members, changed where the person may. */
 export const groupPageView = (
@@ -35,37 +36,31 @@ export const loadedGroup = (
   readonly retry: () => void
 } => {
   const { state, actions } = context
-  const failed = signal(false)
-  const retry = (): void => {
-    failed.set(false)
-    actions.loadGroups({ failed: () => failed.set(true) })
-  }
-  retry()
+  actions.loadGroups()
   actions.loadPeople()
+  const awaited = slice([state.groups.load], () => firstAnswersStep([state.groups.load.get()]))
   return {
     model: () =>
       groupPageModel({
         id,
         groups: state.groups.get(),
-        loaded: state.groupsLoaded.get(),
-        failed: failed.get(),
+        awaited: awaited.get(),
+        workspace: state.workspace.get(),
         members: state.members.get(),
         directory: state.directory.get(),
         conversations: state.conversations.get(),
         viewerId,
         charactersOn: featureOn('characters', state.serverInfo.get()),
       }),
-    sources: [state.groups, state.groupsLoaded, failed, state.members, state.directory, state.conversations],
-    retry,
+    sources: [state.groups, awaited, state.workspace, state.members, state.directory, state.conversations],
+    retry: actions.loadGroupsAgain,
   }
 }
 
 const renderGroupPage = (model: GroupPageModel, context: ViewContext, retry: () => void): Child => {
   switch (model.kind) {
-    case 'loading':
-      return page(strings.groups.title, loading())
-    case 'failed':
-      return page(strings.groups.title, loadFailed(retry))
+    case 'waiting':
+      return page(strings.groups.title, listWait(model.wait, retry))
     case 'missing':
       return emptyWithPip('failed', model.text, h('a', { class: 'button', href: '#/' }, strings.backHome))
     case 'group':

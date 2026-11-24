@@ -6,6 +6,7 @@ import { profileView } from '../../src/views/account.ts'
 import { testContext } from '../support/context.ts'
 import { usingFakeDom } from '../support/dom.ts'
 import { ANA, TEAM, group, managersOf, me, serverInfo } from '../support/fixtures.ts'
+import { setLoad } from '../support/resource-load.ts'
 
 usingFakeDom()
 afterEach(() => vi.unstubAllGlobals())
@@ -16,7 +17,7 @@ describe('profileView', () => {
     const shown = profileView(context, lifetime(), me())
     expect(called('loadGroups')).toHaveLength(1)
     expect(textOf(shown)).not.toContain(strings.groups.yours)
-    context.state.groupsLoaded.set(true)
+    setLoad(context.state.groups, { loaded: true })
     expect(textOf(shown)).toContain(strings.groups.yoursNone)
     context.state.groups.set([
       group(TEAM, { name: 'Finance', memberIds: [ANA] }),

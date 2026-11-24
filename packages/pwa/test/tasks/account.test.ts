@@ -13,7 +13,6 @@ const answers = {
   'me.character.set': () => member(ANA, 'Ana', { character: { id: 'owl' } as never }),
   'me.character.clear': () => member(ANA, 'Ana'),
   'directory.list': () => ({ entries: [] }),
-  'contacts.list': () => ({ contacts: [] }),
   'credentials.list': () => ({ credentials: [credential('cred_one')] }),
   'device.get': () => ({ userCode: 'ABCD', client: 'Desk' }),
   'consent.get': () => ({ id: 'c1' }),

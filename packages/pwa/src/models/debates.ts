@@ -8,10 +8,10 @@ import {
   listedStage,
 } from '../debates.ts'
 import { hrefFor } from '../routes.ts'
-import type { ListStep, Workspace } from '../state.ts'
+import type { Workspace } from '../state.ts'
 import { strings } from '../strings.ts'
 import { schedulingStageOf } from './scheduling-room.ts'
-import { type ListWait, listWaitModel } from './start.ts'
+import { type ListStep, type ListWait, listWaitModel } from './start.ts'
 import { type TimeShown, timeShown } from './time.ts'
 
 /** Flocks: waiting for the list, none yet, or the flocks that want something first, then the newest. */

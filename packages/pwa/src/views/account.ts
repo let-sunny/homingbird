@@ -41,12 +41,12 @@ const myGroups = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElem
   context.actions.loadGroups()
   return region(
     life,
-    [state.groups, state.groupsLoaded],
+    [state.groups, state.groups.load],
     (): Child => {
       const model = myGroupsModel(
         me,
         state.groups.get(),
-        state.groupsLoaded.get(),
+        state.groups.load.get().loaded,
         featureOn('groups', state.serverInfo.get()),
       )
       return (

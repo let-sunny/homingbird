@@ -12,7 +12,6 @@ import { strings } from '../strings.ts'
 import { isMuted, withAgentPresence, withPresence, withReceipts } from '../thread.ts'
 import { applyLeft } from './conversation-actions.ts'
 import { loadDebate } from './debates.ts'
-import { loadGroups } from './groups.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
 import { closeDraftNotice } from './notifications.ts'
 import { loadPreviews, reloadPreviews } from './previews.ts'
@@ -39,10 +38,10 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
       soon()
     }
   }
-  const reloadDirectorySoon = invalidateSoon('directory', 'contacts', 'channels', 'conversations')
-  const loadGroupsSoon = settled(loadGroups)
+  const reloadDirectorySoon = invalidateSoon('directory', 'channels', 'conversations')
+  const invalidateGroupsSoon = invalidateSoon('groups')
   const reloadGroupsSoon = (): void => {
-    if (state.groupsLoaded.get()) loadGroupsSoon()
+    if (state.groups.load.get().loaded) invalidateGroupsSoon()
   }
   const reloadReviewsSoon = invalidateSoon('reviews')
   const reloadInterviewSoon = settled(refreshInterview)
@@ -128,7 +127,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         state.draftRequests.update((all) => upsertRequest(all, body.request))
         break
       case 'contact.changed':
-        launch(invalidate('directory', 'contacts'))
+        launch(invalidate('directory'))
         break
       case 'directory.changed':
         reloadDirectorySoon()
@@ -236,7 +235,7 @@ const reloadShownDebate = (app: App, id: string): void => {
 const reloadEverything = (app: App): void => {
   app.launch(invalidate(...WORKSPACE, ...ACTIVITY))
   app.launch(T.flatMap(() => followingWorkspace)(reread('conversations', 'awaitingReply')))
-  if (app.state.groupsLoaded.get()) app.launch(loadGroups)
+  if (app.state.groups.load.get().loaded) app.launch(invalidate('groups'))
   const current = app.state.route.get()
   if (current.name === 'conversation') app.launch(loadThread(current.id as ConversationId))
   app.launch(reloadPreviews)

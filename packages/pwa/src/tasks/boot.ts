@@ -60,7 +60,6 @@ export const startAgain: Action = withApp(({ state }) =>
     }
     const workspace = state.workspace.get()
     if (workspace !== 'long' && workspace !== 'failed') return T.unit
-    state.workspaceRestarts.update((count) => count + 1)
     return againWhatIsStuck
   }),
 )

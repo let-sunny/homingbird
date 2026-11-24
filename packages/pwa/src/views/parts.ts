@@ -161,10 +161,6 @@ export const listWait = (wait: ListWait, retry: () => void): HTMLElement | null 
     : empty(wait.text, button(wait.retry, retry))
 }
 
-/** Shown when a page or a part of one could not load its data, with a way to try again. */
-export const loadFailed = (retry: () => void): HTMLElement =>
-  empty(strings.loadFailed, button(strings.tryAgain, retry))
-
 export const empty = (text: string, ...actions: ReadonlyArray<Child>): HTMLElement =>
   h('div', { class: 'empty' }, h('p', {}, text), ...actions)
 

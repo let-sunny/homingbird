@@ -1,28 +1,27 @@
 import type { AsRead, ConversationId, Group, GroupId, MemberId } from '@homingbird/protocol'
-import { channelLabel, channelNamed, isPrivate, isValidSlug, similarChannels, slugFrom } from '../channels.ts'
+import {
+  type ListedChannels,
+  channelLabel,
+  channelNamed,
+  isPrivate,
+  isValidSlug,
+  similarChannels,
+  slugFrom,
+} from '../channels.ts'
 import { hrefFor } from '../routes.ts'
-import type { ListStep, Workspace } from '../state.ts'
+import type { Workspace } from '../state.ts'
 import { strings } from '../strings.ts'
 import { answeredByAgent } from './channel-membership.ts'
-import { type ListWait, listWaitModel } from './start.ts'
-
-/** The channel list as the person has searched and paged it. */
-export interface ListedChannels {
-  readonly query: string
-  readonly channels: ReadonlyArray<AsRead.Channel>
-  readonly hasMore: boolean
-  readonly cursor: string | null
-  readonly loaded: boolean
-}
+import { type ListStep, type ListWait, listWaitModel } from './start.ts'
 
 /** Channels: waiting for the list, none yet, none matching, or the cards with a hint and a way to see more. */
 export const channelListModel = (
   listed: ListedChannels,
-  step: ListStep,
+  awaited: ListStep | null,
   workspace: Workspace,
 ): ChannelListModel => {
-  if (!listed.loaded)
-    return { kind: 'waiting', wait: listWaitModel(step, workspace, strings.checking.channels) }
+  if (awaited !== null)
+    return { kind: 'waiting', wait: listWaitModel(awaited, workspace, strings.checking.channels) }
   if (listed.channels.length === 0 && listed.query === '')
     return { kind: 'none-yet', text: strings.noChannelsYet }
   if (listed.channels.length === 0) return { kind: 'no-match', text: strings.noChannels }
@@ -64,7 +63,6 @@ export const withPage = (
   channels: [...(previous?.channels ?? []), ...found.channels],
   hasMore: found.hasMore,
   cursor: found.cursor,
-  loaded: true,
 })
 
 /** A channel's own page: ask it a question, join it, manage it, or, as an administrator, see who is in it. */

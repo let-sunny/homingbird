@@ -24,8 +24,8 @@ const members = new Map([
 const input = (fields: Partial<GroupPageInput> = {}): GroupPageInput => ({
   id: TEAM,
   groups: [group(TEAM, { name: 'Finance', memberIds: [BEN, ANA] })],
-  loaded: true,
-  failed: false,
+  awaited: null,
+  workspace: 'loaded',
   members,
   directory: [entry(ANA, 'Ana'), entry(BEN, 'Ben'), entry(CY, 'Cy')],
   conversations: [],
@@ -36,8 +36,18 @@ const input = (fields: Partial<GroupPageInput> = {}): GroupPageInput => ({
 
 describe('groupPageModel', () => {
   it('waits for the groups, offers to try again, and says when there is no such group', () => {
-    expect(groupPageModel(input({ loaded: false }))).toEqual({ kind: 'loading' })
-    expect(groupPageModel(input({ loaded: false, failed: true }))).toEqual({ kind: 'failed' })
+    expect(groupPageModel(input({ awaited: 'loading' }))).toEqual({
+      kind: 'waiting',
+      wait: { kind: 'checking', text: strings.loading },
+    })
+    expect(groupPageModel(input({ awaited: 'failed' }))).toEqual({
+      kind: 'waiting',
+      wait: { kind: 'failed', text: strings.loadFailed, retry: strings.tryAgain },
+    })
+    expect(groupPageModel(input({ awaited: 'failed', workspace: 'failed' }))).toEqual({
+      kind: 'waiting',
+      wait: { kind: 'told-above' },
+    })
     expect(groupPageModel(input({ id: 'grp_gone00000000' }))).toEqual({
       kind: 'missing',
       text: strings.notFound,

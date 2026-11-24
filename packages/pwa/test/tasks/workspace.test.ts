@@ -25,7 +25,6 @@ describe('loading the workspace', () => {
     const { run, state, routes } = testApp({
       'conversations.list': () => ({ conversations: [conversation()] }),
       'directory.list': () => ({ entries: [entry(BEN, 'Ben')] }),
-      'contacts.list': () => ({ contacts: [] }),
       'draftRequests.list': () => ({ requests: [] }),
       'credentials.list': () => ({
         credentials: [
@@ -48,7 +47,6 @@ describe('loading the workspace', () => {
     expect([...routes()].sort()).toEqual(
       [
         'channels.list',
-        'contacts.list',
         'conversations.list',
         'credentials.list',
         'debateSuggestions.list',
@@ -65,7 +63,6 @@ describe('loading the workspace', () => {
     const { run, state } = testApp({
       'conversations.list': () => ({ conversations: [conversation({ unreadCount: 1 })] }),
       'directory.list': () => ({ entries: [] }),
-      'contacts.list': () => ({ contacts: [] }),
       'credentials.list': () => ({ credentials: [] }),
       'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),
       'inbox.list': () => ({ items: [] }),
@@ -84,7 +81,6 @@ describe('loading the workspace', () => {
     const { run, page, routes } = testApp({
       'conversations.list': () => ({ conversations: [] }),
       'directory.list': () => ({ entries: [] }),
-      'contacts.list': () => ({ contacts: [] }),
       'credentials.list': () => ({ credentials: [] }),
       'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),
       'drafts.list': () => ({ drafts: [draft('d_open')] }),
@@ -139,7 +135,6 @@ describe('loading the workspace', () => {
     const { run, state, page, routes } = testApp({
       'conversations.list': () => ({ conversations: [] }),
       'directory.list': () => ({ entries: [] }),
-      'contacts.list': () => ({ contacts: [] }),
       'draftRequests.list': () => ({ requests: [] }),
       'credentials.list': () => ({ credentials: [] }),
       'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),

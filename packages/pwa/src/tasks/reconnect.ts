@@ -3,9 +3,8 @@ import { type Action, type App, withApp } from '../app.ts'
 import { ATTEMPT_LIMIT_SECONDS, QUIET_RETRY_SECONDS } from '../load-timing.ts'
 import { isTransient } from '../refusals.ts'
 import { loadDebate } from './debates.ts'
-import { loadGroups } from './groups.ts'
 import { hidePreviews, loadPreviews } from './previews.ts'
-import { invalidate } from './resources.ts'
+import { invalidate, refresh } from './resources.ts'
 import { requireSamePerson } from './same-person.ts'
 import { refreshInterview } from './teaching-interview.ts'
 import { untilHolds } from './waiting-for.ts'
@@ -91,7 +90,7 @@ const askOnceMore: Action = withApp(({ state }) =>
 const partsShown = ({ state }: App): ReadonlyArray<Action<unknown>> => {
   const shown = state.route.get()
   return [
-    ...(state.groupsLoaded.get() ? [loadGroups] : []),
+    ...(state.groups.load.get().loaded ? [refresh('groups')] : []),
     ...(state.interview.get() !== null ? [refreshInterview] : []),
     ...(shown.name === 'debate' ? [loadDebate(shown.id)] : []),
   ]

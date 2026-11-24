@@ -43,7 +43,6 @@ const workspace = {
   'server.info': () => everything(),
   'conversations.list': () => ({ conversations: [conversation({ lastNote: NOTE })] }),
   'directory.list': () => ({ entries: [entry(BEN, 'Ben')] }),
-  'contacts.list': () => ({ contacts: [] }),
   'draftRequests.list': () => ({ requests: [] }),
   'credentials.list': () => ({ credentials: [] }),
   'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),

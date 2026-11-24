@@ -72,7 +72,6 @@ describe('followEvents', () => {
   it('applies each live event, and says the stream is live', async () => {
     const app = testApp({
       'directory.list': () => ({ entries: [] }),
-      'contacts.list': () => ({ contacts: [] }),
     })
     const asked: string[] = []
     Object.assign(app.page.page, {

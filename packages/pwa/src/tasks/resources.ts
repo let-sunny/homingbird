@@ -1,7 +1,9 @@
 import { Task as T } from '@homingbird/kernel'
 import type { Api, ApiError, AsRead, ConversationId, DraftRequest } from '@homingbird/protocol'
 import { type Action, type App, withApp } from '../app.ts'
+import { CHANNEL_PAGE, type ListedChannels } from '../channels.ts'
 import { featureOn } from '../features.ts'
+import { withPage } from '../models/channels.ts'
 import { refusalOfServer } from '../refusals.ts'
 import type { Load, Resource, Source } from '../resource.ts'
 import { closeSettledReviewNotices } from './notifications.ts'
@@ -52,7 +54,6 @@ export const againWhatFailed: Action = withApp(({ state }) =>
 export const WORKSPACE = [
   'conversations',
   'directory',
-  'contacts',
   'channels',
   'agentCredentials',
   'draftRequests',
@@ -69,7 +70,6 @@ export const ACTIVITY = [
 export interface Resources {
   readonly conversations: ReadonlyArray<AsRead.Conversation>
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
-  readonly contacts: ReadonlyArray<AsRead.Contact>
   readonly channels: ReadonlyArray<AsRead.Channel>
   readonly agentCredentials: ReadonlyArray<AsRead.Credential>
   readonly draftRequests: ReadonlyArray<DraftRequest>
@@ -77,6 +77,8 @@ export interface Resources {
   readonly reviews: ReadonlyArray<AsRead.Review>
   readonly suggestions: ReadonlyArray<AsRead.DebateSuggestion>
   readonly debates: ReadonlyArray<AsRead.DebateSummary>
+  readonly groups: ReadonlyArray<AsRead.Group>
+  readonly channelPage: ListedChannels
 }
 
 export type ResourceKey = keyof Resources
@@ -92,9 +94,6 @@ const ASKS: { readonly [Key in ResourceKey]: Action<Resources[Key]> } = {
     T.map((listed: { entries: Resources['directory'] }) => listed.entries)(
       api['directory.list']({ query: {} }),
     ),
-  ),
-  contacts: withApp(({ api }) =>
-    T.map((listed: { contacts: Resources['contacts'] }) => listed.contacts)(api['contacts.list']({})),
   ),
   channels: withApp(({ api }) =>
     T.map((listed: { channels: Resources['channels'] }) => listed.channels)(
@@ -139,6 +138,24 @@ const ASKS: { readonly [Key in ResourceKey]: Action<Resources[Key]> } = {
       T.map((listed: { debates: Resources['debates'] }) => listed.debates)(api['debates.list']({})),
     ),
   ),
+  groups: whileOn(
+    'groups',
+    withApp(({ api }) =>
+      T.map((listed: { groups: Resources['groups'] }) => listed.groups)(api['groups.list']({})),
+    ),
+  ),
+  channelPage: withApp(({ api, state }) => {
+    const { query, after } = state.channelPageWish.get()
+    return T.map((found: Parameters<typeof withPage>[2]) => withPage(after, query, found))(
+      api['channels.list']({
+        query: {
+          limit: String(CHANNEL_PAGE),
+          ...(query !== '' && { q: query }),
+          ...(after?.cursor != null && { cursor: after.cursor }),
+        },
+      }),
+    )
+  }),
 }
 
 function whileOn<A>(
@@ -152,7 +169,7 @@ function whileOn<A>(
 }
 
 const keysAt = (state: App['state'], holds: (step: Load['step']) => boolean): ResourceKey[] =>
-  [...WORKSPACE, ...ACTIVITY].filter((key) => holds(state[key].load.get().step))
+  [...WORKSPACE, ...ACTIVITY, ...PAGE_LISTS].filter((key) => holds(state[key].load.get().step))
 
 const each = (
   keys: ReadonlyArray<ResourceKey>,
@@ -207,6 +224,9 @@ const hearingServerOnly = (api: Api): Api =>
 const untilStreamSettled: Action = withApp(({ state }) =>
   untilHolds(state.stream, (stream) => stream !== 'awaited'),
 )
+
+/** Lists that only their own page shows, so that nothing asks for them until it opens. */
+const PAGE_LISTS = ['groups', 'channelPage'] as const satisfies ReadonlyArray<ResourceKey>
 
 const KNOWN_CHANNELS = 200
 

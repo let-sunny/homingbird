@@ -23,7 +23,7 @@ describe('workspaceStep', () => {
 
 describe('workspaceRefusalText', () => {
   it('says a refusal, and nothing of a server that is away or of a list that is shown', () => {
-    const refusal: ApiError = { _tag: 'Forbidden', message: 'No contacts for you.' }
+    const refusal: ApiError = { _tag: 'Forbidden', message: 'No agents for you.' }
     const away: ApiError = { _tag: 'Unavailable', message: 'down' }
     expect(workspaceRefusalText([READ, at('failed', away), at('failed', refusal)])).toBe(refusal.message)
     expect(workspaceRefusalText([at('failed', away), at('failed'), at('loading', refusal)])).toBe('')

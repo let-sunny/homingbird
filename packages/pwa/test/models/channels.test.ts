@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import type { ListedChannels } from '../../src/channels.ts'
 import {
-  type ListedChannels,
   askPageModel,
   channelListModel,
   joinedRoom,
@@ -17,45 +17,40 @@ const listed = (fields: Partial<ListedChannels> = {}): ListedChannels => ({
   channels: [],
   hasMore: false,
   cursor: null,
-  loaded: true,
   ...fields,
 })
 
 describe('channelListModel', () => {
   it('waits, invites the first channel, or says none matched what was typed', () => {
-    expect(channelListModel(listed({ loaded: false }), 'loading', 'loaded')).toEqual({
+    expect(channelListModel(listed(), 'loading', 'loaded')).toEqual({
       kind: 'waiting',
       wait: { kind: 'checking', text: strings.checking.channels },
     })
-    expect(channelListModel(listed(), 'loading', 'loaded')).toEqual({
+    expect(channelListModel(listed(), null, 'loaded')).toEqual({
       kind: 'none-yet',
       text: strings.noChannelsYet,
     })
-    expect(channelListModel(listed({ query: 'x' }), 'loading', 'loaded')).toEqual({
+    expect(channelListModel(listed({ query: 'x' }), null, 'loaded')).toEqual({
       kind: 'no-match',
       text: strings.noChannels,
     })
   })
 
-  it('says it is taking too long or could not load, with Try again, and never says none before the list came', () => {
-    expect(channelListModel(listed({ loaded: false }), 'long', 'loaded')).toEqual({
+  it('says it is taking too long or could not load, with Try again', () => {
+    expect(channelListModel(listed(), 'long', 'loaded')).toEqual({
       kind: 'waiting',
       wait: { kind: 'long', text: strings.firstLoad.tooLong, retry: strings.tryAgain },
     })
-    expect(channelListModel(listed({ loaded: false }), 'failed', 'loaded')).toEqual({
+    expect(channelListModel(listed(), 'failed', 'loaded')).toEqual({
       kind: 'waiting',
       wait: { kind: 'failed', text: strings.loadFailed, retry: strings.tryAgain },
-    })
-    expect(channelListModel(listed(), 'failed', 'loaded')).toEqual({
-      kind: 'none-yet',
-      text: strings.noChannelsYet,
     })
   })
 
   it('shows each card with where the person stands, joining only an open channel, a hint and more to load', () => {
     const only = channelListModel(
       listed({ channels: [channel('billing', { answering: true, joined: true })] }),
-      'loading',
+      null,
       'loaded',
     )
     if (only.kind !== 'channels') throw new Error('expected channels')
@@ -73,7 +68,7 @@ describe('channelListModel', () => {
         channels: [channel('a', { joined: true }), channel('b', { visibility: 'private' }), channel('c')],
         hasMore: true,
       }),
-      'loading',
+      null,
       'loaded',
     )
     if (many.kind !== 'channels') throw new Error('expected channels')
@@ -105,7 +100,7 @@ describe('channelListModel', () => {
           channel('d', { joined: true, answering: true }),
         ],
       }),
-      'loading',
+      null,
       'loaded',
     )
     if (listing.kind !== 'channels') throw new Error('expected channels')

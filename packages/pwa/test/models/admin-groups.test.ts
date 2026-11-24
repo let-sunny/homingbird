@@ -6,9 +6,15 @@ import { ANA, BEN, CY, OPS, TEAM, group, managersOf, member } from '../support/f
 
 describe('adminGroupsModel', () => {
   it('waits for the groups, offers to try again, and says when there are none yet', () => {
-    expect(adminGroupsModel([], false, false)).toEqual({ kind: 'loading' })
-    expect(adminGroupsModel([], false, true)).toEqual({ kind: 'failed' })
-    expect(adminGroupsModel([], true, false)).toEqual({
+    expect(adminGroupsModel([], 'loading', 'loaded')).toEqual({
+      kind: 'waiting',
+      wait: { kind: 'checking', text: strings.loading },
+    })
+    expect(adminGroupsModel([], 'failed', 'loaded')).toEqual({
+      kind: 'waiting',
+      wait: { kind: 'failed', text: strings.loadFailed, retry: strings.tryAgain },
+    })
+    expect(adminGroupsModel([], null, 'loaded')).toEqual({
       kind: 'groups',
       create: strings.groups.create,
       empty: strings.groups.none,
@@ -23,14 +29,14 @@ describe('adminGroupsModel', () => {
         group(OPS, { name: 'Alpha', mayAdd: true }),
         managersOf('billing', { memberIds: [ANA] }),
       ],
-      true,
-      false,
+      null,
+      'loaded',
     )
     expect(model.kind === 'groups' && model.rows.map(({ group: _, ...row }) => row)).toEqual([
       { label: 'Alpha', href: '#/admin/groups/grp_ops000000000', members: strings.memberCount({ count: 0 }) },
       { label: 'Zeta', href: '#/admin/groups/grp_team00000000', members: strings.memberCount({ count: 1 }) },
     ])
-    expect(adminGroupsModel([managersOf('billing')], true, false)).toMatchObject({
+    expect(adminGroupsModel([managersOf('billing')], null, 'loaded')).toMatchObject({
       empty: strings.groups.none,
     })
   })
@@ -42,8 +48,8 @@ describe('adminGroupModel', () => {
     groupPageModel({
       id: TEAM,
       groups: [group(TEAM, { name: 'Finance', memberIds: [ANA], mayAdd: true })],
-      loaded: true,
-      failed: false,
+      awaited: null,
+      workspace: 'loaded',
       members: new Map(),
       directory: [],
       conversations: [],
@@ -53,8 +59,16 @@ describe('adminGroupModel', () => {
     })
 
   it('waits, fails or misses the group with the way back to every group', () => {
-    expect(adminGroupModel(page({ loaded: false }))).toEqual({ kind: 'loading', back })
-    expect(adminGroupModel(page({ loaded: false, failed: true }))).toEqual({ kind: 'failed', back })
+    expect(adminGroupModel(page({ awaited: 'loading' }))).toEqual({
+      kind: 'waiting',
+      wait: { kind: 'checking', text: strings.loading },
+      back,
+    })
+    expect(adminGroupModel(page({ awaited: 'failed' }))).toMatchObject({
+      kind: 'waiting',
+      wait: { kind: 'failed' },
+      back,
+    })
     expect(adminGroupModel(page({ groups: [] }))).toEqual({ kind: 'missing', back })
   })
 

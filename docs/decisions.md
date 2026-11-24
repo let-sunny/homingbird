@@ -787,7 +787,7 @@ states the decision first, then the reason. Add new entries at the top of their 
   changed, and a reconnect makes up for those never sent again. The two-second rule only lets places that open
   together share a request. An interrupted run also checks that it is still the running one: interruption alone
   leaves a few microtasks in which an answer already taken in, or the queue, could still be used. The
-  conversations, people, contacts, channels, agents and draft requests are resources too, and how loading the
+  conversations, people, channels, agents and draft requests are resources too (the groups and the channel page after them; the contacts list was read by nothing and is no longer asked for), and how loading the
   workspace is going is derived from them. Their first request waits for the event stream to open, at most a second:
   one round trip at each opening, for no event sent once being lost between a list and the stream. A reconnect never ends a request on its way, so that a
   stream that comes and goes cannot hold a slow list back; one that hangs ends after its 30 seconds. Threads keep their own rule.
