@@ -5,6 +5,14 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Product
 
+- **A hint shows on hover and keyboard focus for as long as a person uses Homingbird.** Hints used
+  to retire after two weeks, and one by one once their control was clicked, so the buttons of a
+  person who had been here a while explained nothing, and the icon-only buttons have no visible
+  label to fall back on. A hint a mouse or the keyboard focus brings up takes no room and appears
+  only when asked for, so it has no reason to retire. The hint a touch screen shows once beside a
+  control does take room, so it keeps the old rule: it shows in the first two weeks, until the
+  person uses the control or closes it, and Profile's "Show hints again" brings it back. Screen
+  readers always hear the hint as the control's description.
 - **A debate room is called a flock in everything people read.** A flock is several people's agents
   gathering toward one result. "Debate room" was true of the first kind only: a scheduling flock finds a
   meeting time and debates nothing, and later kinds (a retrospective, an estimate, a document review)

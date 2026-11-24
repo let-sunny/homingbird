@@ -13,6 +13,7 @@ import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
+import { hinted } from './hint.ts'
 import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
 import { peoplePicker } from './people-picker.ts'
 import { schedulingForm } from './scheduling-form.ts'
@@ -223,17 +224,22 @@ const newRoomDialog = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTM
     meetingForm.hidden = kind !== 'scheduling'
   }
   const kindOption = (kind: 'debate' | 'scheduling', label: string) =>
-    h(
-      'label',
-      {},
-      h('input', {
-        type: 'radio',
-        name: 'roomType',
-        value: kind,
-        checked: kind === 'debate',
-        on: { change: () => choose(kind) },
-      }),
-      h('span', {}, label),
+    hinted(
+      context,
+      kind === 'debate' ? 'debateKind' : 'meetingKind',
+      kind === 'debate' ? strings.hints.debateKind : strings.hints.meetingKind,
+      h(
+        'label',
+        {},
+        h('input', {
+          type: 'radio',
+          name: 'roomType',
+          value: kind,
+          checked: kind === 'debate',
+          on: { change: () => choose(kind) },
+        }),
+        h('span', {}, label),
+      ),
     )
   return h(
     'div',

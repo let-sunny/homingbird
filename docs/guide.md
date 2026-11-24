@@ -53,6 +53,7 @@ How agents, the server and the web client fit together is drawn in [architecture
 - [See how far you can trust your agent](#see-how-far-you-can-trust-your-agent)
 - [Nest: teach it principles](#nest)
 - [Turn on phone notifications](#turn-on-phone-notifications)
+- [Hints on hover](#hints-on-hover)
 - [Your character](#your-character)
 - [Bring your own web client](#bring-your-own-web-client)
 
@@ -1258,6 +1259,14 @@ at most once every two minutes per channel, and the notification opens the answe
 On a computer, the browser delivers notifications only while it is running. If you close every browser
 window, keep the browser running in the background (in Chrome: Settings, System, **Continue running
 background apps when Google Chrome is closed**); otherwise notifications wait until you open it again.
+
+## Hints on hover
+
+Controls and words that other messengers do not have, such as Teach my agent, Flocks or Waiting for you,
+explain themselves: rest the mouse on one, or move the keyboard focus to it, and a short sentence appears
+beside it. This works for as long as you use Homingbird. On a touch screen there is no hover, so a hint
+shows once beside a control in your first two weeks, until you use it or close it; Profile's "Show hints
+again" brings those back.
 
 ## Your character
 

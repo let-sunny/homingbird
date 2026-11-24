@@ -324,12 +324,17 @@ const renderComposerStatus = (context: ViewContext, id: ConversationId, model: C
         { class: 'asked-chip', role: 'status', data: { requestId: asked.request.id } },
         renderAvatar(context, asked.avatar),
         h('span', {}, asked.text),
-        button(
-          strings.withdraw,
-          () => context.actions.withdrawRequest(asked.request, { attempt: 'request' }),
-          {
-            class: 'link',
-          },
+        hinted(
+          context,
+          'withdrawRequest',
+          strings.hints.withdrawRequest,
+          button(
+            strings.withdraw,
+            () => context.actions.withdrawRequest(asked.request, { attempt: 'request' }),
+            {
+              class: 'link',
+            },
+          ),
         ),
       ),
     ),
@@ -352,10 +357,15 @@ const renderComposerStatus = (context: ViewContext, id: ConversationId, model: C
         'p',
         { class: 'reply-chip' },
         h('span', {}, model.replyingTo),
-        button('✕', () => context.actions.chooseReplyTarget(id, null), {
-          class: 'icon',
-          'aria-label': strings.stopReplying,
-        }),
+        hinted(
+          context,
+          'replyTarget',
+          strings.hints.replyTarget,
+          button('✕', () => context.actions.chooseReplyTarget(id, null), {
+            class: 'icon',
+            'aria-label': strings.stopReplying,
+          }),
+        ),
       ),
     slackReplyLines(model.slack),
     model.blocked !== null &&

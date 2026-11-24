@@ -400,13 +400,18 @@ const renderTaught = (model: TaughtModel, context: ViewContext): Child => {
 }
 
 /** "Teach my agent": opens the guided form for a new principle. */
-const teachButton = (context: ViewContext): HTMLElement =>
-  h(
-    'button',
-    {
-      type: 'button',
-      class: 'primary teach-button',
-      ...opensDialog(context, strings.teach.dialogTitle, () => principleForm(context, null, null, false)),
-    },
-    strings.teach.add,
+const teachButton = (context: ViewContext): Child =>
+  hinted(
+    context,
+    'teachAgent',
+    strings.hints.teachAgent,
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'primary teach-button',
+        ...opensDialog(context, strings.teach.dialogTitle, () => principleForm(context, null, null, false)),
+      },
+      strings.teach.add,
+    ),
   )

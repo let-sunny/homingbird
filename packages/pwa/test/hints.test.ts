@@ -12,6 +12,8 @@ import {
   restartedHints,
   writeHints,
 } from '../src/hints.ts'
+import { en } from '../src/languages/en.ts'
+import { ko } from '../src/languages/ko.ts'
 import { fakePage } from './support/context.ts'
 
 const NOW = Date.UTC(2026, 10, 19, 12)
@@ -101,4 +103,22 @@ describe('hints', () => {
     const later = NOW + HINTS_RETIRE_AFTER_MS * 2
     expect(isHintRetired(readHints(blocked, 'mem_ana', later), 'draft', later)).toBe(false)
   })
+
+  it('words every hint concept in English and in Korean', () => {
+    const hints = { en: en.hints as Record<string, string>, ko: ko.hints as Record<string, string> }
+    for (const each of HINT_CONCEPTS) {
+      for (const key of HINT_TEXT_KEYS[each] ?? [each])
+        for (const language of ['en', 'ko'] as const)
+          expect(hints[language][key], `${language} text of ${each}`).toMatch(/\S/)
+    }
+    for (const key of Object.keys(en.hints)) expect(ko.hints).toHaveProperty(key)
+  })
 })
+
+/** The concepts whose words live under other keys, or are the control's own description. */
+const HINT_TEXT_KEYS: Partial<Record<HintConcept, ReadonlyArray<string>>> = {
+  principleKind: ['kindRule', 'kindAnswer'],
+  principleVisibility: ['makePublic', 'makePrivate'],
+  agentAwake: ['legend'],
+  desk: ['legend'],
+}

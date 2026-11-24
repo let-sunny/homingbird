@@ -4,7 +4,6 @@ import {
   type HintConcept,
   hintsAfterDismiss,
   hintsAfterUse,
-  isHintRetired,
   isInlineHintDue,
   readHints,
   writeHints,
@@ -18,10 +17,11 @@ import type { ViewContext } from './context.ts'
  * A control or label of a concept other messengers lack, with a quiet one-line hint of what the person
  * can do there, followed by the element that holds the hint: place both where the control goes.
  *
- * While the person is new, the hint shows when the pointer or the keyboard focus rests on the control,
- * through an interest invoker where the browser has them and a small script elsewhere. A touch screen
- * has no hover, so it shows the hint once beside the control instead, until the person closes it.
- * Screen readers always hear it as the control's description, also after it retires.
+ * The hint shows whenever the pointer or the keyboard focus rests on the control, however long the
+ * person has used Homingbird, through an interest invoker where the browser has them and a small script
+ * elsewhere. A touch screen has no hover, so it shows the hint once beside the control instead, while
+ * the person is new, until they use the control or close it. Screen readers always hear it as the
+ * control's description.
  */
 export const hinted = <Target extends HTMLElement>(
   context: HintContext,
@@ -49,14 +49,12 @@ export const hinted = <Target extends HTMLElement>(
     })
     return [target, inline]
   }
-  if (isHintRetired(record, concept, context.clock.now())) return [target, quietText(id, text)]
   const hint = h('span', { id, class: 'hint-tip', role: 'tooltip' }, text)
   if (!hasPopover(hint)) {
     hint.hidden = true
     return [target, hint]
   }
   target.addEventListener('click', () => {
-    remember(hintsAfterUse)
     if (hint.matches(':popover-open')) hint.hidePopover()
   })
   if (context.page.supportsInterestInvokers() && INVOKERS.has(target.localName)) {
