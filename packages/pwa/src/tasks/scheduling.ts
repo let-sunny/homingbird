@@ -2,6 +2,7 @@ import { Task as T } from '@homingbird/kernel'
 import type { AsRead, DebateId, SchedulingDelegation, SchedulingDelegationView } from '@homingbird/protocol'
 import { type Action, withApp } from '../app.ts'
 import { loadDebates } from './debates.ts'
+import { reloadQuietly } from './quiet-reload.ts'
 
 export const loadSchedulingDelegation: Action<SchedulingDelegationView> = withApp(({ api }) =>
   api['me.scheduling.get']({}),
@@ -17,7 +18,7 @@ export const retrySchedulingRoom = (
   window: { readonly startsAt: number; readonly endsAt: number } | null,
 ): Action<AsRead.Debate> =>
   withApp(({ api }) =>
-    T.tap((_: AsRead.Debate) => loadDebates)(
+    T.tap((_: AsRead.Debate) => reloadQuietly(loadDebates))(
       api['scheduling.retry']({ params: { id }, body: window === null ? {} : { window } }),
     ),
   )

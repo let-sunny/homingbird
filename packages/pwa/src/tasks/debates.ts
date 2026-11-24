@@ -16,6 +16,7 @@ import { track } from '../analytics.ts'
 import { type Action, withApp } from '../app.ts'
 import type { AppState } from '../state.ts'
 import { loadingList } from './list-load.ts'
+import { reloadQuietly } from './quiet-reload.ts'
 
 export const loadDebates: Action = withApp(({ api, state }) =>
   T.map((listed: { debates: ReadonlyArray<AsRead.DebateSummary> }) => {
@@ -29,11 +30,16 @@ export const loadDebateList: Action = withApp(({ state }) =>
   loadingList('flocks', !state.debatesLoaded.get(), loadDebates),
 )
 
-/** Reads the flock shown on screen again; a flock the person may not see is shown as missing. */
+/**
+ * Reads the flock shown on screen again; a flock the person may not see is shown as missing. An answer
+ * for a flock that is no longer the one at the address is dropped.
+ */
 export const loadDebate = (id: string): Action =>
   withApp(({ api, state }) =>
-    T.catchTag('NotFound', () => T.sync(() => state.shownDebate.set('missing')))(
-      T.map((debate: AsRead.Debate) => state.shownDebate.set(debate))(api['debates.get']({ params: { id } })),
+    T.catchTag('NotFound', () => T.sync(() => showIfAtAddress(state, id, 'missing')))(
+      T.map((debate: AsRead.Debate) => showIfAtAddress(state, id, debate))(
+        api['debates.get']({ params: { id } }),
+      ),
     ),
   )
 
@@ -47,13 +53,15 @@ export interface DebateWish {
 export const createDebate = (wish: DebateWish): Action<AsRead.Debate> =>
   withApp(({ api }) =>
     T.tap((_: AsRead.Debate) =>
-      T.flatMap(() => loadDebates)(track('debate_opened', { visibility: wish.visibility })),
+      T.flatMap(() => reloadQuietly(loadDebates))(track('debate_opened', { visibility: wish.visibility })),
     )(api['debates.create']({ body: wish })),
   )
 
 /** Opens a scheduling flock for the setup the person typed; the list is read again so the flock shows in it. */
 export const createSchedulingRoom = (setup: ScheduleSetup): Action<AsRead.Debate> =>
-  withApp(({ api }) => T.tap((_: AsRead.Debate) => loadDebates)(api['scheduling.create']({ body: setup })))
+  withApp(({ api }) =>
+    T.tap((_: AsRead.Debate) => reloadQuietly(loadDebates))(api['scheduling.create']({ body: setup })),
+  )
 
 /** Gives the free times the person picked themself, none at all when they are busy throughout. */
 export const setMyFreeTimes = (
@@ -110,4 +118,9 @@ export const exportDebate = (
   withApp(({ api }) => api['debates.export']({ params: { id }, body: { format, language } }))
 
 const shown = (state: AppState, change: T.Task<AsRead.Debate, ApiError>): Action =>
-  T.map((debate: AsRead.Debate) => state.shownDebate.set(debate))(change)
+  T.map((debate: AsRead.Debate) => showIfAtAddress(state, debate.id, debate))(change)
+
+const showIfAtAddress = (state: AppState, id: string, shownNow: AsRead.Debate | 'missing'): void => {
+  const at = state.route.get()
+  if (at.name === 'debate' && at.id === id) state.shownDebate.set(shownNow)
+}

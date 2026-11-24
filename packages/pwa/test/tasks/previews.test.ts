@@ -1,7 +1,7 @@
 import type { AsRead, NoteId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import * as tasks from '../../src/tasks/previews.ts'
-import { testApp } from '../support/app.ts'
+import { fail, testApp } from '../support/app.ts'
 import { BEN, CHANNEL_ROOM, ROOM, serverInfo } from '../support/fixtures.ts'
 
 const preview = (fields: Partial<AsRead.DraftPreview> = {}): AsRead.DraftPreview => ({
@@ -50,6 +50,68 @@ describe('preview tasks', () => {
       { params: { id: ROOM } },
       { params: { id: CHANNEL_ROOM } },
     ])
+  })
+
+  it('goes on reading the other conversations when one cannot be read', async () => {
+    const { run, state, routes } = testApp({
+      'previews.list': (request) =>
+        (request as { params: { id: string } }).params.id === ROOM
+          ? fail({ _tag: 'Unavailable', message: 'down' })
+          : { previews: [preview({ noteId: 'note_fresh0000000' as NoteId, conversationId: CHANNEL_ROOM })] },
+    })
+    state.serverInfo.set(serverInfo({ draftPreviews: true }))
+    state.previews.set(
+      new Map([
+        [ROOM, [preview()]],
+        [CHANNEL_ROOM, []],
+      ]),
+    )
+    expect((await run(tasks.reloadPreviews))._tag).toBe('Ok')
+    expect(routes()).toEqual(['previews.list', 'previews.list'])
+    expect(state.previews.get().get(ROOM)).toEqual([preview()])
+    expect(state.previews.get().get(CHANNEL_ROOM)).toHaveLength(1)
+  })
+
+  it.each([
+    ['not found', fail({ _tag: 'NotFound', message: 'No.' })],
+    ['forbidden', fail({ _tag: 'Forbidden', message: 'No.' })],
+  ])(
+    'drops the previews of a conversation that answers %s, and the words they showed',
+    async (_, refusal) => {
+      const { run, state } = testApp({
+        'previews.list': (request) =>
+          (request as { params: { id: string } }).params.id === ROOM ? refusal : { previews: [] },
+      })
+      state.serverInfo.set(serverInfo({ draftPreviews: true }))
+      const kept = preview({ noteId: 'note_kept000000000' as NoteId, conversationId: CHANNEL_ROOM })
+      state.previews.set(
+        new Map([
+          [ROOM, [preview()]],
+          [CHANNEL_ROOM, [kept]],
+        ]),
+      )
+      state.previewedBodies.set(
+        new Map([
+          ['note_preview00000' as NoteId, 'Early words'],
+          ['note_kept000000000' as NoteId, 'Kept words'],
+        ]),
+      )
+      expect((await run(tasks.reloadPreviews))._tag).toBe('Ok')
+      expect(state.previews.get().has(ROOM)).toBe(false)
+      expect([...state.previewedBodies.get().keys()]).toEqual(['note_kept000000000'])
+    },
+  )
+
+  it('ends the session when a conversation’s previews answer unauthorized', async () => {
+    const { run, state } = testApp({
+      'previews.list': () => fail({ _tag: 'Unauthorized', message: 'Sign in.' }),
+    })
+    state.serverInfo.set(serverInfo({ draftPreviews: true }))
+    state.previews.set(new Map([[ROOM, [preview()]]]))
+    expect(await run(tasks.reloadPreviews)).toMatchObject({
+      _tag: 'Err',
+      error: { error: { _tag: 'Unauthorized' } },
+    })
   })
 
   it('loads and saves whom the person lets see their agent’s drafts, keeping what the server stored', async () => {

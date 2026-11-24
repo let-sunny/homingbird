@@ -9,6 +9,7 @@ import { strings } from '../strings.ts'
 import { holdDecision } from './held.ts'
 import { loadThread } from './notes.ts'
 import { closeSettledReviewNotices } from './notifications.ts'
+import { reloadQuietly } from './quiet-reload.ts'
 import { loadConversations, loadKnownChannels } from './workspace.ts'
 
 /** The answers waiting for this person, read again whenever one changes; none while channel agents are off. */
@@ -49,8 +50,10 @@ export const sendReview = (review: AsRead.Review, editedBody: string | null): Ac
         body: editedBody === null ? { expected } : { body: editedBody, expected },
       }),
     )
-    yield* loadReviews
-    if (state.threads.get().has(review.note.conversationId)) yield* loadThread(review.note.conversationId)
+    state.reviews.update((all) => all.filter((one) => one.note.id !== review.note.id))
+    yield* reloadQuietly(loadReviews)
+    if (state.threads.get().has(review.note.conversationId))
+      yield* reloadQuietly(loadThread(review.note.conversationId))
   })
 
 /** Discards an answer, with why when the manager said: kept for the agent's managers, never told to the asker. */
@@ -59,8 +62,9 @@ export const discardReview = (review: AsRead.Review, reason: string): Action =>
     const { api, state } = yield* T.ask<App>()
     const why = reason.trim()
     yield* api['drafts.discard']({ params: { id: review.note.id }, body: why === '' ? {} : { reason: why } })
+    state.reviews.update((all) => all.filter((one) => one.note.id !== review.note.id))
     offerToReply(state, review)
-    yield* loadReviews
+    yield* reloadQuietly(loadReviews)
   })
 
 /** Sends an answer, as read or as edited, once the moment to undo it is over. */
@@ -143,14 +147,14 @@ export const retireChannelAgent = (slug: string): Action =>
     const { api } = yield* T.ask<App>()
     yield* api['channels.agent.retire']({ params: { slug } })
     yield* afterAgentChange(slug)
-    yield* loadReviews
+    yield* reloadQuietly(loadReviews)
   })
 
 export const disconnectAgentDesk = (slug: string, id: CredentialId): Action =>
   T.gen(function* () {
     const { api } = yield* T.ask<App>()
     yield* api['channels.agent.credentials.revoke']({ params: { slug, id } })
-    yield* loadChannelAgent(slug)
+    yield* reloadQuietly(T.asUnit(loadChannelAgent(slug)))
   })
 
 /** Opens the person's own conversation with a channel's agent, and goes there. */
@@ -158,14 +162,13 @@ export const askPrivately = (slug: string): Action =>
   T.gen(function* () {
     const { api, page } = yield* T.ask<App>()
     const room = yield* api['channels.askPrivately']({ params: { slug } })
-    yield* loadConversations
+    yield* reloadQuietly(loadConversations)
     page.go(hrefFor({ name: 'conversation', id: room.id, draft: null }))
   })
 
 const afterAgentChange = (slug: string): Action =>
   T.gen(function* () {
-    yield* loadChannelAgent(slug)
-    yield* loadKnownChannels
+    yield* reloadQuietly(T.asUnit(T.all([loadChannelAgent(slug), loadKnownChannels])))
   })
 
 /** The question is left with nobody: the manager is offered to answer it themself, in its room. */

@@ -77,6 +77,26 @@ export const withNoteFiled = <Thread extends { readonly notes: ReadonlyArray<AsR
     }),
   )
 
+/**
+ * A thread's first page read again. The older notes the person already loaded stay while the page still
+ * reaches them, that is while it shares a sent note with what is held; otherwise it replaces what is held.
+ */
+export const withFirstPageReloaded = (held: ThreadPage | undefined, page: ThreadPage): ThreadPage => {
+  const sentTimes = page.notes.flatMap((note) => (note.sentAt === null ? [] : [note.sentAt]))
+  if (held === undefined || sentTimes.length === 0) return page
+  const oldestOnPage = Math.min(...sentTimes)
+  const reaches = page.notes.some(
+    (note) => note.sentAt !== null && held.notes.some((known) => known.id === note.id),
+  )
+  const older = held.notes.filter((note) => note.sentAt !== null && note.sentAt < oldestOnPage)
+  return reaches && older.length > 0 ? { notes: [...older, ...page.notes], hasMore: held.hasMore } : page
+}
+
+interface ThreadPage {
+  readonly notes: ReadonlyArray<AsRead.Note>
+  readonly hasMore: boolean
+}
+
 export const withReceipts = (
   notes: ReadonlyArray<AsRead.Note>,
   id: NoteId,
