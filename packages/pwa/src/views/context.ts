@@ -9,16 +9,27 @@ import type { AppState } from '../state.ts'
 import { createTour } from './tour.ts'
 
 /** The context the app shell gives every view of a page: one for the page's whole life. */
-export const createViewContext = (app: App, document: PageDocument): ViewContext => ({
-  state: app.state,
-  actions: createActions(app.launch),
-  clock: app.clock,
-  random: app.random,
-  page: app.page,
-  document,
-  tour: createTour(app.page, document),
-  justArrived: arrivalTracker(app.clock.now(), () => app.clock.now()),
-})
+export const createViewContext = (app: App, document: PageDocument): ViewContext => {
+  const trackArrivals = () => arrivalTracker(app.clock.now(), () => app.clock.now())
+  let justArrived = trackArrivals()
+  app.ended.addEventListener(
+    'abort',
+    () => {
+      justArrived = trackArrivals()
+    },
+    { once: true },
+  )
+  return {
+    state: app.state,
+    actions: createActions(app.launch),
+    clock: app.clock,
+    random: app.random,
+    page: app.page,
+    document,
+    tour: createTour(app.page, document),
+    justArrived: (conversation, viewerId) => justArrived(conversation, viewerId),
+  }
+}
 
 export interface ViewContext {
   readonly state: AppState
@@ -35,6 +46,8 @@ export interface ViewContext {
 
 export interface Tour {
   readonly start: () => void
+  /** Takes the tour off the page, to be offered again. */
+  readonly end: () => void
   /** Starts the tour on a first visit, unless the first steps are shown, which offer it instead. */
   readonly startOnFirstVisit: (routeName: string, firstStepsShown: boolean) => void
 }

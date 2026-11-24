@@ -6,7 +6,7 @@ import type {
   MemberId,
   NoteId,
 } from '@homingbird/protocol'
-import { type ReadableSignal, type Signal, derived, isSameData, signal } from '@homingbird/ui'
+import { type ReadableSignal, type Signal, batch, derived, isSameData, signal } from '@homingbird/ui'
 import type { Action } from './app.ts'
 import { type Roster, agentMembersOf } from './channels.ts'
 import { withDraftsAsRead, withReviewsAsRead } from './drafts-read.ts'
@@ -97,6 +97,7 @@ export const createState = (hash: string): AppState => {
     seenDrafts: new Set(),
     previews: signal<ReadonlyMap<ConversationId, ReadonlyArray<AsRead.DraftPreview>>>(new Map()),
     previewedBodies: signal<ReadonlyMap<NoteId, string>>(new Map()),
+    previewReads: changeCounter(),
     previewAllowance: signal<AsRead.DraftPreviewAllowance | null>(null),
   }
 }
@@ -106,6 +107,22 @@ export const signedIn = (state: Pick<AppState, 'session'>): AsRead.Me | null => 
   const me = state.session.get()
   return me === 'loading' ? null : me
 }
+
+/**
+ * Empties the state of everything the person's session put there, as when it ended. Whatever a page adds
+ * to the state is emptied too, unless it is named in `OUTLIVES_SESSION`.
+ */
+export const forgetSession = (state: AppState): void => {
+  const initial = createState('')
+  batch(() => {
+    state.session.set(null)
+    for (const key of Object.keys(state) as Array<keyof AppState>)
+      if (key !== 'session' && !OUTLIVES_SESSION.has(key)) makeInitial(state[key], initial[key])
+  })
+}
+
+/** What the page knows of the server and of its own address, which says nothing of who was signed in. */
+export const OUTLIVES_SESSION: ReadonlySet<keyof AppState> = new Set(['serverInfo', 'branding', 'route'])
 
 export interface AppState {
   readonly session: Signal<AsRead.Me | null | 'loading'>
@@ -205,6 +222,8 @@ export interface AppState {
   readonly previews: Signal<ReadonlyMap<ConversationId, ReadonlyArray<AsRead.DraftPreview>>>
   /** Each preview's words as this page last showed them, so a sent note can say whether they changed. */
   readonly previewedBodies: Signal<ReadonlyMap<NoteId, string>>
+  /** Counts each load and hide of a conversation's previews, so that an older answer never counts. */
+  readonly previewReads: ChangeCounter
   /** Whom the person lets see their own agent's drafts early, once loaded. */
   readonly previewAllowance: Signal<AsRead.DraftPreviewAllowance | null>
 }
@@ -223,6 +242,20 @@ export interface ListLoad {
   readonly step: Signal<ListStep>
   readonly started: Signal<number>
 }
+
+const makeInitial = (held: unknown, initial: unknown): void => {
+  if (typeof held !== 'object' || held === null) return
+  if (held instanceof Set) held.clear()
+  else if (isSignal(held)) held.set((initial as Signal<unknown>).get())
+  else if (isChangeCounter(held)) held.forget()
+  else
+    for (const [key, part] of Object.entries(held))
+      makeInitial(part, (initial as Readonly<Record<string, unknown>>)[key])
+}
+
+const isSignal = (held: object): held is Signal<unknown> => 'get' in held && 'set' in held
+
+const isChangeCounter = (held: object): held is ChangeCounter => 'changesTo' in held
 
 const listLoad = (): ListLoad => ({ step: signal<ListStep>('loading'), started: signal(0) })
 

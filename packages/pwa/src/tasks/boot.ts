@@ -137,7 +137,6 @@ const keepLoadingWorkspace = (after: number): Action =>
         yield* T.result(reportUnsettled)
         return
       }
-      if (attempt.error._tag === 'Unauthorized') return state.session.set(null)
       state.workspaceRefusal.set(isTransient(attempt.error) ? '' : refusalText(attempt.error))
       state.workspace.set('failed')
       yield* startLive

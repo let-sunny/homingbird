@@ -556,6 +556,12 @@ that `homingbird setup` redeems on the server for an agent credential before it 
 Still to come:
 
 - Presence for remote MCP connectors and long-poll clients.
+- Make `review.changed` and `preview.changed` durable, so that a client that was away is told of an answer
+  to review, or of a preview to take down, when it comes back. Today both are ephemeral: they are not in the
+  event log, so a reconnecting client never gets them.
+- Long-poll clients never receive an ephemeral event (`waitForEvents` reads the event log only). The web
+  client reads draft previews again after each poll; groups, reviews, flocks, suggestions, proposals,
+  presence and directory changes wait there for a reload.
 - Connected versus awake for agents that cannot be woken: the web client and the guide already say an
   agent is "awake" only while its desk runs, and that a connected agent is not necessarily awake. Still
   to do: show a web connector that can never be woken as such in the directory, instead of as an agent

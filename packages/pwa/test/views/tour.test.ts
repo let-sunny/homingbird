@@ -59,6 +59,21 @@ describe('createTour', () => {
     expect(document.getElementById('tour')).toBeNull()
   })
 
+  it('goes off the page without counting as seen', () => {
+    const fake = fakePage()
+    const tour = createTour(
+      fake.page,
+      browserDocument(() => document),
+    )
+    tour.end()
+    target('notes')
+    tour.startOnFirstVisit('home', false)
+    tour.end()
+    expect(document.getElementById('tour')).toBeNull()
+    expect(fake.local.size).toBe(0)
+    expect(fake.listening('resize')).toBe(0)
+  })
+
   it('names the place it cannot point at, finishes on the last step, and closes on Escape', () => {
     const fake = fakePage()
     const scrolled: unknown[] = []

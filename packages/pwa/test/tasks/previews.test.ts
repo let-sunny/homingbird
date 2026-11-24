@@ -1,7 +1,8 @@
 import type { AsRead, NoteId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
+import { forgetSession } from '../../src/state.ts'
 import * as tasks from '../../src/tasks/previews.ts'
-import { fail, testApp } from '../support/app.ts'
+import { fail, hold, settle, testApp } from '../support/app.ts'
 import { BEN, CHANNEL_ROOM, ROOM, serverInfo } from '../support/fixtures.ts'
 
 const preview = (fields: Partial<AsRead.DraftPreview> = {}): AsRead.DraftPreview => ({
@@ -34,6 +35,35 @@ describe('preview tasks', () => {
     await run(tasks.loadPreviews(ROOM))
     expect(state.previews.get().get(ROOM)).toEqual(shown)
     expect([...state.previewedBodies.get()]).toEqual([['note_preview00000', 'Early words']])
+  })
+
+  it('keeps the answer of the load that started last, and nothing of an older one', async () => {
+    const older = hold<unknown>()
+    let asked = 0
+    const { run, state } = testApp({
+      'previews.list': () => (asked++ === 0 ? older.waiting : { previews: [] }),
+    })
+    state.serverInfo.set(serverInfo({ draftPreviews: true }))
+    const first = run(tasks.loadPreviews(ROOM))
+    await settle()
+    await run(tasks.loadPreviews(ROOM))
+    older.release({ previews: [preview()] })
+    expect((await first)._tag).toBe('Ok')
+    expect(state.previews.get().get(ROOM)).toEqual([])
+    expect(state.previewedBodies.get().size).toBe(0)
+  })
+
+  it('keeps nothing of an answer that comes after the session was forgotten', async () => {
+    const late = hold<unknown>()
+    const { run, state } = testApp({ 'previews.list': () => late.waiting })
+    state.serverInfo.set(serverInfo({ draftPreviews: true }))
+    const loading = run(tasks.loadPreviews(ROOM))
+    await settle()
+    forgetSession(state)
+    late.release({ previews: [preview()] })
+    await loading
+    expect(state.previews.get().size).toBe(0)
+    expect(state.previewedBodies.get().size).toBe(0)
   })
 
   it('reads again every conversation whose previews the page holds', async () => {

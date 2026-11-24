@@ -40,7 +40,7 @@ export const testContext = (hash = '#/') => {
       },
   })
   const page = fakePage(hash)
-  const tour = { started: 0, homes: [] as string[] }
+  const tour = { started: 0, ended: 0, homes: [] as string[] }
   const clock = makeTestClock(Date.UTC(2026, 10, 19, 12))
   const context: ViewContext = {
     state: createState(hash),
@@ -49,7 +49,11 @@ export const testContext = (hash = '#/') => {
     random: { id: () => 'random-id', seed: () => 7 },
     page: page.page,
     document: browserDocument(() => globalThis.document),
-    tour: { start: () => void tour.started++, startOnFirstVisit: (name) => void tour.homes.push(name) },
+    tour: {
+      start: () => void tour.started++,
+      end: () => void tour.ended++,
+      startOnFirstVisit: (name) => void tour.homes.push(name),
+    },
     justArrived: () => false,
   }
   const called = (name: string): ActionCall[] => calls.filter((call) => call.name === name)
@@ -62,6 +66,7 @@ export type FakePage = ReturnType<typeof fakePage>
 export const fakePage = (hash = '#/') => {
   const listeners = new Map<PageEvent, Set<() => void>>()
   const frames: Array<() => void> = []
+  const restored: Array<() => void> = []
   const local = new Map<string, string>()
   const session = new Map<string, string>()
   const watches: Array<{
@@ -98,6 +103,7 @@ export const fakePage = (hash = '#/') => {
       state.hash = href
       visited.push(`replace ${href}`)
     },
+    reload: () => void visited.push('reload'),
     assign: (url) => void visited.push(`assign ${url}`),
     replaceAddress: (href) => void visited.push(`address ${href}`),
     linkTo: (href) => `http://localhost/${href}`,
@@ -116,6 +122,7 @@ export const fakePage = (hash = '#/') => {
       listeners.set(event, set)
       return () => set.delete(listener)
     },
+    onRestored: (listener) => void restored.push(listener),
     nextFrame: (run) => void frames.push(run),
     prefersReducedMotion: () => state.reducedMotion,
     isCoarsePointer: () => state.coarsePointer,
@@ -173,6 +180,10 @@ export const fakePage = (hash = '#/') => {
       for (const listener of [...(listeners.get(event) ?? [])]) listener()
     },
     listening: (event: PageEvent) => listeners.get(event)?.size ?? 0,
+    /** Brings the page back from the back-forward cache. */
+    restore: () => {
+      for (const listener of restored) listener()
+    },
     runFrames: () => {
       for (const run of frames.splice(0)) run()
     },
