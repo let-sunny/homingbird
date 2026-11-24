@@ -2664,6 +2664,7 @@ button.group-member-name:focus-visible::after {
   inline-size: 100%;
 }
 
+.channel-agent-state-host:empty,
 .channel-check:empty {
   display: none;
 }

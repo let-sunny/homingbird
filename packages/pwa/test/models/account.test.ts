@@ -8,6 +8,7 @@ import {
 } from '../../src/models/account.ts'
 import { strings } from '../../src/strings.ts'
 import { ANA, BEN, OPS, TEAM, group, managersOf, me } from '../support/fixtures.ts'
+import { CHECKING } from '../support/resource-load.ts'
 
 describe('profileModel', () => {
   it('fills the form and checks the appearance in use', () => {
@@ -109,7 +110,7 @@ describe('notificationLevelModel', () => {
 })
 
 describe('myGroupsModel', () => {
-  it('lists the person’s teams and the channels they manage, and nothing while groups are off or loading', () => {
+  it('lists the person’s teams and the channels they manage, waits for them, and shows nothing while groups are off', () => {
     const groups = [
       group(TEAM, { name: 'Finance', memberIds: [ANA, BEN] }),
       group(OPS, { name: 'Ops', memberIds: [BEN] }),
@@ -117,21 +118,28 @@ describe('myGroupsModel', () => {
       managersOf('billing', { memberIds: [ANA, BEN] }),
       managersOf('lobby', { memberIds: [BEN] }),
     ]
-    expect(myGroupsModel(me(), groups, true, true)).toEqual({
+    expect(myGroupsModel(me(), groups, null, true)).toEqual({
+      kind: 'groups',
       title: strings.groups.yours,
       empty: null,
       groups: [{ label: 'Finance', href: '#/group/grp_team00000000' }],
       manages: strings.groups.manages({ channels: '#billing and #payroll' }),
       channels: ['billing', 'payroll'],
     })
-    expect(myGroupsModel(me(), [], true, true)).toEqual({
+    expect(myGroupsModel(me(), [], null, true)).toEqual({
+      kind: 'groups',
       title: strings.groups.yours,
       empty: strings.groups.yoursNone,
       groups: [],
       manages: strings.groups.managesNone,
       channels: [],
     })
-    expect(myGroupsModel(me(), groups, false, true)).toBeNull()
-    expect(myGroupsModel(me(), groups, true, false)).toBeNull()
+    expect(myGroupsModel(me(), [], CHECKING, true)).toEqual({
+      kind: 'waiting',
+      title: strings.groups.yours,
+      wait: CHECKING,
+    })
+    expect(myGroupsModel(me(), groups, null, false)).toBeNull()
+    expect(myGroupsModel(me(), groups, CHECKING, false)).toBeNull()
   })
 })

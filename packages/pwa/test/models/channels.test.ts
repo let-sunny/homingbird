@@ -4,7 +4,6 @@ import {
   askPageModel,
   channelListModel,
   joinedRoom,
-  listAfterChange,
   nameCheck,
   slugToCreate,
   withPage,
@@ -44,6 +43,21 @@ describe('channelListModel', () => {
     expect(channelListModel(listed(), 'failed', 'loaded')).toEqual({
       kind: 'waiting',
       wait: { kind: 'failed', text: strings.loadFailed, retry: strings.tryAgain },
+    })
+  })
+
+  it('keeps the pages shown while the next is on its way or did not come, and says so below them once', () => {
+    const shown = (step: 'loading' | 'long' | 'failed', workspace: 'loaded' | 'failed' = 'loaded') =>
+      channelListModel(listed({ channels: [channel('a')], hasMore: true }), step, workspace)
+    expect(shown('loading')).toMatchObject({
+      more: strings.showMoreChannels,
+      wait: { kind: 'checking', text: strings.checking.channels },
+    })
+    for (const step of ['long', 'failed'] as const)
+      expect(shown(step)).toMatchObject({ more: null, wait: { kind: step, retry: strings.tryAgain } })
+    expect(shown('failed', 'failed')).toMatchObject({
+      more: strings.showMoreChannels,
+      wait: { kind: 'told-above' },
     })
   })
 
@@ -114,16 +128,6 @@ describe('channelListModel', () => {
 })
 
 describe('paging the list', () => {
-  it('reloads a short list after a change and updates a long one in place', () => {
-    const known = [channel('a', { memberCount: 9 })]
-    expect(listAfterChange(listed({ channels: [channel('a')] }), known, 20)).toBe('reload')
-    const long = listed({
-      channels: [channel('a'), ...Array.from({ length: 20 }, (_, i) => channel(`z${i}`))],
-    })
-    const next = listAfterChange(long, known, 20)
-    expect(next !== 'reload' && next.channels[0]!.memberCount).toBe(9)
-  })
-
   it('adds a page to what was listed, or starts again for a new query', () => {
     const page = { channels: [channel('b')], hasMore: true, cursor: 'c2' }
     expect(withPage(listed({ channels: [channel('a')] }), '', page)).toEqual(

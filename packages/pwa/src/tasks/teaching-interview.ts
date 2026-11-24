@@ -1,5 +1,5 @@
 import { Task as T } from '@homingbird/kernel'
-import type { AsRead, PrincipleKind, ProposalId } from '@homingbird/protocol'
+import type { PrincipleKind, ProposalId } from '@homingbird/protocol'
 import { type Action, withApp } from '../app.ts'
 import { reread } from './resources.ts'
 import { refreshPrinciples } from './teaching.ts'
@@ -26,11 +26,8 @@ export const acceptProposal = (id: ProposalId, change: ProposalChange): Action =
   )
 
 export const acceptProposals = (ids: ReadonlyArray<ProposalId>): Action =>
-  withApp(({ api, state }) =>
-    T.flatMap((loaded: AsRead.MyPrinciples) => {
-      state.taught.set(loaded)
-      return refreshInterview
-    })(api['principleProposals.acceptAll']({ body: { ids } })),
+  withApp(({ api }) =>
+    T.flatMap(() => reread('interview', 'taught'))(api['principleProposals.acceptAll']({ body: { ids } })),
   )
 
 export const discardProposal = (id: ProposalId): Action =>

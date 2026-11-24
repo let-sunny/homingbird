@@ -41,9 +41,26 @@ export const listWaitModel = (step: ListStep, workspace: Workspace, words: strin
   return { kind: 'checking', text: words }
 }
 
-/** What stands in place of one page's data until its first answer has come. */
-export const pageWaitModel = (load: Load, workspace: Workspace, words: string): ListWait =>
-  listWaitModel(firstAnswersStep([load]) ?? 'loading', workspace, words)
+/**
+ * What stands in place of each part of a page until its first answer has come, null once it has. The first
+ * part that waits tells of all of them, so that the page says it, and offers to try again, once.
+ */
+export const pageWaitModels = (
+  loads: ReadonlyArray<Load>,
+  workspace: Workspace,
+  words: string,
+): ReadonlyArray<ListWait | null> => {
+  const step = firstAnswersStep(loads)
+  const first = loads.findIndex((load) => !load.loaded)
+  return loads.map((load, index) => {
+    if (load.loaded || step === null) return null
+    return index === first ? listWaitModel(step, workspace, words) : { kind: 'told-above' }
+  })
+}
+
+/** Whether what stands in place of a list is a way to try again. */
+export const offersRetry = (wait: ListWait | null): boolean =>
+  wait?.kind === 'long' || wait?.kind === 'failed'
 
 /** The step of lists whose first answers are waited for together, or null once each has come. */
 export const firstAnswersStep = (loads: ReadonlyArray<Load>): ListStep | null => {

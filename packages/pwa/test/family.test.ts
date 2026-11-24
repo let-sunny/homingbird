@@ -31,6 +31,7 @@ describe('family', () => {
     expect(pages.use('billing', second)).toBe(held)
     expect(pages.find('billing')).toBe(held)
     expect(pages.find('ops')).toBeNull()
+    expect(pages.keys()).toEqual(['billing'])
   })
 
   it('lets go of an entry once the last page that holds it ends, and not before', async () => {

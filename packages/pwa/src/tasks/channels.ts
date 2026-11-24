@@ -8,15 +8,23 @@ import type {
   GroupId,
   MemberId,
 } from '@homingbird/protocol'
+import { batch } from '@homingbird/ui'
 import { type Action, type App, withApp } from '../app.ts'
-import { type ListedChannels, withChannel } from '../channels.ts'
+import { type ListedChannels, withChannel, withRowsOf } from '../channels.ts'
 import { hrefFor } from '../routes.ts'
 import { again, invalidate, open, reread } from './resources.ts'
 
-/** The channel list for what the person typed, asked afresh; the next page follows the ones shown. */
+/**
+ * The channel list for what the person typed, asked afresh; the next page follows the ones shown. What
+ * answered something else goes at once, so that it never passes for an answer that does not come.
+ */
 export const loadChannelPage = (query: string, after: ListedChannels | null): Action =>
   withApp(({ state }) => {
-    state.channelPageWish.set({ query, after })
+    batch(() => {
+      state.channelPageWish.set({ query, after })
+      state.channelPage.reset()
+      if (after !== null) state.channelPage.set(after)
+    })
     return again('channelPage')
   })
 
@@ -27,10 +35,11 @@ export const openChannelPage: Action = withApp(({ state }) => {
   return open('channelPage')
 })
 
-/** The channels changed: the first page of what was typed is asked for once more. */
+/** The known channels changed: a first page is asked for once more, the rows of several are updated in place. */
 export const reloadChannelPage: Action = withApp(({ state }) => {
-  state.channelPageWish.update((wish) => ({ ...wish, after: null }))
-  return invalidate('channelPage')
+  if (state.channelPageWish.get().after === null) return invalidate('channelPage')
+  state.channelPage.update((listed) => withRowsOf(listed, state.channels.get()))
+  return T.unit
 })
 
 /** Opens a channel and keeps it in the list straight away; the person who opens it is its first manager. */

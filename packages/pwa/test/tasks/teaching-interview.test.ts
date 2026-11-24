@@ -1,5 +1,6 @@
 import { Forbidden } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
+import { open } from '../../src/tasks/resources.ts'
 import {
   acceptProposal,
   acceptProposals,
@@ -7,8 +8,8 @@ import {
   refreshInterview,
   saveTeachingDocument,
 } from '../../src/tasks/teaching-interview.ts'
-import { fail, testApp } from '../support/app.ts'
-import { taught } from '../support/fixtures.ts'
+import { fail, hold, settle, testApp } from '../support/app.ts'
+import { principle, taught } from '../support/fixtures.ts'
 
 const INTERVIEW = { document: 'Refunds: 30 days.', proposals: [], limit: 20 }
 
@@ -35,8 +36,8 @@ describe('teaching chat tasks', () => {
   it('saves the document, saves or discards proposals, and shows what changed', async () => {
     const { run, sent, state } = testApp({
       'principleProposals.list': () => INTERVIEW,
-      'principleProposals.acceptAll': () => taught({ limit: 9 }),
-      'principles.list': () => taught(),
+      'principleProposals.acceptAll': () => taught({ limit: 8 }),
+      'principles.list': () => taught({ limit: 9 }),
     })
     await run(saveTeachingDocument('Refunds: 30 days.'))
     await run(acceptProposal('prop_aaaaaaaaaaaa' as never, { rule: 'ask billing' }))
@@ -57,6 +58,26 @@ describe('teaching chat tasks', () => {
       ['principleProposals.list', {}],
       ['principleProposals.acceptAll', { body: { ids: ['prop_dddddddddddd'] } }],
       ['principleProposals.list', {}],
+      ['principles.list', {}],
     ])
+  })
+
+  it('shows the newest principles when an older answer of theirs was on its way as proposals were saved', async () => {
+    const older = hold<unknown>()
+    let asked = 0
+    const { app, run, state } = testApp({
+      'principles.list': () =>
+        asked++ === 0 ? older.waiting : taught({ principles: [principle('Saved'), principle('Newer')] }),
+      'principleProposals.list': () => INTERVIEW,
+      'principleProposals.acceptAll': () => taught({ principles: [principle('Saved')] }),
+    })
+    app.launch(open('taught'))
+    await settle()
+    const saving = run(acceptProposals(['prop_dddddddddddd' as never]))
+    await settle()
+    older.release(taught())
+    await saving
+    await settle()
+    expect(state.taught.get()!.principles.map((one) => one.topic)).toEqual(['Saved', 'Newer'])
   })
 })

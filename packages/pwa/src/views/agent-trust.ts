@@ -12,7 +12,7 @@ import { connectionSection } from './connection.ts'
 import type { ViewContext } from './context.ts'
 import { renderDraftsBehind } from './drafts-behind.ts'
 import { hinted } from './hint.ts'
-import { pageData } from './page-data.ts'
+import { pageData, pageWaits } from './page-data.ts'
 import { page } from './parts.ts'
 import { previewSettingsSection } from './preview-settings.ts'
 import { interviewSection } from './teaching-interview.ts'
@@ -77,8 +77,11 @@ const sectionContent = (
   switch (section) {
     case 'connection':
       return [connectionSection(context, life, me)]
-    case 'teaching':
-      return [interviewSection(context, life), taughtSection(context, life)]
+    case 'teaching': {
+      const { state } = context
+      const [chat, taught] = pageWaits(state, [state.interview.load, state.taught.load])
+      return [interviewSection(context, life, chat!), taughtSection(context, life, taught!)]
+    }
     case 'previews':
       return [previewSettingsSection(context, life, me)]
     case 'doing': {

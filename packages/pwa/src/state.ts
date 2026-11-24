@@ -93,6 +93,7 @@ export const createState = (hash: string): AppState => {
     sendingIn: signal<ReadonlySet<ConversationId>>(new Set()),
     draftRequests,
     agentCredentials,
+    credentials: resource<ReadonlyArray<AsRead.Credential> | null>(null),
     channels,
     awaitingReply: resource<ReadonlyArray<ConversationId>>([]),
     reviews,
@@ -207,6 +208,8 @@ export interface AppState {
   readonly sendingIn: Signal<ReadonlySet<ConversationId>>
   readonly draftRequests: Resource<ReadonlyArray<DraftRequest>>
   readonly agentCredentials: Resource<ReadonlyArray<AsRead.Credential>>
+  /** Every device and agent of the person's, as Connection lists them. */
+  readonly credentials: Resource<ReadonlyArray<AsRead.Credential> | null>
   readonly channels: Resource<ReadonlyArray<AsRead.Channel>>
   /** The conversations with notes waiting for the person's reply. */
   readonly awaitingReply: Resource<ReadonlyArray<ConversationId>>

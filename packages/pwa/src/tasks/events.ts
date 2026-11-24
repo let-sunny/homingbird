@@ -4,7 +4,7 @@ import { type AsRead, STREAM_PATHS } from '@homingbird/protocol'
 import { type Action, type App, withApp } from '../app.ts'
 import { liveEvents } from './live.ts'
 import { type CatchUp, catchUp } from './reconnect.ts'
-import { againWhatFailed } from './resources.ts'
+import { againWhatFailed } from './try-again.ts'
 
 /**
  * Follows the person's live events after the given one, resuming from where it left off, stopping while

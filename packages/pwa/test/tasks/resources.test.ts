@@ -2,21 +2,13 @@ import { httpApi } from '@homingbird/client'
 import { Task as T, makeTestClock } from '@homingbird/kernel'
 import type { AsRead, DraftRequest, NoteId } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
-import { TOO_LONG_LOAD_SECONDS } from '../../src/load-timing.ts'
 import { discardReview } from '../../src/tasks/channel-agents.ts'
+import { loadChannelPage, openChannelPage, reloadChannelPage } from '../../src/tasks/channels.ts'
 import { leaveGroup } from '../../src/tasks/conversation-actions.ts'
 import { dismissSuggestion } from '../../src/tasks/debate-suggestions.ts'
 import { liveEvents } from '../../src/tasks/live.ts'
-import {
-  type ResourceKey,
-  again,
-  againWhatFailed,
-  againWhatIsStuck,
-  invalidate,
-  open,
-  refresh,
-  reread,
-} from '../../src/tasks/resources.ts'
+import { type ResourceKey, again, invalidate, open, refresh, reread } from '../../src/tasks/resources.ts'
+import { againWhatIsStuck } from '../../src/tasks/try-again.ts'
 import { fail, hold, settle, testApp } from '../support/app.ts'
 import {
   ANA,
@@ -59,7 +51,7 @@ const ROUTES = {
 } as const satisfies Record<Exclude<ResourceKey, 'channelPage' | PageKey>, string>
 
 /** What one page shows, which is none until it is asked for and is not a list. */
-type PageKey = 'taught' | 'agentReport' | 'interview'
+type PageKey = 'taught' | 'agentReport' | 'interview' | 'credentials'
 
 const KEYS = Object.keys(ROUTES) as Array<keyof typeof ROUTES>
 
@@ -398,6 +390,62 @@ describe('the channel list', () => {
     expect(state.channelPage.get()).toMatchObject({ query: 'ab', channels: [{ slug: 'now' }] })
   })
 
+  describe('while channels change', () => {
+    const pages = (handler: () => unknown) => {
+      let asked = 0
+      const test = start({
+        'channels.list': (request) => {
+          if ((request as { query: { limit: string } }).query.limit !== '20') return found('a', 'b')
+          return asked++ === 0 ? { ...found('a'), hasMore: true, cursor: 'next' } : handler()
+        },
+      })
+      const renamed = () => {
+        test.state.channels.set([channel('a', { description: 'Renamed' }), channel('b')])
+        return test.run(reloadChannelPage)
+      }
+      const rows = () => test.state.channelPage.get().channels.map((one) => one.description)
+      return { ...test, renamed, rows }
+    }
+
+    it('newest wins: a search is never replaced by the pages shown before it', async () => {
+      const next = [hold<unknown>(), hold<unknown>(), hold<unknown>()]
+      let asked = 0
+      const { app, run, renamed, state, rows } = pages(() => next[asked++]!.waiting)
+      await run(openChannelPage)
+      app.launch(loadChannelPage('', state.channelPage.get()))
+      await settle()
+      next[0]!.release(found('b'))
+      await settle()
+      expect(rows()).toEqual(['About a', 'About b'])
+      await renamed()
+      expect(rows()).toEqual(['Renamed', 'About b'])
+      app.launch(loadChannelPage('z', null))
+      await settle()
+      await renamed()
+      next[1]!.release(found('z'))
+      await settle()
+      expect(rows()).toEqual(['About z'])
+      next[2]!.release(found('z', 'zz'))
+      await settle()
+      expect(state.channelPage.get()).toMatchObject({ query: 'z' })
+      expect(rows()).toEqual(['About z', 'About zz'])
+    })
+
+    it('newest wins: the next page is kept, with the rows as they are now', async () => {
+      const more = hold<unknown>()
+      const { app, run, renamed, state, rows } = pages(() => more.waiting)
+      await run(openChannelPage)
+      app.launch(loadChannelPage('', state.channelPage.get()))
+      await settle()
+      await renamed()
+      expect(rows()).toEqual(['Renamed'])
+      more.release(found('b'))
+      await settle()
+      expect(rows()).toEqual(['Renamed', 'About b'])
+      expect(state.channelPage.load.get()).toMatchObject({ loaded: true, step: 'idle' })
+    })
+  })
+
   it('empties, and tells through its load only, when the person may no longer read it, and is tried again with the others', async () => {
     let isRefused = false
     const { run, state } = start({
@@ -435,27 +483,6 @@ describe('what an action reads again', () => {
     const down = start({ 'channels.list': () => fail({ _tag: 'Unavailable', message: 'down' }) })
     expect((await down.run(reread('channels')))._tag).toBe('Ok')
     expect(down.state.notice.get()).toBeNull()
-  })
-})
-
-describe('trying again', () => {
-  it('asks for the lists that failed or take too long, and after the network is back for those that failed', async () => {
-    const slow = hold<unknown>()
-    const { app, run, clock, routes, state } = start({
-      'directory.list': () => fail({ _tag: 'Forbidden', message: 'no' }),
-      'channels.list': () => slow.waiting,
-    })
-    app.launch(open('conversations', 'directory', 'channels'))
-    await clock.advance(TOO_LONG_LOAD_SECONDS * 1000)
-    expect(state.channels.load.get().step).toBe('long')
-    const asked = (route: string) => routes().filter((one) => one === route).length
-    await run(againWhatFailed)
-    await settle()
-    expect(['conversations.list', 'directory.list', 'channels.list'].map(asked)).toEqual([1, 2, 1])
-    await run(againWhatIsStuck)
-    await settle()
-    expect(['conversations.list', 'directory.list', 'channels.list'].map(asked)).toEqual([1, 3, 2])
-    app.endSession()
   })
 })
 

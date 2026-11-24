@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
 import { channelDecisionsSection } from '../../src/views/channel-decisions.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
+import { pageWaits } from '../../src/views/page-data.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import {
@@ -58,8 +59,9 @@ const shown = (info: AsRead.ServerInfo = everything()) => {
   context.state.serverInfo.set(info)
   context.state.directory.set([entry(ANA, 'June Park'), entry(BEN, 'Ben Okafor')])
   mount(dialogHost())
-  const section = mount(channelDecisionsSection(context, lifetime(), billing))
-  const held = context.state.channelDecisions.find('billing')!
+  const held = context.state.channelDecisions.use('billing', lifetime())
+  const [wait] = pageWaits(context.state, [held.load])
+  const section = mount(channelDecisionsSection(context, lifetime(), 'billing', 'Billing helper', wait!))
   const answered = (decisions: AsRead.ChannelDecisions | null): void => {
     held.set(decisions)
     setLoad(held, { loaded: true })
@@ -71,7 +73,7 @@ describe('channelDecisionsSection', () => {
   it('loads the channel’s decisions, waiting, and shows nothing to someone who does not manage it', () => {
     const { called, section, answered } = shown()
     expect(called('openAgentPage')[0]!.args).toEqual(['channelDecisions', 'billing'])
-    expect(textOf(section)).toBe(strings.loading)
+    expect(textOf(section)).toBe(`${strings.channelDecisions.title}${strings.loading}`)
     answered(null)
     expect(textOf(section)).toBe('')
   })
@@ -81,7 +83,7 @@ describe('channelDecisionsSection', () => {
     setLoad(held, { step: 'failed' })
     expect(textOf(section)).toContain(strings.loadFailed)
     getByRole(section, 'button', { name: strings.tryAgain }).click()
-    expect(called('askAgentPageAgain')[0]!.args).toEqual(['channelDecisions', 'billing'])
+    expect(called('askAgain')).toHaveLength(1)
     answered(listed([]))
     expect(textOf(section)).toContain(strings.channelDecisions.none({ days: 30 }))
     expect(queryByRole(section, 'list')).toBeNull()

@@ -2,6 +2,7 @@ import { Task as T } from '@homingbird/kernel'
 import type { AsRead, AutoSend, NoteId, PrincipleKind } from '@homingbird/protocol'
 import { track } from '../analytics.ts'
 import { type Action, withApp } from '../app.ts'
+import { inOrder } from '../principles.ts'
 import { reread } from './resources.ts'
 
 /** The person's own agent figures, asked for again; the card shows what it had until the answer comes. */
@@ -50,7 +51,7 @@ export const setAutoSend = (id: string, setting: AutoSend): Action =>
 
 export const reorderPrinciples = (ids: ReadonlyArray<string>): Action =>
   withApp(({ api, state }) =>
-    T.map((loaded: AsRead.MyPrinciples) => state.taught.set(loaded))(
+    T.map(() => state.taught.update((taught) => taught && inOrder(taught, ids)))(
       api['principles.reorder']({
         body: { ids: ids as ReadonlyArray<AsRead.MyPrinciples['principles'][number]['id']> },
       }),

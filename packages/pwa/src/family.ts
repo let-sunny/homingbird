@@ -49,6 +49,7 @@ export const family = <A>(empty: A): Family<A> => {
       })
       return entry.resource
     },
+    keys: () => [...entries.keys()],
     find: (key) => entries.get(key)?.resource ?? null,
     keepOnly: (keys) => {
       for (const [key, entry] of entries) if (!keys.has(key)) entry.resource.reset()
@@ -71,6 +72,8 @@ export interface Family<A> {
   readonly use: (key: string, life: Lifetime) => Resource<A>
   /** The resource of a key some page holds; nothing is made, so nothing is asked for what no page shows. */
   readonly find: (key: string) => Resource<A> | null
+  /** The keys some page holds. */
+  readonly keys: () => ReadonlyArray<string>
   /** What the person may see: every other entry is emptied and stops asking. */
   readonly keepOnly: (keys: ReadonlySet<string>) => void
   /** The session ended: every entry is emptied and let go of. */

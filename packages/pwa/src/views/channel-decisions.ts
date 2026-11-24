@@ -1,6 +1,4 @@
-import type { AsRead } from '@homingbird/protocol'
 import { type Child, type Lifetime, derived, h, region, slice } from '@homingbird/ui'
-import { channelLabel } from '../channels.ts'
 import {
   type ChannelDecisionsModel,
   type DecisionRow,
@@ -9,7 +7,7 @@ import {
 import { teachChannelAgent } from './channel-teaching.ts'
 import type { ViewContext } from './context.ts'
 import { noteBody } from './note-body.ts'
-import { readPageData } from './page-data.ts'
+import { type PageWait, pageData } from './page-data.ts'
 import { listWait, timeLabel } from './parts.ts'
 
 /**
@@ -19,21 +17,21 @@ import { listWait, timeLabel } from './parts.ts'
 export const channelDecisionsSection = (
   context: ViewContext,
   life: Lifetime,
-  channel: AsRead.Channel,
+  slug: string,
+  agent: string,
+  wait: PageWait,
 ): HTMLElement => {
   const { state, actions } = context
-  const held = state.channelDecisions.use(channel.slug, life)
-  const { shown, wait } = readPageData(state, held)
+  const { shown } = pageData(state, state.channelDecisions.use(slug, life))
   const people = slice([state.members], () => state.members.get())
   const waitingHere = derived([state.reviews], (reviews) =>
     reviews
-      .filter((review) => review.channel === channel.slug)
+      .filter((review) => review.channel === slug)
       .map((review) => review.note.id)
       .join(' '),
   )
-  actions.openAgentPage('channelDecisions', channel.slug)
-  life.add(waitingHere.subscribe(() => actions.reloadAgentPage('channelDecisions', channel.slug)))
-  const agent = channel.agent?.name ?? channelLabel(channel.slug)
+  actions.openAgentPage('channelDecisions', slug)
+  life.add(waitingHere.subscribe(() => actions.reloadAgentPage('channelDecisions', slug)))
   return region(
     life,
     [shown, wait, people, state.serverInfo],
@@ -46,7 +44,7 @@ export const channelDecisionsSection = (
           now: context.clock.now(),
         }),
         context,
-        channel.slug,
+        slug,
         agent,
       ),
     { class: 'channel-decisions-region' },
@@ -61,7 +59,12 @@ const renderDecisions = (
 ): Child => {
   if (model.kind === 'hidden') return null
   if (model.kind === 'waiting')
-    return listWait(model.wait, () => context.actions.askAgentPageAgain('channelDecisions', slug))
+    return h(
+      'section',
+      { class: 'channel-decisions' },
+      h('h3', {}, model.title),
+      listWait(model.wait, () => context.actions.askAgain()),
+    )
   return h(
     'section',
     { class: 'channel-decisions' },

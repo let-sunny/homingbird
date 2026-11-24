@@ -53,7 +53,11 @@ describe('channelDecisionsModel', () => {
   it('shows nothing to someone who does not manage the channel, and waits until that is known', () => {
     const context = { agent: AGENT, members, serverInfo: everything(), now: NOW }
     expect(channelDecisionsModel(null, null, context)).toEqual({ kind: 'hidden' })
-    expect(channelDecisionsModel(null, CHECKING, context)).toEqual({ kind: 'waiting', wait: CHECKING })
+    expect(channelDecisionsModel(null, CHECKING, context)).toEqual({
+      kind: 'waiting',
+      title: strings.channelDecisions.title,
+      wait: CHECKING,
+    })
     expect(channelDecisionsModel(listed([]), CHECKING, context).kind).toBe('waiting')
   })
 

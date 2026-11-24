@@ -25,7 +25,7 @@ import { placeName } from './places.ts'
 import type { ListWait } from './start.ts'
 
 /** "What I have taught it": the principles in the person's order, chances to teach, and milestones. */
-export const taughtModel = (taught: AsRead.MyPrinciples | null, wait: ListWait): TaughtModel => {
+export const taughtModel = (taught: AsRead.MyPrinciples | null, wait: ListWait | null): TaughtModel => {
   if (taught === null) return { kind: 'waiting', wait }
   const milestones = taught.achievements.filter(isKnown).map((each) => strings.teach.achievements[each])
   return {
@@ -221,7 +221,7 @@ export interface TeachSeed {
 }
 
 export type TaughtModel =
-  | { readonly kind: 'waiting'; readonly wait: ListWait }
+  | { readonly kind: 'waiting'; readonly wait: ListWait | null }
   | {
       readonly kind: 'taught'
       readonly intro: string

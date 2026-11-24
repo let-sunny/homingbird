@@ -62,6 +62,8 @@ export interface ConnectionInput {
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
   readonly credentials: ReadonlyArray<AsRead.Credential> | null
   readonly channels: ReadonlyArray<AsRead.Channel>
+  /** Whether the channels, and the person's own entry that names them too, came from the server. */
+  readonly channelsCame: boolean
   /** Whether the server offers join codes, which the recommendation then points to. */
   readonly joinCodes: boolean
 }
@@ -89,7 +91,8 @@ export interface ConnectionModel {
   /** How to keep a connected agent awake, shown until it is; the first steps cover a person with none. */
   readonly recommendation: { readonly title: string; readonly body: string } | null
   readonly credentials: { readonly noAgents: boolean; readonly rows: ReadonlyArray<CredentialRow> } | null
-  readonly helped: ReadonlyArray<string>
+  /** Null until it is known that there is none. */
+  readonly helped: ReadonlyArray<string> | null
 }
 
 export interface CredentialRow {
@@ -144,8 +147,13 @@ const credentialsAndChannels = (input: ConnectionInput) => ({
           noAgents: !hasConnectedAgent(input.credentials),
           rows: input.credentials.map(credentialRow),
         },
-  helped: helpedChannels(input),
+  helped: knownHelped(input),
 })
+
+const knownHelped = (input: ConnectionInput): ReadonlyArray<string> | null => {
+  const helped = helpedChannels(input)
+  return helped.length === 0 && !input.channelsCame ? null : helped
+}
 
 const hasConnectedAgent = (credentials: ReadonlyArray<AsRead.Credential> | null): boolean =>
   credentials?.some((credential) => credential.kind === 'agent' && credential.revokedAt === null) === true

@@ -38,6 +38,7 @@ describe('channelAgentFiguresModel', () => {
   it('waits rather than leave the section out while the answer has not come', () => {
     expect(channelAgentFiguresModel(null, CHECKING, 'payments-wiki', 30)).toEqual({
       kind: 'waiting',
+      title: strings.channelAgent.figuresTitle({ channel: '#payments-wiki' }),
       wait: CHECKING,
     })
     expect(channelAgentFiguresModel(report, CHECKING, 'payments-wiki', 30).kind).toBe('waiting')

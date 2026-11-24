@@ -1,5 +1,5 @@
 import type { AsRead, SchedulingDelegationView } from '@homingbird/protocol'
-import { type Lifetime, h, region, signal } from '@homingbird/ui'
+import { type Lifetime, h, region, signal, slice } from '@homingbird/ui'
 import { delegationFrom, schedulingSettingsModel } from '../models/scheduling-settings.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
@@ -21,21 +21,23 @@ export const schedulingSettingsSection = (
     done: (read) => view.set(read),
     failed: () => view.set('failed'),
   })
+  const shown = slice([view, state.directory, state.agentCredentials], () =>
+    schedulingSettingsModel({
+      me,
+      view: view.get(),
+      agents: state.agentCredentials.get(),
+      directory: state.directory.get(),
+      timeZone: page.timeZone(),
+    }),
+  )
   return region(
     life,
-    [view, state.directory, state.agentCredentials],
-    () => {
-      const read = view.get()
-      const model = schedulingSettingsModel({
-        me,
-        view: read,
-        agents: state.agentCredentials.get(),
-        directory: state.directory.get(),
-        timeZone: page.timeZone(),
-      })
+    [shown],
+    (drawing) => {
+      const model = shown.get()
       if (model.kind === 'loading') return loading()
       if (model.kind === 'failed') return h('p', { class: 'hint' }, model.text)
-      const before = (read as SchedulingDelegationView).delegation
+      const before = (view.get() as SchedulingDelegationView).delegation
       return h(
         'form',
         {
@@ -82,7 +84,7 @@ export const schedulingSettingsSection = (
           'div',
           { class: 'scheduling-agent' },
           h('span', {}, model.agentLine),
-          region(life, [changingAgent], () =>
+          region(drawing, [changingAgent], () =>
             changingAgent.get()
               ? h(
                   'label',
@@ -166,7 +168,9 @@ export const schedulingSettingsSection = (
           h('textarea', { name: 'brief', rows: '3', maxlength: '1000' }, model.brief),
           h('small', { class: 'hint' }, strings.scheduling.delegation.briefHint),
         ),
-        h('p', { class: 'hint', role: 'status' }, saved.get() ? strings.scheduling.delegation.saved : null),
+        region(drawing, [saved], () =>
+          h('p', { class: 'hint', role: 'status' }, saved.get() ? strings.scheduling.delegation.saved : null),
+        ),
         h('button', { type: 'submit', class: 'primary' }, strings.scheduling.delegation.save),
       )
     },

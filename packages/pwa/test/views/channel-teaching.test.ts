@@ -28,7 +28,7 @@ const teaching = (fields: Record<string, unknown> = {}) =>
 const shownWith = (loaded: unknown = teaching()) => {
   const { context, called } = testContext()
   mount(dialogHost())
-  const shown = mount(channelTeachingSection(context, lifetime(), 'billing', AGENT))
+  const shown = mount(channelTeachingSection(context, lifetime(), 'billing', AGENT, new Map()))
   if (loaded !== null) {
     const held = context.state.channelTeaching.find('billing')!
     held.set(loaded as never)
@@ -45,7 +45,7 @@ describe('channelTeachingSection', () => {
     setLoad(context.state.channelTeaching.find('billing')!, { step: 'failed' })
     expect(textOf(shown)).toContain(strings.loadFailed)
     getByRole(shown, 'button', { name: strings.tryAgain }).click()
-    expect(called('askAgentPageAgain')[0]!.args).toEqual(['channelTeaching', 'billing'])
+    expect(called('askAgain')).toHaveLength(1)
   })
 
   it('draws nothing again for what it already shows, so that what is typed stays', () => {
@@ -58,6 +58,25 @@ describe('channelTeachingSection', () => {
     context.state.channelTeaching.find('billing')!.set(teaching())
     expect(shown.querySelector('textarea')).toBe(instruction)
     expect(instruction.value).toBe('Half an instruction')
+  })
+
+  it('keeps the instruction and the sources being typed when a principle changes, until they are saved', () => {
+    const { context, called, shown } = shownWith()
+    const held = context.state.channelTeaching.find('billing')!
+    const typed = (name: string) => shown.querySelector<HTMLTextAreaElement>(`textarea[name="${name}"]`)!
+    fire.type(typed('instruction'), 'Half an instruction')
+    fire.type(typed('sources'), 'https://wiki.example/b')
+    held.set(teaching({ principles: [principle('Refunds')] }))
+    expect(textOf(shown)).toContain(strings.teach.limit({ count: 1, limit: 50 }))
+    expect(typed('instruction').value).toBe('Half an instruction')
+    expect(typed('sources').value).toBe('https://wiki.example/b')
+    getByRole(shown, 'button', { name: strings.channelTeach.saveInstruction }).click()
+    fire.type(typed('sources'), 'https://wiki.example/c')
+    held.set(teaching({ instruction: 'Half an instruction', sources: ['https://wiki.example/b'] }))
+    called('saveChannelInstruction')[0]!.then!.done!(undefined)
+    held.set(teaching({ instruction: 'Saved elsewhere.' }))
+    expect(typed('instruction').value).toBe('Saved elsewhere.')
+    expect(typed('sources').value).toBe('https://wiki.example/c')
   })
 
   it('saves the instruction and its sources, and refuses an invalid source before sending', () => {

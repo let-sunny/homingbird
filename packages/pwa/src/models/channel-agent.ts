@@ -45,7 +45,7 @@ export const channelAgentPageModel = (
   return {
     kind: 'channel',
     title: strings.channelAgent.pageTitle({ channel: channelLabel(slug) }),
-    channel,
+    agent: channel.agent?.name ?? channelLabel(slug),
     agentState: channel.agent == null ? null : channelAgentState(channel.agent),
   }
 }
@@ -374,7 +374,8 @@ export type ChannelAgentPage =
   | {
       readonly kind: 'channel'
       readonly title: string
-      readonly channel: AsRead.Channel
+      /** What the agent is called: its name, or its channel while there is none. */
+      readonly agent: string
       /** Whether the agent is there to answer, as a person's agent is shown. */
       readonly agentState: ChannelAgentState | null
     }

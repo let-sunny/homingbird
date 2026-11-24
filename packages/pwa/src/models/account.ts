@@ -4,6 +4,7 @@ import { channelsManagedBy, groupLabel, managesText, teamsOf } from '../groups.t
 import { languageChoices } from '../languages.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
+import type { ListWait } from './start.ts'
 
 /** Profile: the person's name and about text, how the page looks, its language, and notifications. */
 export const profileModel = (input: ProfileInput): ProfileModel => ({
@@ -26,13 +27,15 @@ export const profileModel = (input: ProfileInput): ProfileModel => ({
 export const myGroupsModel = (
   me: AsRead.Me,
   groups: ReadonlyArray<AsRead.Group>,
-  loaded: boolean,
+  wait: ListWait | null,
   groupsOn: boolean,
 ): MyGroupsModel | null => {
-  if (!groupsOn || !loaded) return null
+  if (!groupsOn) return null
+  if (wait !== null) return { kind: 'waiting', title: strings.groups.yours, wait }
   const mine = teamsOf(groups, me.member.id)
   const managed = channelsManagedBy(groups, me.member.id)
   return {
+    kind: 'groups',
     title: strings.groups.yours,
     empty: mine.length === 0 ? strings.groups.yoursNone : null,
     groups: mine.map((group) => ({
@@ -110,14 +113,17 @@ export interface ProfileModel {
   readonly notifications: 'available' | 'unavailable' | null
 }
 
-export interface MyGroupsModel {
-  readonly title: string
-  readonly empty: string | null
-  readonly groups: ReadonlyArray<{ readonly label: string; readonly href: string }>
-  /** The channels the person manages, in one sentence and as chips. */
-  readonly manages: string
-  readonly channels: ReadonlyArray<string>
-}
+export type MyGroupsModel =
+  | { readonly kind: 'waiting'; readonly title: string; readonly wait: ListWait }
+  | {
+      readonly kind: 'groups'
+      readonly title: string
+      readonly empty: string | null
+      readonly groups: ReadonlyArray<{ readonly label: string; readonly href: string }>
+      /** The channels the person manages, in one sentence and as chips. */
+      readonly manages: string
+      readonly channels: ReadonlyArray<string>
+    }
 
 export interface LanguageOption {
   readonly value: Locale | null

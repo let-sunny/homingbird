@@ -44,7 +44,7 @@ export const channelAgentTabsModel = (
 /** What the managers taught the agent: its instruction and sources, then its principles in their order. */
 export const channelTeachingModel = (
   teaching: AsRead.ChannelTeaching | null,
-  wait: ListWait,
+  wait: ListWait | null,
   agent: string,
 ): ChannelTeachingModel => {
   if (teaching === null) return { kind: 'waiting', wait }
@@ -130,7 +130,7 @@ export interface ChannelAgentTabs {
 }
 
 export type ChannelTeachingModel =
-  | { readonly kind: 'waiting'; readonly wait: ListWait }
+  | { readonly kind: 'waiting'; readonly wait: ListWait | null }
   | {
       readonly kind: 'taught'
       readonly intro: string

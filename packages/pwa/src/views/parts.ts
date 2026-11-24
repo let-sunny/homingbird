@@ -154,11 +154,32 @@ export const checking = (context: Pick<ViewContext, 'state'>, words: string): HT
 }
 
 /** Stands in place of a list that has not come: that it is checking, or that it took too long or failed, with a way to try again. */
-export const listWait = (wait: ListWait, retry: () => void): HTMLElement | null => {
-  if (wait.kind === 'told-above') return null
+export const listWait = (wait: ListWait | null, retry: () => void): HTMLElement | null => {
+  if (wait === null || wait.kind === 'told-above') return null
   return wait.kind === 'checking'
     ? h('p', { class: 'loading' }, wait.text)
     : empty(wait.text, button(wait.retry, retry))
+}
+
+/** What the person typed and has not saved, by field, so that drawing its part of the page again keeps it. */
+export type Unsaved = Map<string, string>
+
+export const keepTyped = (
+  unsaved: Unsaved,
+  key: string,
+  input: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+): void => {
+  input.value = unsaved.get(key) ?? value
+  input.addEventListener('input', () => {
+    if (input.value === value) unsaved.delete(key)
+    else unsaved.set(key, input.value)
+  })
+}
+
+/** The field was saved as it was then; what the person typed since stays. */
+export const forgetTyped = (unsaved: Unsaved, key: string, saved: string): void => {
+  if (unsaved.get(key) === saved) unsaved.delete(key)
 }
 
 export const empty = (text: string, ...actions: ReadonlyArray<Child>): HTMLElement =>

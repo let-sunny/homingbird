@@ -47,6 +47,19 @@ describe('schedulingSettingsSection', () => {
     expect(textOf(test.shown)).toContain(strings.loadFailed)
   })
 
+  it('keeps what the person is typing when the people and the agents are read again', () => {
+    const test = shownWith()
+    loaded(test)
+    const brief = test.shown.querySelector<HTMLTextAreaElement>('textarea[name="brief"]')!
+    fire.type(brief, 'Never before ten.')
+    test.context.state.directory.set([
+      entry(BEN, 'Ben', { presence: { humanOnline: true, agentOnline: true } }),
+    ])
+    test.context.state.agentCredentials.set([credential(AGENT, { name: 'Desk agent', lastUsedAt: 9 })])
+    expect(test.shown.querySelector('textarea[name="brief"]')).toBe(brief)
+    expect(brief.value).toBe('Never before ten.')
+  })
+
   it('saves it off after the person unticks both, and says it saved', () => {
     const test = shownWith()
     loaded(test)

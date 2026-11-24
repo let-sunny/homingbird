@@ -65,9 +65,6 @@ const start = (handlers: Parameters<typeof testApp>[0] = {}, hasLists = false) =
 
 const WORKSPACE_LISTS = ['channels.list', 'conversations.list', 'credentials.list', 'directory.list']
 
-const withoutLists = (routes: ReadonlyArray<string>) =>
-  routes.filter((route) => !WORKSPACE_LISTS.includes(route))
-
 describe('catchUp', () => {
   it('reads the previews held before the first connect, since one may be discarded until then', async () => {
     const { connect, shown, routes } = start()
@@ -190,7 +187,7 @@ describe('catchUp', () => {
     expect([...state.previewedBodies.get().keys()]).toEqual(['note_sent'])
     connect('stream')
     await settle()
-    expect(withoutLists(routes())).toEqual(['me.get', 'previews.list'])
+    expect(routes().sort()).toEqual(['me.get', 'previews.list', ...WORKSPACE_LISTS].sort())
   })
 
   it('keeps them hidden, without a notice, when the server does not answer', async () => {
@@ -212,12 +209,12 @@ describe('catchUp', () => {
     connect('stream')
     connect('poll')
     await settle()
-    expect(withoutLists(routes())).toEqual(['me.get', 'previews.list'])
+    expect(routes().sort()).toEqual(['me.get', 'previews.list', ...WORKSPACE_LISTS].sort())
     missed.asking('poll')
     expect(shown()).toHaveLength(1)
     missed.answered('poll')
     await settle()
-    expect(withoutLists(routes())).toEqual(['me.get', 'previews.list', 'previews.list'])
+    expect(routes().sort()).toEqual(['me.get', 'previews.list', 'previews.list', ...WORKSPACE_LISTS].sort())
   })
 
   it('hides them when a poll that answered before finds them unreadable', async () => {
@@ -275,7 +272,8 @@ describe('catchUp', () => {
 
 describe('catchUp with the lists that events sent once bring up to date', () => {
   const LISTS = ['debateSuggestions.list', 'debates.list', 'reviews.list', ...WORKSPACE_LISTS].sort()
-  const listsAsked = (routes: ReadonlyArray<string>) => routes.filter((route) => LISTS.includes(route)).sort()
+  const listsAsked = (routes: ReadonlyArray<string>) =>
+    routes.filter((route) => route !== 'me.get' && route !== 'previews.list').sort()
 
   it('asks for none at the first connect, and for each once at a reconnect, after who is signed in', async () => {
     const { connect, routes } = start({}, true)
@@ -480,6 +478,32 @@ describe('catchUp with the lists that events sent once bring up to date', () => 
     await settle()
     expect(others(held.routes()).sort()).toEqual(['debates.get', 'groups.list', 'principleProposals.list'])
   })
+
+  it.each([
+    ['groups', 'groups.list'],
+    ['interview', 'principleProposals.list'],
+  ] as const)(
+    'reads the %s once more after a first answer that was on its way when the stream was lost',
+    async (key, route) => {
+      const before = hold<unknown>()
+      let asked = 0
+      const newest = { groups: [], document: 'Newest', proposals: [], limit: 20 }
+      const { connect, app, state } = start(
+        { [route]: () => (asked++ === 0 ? before.waiting : newest) },
+        true,
+      )
+      state.serverInfo.set(everything())
+      connect('stream')
+      app.launch(open(key))
+      await settle()
+      connect('stream')
+      await settle()
+      before.release({ groups: [{ id: 'grp_old' }], document: 'Old', proposals: [], limit: 20 })
+      await settle()
+      expect(asked).toBe(2)
+      expect(state[key].get()).toEqual(key === 'groups' ? [] : newest)
+    },
+  )
 
   it('asks for none of another person’s', async () => {
     const { connect, routes, page } = start(

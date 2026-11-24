@@ -66,9 +66,8 @@ describe('account tasks', () => {
     expect(state.session.get()).toBeNull()
   })
 
-  it('lists, renames and revokes credentials, and decides on devices and consents', async () => {
+  it('renames and revokes credentials, and decides on devices and consents', async () => {
     const { run, routes } = testApp(answers)
-    expect(await run(tasks.listCredentials)).toEqual({ _tag: 'Ok', value: [credential('cred_one')] })
     await run(tasks.renameCredential('cred_one' as never, 'Laptop'))
     await run(tasks.revokeCredential('cred_one' as never))
     await run(tasks.lookUpDevice('ABCD'))
@@ -79,7 +78,6 @@ describe('account tasks', () => {
       value: { redirectTo: 'https://desk.example.com' },
     })
     expect(routes()).toEqual([
-      'credentials.list',
       'credentials.rename',
       'credentials.revoke',
       'device.get',

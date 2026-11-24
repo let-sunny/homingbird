@@ -129,6 +129,12 @@ export interface ListedChannels {
   readonly cursor: string | null
 }
 
+/** The same rows in the same order, each as the known channels have it now. */
+export const withRowsOf = (listed: ListedChannels, known: ReadonlyArray<AsRead.Channel>): ListedChannels => ({
+  ...listed,
+  channels: listed.channels.map((shown) => channelNamed(known, shown.slug) ?? shown),
+})
+
 /** What the channel list is asked for: the search, and the pages already shown that the next one follows. */
 export interface ChannelPageWish {
   readonly query: string

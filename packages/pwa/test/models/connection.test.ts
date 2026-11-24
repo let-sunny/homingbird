@@ -11,7 +11,7 @@ import { ANA, channel, credential, entry } from '../support/fixtures.ts'
 
 describe('connectionModel', () => {
   it('waits for the credentials, then marks the current one, the revoked ones and when each was used', () => {
-    const base = { viewerId: ANA, directory: [], channels: [], joinCodes: false }
+    const base = { viewerId: ANA, directory: [], channels: [], channelsCame: true, joinCodes: false }
     expect(connectionModel({ ...base, credentials: null }).credentials).toBeNull()
     const model = connectionModel({
       ...base,
@@ -41,6 +41,14 @@ describe('connectionModel', () => {
     )
   })
 
+  it('never says the agent answers nowhere before the channels came', () => {
+    const base = { viewerId: ANA, directory: [], credentials: null, joinCodes: false }
+    expect(connectionModel({ ...base, channels: [], channelsCame: false }).helped).toBeNull()
+    expect(connectionModel({ ...base, channels: [], channelsCame: true }).helped).toEqual([])
+    const answering = [channel('billing', { answering: true })]
+    expect(connectionModel({ ...base, channels: answering, channelsCame: false }).helped).toEqual(['billing'])
+  })
+
   it('shows whether the person’s desk is awake', () => {
     const presence = { humanOnline: true, agentOnline: true }
     expect(
@@ -48,13 +56,20 @@ describe('connectionModel', () => {
         viewerId: ANA,
         directory: [entry(ANA, 'Ana', { presence })],
         channels: [],
+        channelsCame: true,
         credentials: null,
         joinCodes: false,
       }).presence,
     ).toEqual(presence)
     expect(
-      connectionModel({ viewerId: ANA, directory: [], channels: [], credentials: null, joinCodes: false })
-        .presence,
+      connectionModel({
+        viewerId: ANA,
+        directory: [],
+        channels: [],
+        channelsCame: true,
+        credentials: null,
+        joinCodes: false,
+      }).presence,
     ).toBeNull()
   })
 
@@ -66,6 +81,7 @@ describe('connectionModel', () => {
           entry(ANA, 'Ana', { presence: { humanOnline: true, agentOnline: true, agentUnavailable } }),
         ],
         channels: [],
+        channelsCame: true,
         credentials: null,
         joinCodes: false,
       }).unavailable
@@ -77,8 +93,14 @@ describe('connectionModel', () => {
     expect(shown({ until: null, kind: 'signed_out' })).toEqual([strings.deskUnavailableReason.signed_out])
     expect(shown({ until: null })).toEqual([strings.deskUnavailableReason.unknown])
     expect(
-      connectionModel({ viewerId: ANA, directory: [], channels: [], credentials: null, joinCodes: false })
-        .unavailable,
+      connectionModel({
+        viewerId: ANA,
+        directory: [],
+        channels: [],
+        channelsCame: true,
+        credentials: null,
+        joinCodes: false,
+      }).unavailable,
     ).toEqual([])
   })
 })
@@ -93,6 +115,7 @@ describe('the desk recommendation', () => {
       viewerId: ANA,
       directory: [entry(ANA, 'Ana', { presence: { humanOnline: true, agentOnline } })],
       channels: [],
+      channelsCame: true,
       credentials,
       joinCodes,
     }).recommendation

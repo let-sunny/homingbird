@@ -1,5 +1,5 @@
 import { PRINCIPLE_TEXT_MAX, PRINCIPLE_TOPIC_MAX, type PrincipleKind } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, region, slice } from '@homingbird/ui'
+import { type Child, type Lifetime, h, region, replaceChildren, slice } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
 import {
   type AppliedMarker,
@@ -20,21 +20,20 @@ import { autoSendForm } from './auto-send-form.ts'
 import type { ViewContext } from './context.ts'
 import { opensDialog } from './dialog.ts'
 import { hinted } from './hint.ts'
-import { pageData } from './page-data.ts'
+import { type PageWait, pageData } from './page-data.ts'
 import { button, field, listWait } from './parts.ts'
 import { principleForm } from './principle-form.ts'
 import { todoList } from './todo-list.ts'
 
 /** "What I have taught it": the person's principles, chances to teach, and milestones. */
-export const taughtSection = (context: ViewContext, life: Lifetime): HTMLElement => {
+export const taughtSection = (context: ViewContext, life: Lifetime, wait: PageWait): HTMLElement => {
   const { state, actions } = context
   actions.refreshPrinciples()
-  const { shown, wait } = pageData(state, state.taught)
-  const channels = slice([state.channels], () => state.channels.get())
+  const { shown } = pageData(state, state.taught)
   return region(
     life,
-    [shown, wait, channels],
-    () => renderTaught(taughtModel(shown.get(), wait.get()), context),
+    [shown, wait],
+    (drawing) => renderTaught(taughtModel(shown.get(), wait.get()), context, drawing),
     { class: 'taught' },
   )
 }
@@ -165,10 +164,21 @@ const chanceCard = (chance: ChanceModel, context: ViewContext): HTMLElement =>
     ),
   )
 
-const principleList = (rows: ReadonlyArray<PrincipleRow>, context: ViewContext): HTMLElement => {
+const principleList = (
+  rows: ReadonlyArray<PrincipleRow>,
+  context: ViewContext,
+  drawing: Lifetime,
+): HTMLElement => {
   const { actions, state } = context
   const ids = rows.map((row) => row.principle.id as string)
   const place = placeSelect(context, null, false)
+  drawing.add(
+    slice([state.channels], () => placeChoices(state.channels.get(), null)).subscribe(() => {
+      const chosen = place.value
+      replaceChildren(place, placeOptions(context, chosen === '' ? null : chosen))
+      place.value = chosen
+    }),
+  )
   let kind: PrincipleKind = 'rule'
   return todoList({
     label: strings.teach.listLabel,
@@ -353,17 +363,15 @@ export const placeSelect = (
   context: ViewContext,
   chosen: string | null,
   disabled: boolean,
-): HTMLSelectElement =>
-  h(
-    'select',
-    { name: 'place', disabled },
-    placeChoices(context.state.channels.get(), chosen).map((choice) =>
-      h('option', { value: choice.value, selected: choice.selected }, choice.label),
-    ),
+): HTMLSelectElement => h('select', { name: 'place', disabled }, placeOptions(context, chosen))
+
+const placeOptions = (context: ViewContext, chosen: string | null): HTMLElement[] =>
+  placeChoices(context.state.channels.get(), chosen).map((choice) =>
+    h('option', { value: choice.value, selected: choice.selected }, choice.label),
   )
 
-const renderTaught = (model: TaughtModel, context: ViewContext): Child => {
-  if (model.kind === 'waiting') return listWait(model.wait, () => context.actions.askAgain('taught'))
+const renderTaught = (model: TaughtModel, context: ViewContext, drawing: Lifetime): Child => {
+  if (model.kind === 'waiting') return listWait(model.wait, () => context.actions.askAgain())
   return [
     h('p', { class: 'trust-footnote' }, model.intro),
     h('div', { class: 'teach-actions' }, teachButton(context), h('small', {}, model.limit)),
@@ -385,7 +393,7 @@ const renderTaught = (model: TaughtModel, context: ViewContext): Child => {
       ),
     model.empty !== null &&
       h('div', { class: 'teach-empty' }, h('strong', {}, model.empty.title), h('p', {}, model.empty.hint)),
-    principleList(model.principles, context),
+    principleList(model.principles, context, drawing),
     model.milestones !== null &&
       h(
         'section',

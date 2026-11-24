@@ -5,7 +5,7 @@ import { CHANNEL_PAGE, type ListedChannels } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import { withPage } from '../models/channels.ts'
 import { refusalOfServer } from '../refusals.ts'
-import type { Load, Resource, Source } from '../resource.ts'
+import type { Resource, Source } from '../resource.ts'
 import { closeSettledReviewNotices } from './notifications.ts'
 import { untilHolds } from './waiting-for.ts'
 
@@ -40,15 +40,9 @@ export const reread = (...keys: ReadonlyArray<ResourceKey>): Action =>
 /** Try again: those asked for anew, each ending its running request. */
 export const again = (...keys: ReadonlyArray<ResourceKey>): Action => each(keys, againOne)
 
-/** Try again for each list that failed or takes too long, and for no other. */
-export const againWhatIsStuck: Action = withApp(({ state }) =>
-  again(...keysAt(state, (step) => step === 'failed' || step === 'long')),
-)
-
-/** Asks afresh for each list that failed, as when the network is back. */
-export const againWhatFailed: Action = withApp(({ state }) =>
-  again(...keysAt(state, (step) => step === 'failed')),
-)
+/** Whether it was ever asked for, so that a change it may not have seen yet makes it be asked for once more. */
+export const wasAsked = ({ load }: Pick<Resource<unknown>, 'load'>): boolean =>
+  load.get().step !== 'idle' || load.get().loaded
 
 /** What the page is drawn from; until each was read, the line above the lists tells how that goes. */
 export const WORKSPACE = [
@@ -79,6 +73,7 @@ export interface Resources {
   readonly debates: ReadonlyArray<AsRead.DebateSummary>
   readonly groups: ReadonlyArray<AsRead.Group>
   readonly channelPage: ListedChannels
+  readonly credentials: ReadonlyArray<AsRead.Credential> | null
   readonly taught: AsRead.MyPrinciples | null
   readonly agentReport: AsRead.AgentReport | null
   readonly interview: AsRead.TeachingInterview | null
@@ -169,6 +164,11 @@ const ASKS: { readonly [Key in ResourceKey]: Action<Resources[Key]> } = {
     withApp(({ api }) => api['principleProposals.list']({})),
     null,
   ),
+  credentials: withApp(({ api }) =>
+    T.map((issued: { credentials: ReadonlyArray<AsRead.Credential> }) => issued.credentials)(
+      api['credentials.list']({}),
+    ),
+  ),
   channelPage: withApp(({ api, state }) => {
     const { query, after } = state.channelPageWish.get()
     return T.map((found: Parameters<typeof withPage>[2]) => withPage(after, query, found))(
@@ -183,15 +183,14 @@ const ASKS: { readonly [Key in ResourceKey]: Action<Resources[Key]> } = {
   }),
 }
 
+export const RESOURCE_KEYS = Object.keys(ASKS) as ReadonlyArray<ResourceKey>
+
 function whileOn<A>(feature: Parameters<typeof featureOn>[0], ask: Action<A>, off: A): Action<A> {
   return withApp(({ state }) => {
     if (!featureOn(feature, state.serverInfo.get())) return T.succeed(off)
     return T.catchTag('NotFound', () => T.succeed(off))(ask)
   })
 }
-
-const keysAt = (state: App['state'], holds: (step: Load['step']) => boolean): ResourceKey[] =>
-  [...WORKSPACE, ...ACTIVITY, ...PAGE_LISTS].filter((key) => holds(state[key].load.get().step))
 
 const each = (
   keys: ReadonlyArray<ResourceKey>,
@@ -249,15 +248,6 @@ const hearingServerOnly = (api: Api): Api =>
 const untilStreamSettled: Action = withApp(({ state }) =>
   untilHolds(state.stream, (stream) => stream !== 'awaited'),
 )
-
-/** Lists that only their own page shows, so that nothing asks for them until it opens. */
-const PAGE_LISTS = [
-  'groups',
-  'channelPage',
-  'taught',
-  'agentReport',
-  'interview',
-] as const satisfies ReadonlyArray<ResourceKey>
 
 const KNOWN_CHANNELS = 200
 

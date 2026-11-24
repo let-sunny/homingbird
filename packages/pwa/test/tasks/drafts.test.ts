@@ -15,7 +15,7 @@ import {
 } from '../../src/tasks/drafts.ts'
 import { commitHeld } from '../../src/tasks/held.ts'
 import { fail, settle, testApp } from '../support/app.ts'
-import { ROOM, conversation, draft, everything, note } from '../support/fixtures.ts'
+import { ROOM, conversation, draft, everything, note, report, taught } from '../support/fixtures.ts'
 
 const request = {
   id: 'dreq_1',
@@ -102,7 +102,11 @@ describe('deciding on drafts', () => {
   })
 
   it('sends a draft as written or edited, discards its alternatives, and refreshes what it changed', async () => {
-    const { run, sent, state } = testApp(answers)
+    const { run, sent, state } = testApp({
+      ...answers,
+      'insights.mine': () => report(),
+      'principles.list': () => taught(),
+    })
     state.serverInfo.set(everything())
     await run(approveDraft(draft('d1'), null, [draft('d2')]))
     await settle()
@@ -117,7 +121,8 @@ describe('deciding on drafts', () => {
         'conversations.list',
       ]),
     )
-    expect(state.agentReport.get()).toBeNull()
+    expect(state.agentReport.get()).toEqual(report())
+    expect(state.taught.get()).toEqual(taught())
     await run(approveDraft(draft('d1'), 'Edited', []))
     expect(sent.filter((one) => one.route === 'drafts.send')[1]!.request).toEqual({
       params: { id: 'd1' },

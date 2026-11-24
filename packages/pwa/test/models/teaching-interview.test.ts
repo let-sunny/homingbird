@@ -26,7 +26,11 @@ const interview = (proposals: ReadonlyArray<AsRead.PrincipleProposal>, document:
 
 describe('interviewModel', () => {
   it('waits until the proposals have come', () => {
-    expect(interviewModel(null, CHECKING)).toEqual({ kind: 'waiting', wait: CHECKING })
+    expect(interviewModel(null, CHECKING)).toEqual({
+      kind: 'waiting',
+      title: strings.teach.chat.title,
+      wait: CHECKING,
+    })
   })
 
   it('says how to start a chat with the person’s own agent, and that nothing waits yet', () => {

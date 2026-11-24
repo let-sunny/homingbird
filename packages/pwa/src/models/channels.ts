@@ -12,7 +12,7 @@ import { hrefFor } from '../routes.ts'
 import type { Workspace } from '../state.ts'
 import { strings } from '../strings.ts'
 import { answeredByAgent } from './channel-membership.ts'
-import { type ListStep, type ListWait, listWaitModel } from './start.ts'
+import { type ListStep, type ListWait, listWaitModel, offersRetry } from './start.ts'
 
 /** Channels: waiting for the list, none yet, none matching, or the cards with a hint and a way to see more. */
 export const channelListModel = (
@@ -20,8 +20,8 @@ export const channelListModel = (
   awaited: ListStep | null,
   workspace: Workspace,
 ): ChannelListModel => {
-  if (awaited !== null)
-    return { kind: 'waiting', wait: listWaitModel(awaited, workspace, strings.checking.channels) }
+  const wait = awaited === null ? null : listWaitModel(awaited, workspace, strings.checking.channels)
+  if (wait !== null && listed.channels.length === 0) return { kind: 'waiting', wait }
   if (listed.channels.length === 0 && listed.query === '')
     return { kind: 'none-yet', text: strings.noChannelsYet }
   if (listed.channels.length === 0) return { kind: 'no-match', text: strings.noChannels }
@@ -30,24 +30,10 @@ export const channelListModel = (
     cards: listed.channels.map(channelCard),
     onlyOne:
       listed.query === '' && listed.channels.length === 1 && !listed.hasMore ? strings.onlyOneChannel : null,
-    more: listed.hasMore ? strings.showMoreChannels : null,
+    more: listed.hasMore && !offersRetry(wait) ? strings.showMoreChannels : null,
+    wait,
   }
 }
-
-/** The list after the known channels changed: a short list is loaded again, a long one updated in place. */
-export const listAfterChange = (
-  listed: ListedChannels,
-  known: ReadonlyArray<AsRead.Channel>,
-  pageSize: number,
-): ListedChannels | 'reload' =>
-  listed.channels.length <= pageSize
-    ? 'reload'
-    : {
-        ...listed,
-        channels: listed.channels.map(
-          (shown) => known.find((channel) => channel.slug === shown.slug) ?? shown,
-        ),
-      }
 
 /** One page more of the list, or a fresh first page for what was typed. */
 export const withPage = (
@@ -126,6 +112,8 @@ export type ChannelListModel =
       readonly cards: ReadonlyArray<ChannelCard>
       readonly onlyOne: string | null
       readonly more: string | null
+      /** In place of the next page while it is on its way or did not come. */
+      readonly wait: ListWait | null
     }
 
 export interface ChannelCard {

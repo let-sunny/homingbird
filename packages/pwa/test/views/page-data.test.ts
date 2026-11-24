@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { resource } from '../../src/resource.ts'
 import { createState } from '../../src/state.ts'
 import { strings } from '../../src/strings.ts'
-import { pageData, readPageData } from '../../src/views/page-data.ts'
+import { pageData, pageWaits } from '../../src/views/page-data.ts'
 import { setLoad, setWorkspace } from '../support/resource-load.ts'
 
 const CHECKING = { kind: 'checking', text: strings.loading }
@@ -31,19 +31,42 @@ describe('pageData', () => {
     setWorkspace(state, 'failed')
     expect(wait.get()).toEqual({ kind: 'told-above' })
   })
-})
 
-describe('readPageData', () => {
   it('waits only until the data was read, however it is read again, since an answer of none is an answer', () => {
     const state = createState('')
     const held = resource<string | null>(null)
-    const { wait } = readPageData(state, held)
-    expect(wait.get()).toEqual(CHECKING)
-    setLoad(held, { loaded: true })
-    expect(wait.get()).toBeNull()
+    const { wait } = pageData(state, held)
     setLoad(held, { loaded: true, step: 'failed' })
     expect(wait.get()).toBeNull()
     setLoad(held, { loaded: false, step: 'failed' })
     expect(wait.get()).toMatchObject({ kind: 'failed' })
+  })
+})
+
+describe('pageWaits', () => {
+  it('tells of all parts in the place of the first that waits, and of nothing there when another only moves on', () => {
+    const state = createState('')
+    const parts = [
+      resource<string | null>(null),
+      resource<string | null>(null),
+      resource<string | null>(null),
+    ]
+    const waits = pageWaits(
+      state,
+      parts.map((part) => part.load),
+    )
+    const kinds = () => waits.map((wait) => wait.get()?.kind ?? null)
+    expect(kinds()).toEqual(['checking', 'told-above', 'told-above'])
+    setLoad(parts[2]!, { step: 'failed' })
+    expect(kinds()).toEqual(['failed', 'told-above', 'told-above'])
+    setLoad(parts[0]!, { loaded: true })
+    expect(kinds()).toEqual([null, 'failed', 'told-above'])
+    let drawn = 0
+    waits[2]!.subscribe(() => drawn++)
+    setLoad(parts[1]!, { step: 'loading' })
+    expect(drawn).toBe(0)
+    setLoad(parts[1]!, { loaded: true })
+    expect(drawn).toBe(1)
+    expect(kinds()).toEqual([null, null, 'failed'])
   })
 })

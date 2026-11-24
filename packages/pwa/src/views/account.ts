@@ -5,6 +5,7 @@ import { featureOn } from '../features.ts'
 import { restartedHints, writeHints } from '../hints.ts'
 import {
   type LanguageOption,
+  type MyGroupsModel,
   type NotificationLevelModel,
   type ProfileModel,
   myGroupsModel,
@@ -16,7 +17,8 @@ import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import { myCharacterSection } from './character.ts'
 import type { ViewContext } from './context.ts'
-import { button, channelChips, field, page } from './parts.ts'
+import { pageData } from './page-data.ts'
+import { button, channelChips, field, listWait, page } from './parts.ts'
 import { schedulingSettingsSection } from './scheduling-settings.ts'
 
 /** Profile: name and about text, character, appearance, language, the tour again and notifications. */
@@ -39,38 +41,37 @@ export const profileView = (context: ViewContext, life: Lifetime, me: AsRead.Me)
 const myGroups = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const { state } = context
   context.actions.loadGroups()
+  const { shown, wait } = pageData(state, state.groups)
   return region(
     life,
-    [state.groups, state.groups.load],
+    [shown, wait],
     (): Child => {
-      const model = myGroupsModel(
-        me,
-        state.groups.get(),
-        state.groups.load.get().loaded,
-        featureOn('groups', state.serverInfo.get()),
-      )
-      return (
-        model !== null &&
-        h(
-          'section',
-          { class: 'appearance my-groups' },
-          h('h2', {}, model.title),
-          model.empty !== null && h('p', {}, model.empty),
-          h(
-            'ul',
-            { class: 'my-group-list' },
-            model.groups.map((group) =>
-              h('li', { class: 'my-group' }, h('a', { href: group.href }, group.label)),
-            ),
-          ),
-          h('p', { class: 'group-manages' }, model.manages),
-          model.channels.length > 0 && channelChips(model.channels),
-        )
+      const on = featureOn('groups', state.serverInfo.get())
+      const model = myGroupsModel(me, shown.get(), wait.get(), on)
+      if (model === null) return null
+      return h(
+        'section',
+        { class: 'appearance my-groups' },
+        h('h2', {}, model.title),
+        model.kind === 'waiting'
+          ? listWait(model.wait, () => context.actions.askAgain())
+          : myGroupList(model),
       )
     },
     { class: 'my-groups-host' },
   )
 }
+
+const myGroupList = (model: Extract<MyGroupsModel, { kind: 'groups' }>): Child => [
+  model.empty !== null && h('p', {}, model.empty),
+  h(
+    'ul',
+    { class: 'my-group-list' },
+    model.groups.map((group) => h('li', { class: 'my-group' }, h('a', { href: group.href }, group.label))),
+  ),
+  h('p', { class: 'group-manages' }, model.manages),
+  model.channels.length > 0 && channelChips(model.channels),
+]
 
 /** The language choices; choosing one saves it for the person. */
 const languagePicker = (

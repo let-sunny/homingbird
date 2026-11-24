@@ -12,7 +12,7 @@ import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { opensDialog } from './dialog.ts'
 import { pageData } from './page-data.ts'
-import { field, listWait } from './parts.ts'
+import { type Unsaved, field, forgetTyped, keepTyped, listWait } from './parts.ts'
 import { principleForm } from './principle-form.ts'
 import { todoList } from './todo-list.ts'
 
@@ -25,6 +25,7 @@ export const channelTeachingSection = (
   life: Lifetime,
   slug: string,
   agent: string,
+  unsaved: Unsaved,
 ): HTMLElement => {
   const { state, actions } = context
   const held = state.channelTeaching.use(slug, life)
@@ -33,7 +34,7 @@ export const channelTeachingSection = (
   return region(
     life,
     [shown, wait],
-    () => renderTeaching(channelTeachingModel(shown.get(), wait.get(), agent), context, slug, agent),
+    () => renderTeaching(channelTeachingModel(shown.get(), wait.get(), agent), context, slug, agent, unsaved),
     { class: 'taught channel-teaching' },
   )
 }
@@ -64,12 +65,12 @@ const renderTeaching = (
   context: ViewContext,
   slug: string,
   agent: string,
+  unsaved: Unsaved,
 ): Child => {
-  if (model.kind === 'waiting')
-    return listWait(model.wait, () => context.actions.askAgentPageAgain('channelTeaching', slug))
+  if (model.kind === 'waiting') return listWait(model.wait, () => context.actions.askAgain())
   return [
     h('p', { class: 'trust-footnote' }, model.intro),
-    instructionForm(model.instruction, context, slug),
+    instructionForm(model.instruction, context, slug, unsaved),
     h('h3', {}, model.principlesTitle),
     h(
       'div',
@@ -89,6 +90,7 @@ const instructionForm = (
   model: Extract<ChannelTeachingModel, { kind: 'taught' }>['instruction'],
   context: ViewContext,
   slug: string,
+  unsaved: Unsaved,
 ): HTMLElement => {
   const instruction = h('textarea', {
     name: 'instruction',
@@ -96,9 +98,9 @@ const instructionForm = (
     maxlength: String(model.maxLength),
     placeholder: model.placeholder,
   })
-  instruction.value = model.value
+  keepTyped(unsaved, 'instruction', instruction, model.value)
   const sources = h('textarea', { name: 'sources', rows: '3', placeholder: 'https://' })
-  sources.value = model.sources
+  keepTyped(unsaved, 'sources', sources, model.sources)
   const warning = h('p', { class: 'advice is-forbidden', 'aria-live': 'polite' })
   const problem = h('p', { class: 'principle-problem', role: 'alert', hidden: true })
   const reflect = (): void => {
@@ -119,12 +121,13 @@ const instructionForm = (
           problem.textContent = 'problem' in outcome ? outcome.problem : ''
           problem.hidden = !('problem' in outcome)
           if ('problem' in outcome) return
+          const saved = { instruction: instruction.value, sources: sources.value }
           context.actions.saveChannelInstruction(slug, outcome.save.instruction, outcome.save.sources, {
-            done: () =>
-              context.state.notice.set({
-                kind: 'info',
-                text: strings.channelTeach.instructionSaved,
-              }),
+            done: () => {
+              forgetTyped(unsaved, 'instruction', saved.instruction)
+              forgetTyped(unsaved, 'sources', saved.sources)
+              context.state.notice.set({ kind: 'info', text: strings.channelTeach.instructionSaved })
+            },
           })
         },
       },

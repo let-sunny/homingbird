@@ -1,6 +1,6 @@
 import type { AsRead, MemberId, NoteId } from '@homingbird/protocol'
 import { h, lifetime } from '@homingbird/ui'
-import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
+import { allByRole, fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { heldWordsFor } from '../../src/held-decisions.ts'
 import { strings } from '../../src/strings.ts'
@@ -54,6 +54,8 @@ const opened = () => {
   const { context, called, page } = testContext()
   context.state.serverInfo.set(everything())
   context.state.session.set(me())
+  setLoad(context.state.channels, { loaded: true })
+  context.state.channels.set([wiki])
   mount(dialogHost())
   const buttons = mount(h('div', {}, agentButtons(context, wiki)))
   getByRole(buttons, 'button', { name: strings.channelAgent.title }).click()
@@ -72,7 +74,7 @@ const onPage = () => {
 
 describe('channelAgentView', () => {
   it.each(['answers', 'teach'] as const)(
-    'keeps what is being done on its %s tab when the channels come again unchanged, and ends it when they change',
+    'keeps what is being done on its %s tab while the channels change, and draws it anew when its agent is renamed',
     (tab) => {
       const { context, called } = testContext()
       context.state.serverInfo.set(everything())
@@ -98,8 +100,18 @@ describe('channelAgentView', () => {
       context.state.channels.set([{ ...wiki }, channel('other')])
       expect(asked()).toBe(1)
       if (tab === 'teach') expect(shown.querySelector('textarea')!.value).toBe('Half an instruction')
-      context.state.channels.set([{ ...wiki, memberCount: 9 }])
+      context.state.channels.set([
+        {
+          ...wiki,
+          memberCount: 9,
+          agent: { ...wiki.agent!, presence: { humanOnline: false, agentOnline: true } },
+        },
+      ])
+      expect(asked()).toBe(1)
+      if (tab === 'teach') expect(shown.querySelector('textarea')).toBe(typed)
+      context.state.channels.set([{ ...wiki, agent: { ...wiki.agent!, name: 'Refunds wiki' } }])
       expect(asked()).toBe(2)
+      if (tab === 'teach') expect(shown.querySelector('textarea')!.value).toBe('Half an instruction')
       expect(kept.find('payments-wiki')).toBe(held)
     },
   )
@@ -130,6 +142,79 @@ describe('channelAgentView', () => {
       strings.channelAgentState.notConnected({ agent: 'Payments wiki' }),
     )
   })
+})
+
+describe('the agent panel while what it shows changes', () => {
+  const typedName = (dialog: ParentNode) => dialog.querySelector<HTMLInputElement>('input[name="name"]')!
+
+  it.each(['rename', 'create'] as const)(
+    'keeps the name typed to %s the agent while people and channels change',
+    (kind) => {
+      for (const { context, called, dialog } of [onPage(), opened()]) {
+        agentAnswered(context, kind === 'create' ? null : agentView())
+        fire.type(typedName(dialog), 'Half a na')
+        context.state.directory.set([
+          entry(CY, 'Cy', { presence: { humanOnline: true, agentOnline: false } }),
+        ])
+        context.state.channels.set([{ ...wiki, memberCount: 9 }])
+        expect(typedName(dialog).value).toBe('Half a na')
+        fire.submit(dialog.querySelector('form.agent-name')!)
+        agentAnswered(context, agentView())
+        called(`${kind}ChannelAgent`)[0]!.then!.done!(undefined)
+        context.state.directory.set([])
+        expect(typedName(dialog).value).toBe('Payments wiki')
+      }
+    },
+  )
+
+  it('says whose it is in the dialog when the person may no longer run it, and shows it again when they may', () => {
+    const { context, called, dialog } = opened()
+    agentAnswered(context, agentView())
+    const asked = () => called('openAgentPage').length
+    expect(asked()).toBe(1)
+    context.state.channels.set([{ ...wiki, runsAgent: false }])
+    expect(textOf(dialog)).toContain(strings.channelAgent.notYours)
+    expect(textOf(dialog)).not.toContain(strings.loading)
+    expect(dialog.querySelector('form')).toBeNull()
+    context.state.channels.set([wiki])
+    expect(asked()).toBe(2)
+    agentAnswered(context, agentView())
+    expect(typedName(dialog).value).toBe('Payments wiki')
+  })
+})
+
+describe('the agent’s page while its parts are read', () => {
+  const PARTS = ['reviews', 'channelDecisions', 'channelAgents', 'channelAgentFigures'] as const
+  const partOf = ({ state }: ReturnType<typeof testContext>['context'], part: (typeof PARTS)[number]) =>
+    part === 'reviews' ? state.reviews : state[part].find('payments-wiki')!
+  const SUBSETS = Array.from({ length: 15 }, (_, index) =>
+    PARTS.filter((_part, bit) => ((15 - index) >> bit) & 1),
+  )
+
+  it.each(['failed', 'long'] as const)(
+    'tells once of every part that is at %s, with one way to try again and its headings',
+    (step) => {
+      let asked = 0
+      for (const stuck of SUBSETS) {
+        const { context, called, dialog } = onPage()
+        setWorkspace(context.state, 'loaded')
+        for (const part of PARTS)
+          setLoad(partOf(context, part), stuck.includes(part) ? { step } : { loaded: true })
+        const again = allByRole(dialog, 'button', { name: strings.tryAgain })
+        expect(again, stuck.join()).toHaveLength(1)
+        again[0]!.click()
+        asked += called('askAgain').length
+        expect(textOf(dialog)).toContain(strings.channelAgent.reviewsTitle)
+        if (stuck.includes('channelDecisions'))
+          expect(textOf(dialog)).toContain(strings.channelDecisions.title)
+        if (stuck.includes('channelAgentFigures'))
+          expect(textOf(dialog)).toContain(strings.channelAgent.figuresTitle({ channel: '#payments-wiki' }))
+        setWorkspace(context.state, 'failed')
+        expect(queryByRole(dialog, 'button', { name: strings.tryAgain })).toBeNull()
+      }
+      expect(asked).toBe(SUBSETS.length)
+    },
+  )
 })
 
 describe('agentButtons', () => {
@@ -407,7 +492,7 @@ describe('how the agent is doing', () => {
       'channelAgentFigures',
       'payments-wiki',
     ])
-    expect(dialog.querySelector('.channel-agent-figures')).toBeNull()
+    expect(dialog.querySelector('.channel-agent-figures table')).toBeNull()
     figuresAnswered(context, report())
     const section = dialog.querySelector<HTMLElement>('.channel-agent-figures')!
     expect(getByRole(section, 'heading', { name: 'How the agent of #payments-wiki is doing' })).toBeTruthy()
@@ -438,10 +523,7 @@ describe('how the agent is doing', () => {
     expect(textOf(dialog)).toContain(strings.loadFailed)
     const again = getByRole(dialog, 'button', { name: strings.tryAgain })
     again.click()
-    expect(called('askAgentPageAgain').map((call) => call.args)).toContainEqual([
-      'channelAgentFigures',
-      'payments-wiki',
-    ])
+    expect(called('askAgain')).toHaveLength(1)
   })
 
   it('keeps the figures shown when reading them again fails for a moment', () => {
@@ -505,10 +587,7 @@ describe('channelAgentView', () => {
     setLoad(context.state.channelAgents.find('payments-wiki')!, { step: 'failed' })
     expect(textOf(shown)).toContain(strings.loadFailed)
     getByRole(shown, 'button', { name: strings.tryAgain }).click()
-    expect(called('askAgentPageAgain').map((call) => call.args)).toContainEqual([
-      'channelAgents',
-      'payments-wiki',
-    ])
+    expect(called('askAgain')).toHaveLength(1)
   })
 
   it('brings the answer a notification opened into view, once', () => {
@@ -554,12 +633,12 @@ describe('the answer a stale notification opened', () => {
   it('never says that none waits before the list came: it is checked, or failed with the way to try again', () => {
     const { context, called, shown } = openedFor('note_answer00000')
     setWorkspace(context.state, 'loaded')
-    expect(textOf(shown)).toContain(strings.checking.waiting)
+    expect(textOf(shown.querySelector('.reviews')!)).toContain(strings.loading)
     expect(textOf(shown)).not.toContain(strings.channelAgent.reviewsNone)
     setLoad(context.state.reviews, { step: 'failed' })
     expect(textOf(shown)).toContain(strings.loadFailed)
     getByRole(shown, 'button', { name: strings.tryAgain }).click()
-    expect(called('askActivityAgain')).toHaveLength(1)
+    expect(called('askAgain')).toHaveLength(1)
     setLoad(context.state.reviews, { loaded: true })
     expect(textOf(shown)).toContain(strings.channelAgent.reviewsNone)
   })

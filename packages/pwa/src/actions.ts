@@ -26,6 +26,7 @@ import * as scheduling from './tasks/scheduling.ts'
 import * as slack from './tasks/slack.ts'
 import * as interview from './tasks/teaching-interview.ts'
 import * as teaching from './tasks/teaching.ts'
+import { againWhatIsStuck } from './tasks/try-again.ts'
 
 /**
  * What a view may ask for, by name: each starts its task and reports a failure as a notice. A view
@@ -46,11 +47,10 @@ export const createActions = (launch: Launch): Actions =>
 export const TASKS = {
   startAgain: () => startAgain,
   loadAgents: () => resources.open('agentCredentials', 'draftRequests'),
-  reloadAgents: () => resources.invalidate('agentCredentials', 'draftRequests'),
   loadActivity: () => activity.loadActivity,
   loadAwaitedThreads: () => activity.loadAwaitedThreads,
   loadDraftThreads: () => activity.loadDraftThreads,
-  askActivityAgain: () => resources.againWhatIsStuck,
+  askAgain: () => againWhatIsStuck,
   acceptSuggestion: debateSuggestions.acceptSuggestion,
   dismissSuggestion: debateSuggestions.dismissSuggestion,
   loadPeople: () => resources.open('directory'),
@@ -95,7 +95,6 @@ export const TASKS = {
   markPrincipleWrong: teaching.markPrincipleWrong,
   dismissOffer: teaching.dismissOffer,
   refreshInterview: () => interview.refreshInterview,
-  askAgain: (key: resources.ResourceKey) => resources.again(key),
   saveTeachingDocument: interview.saveTeachingDocument,
   acceptProposal: interview.acceptProposal,
   acceptProposals: interview.acceptProposals,
@@ -127,7 +126,6 @@ export const TASKS = {
   confirmReviewRead: channelAgents.confirmReviewRead,
   openAgentPage: channelPages.openChannelPage,
   reloadAgentPage: channelPages.invalidateChannelPage,
-  askAgentPageAgain: channelPages.againChannelPage,
   createChannelAgent: channelAgents.createChannelAgent,
   renameChannelAgent: channelAgents.renameChannelAgent,
   retireChannelAgent: channelAgents.retireChannelAgent,
@@ -159,7 +157,8 @@ export const TASKS = {
   updateProfile: account.updateProfile,
   useCharacter: account.useCharacter,
   chooseLanguage: account.chooseLanguage,
-  listCredentials: () => account.listCredentials,
+  loadCredentials: () => resources.open('credentials'),
+  reloadCredentials: () => resources.invalidate('credentials', 'agentCredentials', 'draftRequests'),
   renameCredential: account.renameCredential,
   revokeCredential: account.revokeCredential,
   createJoinCode: account.createJoinCode,

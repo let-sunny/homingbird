@@ -16,6 +16,7 @@ import {
   similarChannels,
   slugFrom,
   withChannel,
+  withRowsOf,
   withoutRoom,
 } from '../src/channels.ts'
 
@@ -226,5 +227,15 @@ describe('chipsForPerson', () => {
 
   it('shows a short list whole', () => {
     expect(chipsForPerson(['billing'], new Set())).toEqual({ first: ['billing'], rest: [] })
+  })
+})
+
+describe('withRowsOf', () => {
+  it('takes each row from the known channels, keeps the others and the order, and means the same twice', () => {
+    const listed = { query: 'b', channels: [channel('b'), channel('a')], hasMore: true, cursor: 'next' }
+    const known = [channel('a', { memberCount: 9 }), channel('c')]
+    const updated = withRowsOf(listed, known)
+    expect(updated).toEqual({ ...listed, channels: [channel('b'), channel('a', { memberCount: 9 })] })
+    expect(withRowsOf(updated, known)).toEqual(updated)
   })
 })

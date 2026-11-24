@@ -2,6 +2,7 @@ import { Task as T } from '@homingbird/kernel'
 import type { AsRead, PrincipleKind, TaughtFrom } from '@homingbird/protocol'
 import { track } from '../analytics.ts'
 import { type Action, type App, withApp } from '../app.ts'
+import { inOrder } from '../principles.ts'
 import { rereadChannelPage } from './channel-pages.ts'
 
 /** What the channel's managers taught its agent, asked for again where its page is open. */
@@ -13,9 +14,14 @@ export const saveChannelInstruction = (
   sources: ReadonlyArray<string>,
 ): Action =>
   withApp(({ api, state }) =>
-    T.map((teaching: AsRead.ChannelTeaching) => keep(state, slug, teaching))(
-      api['channels.agent.teaching.set']({ params: { slug }, body: { instruction, sources } }),
-    ),
+    T.map((saved: AsRead.ChannelTeaching) =>
+      change(state, slug, (held) => ({
+        ...held,
+        instruction: saved.instruction,
+        sources: saved.sources,
+        updatedAt: saved.updatedAt,
+      })),
+    )(api['channels.agent.teaching.set']({ params: { slug }, body: { instruction, sources } })),
   )
 
 export const saveChannelPrinciple = (slug: string, input: ChannelPrincipleInput): Action =>
@@ -35,7 +41,7 @@ export const changeChannelPrinciple = (slug: string, id: string, change: Channel
 
 export const reorderChannelPrinciples = (slug: string, ids: ReadonlyArray<string>): Action =>
   withApp(({ api, state }) =>
-    T.map((teaching: AsRead.ChannelTeaching) => keep(state, slug, teaching))(
+    T.map(() => change(state, slug, (held) => inOrder(held, ids)))(
       api['channels.agent.principles.reorder']({
         params: { slug },
         body: { ids: ids as ReadonlyArray<AsRead.Principle['id']> },
@@ -66,5 +72,8 @@ export interface ChannelPrincipleChange {
   readonly enabled?: boolean
 }
 
-const keep = (state: App['state'], slug: string, teaching: AsRead.ChannelTeaching): void =>
-  state.channelTeaching.find(slug)?.set(teaching)
+const change = (
+  state: App['state'],
+  slug: string,
+  made: (held: AsRead.ChannelTeaching) => AsRead.ChannelTeaching,
+): void => state.channelTeaching.find(slug)?.update((held) => held && made(held))

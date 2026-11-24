@@ -20,9 +20,9 @@ import type { ListWait } from './start.ts'
  */
 export const interviewModel = (
   interview: AsRead.TeachingInterview | null,
-  wait: ListWait,
+  wait: ListWait | null,
 ): InterviewModel => {
-  if (interview === null) return { kind: 'waiting', wait }
+  if (interview === null) return { kind: 'waiting', title: strings.teach.chat.title, wait }
   const chat = interview.proposals.filter((proposal) => !isFromRewrite(proposal))
   const rewrites = interview.proposals.filter(isFromRewrite)
   const groups = [
@@ -78,7 +78,7 @@ export const idsOf = (cards: ReadonlyArray<ProposalCard>): ProposalId[] =>
   cards.map((card) => card.proposal.id)
 
 export type InterviewModel =
-  | { readonly kind: 'waiting'; readonly wait: ListWait }
+  | { readonly kind: 'waiting'; readonly title: string; readonly wait: ListWait | null }
   | {
       readonly kind: 'shown'
       readonly title: string

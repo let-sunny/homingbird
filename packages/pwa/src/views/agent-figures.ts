@@ -15,7 +15,7 @@ export const renderFigures = (
   behind: Child = null,
   context: ViewContext | null = null,
 ): Child => {
-  if (model.kind === 'waiting') return listWait(model.wait, () => context?.actions.askAgain('agentReport'))
+  if (model.kind === 'waiting') return listWait(model.wait, () => context?.actions.askAgain())
   const { headline, table } = model
   return [
     h(
