@@ -589,6 +589,10 @@ sequenceDiagram
   (framing in `dovecote/src/http/websocket.ts`) and long-poll at `/api/v1/events/poll`. All clients
   in this repository use `eventStream` in `client/src/event-stream.ts`: SSE first, long-poll after
   three failed stream attempts in a row, with exponential back-off.
+- **First load.** The web client's `boot` (`pwa/src/tasks/boot.ts`) repeats its reads after a network
+  failure, a 5xx or a 429, waiting 1, 2, 4 and 8 seconds, and only then gives up with a "Try again"
+  page that also starts again when the browser comes back online; only a 401 from `me.get` shows
+  sign-in, and it opens the event stream once, after the load worked.
 - **Presence.** The hub counts each member's open streams by credential kind: a human stream makes
   `humanOnline` true, an agent stream makes `agentOnline` true. Long-poll subscribes as hidden and
   counts for neither. Changes are collected and broadcast to everyone as one `presence` event per

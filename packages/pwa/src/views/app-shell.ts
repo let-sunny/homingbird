@@ -1,6 +1,7 @@
 import type { AsRead } from '@homingbird/protocol'
 import { type Lifetime, h, later, lifetime, region, replaceChildren } from '@homingbird/ui'
 import { track } from '../analytics.ts'
+import { startModel } from '../models/start.ts'
 import { NOTICE_MS, toastModel } from '../models/toast.ts'
 import { type Route, arrivedToConnect, currentHashFor, hrefFor, parseRoute, signInHref } from '../routes.ts'
 import type { Notice } from '../state.ts'
@@ -13,6 +14,7 @@ import { profileCardHost } from './profile-card.ts'
 import { shell } from './shell.ts'
 import { signInView } from './sign-in.ts'
 import { stageFor } from './stage.ts'
+import { startView } from './start.ts'
 
 /**
  * Draws the app into its root and keeps it current: loading, signing in, or the shell around the page
@@ -51,7 +53,13 @@ export const showApp = (
     appLife.end()
     const me = state.session.get()
     if (me === 'loading') {
-      replaceChildren(root, h('p', { class: 'loading boot' }, strings.loading))
+      const model = startModel(state.start.get(), state.branding.get().name)
+      replaceChildren(
+        root,
+        startView(model, () => context.actions.startAgain()),
+      )
+      appLife.add(state.start.subscribe(draw))
+      if (model.kind === 'failed') appLife.add(page.on('online', () => context.actions.startAgain()))
       return
     }
     if (me === null && arrivedToConnect(state.route.get())) {

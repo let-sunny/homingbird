@@ -4,6 +4,7 @@ import { pushIsOn, testPush, turnPushOff, turnPushOn } from './push.ts'
 import * as account from './tasks/account.ts'
 import * as activity from './tasks/activity.ts'
 import * as admin from './tasks/admin.ts'
+import { startAgain } from './tasks/boot.ts'
 import * as channelAgents from './tasks/channel-agents.ts'
 import * as channelTeaching from './tasks/channel-teaching.ts'
 import * as channels from './tasks/channels.ts'
@@ -42,6 +43,7 @@ export const createActions = (launch: Launch): Actions =>
 
 /** Every task a view may start; a task takes no optional argument, so a trailing `Then` is never mistaken for one. */
 export const TASKS = {
+  startAgain: () => startAgain,
   loadWorkspace: () => workspace.loadWorkspace,
   loadAgents: () => workspace.loadAgents,
   loadConversations: () => workspace.loadConversations,

@@ -24,6 +24,31 @@ describe('showApp', () => {
     expect(getByRole(root, 'link', { name: /Sign in/ })).toBeTruthy()
   })
 
+  it('shows loading quietly, then a way to try again that also starts by itself when the network is back', () => {
+    const { context, root, page, called } = start()
+    context.state.start.set('slow')
+    expect(textOf(root)).toBe(strings.firstLoad.slow)
+    expect(page.listening('online')).toBe(0)
+    context.state.start.set('failed')
+    expect(textOf(root)).toContain(strings.firstLoad.failed)
+    expect(page.listening('online')).toBe(1)
+    getByRole(root, 'button', { name: strings.tryAgain }).click()
+    expect(called('startAgain')).toHaveLength(1)
+    page.emit('online')
+    expect(called('startAgain')).toHaveLength(2)
+    context.state.start.set('loading')
+    expect(page.listening('online')).toBe(0)
+    expect(textOf(root)).toBe(strings.loading)
+  })
+
+  it('shows sign-in, not the failure, once the person turns out to be signed out', () => {
+    const { context, root, page } = start()
+    context.state.start.set('failed')
+    context.state.session.set(null)
+    expect(getByRole(root, 'link', { name: /Sign in/ })).toBeTruthy()
+    expect(page.listening('online')).toBe(0)
+  })
+
   it('sends a person who came to connect an agent to sign in first, and says why they were signed out', () => {
     const connect = start('#/consent/consent_1')
     connect.context.state.session.set(null)

@@ -36,6 +36,10 @@ export const en = {
     Unavailable: '',
   } satisfies Record<ApiErrorTag, string>,
   loading: 'Loading…',
+  firstLoad: {
+    slow: 'Still trying to reach the server…',
+    failed: 'The server could not be reached. This page tries again by itself when your connection is back.',
+  },
   loadFailed: 'This could not be loaded.',
   tryAgain: 'Try again',
   sections: 'Sections',
