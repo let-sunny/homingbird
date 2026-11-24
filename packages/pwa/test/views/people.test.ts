@@ -1,5 +1,5 @@
 import { lifetime } from '@homingbird/ui'
-import { allByRole, fire, getByRole, getByText, textOf } from '@homingbird/ui/testing'
+import { allByRole, fire, getByRole, getByText, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
 import { peopleView } from '../../src/views/people.ts'
@@ -44,6 +44,9 @@ describe('peopleView', () => {
     expect(called('loadKnownChannels')).toHaveLength(1)
     expect(textOf(shown)).toContain(strings.checking.people)
     called('loadPeople')[0]!.then!.failed!({ _tag: 'Unavailable', message: 'down' })
+    context.state.workspace.set('failed')
+    expect(queryByRole(shown, 'button', { name: strings.tryAgain })).toBeNull()
+    context.state.workspace.set('loading')
     getByRole(shown, 'button', { name: strings.tryAgain }).click()
     expect(called('loadPeople')).toHaveLength(2)
     expect(textOf(shown)).toContain(strings.checking.people)

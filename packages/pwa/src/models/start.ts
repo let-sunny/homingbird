@@ -30,15 +30,21 @@ export const checkingWords = (workspace: Workspace, words: string): string | nul
 
 /**
  * What stands in place of a list that has not come: that it is checking, then, once it took too long or
- * failed, the way to try again. Never "none".
+ * failed, the way to try again. Never "none", and nothing while the line above the lists offers to try again,
+ * so the page says it once.
  */
-export const listWaitModel = (step: ListStep, checkingWords: string): ListWait => {
+export const listWaitModel = (step: ListStep, workspace: Workspace, words: string): ListWait => {
+  if (isToldAbove(workspace)) return { kind: 'told-above' }
   if (step === 'long') return { kind: 'long', text: strings.firstLoad.tooLong, retry: strings.tryAgain }
   if (step === 'failed') return { kind: 'failed', text: strings.loadFailed, retry: strings.tryAgain }
-  return { kind: 'checking', text: checkingWords }
+  return { kind: 'checking', text: words }
 }
 
+/** Whether the line above the lists says the load is slow or failed, so that no list says it again. */
+export const isToldAbove = (workspace: Workspace): boolean => workspace === 'long' || workspace === 'failed'
+
 export type ListWait =
+  | { readonly kind: 'told-above' }
   | { readonly kind: 'checking'; readonly text: string }
   | { readonly kind: 'long' | 'failed'; readonly text: string; readonly retry: string }
 

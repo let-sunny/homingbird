@@ -23,12 +23,23 @@ describe('loadingList', () => {
     expect(state.debates.get()).toHaveLength(1)
   })
 
-  it('says it failed and still reports the refusal to its caller', async () => {
+  it('tells a failure of a list still waited for once, in its place, and none to its caller', async () => {
     const { run, state } = testApp({ 'debates.list': () => fail({ _tag: 'Unavailable', message: 'down' }) })
-    const exit = await run(loadDebateList)
-    expect(exit._tag).toBe('Err')
+    expect(await run(loadDebateList)).toMatchObject({ _tag: 'Err', error: { _tag: 'Interrupt' } })
     expect(state.listLoads.flocks.step.get()).toBe('failed')
     expect(state.debatesLoaded.get()).toBe(false)
+  })
+
+  it('reports a failure to its caller once the list has come, or when the session ended', async () => {
+    const down = testApp({ 'debates.list': () => fail({ _tag: 'Unavailable', message: 'down' }) })
+    down.state.debatesLoaded.set(true)
+    expect(await down.run(loadDebateList)).toMatchObject({
+      error: { _tag: 'Fail', error: { _tag: 'Unavailable' } },
+    })
+    const out = testApp({ 'debates.list': () => fail({ _tag: 'Unauthorized', message: 'out' }) })
+    expect(await out.run(loadDebateList)).toMatchObject({
+      error: { _tag: 'Fail', error: { _tag: 'Unauthorized' } },
+    })
   })
 
   it('ends a load that a newer one of the same list replaces, so Try again never leaves two', async () => {
@@ -52,7 +63,7 @@ describe('loadingList', () => {
   it('keeps one list’s load apart from another’s', async () => {
     const answer = hold<unknown>()
     const { run, state } = testApp({ 'channels.list': () => answer.waiting })
-    const running = run(loadingList('channels', channelsAnswer))
+    const running = run(loadingList('channels', true, channelsAnswer))
     await settle()
     state.listLoads.flocks.step.set('failed')
     expect(state.listLoads.channels.step.get()).toBe('loading')

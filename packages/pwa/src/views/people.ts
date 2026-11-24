@@ -10,6 +10,7 @@ import {
   type PersonCard,
   peopleModel,
 } from '../models/people.ts'
+import { isToldAbove } from '../models/start.ts'
 import type { Route } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { renderAvatar } from './character-avatar.ts'
@@ -133,7 +134,7 @@ const renderPeople = (
 ): HTMLElement | null => {
   const list = model.list
   if (list.kind === 'loading') return checking(context, strings.checking.people)
-  if (list.kind === 'failed') return loadFailed(retry)
+  if (list.kind === 'failed') return isToldAbove(context.state.workspace.get()) ? null : loadFailed(retry)
   if (list.kind === 'empty') return empty(list.text)
   return h(
     'ul',

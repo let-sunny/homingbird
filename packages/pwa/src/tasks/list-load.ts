@@ -6,10 +6,10 @@ import { untilChanged } from './waiting-for.ts'
 
 /**
  * Loads a list that loads on its own and tells the list how it is going: too long after the usual 15 seconds,
- * or failed. A newer load of the same list ends this one, so Try again never leaves two running; a failure is
- * still reported to the caller.
+ * or failed. A newer load of the same list ends this one, so Try again never leaves two running. The list itself
+ * tells a failure while it is still waited for; otherwise, or when the session ended, the caller is told.
  */
-export const loadingList = <A>(name: ListName, load: Action<A>): Action<A> =>
+export const loadingList = <A>(name: ListName, isWaitedFor: boolean, load: Action<A>): Action<A> =>
   T.gen(function* () {
     const { state } = yield* T.ask<App>()
     const list = state.listLoads[name]
@@ -24,6 +24,7 @@ export const loadingList = <A>(name: ListName, load: Action<A>): Action<A> =>
     if (answered === NEWER) return yield* T.interrupt
     if (answered._tag === 'Err') {
       list.step.set('failed')
+      if (isWaitedFor && answered.error._tag !== 'Unauthorized') return yield* T.interrupt
       return yield* T.fail(answered.error)
     }
     return answered.value

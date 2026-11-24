@@ -23,10 +23,15 @@ export interface ChannelPage {
 
 export const CHANNEL_PAGE = 20
 
-/** One page of the channel list, for what the person typed. */
-export const loadChannelPage = (query: string, cursor: string | null): Action<ChannelPage> =>
+/** One page of the channel list, for what the person typed; a list still waited for tells its own failure. */
+export const loadChannelPage = (
+  query: string,
+  cursor: string | null,
+  isWaitedFor: boolean,
+): Action<ChannelPage> =>
   loadingList(
     'channels',
+    isWaitedFor,
     withApp(({ api }) =>
       api['channels.list']({
         query: {
@@ -37,6 +42,9 @@ export const loadChannelPage = (query: string, cursor: string | null): Action<Ch
       }),
     ),
   )
+
+/** Brings the known channels up to date beside a list that tells its own failure, so a failure is not told twice. */
+export const refreshKnownChannels: Action = T.asUnit(T.result(loadKnownChannels))
 
 /** Opens a channel and keeps it in the list straight away; the person who opens it is its first manager. */
 export const createChannel = (

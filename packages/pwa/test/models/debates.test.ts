@@ -9,7 +9,14 @@ const awake = { humanOnline: false, agentOnline: true }
 
 describe('debateListModel', () => {
   it('says it is taking too long or could not load, with Try again, and never says none before the list came', () => {
-    const input = { debates: [], loaded: false, directory: [], now: 0, schedulingOn: false } as const
+    const input = {
+      debates: [],
+      loaded: false,
+      directory: [],
+      now: 0,
+      schedulingOn: false,
+      workspace: 'loaded',
+    } as const
     expect(debateListModel({ ...input, step: 'long' })).toEqual({
       kind: 'waiting',
       wait: { kind: 'long', text: strings.firstLoad.tooLong, retry: strings.tryAgain },
@@ -19,6 +26,11 @@ describe('debateListModel', () => {
       wait: { kind: 'failed', text: strings.loadFailed, retry: strings.tryAgain },
     })
     expect(debateListModel({ ...input, loaded: true, step: 'failed' }).kind).toBe('empty')
+    for (const workspace of ['long', 'failed'] as const)
+      expect(debateListModel({ ...input, step: 'long', workspace })).toEqual({
+        kind: 'waiting',
+        wait: { kind: 'told-above' },
+      })
   })
 
   it('waits for the flocks and says when there are none', () => {
@@ -27,6 +39,7 @@ describe('debateListModel', () => {
         debates: [],
         loaded: false,
         step: 'loading',
+        workspace: 'loaded',
         directory: [],
         now: 0,
         schedulingOn: false,
@@ -40,6 +53,7 @@ describe('debateListModel', () => {
         debates: [],
         loaded: true,
         step: 'loading',
+        workspace: 'loaded',
         directory: [],
         now: 0,
         schedulingOn: false,
@@ -55,6 +69,7 @@ describe('debateListModel', () => {
       debates: [summary({ visibility: 'private', participantIds: [ANA], turnCount: 0 })],
       loaded: true,
       step: 'loading',
+      workspace: 'loaded',
       directory: [],
       now: 10,
       schedulingOn: false,
@@ -87,6 +102,7 @@ describe('debateListModel', () => {
         debates: [room],
         loaded: true,
         step: 'loading',
+        workspace: 'loaded',
         directory,
         now: 0,
         schedulingOn: false,
@@ -115,6 +131,7 @@ describe('debateListModel with scheduling flocks', () => {
       debates: [{ ...meeting, status }],
       loaded: true,
       step: 'loading',
+      workspace: 'loaded',
       directory: [],
       now: 0,
       schedulingOn,
@@ -143,6 +160,7 @@ describe('debateListModel with scheduling flocks', () => {
       debates: [{ ...meeting, status: 'closed', outcome: 'no_slot' }],
       loaded: true,
       step: 'loading',
+      workspace: 'loaded',
       directory: [],
       now: 0,
       schedulingOn: true,

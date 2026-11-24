@@ -1,7 +1,7 @@
 import type { AsRead, ConversationId, Group, GroupId, MemberId } from '@homingbird/protocol'
 import { channelLabel, channelNamed, isPrivate, isValidSlug, similarChannels, slugFrom } from '../channels.ts'
 import { hrefFor } from '../routes.ts'
-import type { ListStep } from '../state.ts'
+import type { ListStep, Workspace } from '../state.ts'
 import { strings } from '../strings.ts'
 import { answeredByAgent } from './channel-membership.ts'
 import { type ListWait, listWaitModel } from './start.ts'
@@ -16,8 +16,13 @@ export interface ListedChannels {
 }
 
 /** Channels: waiting for the list, none yet, none matching, or the cards with a hint and a way to see more. */
-export const channelListModel = (listed: ListedChannels, step: ListStep): ChannelListModel => {
-  if (!listed.loaded) return { kind: 'waiting', wait: listWaitModel(step, strings.checking.channels) }
+export const channelListModel = (
+  listed: ListedChannels,
+  step: ListStep,
+  workspace: Workspace,
+): ChannelListModel => {
+  if (!listed.loaded)
+    return { kind: 'waiting', wait: listWaitModel(step, workspace, strings.checking.channels) }
   if (listed.channels.length === 0 && listed.query === '')
     return { kind: 'none-yet', text: strings.noChannelsYet }
   if (listed.channels.length === 0) return { kind: 'no-match', text: strings.noChannels }

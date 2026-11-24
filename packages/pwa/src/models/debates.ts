@@ -8,7 +8,7 @@ import {
   listedStage,
 } from '../debates.ts'
 import { hrefFor } from '../routes.ts'
-import type { ListStep } from '../state.ts'
+import type { ListStep, Workspace } from '../state.ts'
 import { strings } from '../strings.ts'
 import { schedulingStageOf } from './scheduling-room.ts'
 import { type ListWait, listWaitModel } from './start.ts'
@@ -16,7 +16,8 @@ import { type TimeShown, timeShown } from './time.ts'
 
 /** Flocks: waiting for the list, none yet, or the flocks that want something first, then the newest. */
 export const debateListModel = (input: DebateListInput): DebateListModel => {
-  if (!input.loaded) return { kind: 'waiting', wait: listWaitModel(input.step, strings.checking.flocks) }
+  if (!input.loaded)
+    return { kind: 'waiting', wait: listWaitModel(input.step, input.workspace, strings.checking.flocks) }
   const shown = input.debates.filter((summary) => input.schedulingOn || summary.type !== 'scheduling')
   if (shown.length === 0) return { kind: 'empty', text: strings.debates.empty }
   const awake = new Set(
@@ -94,6 +95,7 @@ export interface DebateListInput {
   readonly loaded: boolean
   /** How the first answer is going while the list has not loaded. */
   readonly step: ListStep
+  readonly workspace: Workspace
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
   readonly now: number
   /** Whether scheduling flocks are on; when off, the list leaves them out. */

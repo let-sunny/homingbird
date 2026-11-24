@@ -154,10 +154,12 @@ export const checking = (context: Pick<ViewContext, 'state'>, words: string): HT
 }
 
 /** Stands in place of a list that has not come: that it is checking, or that it took too long or failed, with a way to try again. */
-export const listWait = (wait: ListWait, retry: () => void): HTMLElement =>
-  wait.kind === 'checking'
+export const listWait = (wait: ListWait, retry: () => void): HTMLElement | null => {
+  if (wait.kind === 'told-above') return null
+  return wait.kind === 'checking'
     ? h('p', { class: 'loading' }, wait.text)
     : empty(wait.text, button(wait.retry, retry))
+}
 
 /** Shown when a page or a part of one could not load its data, with a way to try again. */
 export const loadFailed = (retry: () => void): HTMLElement =>

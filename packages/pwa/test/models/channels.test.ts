@@ -23,33 +23,40 @@ const listed = (fields: Partial<ListedChannels> = {}): ListedChannels => ({
 
 describe('channelListModel', () => {
   it('waits, invites the first channel, or says none matched what was typed', () => {
-    expect(channelListModel(listed({ loaded: false }), 'loading')).toEqual({
+    expect(channelListModel(listed({ loaded: false }), 'loading', 'loaded')).toEqual({
       kind: 'waiting',
       wait: { kind: 'checking', text: strings.checking.channels },
     })
-    expect(channelListModel(listed(), 'loading')).toEqual({ kind: 'none-yet', text: strings.noChannelsYet })
-    expect(channelListModel(listed({ query: 'x' }), 'loading')).toEqual({
+    expect(channelListModel(listed(), 'loading', 'loaded')).toEqual({
+      kind: 'none-yet',
+      text: strings.noChannelsYet,
+    })
+    expect(channelListModel(listed({ query: 'x' }), 'loading', 'loaded')).toEqual({
       kind: 'no-match',
       text: strings.noChannels,
     })
   })
 
   it('says it is taking too long or could not load, with Try again, and never says none before the list came', () => {
-    expect(channelListModel(listed({ loaded: false }), 'long')).toEqual({
+    expect(channelListModel(listed({ loaded: false }), 'long', 'loaded')).toEqual({
       kind: 'waiting',
       wait: { kind: 'long', text: strings.firstLoad.tooLong, retry: strings.tryAgain },
     })
-    expect(channelListModel(listed({ loaded: false }), 'failed')).toEqual({
+    expect(channelListModel(listed({ loaded: false }), 'failed', 'loaded')).toEqual({
       kind: 'waiting',
       wait: { kind: 'failed', text: strings.loadFailed, retry: strings.tryAgain },
     })
-    expect(channelListModel(listed(), 'failed')).toEqual({ kind: 'none-yet', text: strings.noChannelsYet })
+    expect(channelListModel(listed(), 'failed', 'loaded')).toEqual({
+      kind: 'none-yet',
+      text: strings.noChannelsYet,
+    })
   })
 
   it('shows each card with where the person stands, joining only an open channel, a hint and more to load', () => {
     const only = channelListModel(
       listed({ channels: [channel('billing', { answering: true, joined: true })] }),
       'loading',
+      'loaded',
     )
     if (only.kind !== 'channels') throw new Error('expected channels')
     expect(only.onlyOne).toBe(strings.onlyOneChannel)
@@ -67,6 +74,7 @@ describe('channelListModel', () => {
         hasMore: true,
       }),
       'loading',
+      'loaded',
     )
     if (many.kind !== 'channels') throw new Error('expected channels')
     expect(many.onlyOne).toBeNull()
@@ -98,6 +106,7 @@ describe('channelListModel', () => {
         ],
       }),
       'loading',
+      'loaded',
     )
     if (listing.kind !== 'channels') throw new Error('expected channels')
     expect(listing.cards.map((card) => card.agentNote)).toEqual([

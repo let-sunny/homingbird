@@ -22,6 +22,11 @@ import { schedulingForm } from './scheduling-form.ts'
 export const debatesView = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const { state, actions } = context
   actions.loadDebateList()
+  life.add(
+    state.workspaceRestarts.subscribe(() => {
+      if (!state.debatesLoaded.get()) actions.loadDebateList()
+    }),
+  )
   return page(
     strings.debates.title,
     h(
@@ -32,13 +37,21 @@ export const debatesView = (context: ViewContext, life: Lifetime, me: AsRead.Me)
     ),
     region(
       life,
-      [state.debates, state.debatesLoaded, state.listLoads.flocks.step, state.directory, state.serverInfo],
+      [
+        state.debates,
+        state.debatesLoaded,
+        state.listLoads.flocks.step,
+        state.workspace,
+        state.directory,
+        state.serverInfo,
+      ],
       () =>
         renderDebateList(
           debateListModel({
             debates: state.debates.get(),
             loaded: state.debatesLoaded.get(),
             step: state.listLoads.flocks.step.get(),
+            workspace: state.workspace.get(),
             directory: state.directory.get(),
             now: context.clock.now(),
             schedulingOn: featureOn('schedulingRooms', state.serverInfo.get()),
@@ -182,7 +195,7 @@ const debateCreateForm = (context: ViewContext, life: Lifetime, me: AsRead.Me): 
   return form
 }
 
-const renderDebateList = (model: DebateListModel, retry: () => void): HTMLElement => {
+const renderDebateList = (model: DebateListModel, retry: () => void): HTMLElement | null => {
   if (model.kind === 'waiting') return listWait(model.wait, retry)
   if (model.kind === 'empty') return emptyWithPip('searching', model.text)
   return h(
