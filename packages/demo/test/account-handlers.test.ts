@@ -69,6 +69,7 @@ describe('the server and the visitor', () => {
     expect(await succeeded(api['events.poll']({ query: {} }))).toEqual({ events: [], cursor: 0 })
     world.emit([viewerId], { type: 'contact.changed', memberId: memberNamed(world, 'Ana Silva') })
     expect(await succeeded(api['events.poll']({ query: { after: '0' } }))).toMatchObject({ cursor: 1 })
+    expect(await succeeded(api['events.poll']({ query: { after: '99' } }))).toEqual({ events: [], cursor: 1 })
     expect(await succeeded(api['answeringFlow.get']({}))).toEqual({ flow: null, updatedAt: null })
   })
 })

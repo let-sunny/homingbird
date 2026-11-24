@@ -5,7 +5,7 @@ import type { Action, App } from '../app.ts'
 import { keptComposerTexts } from '../composer-texts.ts'
 import { preferredLanguage } from '../languages.ts'
 import { strings, useLanguage } from '../strings.ts'
-import { followEvents } from './events.ts'
+import { followEvents, latestEvent } from './events.ts'
 import { reportUnsettled } from './held.ts'
 import { reportVisibility } from './presence.ts'
 import { loadBranding, loadWorkspace } from './workspace.ts'
@@ -25,8 +25,9 @@ export const boot: Action = T.gen(function* () {
   state.composerTexts.set(keptComposerTexts(page.storage, me.value.member.id))
   state.session.set(me.value)
   yield* trackSignIn
+  const loadedAfter = yield* latestEvent
   yield* loadWorkspace
   yield* T.result(reportUnsettled)
-  yield* followEvents
+  yield* followEvents(loadedAfter)
   yield* reportVisibility
 })
