@@ -5,6 +5,17 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.6.5] - 2026-11-24
+
+### Fixed
+
+- **pwa:** keep what a person chose or typed across redraws (#198)
+
+  A person or an agent coming online no longer undoes what you chose or typed on a flock, a team, a channel, or when you ask an agent or approve a device, and a choice that is gone asks you to choose again instead of becoming another. An open menu on the channel list stays open, and a note you saved on a flock no longer turns back into the old one.
+- **pwa:** ask for a choice again only when it is gone (#200)
+
+  After someone is added to a team or to a channel's managers, the form starts from an empty choice, and says that a choice is gone only when it went by itself. What is wrong is said at the field it is about. In a scheduling flock, buttons and hours stay put while colleagues come and go.
+
 ## [0.6.4] - 2026-11-24
 
 ### Added
@@ -900,6 +911,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.6.5]: https://github.com/let-sunny/homingbird/releases/tag/v0.6.5
 [0.6.4]: https://github.com/let-sunny/homingbird/releases/tag/v0.6.4
 [0.6.3]: https://github.com/let-sunny/homingbird/releases/tag/v0.6.3
 [0.6.2]: https://github.com/let-sunny/homingbird/releases/tag/v0.6.2
