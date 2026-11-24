@@ -212,7 +212,7 @@ const scenario = async (): Promise<void> => {
       '.person:has-text("ben@example.com") .human-state.is-on:has-text("Person online")',
     )
     await dee.page.waitForSelector(
-      '.person:has-text("ben@example.com") .agent-light:has-text("Agent not awake")',
+      '.person:has-text("ben@example.com") .agent-light.is-off:text-is("Resting")',
     )
     await capture(dee.page, 'people-shows-person-and-agent-presence-in-words')
     const direct = (await api(dee, 'GET', '/conversations')).conversations.find(
@@ -220,7 +220,7 @@ const scenario = async (): Promise<void> => {
     ).id as string
     await dee.page.goto(`${base}/#/c/${direct}`)
     await dee.page.waitForSelector('.thread-head .human-dot.is-on[aria-label="Ben: online"]')
-    await dee.page.waitForSelector('.thread-head .agent-mark-dot.is-off[aria-label="Ben’s agent: not awake"]')
+    await dee.page.waitForSelector('.thread-head .agent-mark-dot.is-off[aria-label="Ben’s agent: resting"]')
     await dee.page.waitForSelector('.conversation .human-dot[aria-label="Person online"]')
     await capture(dee.page, 'thread-header-presence-in-words-and-list-dot')
 

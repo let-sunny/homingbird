@@ -609,16 +609,32 @@ const scenario = async (): Promise<void> => {
         await touring.page.waitForTimeout(300)
         const placement = await tourPlacement(touring.page)
         assert.equal(placement.overHeader, false, `step ${step} (${label}) covers the header`)
-        assert.ok(
-          placement.width <= TOUR_CALLOUT_MAX_WIDTH,
-          `step ${step} (${label}) stretches ${placement.width}px wide instead of sitting by its control`,
-        )
-        if (placement.targetShown)
-          assert.ok(
-            placement.gap <= 24,
-            `step ${step} (${label}) sits ${placement.gap}px from its control, not beside it`,
+        if (label === 'narrow') {
+          assert.equal(
+            placement.width,
+            viewport.width - 2 * PHONE_SHEET_GUTTER,
+            `step ${step} (${label}) is a sheet across the screen, ${PHONE_SHEET_GUTTER}px in from each edge`,
           )
-        else assert.equal(placement.namesThePlace, true, `step ${step} (${label}) names where to look`)
+          assert.equal(placement.aboveTabBar, true, `step ${step} (${label}) is docked above the tab bar`)
+          assert.equal(
+            placement.coversTarget,
+            false,
+            `step ${step} (${label}) covers the control it explains`,
+          )
+          if (!placement.targetShown)
+            assert.equal(placement.namesThePlace, true, `step ${step} (${label}) names where to look`)
+        } else {
+          assert.ok(
+            placement.width <= TOUR_CALLOUT_MAX_WIDTH,
+            `step ${step} (${label}) stretches ${placement.width}px wide instead of sitting by its control`,
+          )
+          if (placement.targetShown)
+            assert.ok(
+              placement.gap <= 24,
+              `step ${step} (${label}) sits ${placement.gap}px from its control, not beside it`,
+            )
+          else assert.equal(placement.namesThePlace, true, `step ${step} (${label}) names where to look`)
+        }
         for (const scheme of ['light', 'dark'] as const) {
           await touring.page.emulateMedia({ colorScheme: scheme })
           await shot(touring.page, `tour-step-${step}-${label}-${scheme}`)
@@ -840,6 +856,8 @@ const tourPlacement = (
   readonly namesThePlace: boolean
   readonly overHeader: boolean
   readonly width: number
+  readonly aboveTabBar: boolean
+  readonly coversTarget: boolean
 }> =>
   page.evaluate(() => {
     const { document } = globalThis as any
@@ -849,9 +867,27 @@ const tourPlacement = (
     const header = document.querySelector('.app-header, header')?.getBoundingClientRect()
     const overHeader =
       header !== undefined && callout.top < header.bottom && callout.bottom > header.top && header.height > 0
+    const tabBar = document.querySelector('.tabs-host')?.getBoundingClientRect()
+    const aboveTabBar = tabBar === undefined || callout.bottom <= tabBar.top + 0.5
+    const width = Math.round(callout.width)
     if (target === null || !document.querySelector('#tour').classList.contains('is-anchored'))
-      return { targetShown: false, gap: 0, namesThePlace, overHeader, width: Math.round(callout.width) }
+      return {
+        targetShown: false,
+        gap: 0,
+        namesThePlace,
+        overHeader,
+        width,
+        aboveTabBar,
+        coversTarget: false,
+      }
     const box = target.getBoundingClientRect()
+    const small = box.height < (globalThis as any).innerHeight * 0.4
+    const coversTarget =
+      small &&
+      box.left < callout.right &&
+      callout.left < box.right &&
+      box.top < callout.bottom &&
+      callout.top < box.bottom
     // A control in the header gets its callout under the header, so it is measured from there; a tab
     // in the phone's bottom bar belongs to the header but sits below it, so it is measured from itself.
     const headerBottom = target.closest('.titlebar')?.getBoundingClientRect().bottom
@@ -863,12 +899,16 @@ const tourPlacement = (
       gap: Math.round(Math.max(across, along)),
       namesThePlace,
       overHeader,
-      width: Math.round(callout.width),
+      width,
+      aboveTabBar,
+      coversTarget,
     }
   })
 
 const tourProgress = (step: number): string =>
   en.tour.progress.replace('{step}', String(step)).replace('{total}', String(TOUR_STEPS.length))
+
+const PHONE_SHEET_GUTTER = 8
 
 const TOUR_CALLOUT_MAX_WIDTH = Math.max(22 * 16, NARROW.width - 2 * 16) + 1
 

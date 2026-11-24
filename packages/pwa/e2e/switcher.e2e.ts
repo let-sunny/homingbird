@@ -72,7 +72,7 @@ const scenario = async (): Promise<void> => {
       await page.evaluate(() => (globalThis as any).document.activeElement?.className),
       'switcher-input',
     )
-    assert.ok((await page.locator('.switcher-section-title').allInnerTexts()).includes('WAITING FOR YOU'))
+    assert.ok((await page.locator('.switcher-section-title').allInnerTexts()).includes('Waiting for you'))
     await capture(page, 'switcher-empty')
     await page.keyboard.type('ben')
     await page.waitForSelector('.switcher-option.is-person')

@@ -4,6 +4,7 @@ import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { characterForMember } from '@homingbird/protocol'
 import {
   type Person,
   api,
@@ -51,13 +52,18 @@ const scenario = async (): Promise<void> => {
   try {
     const ana = await signIn('ana@example.com', 'Ana')
     const ben = await signIn('ben@example.com', 'Ben')
-    await signIn('june@example.com', 'June')
+    const june = await signIn('june@example.com', 'June')
+    const juneId = (await api(june, 'GET', '/me')).member.id as string
+    const juneDefault = characterForMember({ id: juneId, character: null })
+    assert.notEqual(juneDefault.name, 'Pigeon', 'no person is ever drawn as the logo bird')
     await api(ben, 'PUT', '/me/character', BUILT_INS.fox)
 
-    // -- Everyone is drawn as their character; nobody chose one yet, so they are pigeons -----------
+    // -- Everyone is drawn as their character; nobody chose one yet, so they get the default their id picks -----------
     await ana.page.goto(`${base}/#/people`)
     await ana.page.waitForSelector('.person canvas.character[aria-label="Ben: Fox"]')
-    await ana.page.waitForSelector('.person canvas.character[aria-label="June: Pigeon"]')
+    await ana.page.waitForSelector(
+      `.person canvas.character[aria-label="June: ${juneDefault.name}"][data-character="${juneDefault.id}"]`,
+    )
     await capture(ana.page, 'directory-shows-each-character-as-a-still')
     assert.equal(
       await isStill(ana.page, '.person canvas.character'),
@@ -151,7 +157,7 @@ const scenario = async (): Promise<void> => {
     )
     await capture(ana.page, 'a-row-that-just-received-a-note')
 
-    // -- An administrator resets a member to the pigeon --------------------------------------------
+    // -- An administrator resets a member to their default bird --------------------------------------------
     await ana.page.goto(`${base}/#/admin/members`)
     await ana.page.waitForSelector('.member canvas.character[aria-label="Ben: Fox"]')
     await capture(ana.page, 'admin-sees-each-member-character')
@@ -159,7 +165,7 @@ const scenario = async (): Promise<void> => {
       .locator('.member', { hasText: 'ben@example.com' })
       .getByRole('button', { name: 'Reset character' })
       .click()
-    await ana.page.waitForSelector('.toast:has-text("Ben is shown as the pigeon again.")')
+    await ana.page.waitForSelector('.toast:has-text("Ben is shown as their default bird again.")')
     assert.equal((await api(ben, 'GET', '/me')).member.character, null)
 
     // -- Reduced motion: always the first frame ----------------------------------------------------
@@ -207,7 +213,13 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector('.character-problem-list li:has-text("캐릭터에는 입이 없어요")')
     await capture(ana.page, 'ko-draft-that-breaks-a-rule')
     await ana.page.goto(`${base}/#/people`)
-    await ana.page.waitForSelector('.person canvas.character[aria-label="Ben: 비둘기"]')
+    const benDefault = characterForMember({
+      id: (await api(ben, 'GET', '/me')).member.id as string,
+      character: null,
+    })
+    await ana.page.waitForSelector(
+      `.person canvas.character[data-character="${benDefault.id}"][aria-label^="Ben: "]`,
+    )
     await capture(ana.page, 'ko-directory')
   } finally {
     await browser.close()
