@@ -591,11 +591,21 @@ sequenceDiagram
   three failed stream attempts in a row, with exponential back-off.
 - **First load.** The web client's `boot` (`pwa/src/tasks/boot.ts`) has two phases. The first, the
   branding, `server.info`, `me.get` and the event cursor, repeats after a network failure, a 5xx or a
-  429, waiting 1, 2, 4 and 8 seconds, and only then gives up with a full-page "Try again" that also
-  starts again on `online`; any other refusal is said as what it was, and only a 401 from `me.get`
-  shows sign-in. Once the person is known the page is drawn and the workspace loads in the second
-  phase with the same waits; if it still fails the shell stays up with a notice, the workspace loads
-  on the next `online`, and the event stream opens once whatever happened.
+  429, waiting 1, 2, 4 and 8 seconds; a refusal that is not a 401 is said as what it was, and only a
+  401 from `me.get` shows sign-in. Once the person is known the page is drawn and the workspace loads in
+  the second phase, with the lists saying they are checking rather than that they are empty. Both phases
+  tell the person how it is going: "Loading…", then, after `USUAL_LOAD_SECONDS`, that it usually opens
+  within that many seconds, then, after `TOO_LONG_LOAD_SECONDS`, that it is taking too long, with Try
+  again; the attempt goes on behind that, and Try again ends it and starts one fresh one. A workspace
+  that failed after its repeats keeps a line above the lists, loads again on `online` and every 30
+  seconds (not for a refusal), and goes on telling until a load works. Live events start once, when
+  the workspace has loaded or has taken too long, never earlier: an event that arrived during the load
+  would be overwritten by its older answers, except for the conversation list, where an answer never
+  replaces one that started later. The figures come from 20 loads each against a built server with 30
+  people and 50 conversations, measured from the page's first request: no throttling 0.2 s at the 95th
+  percentile; Chromium's Fast 3G / Slow 4G 4.2 s, cold or warm cache; Slow 3G 11.8 s. "Usually" is the
+  Fast 3G figure rounded up (5 s) and "too long" the Slow 3G figure with a margin (15 s, never under
+  10). A deployment far from its people can differ, so the words only say "usually".
 - **Presence.** The hub counts each member's open streams by credential kind: a human stream makes
   `humanOnline` true, an agent stream makes `agentOnline` true. Long-poll subscribes as hidden and
   counts for neither. Changes are collected and broadcast to everyone as one `presence` event per

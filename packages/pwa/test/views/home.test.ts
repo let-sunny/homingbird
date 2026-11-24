@@ -13,7 +13,7 @@ describe('homeView', () => {
   it('waits for the list, then offers where to start when there is nothing yet', () => {
     const { context, tour, page } = testContext()
     const shown = homeView(context, lifetime())
-    expect(shown.textContent).toBe(strings.loading)
+    expect(shown.textContent).toBe(strings.checking.notes)
     context.state.conversationsLoaded.set(true)
     expect(getByRole(shown, 'heading', { name: strings.start.firstTitle })).toBeTruthy()
     const lines = [...shown.querySelectorAll('.start-step pre')].map(textOf)

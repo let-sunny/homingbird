@@ -98,7 +98,11 @@ export const sidebarModel = (input: SidebarInput): SidebarModel => {
           ? { kind: 'nothing-waits', text: strings.waiting.peopleNone }
           : { kind: 'rows', rows: peopleShown.map(row) },
     channelRooms: shown(channelRooms(input.conversations)).map(row),
-    channelRoomsEmpty: waitingOnly === null ? strings.noChannelRooms : strings.waiting.roomsNone,
+    channelRoomsEmpty: !input.loaded
+      ? null
+      : waitingOnly === null
+        ? strings.noChannelRooms
+        : strings.waiting.roomsNone,
     archived:
       archived.length === 0
         ? null
@@ -177,7 +181,8 @@ export interface SidebarModel {
     | { readonly kind: 'rows'; readonly rows: ReadonlyArray<ConversationRow> }
   readonly channelRooms: ReadonlyArray<ConversationRow>
   /** What the channel list says when it has no row to show. */
-  readonly channelRoomsEmpty: string
+  /** What the empty list says once loaded; null while the conversations have not loaded. */
+  readonly channelRoomsEmpty: string | null
   readonly archived: {
     readonly title: string
     readonly open: boolean

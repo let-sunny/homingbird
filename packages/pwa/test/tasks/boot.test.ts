@@ -1,10 +1,30 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { QUIET_RETRY_SECONDS, TOO_LONG_LOAD_SECONDS, USUAL_LOAD_SECONDS } from '../../src/load-timing.ts'
 import { locale, strings, useLanguage } from '../../src/strings.ts'
 import { boot, startAgain } from '../../src/tasks/boot.ts'
-import { fail, settle, testApp } from '../support/app.ts'
+import { fail, hold, settle, testApp } from '../support/app.ts'
 import { ANA, ROOM, conversation, everything, me, note } from '../support/fixtures.ts'
 
 afterEach(() => useLanguage('en'))
+
+const USUAL_MS = USUAL_LOAD_SECONDS * 1000
+const TOO_LONG_MS = TOO_LONG_LOAD_SECONDS * 1000
+const QUIET_RETRY_MS = QUIET_RETRY_SECONDS * 1000
+
+/** Lets the page's live stream be counted, and say what the server holds after a given event. */
+const withStreams = (
+  out: ReturnType<typeof testApp>,
+  frames: (after: string | null) => string = () => '',
+) => {
+  const streams: string[] = []
+  Object.assign(out.page.page, {
+    fetch: (url: string, init?: RequestInit) => {
+      streams.push(url)
+      return Promise.resolve(new Response(frames(new Headers(init?.headers).get('last-event-id'))))
+    },
+  })
+  return () => streams.filter((url) => url.includes('/events/stream')).length
+}
 
 const empty = {
   'conversations.list': () => ({ conversations: [] }),
@@ -107,12 +127,56 @@ describe('boot', () => {
       const out = testApp({ ...empty, 'server.info': answers(down, down), 'me.get': () => me() })
       const running = out.run(boot)
       await out.clock.advance(500)
-      expect(out.state.start.get()).toBe('slow')
+      expect(out.state.startRetrying.get()).toBe(true)
       await out.clock.advance(14_500)
       await running
       expect(out.routes().filter((route) => route === 'server.info')).toHaveLength(3)
       expect(out.state.session.get()).toEqual(me())
+      out.page.emit('offline')
+    })
+
+    it('says what is usual, then that it takes too long, while the attempt goes on, and goes on by itself when it answers', async () => {
+      const server = hold<unknown>()
+      const out = testApp({ ...empty, 'server.info': () => server.waiting, 'me.get': () => me() })
+      const running = out.run(boot)
+      await out.clock.advance(USUAL_MS - 1)
+      expect(out.state.start.get()).toBe('loading')
+      await out.clock.advance(1)
       expect(out.state.start.get()).toBe('slow')
+      await out.clock.advance(TOO_LONG_MS - USUAL_MS)
+      expect(out.state.start.get()).toBe('long')
+      expect(out.state.session.get()).toBe('loading')
+      server.release(everything())
+      await running
+      expect(out.state.session.get()).toEqual(me())
+      out.page.emit('offline')
+    })
+
+    it('ends the running attempt when asked to try again, and starts exactly one fresh one', async () => {
+      const server = hold<unknown>()
+      let asked = 0
+      const out = testApp({
+        ...empty,
+        'server.info': () => (asked++ === 0 ? server.waiting : everything()),
+        'me.get': () => me(),
+      })
+      const streams = withStreams(out)
+      const running = out.run(boot)
+      await out.clock.advance(TOO_LONG_MS)
+      expect(out.state.start.get()).toBe('long')
+      await out.run(startAgain)
+      await out.run(startAgain)
+      await running
+      expect(out.aborted).toEqual(['server.info'])
+      expect(out.routes().filter((route) => route === 'server.info')).toHaveLength(2)
+      expect(out.state.session.get()).toEqual(me())
+      expect(out.routes().filter((route) => route === 'me.get')).toHaveLength(1)
+      expect(streams()).toBe(1)
+      expect(out.page.listening('online')).toBe(1)
+      expect(out.page.listening('visibilitychange')).toBe(1)
+      server.release(everything())
+      await settle()
+      expect(out.routes().filter((route) => route === 'me.get')).toHaveLength(1)
       out.page.emit('offline')
     })
 
@@ -130,7 +194,7 @@ describe('boot', () => {
       await out.clock.advance(1000)
       await running
       expect(sessions).toEqual([me()])
-      expect(out.state.session.get()).toEqual(me())
+      expect(out.state.workspace.get()).toBe('loaded')
       expect(out.state.conversationsLoaded.get()).toBe(true)
       expect(out.page.listening('online')).toBe(1)
       expect(out.page.listening('offline')).toBe(1)
@@ -139,68 +203,140 @@ describe('boot', () => {
       out.page.emit('offline')
     })
 
-    const keepsThePageUp = async (
-      workspaceRoute: 'conversations.list' | 'contacts.list',
-      refusal: unknown,
-      waits: number,
-    ) => {
-      let loaded = false
+    it('says the workspace takes longer, then too long, with live events started, and clears the line when it answers late', async () => {
+      const list = hold<unknown>()
       const out = testApp({
         ...empty,
         'server.info': () => everything(),
         'me.get': () => me(),
-        [workspaceRoute]: () => (loaded ? empty[workspaceRoute]() : refusal),
+        'conversations.list': () => list.waiting,
       })
-      const streams: string[] = []
-      Object.assign(out.page.page, {
-        fetch: (url: string) => {
-          streams.push(url)
-          return Promise.resolve(new Response(''))
-        },
+      const streams = withStreams(out)
+      const sessions: unknown[] = []
+      out.state.session.subscribe((session) => sessions.push(session))
+      const running = out.run(boot)
+      await out.clock.advance(USUAL_MS)
+      expect(out.state.workspace.get()).toBe('slow')
+      expect(streams()).toBe(0)
+      await out.clock.advance(TOO_LONG_MS - USUAL_MS)
+      expect(out.state.workspace.get()).toBe('long')
+      expect(streams()).toBe(1)
+      expect(sessions).toEqual([me()])
+      list.release({ conversations: [] })
+      await running
+      expect(out.state.workspace.get()).toBe('loaded')
+      expect(out.state.conversationsLoaded.get()).toBe(true)
+      expect(streams()).toBe(1)
+      out.page.emit('offline')
+    })
+
+    it('keeps a note that arrives during a slow load, however late the older list answers', async () => {
+      const first = hold<unknown>()
+      const arrived = note('note_late00000000', { body: 'Arrived during the load' })
+      let listed = 0
+      const out = testApp({
+        ...empty,
+        'server.info': () => everything(),
+        'me.get': () => me(),
+        'events.poll': () => ({ events: [], cursor: 5 }),
+        'conversations.list': () =>
+          listed++ === 0 ? first.waiting : { conversations: [conversation({ lastActivityAt: 2 })] },
       })
+      out.state.threads.set(new Map([[ROOM, { notes: [], hasMore: false }]]))
+      withStreams(out, (after) =>
+        after === '5'
+          ? `data: ${JSON.stringify({ seq: 6, at: 1, body: { type: 'note.sent', note: arrived } })}\n\n`
+          : '',
+      )
+      const running = out.run(boot)
+      await out.clock.advance(TOO_LONG_MS)
+      for (let round = 0; round < 5; round++) await settle()
+      expect(out.state.conversations.get()).toHaveLength(1)
+      expect(out.state.threads.get().get(ROOM)?.notes).toEqual([arrived])
+      first.release({ conversations: [] })
+      await running
+      expect(out.state.conversations.get()).toHaveLength(1)
+      expect(out.state.threads.get().get(ROOM)?.notes).toEqual([arrived])
+      out.page.emit('offline')
+    })
+
+    it('ends the slow workspace load when asked to try again and loads it afresh, without a second stream', async () => {
+      const first = hold<unknown>()
+      let listed = 0
+      const out = testApp({
+        ...empty,
+        'server.info': () => everything(),
+        'me.get': () => me(),
+        'conversations.list': () => (listed++ === 0 ? first.waiting : { conversations: [] }),
+      })
+      const streams = withStreams(out)
+      const running = out.run(boot)
+      await out.clock.advance(TOO_LONG_MS)
+      expect(out.state.workspace.get()).toBe('long')
+      await out.run(startAgain)
+      await running
+      expect(out.aborted).toContain('conversations.list')
+      expect(listed).toBe(2)
+      expect(out.state.workspace.get()).toBe('loaded')
+      expect(streams()).toBe(1)
+      expect(out.page.listening('online')).toBe(1)
+      out.page.emit('offline')
+    })
+
+    const failingWorkspace = async (refusal: unknown, waits: number) => {
+      let recovered = false
+      const out = testApp({
+        ...empty,
+        'server.info': () => everything(),
+        'me.get': () => me(),
+        'contacts.list': () => (recovered ? { contacts: [] } : refusal),
+      })
+      const streams = withStreams(out)
       const sessions: unknown[] = []
       out.state.session.subscribe((session) => sessions.push(session))
       const running = out.run(boot)
       await out.clock.advance(waits)
-      await running
-      await settle()
-      return { out, streams, sessions, recover: () => (loaded = true) }
+      return { out, streams, sessions, running, recover: () => (recovered = true) }
     }
 
-    it('keeps the page up with a notice and one live stream when a workspace route keeps failing, and loads it when the network is back', async () => {
-      const { out, streams, sessions, recover } = await keepsThePageUp('conversations.list', down, 15_000)
+    it('keeps the page up with a notice, the line and one live stream when the server stays away, and loads again without online once it is back', async () => {
+      const { out, streams, sessions, running, recover } = await failingWorkspace(down, 15_000)
       expect(sessions).toEqual([me()])
+      expect(out.state.workspace.get()).toBe('failed')
+      expect(out.state.workspaceRefusal.get()).toBe('')
       expect(out.state.notice.get()?.kind).toBe('error')
-      expect(out.state.start.get()).not.toBe('failed')
-      expect(out.state.conversationsLoaded.get()).toBe(false)
-      expect(streams.filter((url) => url.includes('/events/stream'))).toHaveLength(1)
+      expect(streams()).toBe(1)
       expect(out.page.listening('online')).toBe(2)
-      expect(out.page.listening('visibilitychange')).toBe(1)
       recover()
-      out.page.emit('online')
-      await settle()
-      await settle()
-      expect(out.state.conversationsLoaded.get()).toBe(true)
+      await out.clock.advance(QUIET_RETRY_MS)
+      await running
+      expect(out.state.workspace.get()).toBe('loaded')
+      expect(out.state.directoryLoaded.get()).toBe(true)
       expect(out.page.listening('online')).toBe(1)
       expect(sessions).toEqual([me()])
       out.page.emit('offline')
     })
 
-    it('keeps the page up, and does not blame the connection, when a workspace route refuses', async () => {
-      const { out, streams, recover } = await keepsThePageUp(
-        'contacts.list',
+    it('loads the failed workspace on online and on Try again, and does not call a refusal a lost connection', async () => {
+      const { out, streams, running, recover } = await failingWorkspace(
         fail({ _tag: 'Forbidden', message: 'No contacts for you.' }),
         0,
       )
+      await settle()
       expect(out.routes().filter((route) => route === 'contacts.list')).toHaveLength(1)
-      expect(out.state.session.get()).toEqual(me())
-      expect(out.state.notice.get()?.text).not.toBe(strings.firstLoad.failed)
-      expect(streams.filter((url) => url.includes('/events/stream'))).toHaveLength(1)
+      expect(out.state.workspace.get()).toBe('failed')
+      expect(out.state.workspaceRefusal.get()).not.toBe('')
+      expect(out.state.workspaceRefusal.get()).not.toBe(strings.firstLoad.failed)
+      expect(streams()).toBe(1)
+      await out.clock.advance(QUIET_RETRY_MS * 3)
+      expect(out.routes().filter((route) => route === 'contacts.list')).toHaveLength(1)
+      await out.run(startAgain)
+      await settle()
+      expect(out.routes().filter((route) => route === 'contacts.list')).toHaveLength(2)
       recover()
       out.page.emit('online')
-      await settle()
-      await settle()
-      expect(out.state.directoryLoaded.get()).toBe(true)
+      await running
+      expect(out.state.workspace.get()).toBe('loaded')
       expect(out.page.listening('online')).toBe(1)
       out.page.emit('offline')
     })

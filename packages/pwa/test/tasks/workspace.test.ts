@@ -7,7 +7,7 @@ import {
   loadPeople,
   loadWorkspace,
 } from '../../src/tasks/workspace.ts'
-import { fail, testApp } from '../support/app.ts'
+import { fail, hold, settle, testApp } from '../support/app.ts'
 import { BEN, channel, conversation, credential, draft, entry, serverInfo } from '../support/fixtures.ts'
 
 describe('loading the workspace', () => {
@@ -96,6 +96,22 @@ describe('loading the workspace', () => {
     })
     await missing.run(loadAgents)
     expect(missing.state.draftRequests.get()).toEqual([])
+  })
+
+  it('never lets an older answer replace a newer list, however late it comes', async () => {
+    const older = hold<unknown>()
+    let asked = 0
+    const { run, state } = testApp({
+      'conversations.list': () =>
+        asked++ === 0 ? older.waiting : { conversations: [conversation({ lastActivityAt: 2 })] },
+    })
+    const first = run(loadConversations)
+    await settle()
+    await run(loadConversations)
+    expect(state.conversations.get()).toHaveLength(1)
+    older.release({ conversations: [] })
+    await first
+    expect(state.conversations.get()).toHaveLength(1)
   })
 
   it('loads conversations, people and known channels on their own', async () => {

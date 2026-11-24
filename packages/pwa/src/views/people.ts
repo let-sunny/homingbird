@@ -16,7 +16,7 @@ import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { invitesSection } from './invites.ts'
 import { type MenuParts, actionMenu } from './menu.ts'
-import { button, channelChips, empty, field, loadFailed, loading, page, presenceBadges } from './parts.ts'
+import { button, channelChips, checking, empty, field, loadFailed, page, presenceBadges } from './parts.ts'
 import { opensProfile } from './profile-card.ts'
 
 /** People: everyone in the organization the person may see, and what they may do with each. */
@@ -80,6 +80,7 @@ export const peopleView = (context: ViewContext, life: Lifetime, me: AsRead.Me):
     [
       state.directory,
       state.directoryLoaded,
+      state.workspace,
       failed,
       query,
       channelFilter,
@@ -129,9 +130,9 @@ const renderPeople = (
   context: Pick<ViewContext, 'actions' | 'clock' | 'page' | 'document' | 'state' | 'random'>,
   retry: () => void,
   reveal: (card: HTMLElement) => void,
-): HTMLElement => {
+): HTMLElement | null => {
   const list = model.list
-  if (list.kind === 'loading') return loading()
+  if (list.kind === 'loading') return checking(context, strings.checking.people)
   if (list.kind === 'failed') return loadFailed(retry)
   if (list.kind === 'empty') return empty(list.text)
   return h(

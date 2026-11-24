@@ -24,7 +24,17 @@ import { joinButtons, privateMark, roomControls } from './channel-membership.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { type MenuParts, actionMenu } from './menu.ts'
-import { button, channelChips, channelCounts, empty, emptyWithPip, field, loading, page } from './parts.ts'
+import {
+  button,
+  channelChips,
+  channelCounts,
+  checking,
+  empty,
+  emptyWithPip,
+  field,
+  loading,
+  page,
+} from './parts.ts'
 
 /** Channels: every channel the person may see, searchable, a page at a time. */
 export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement => {
@@ -90,9 +100,9 @@ export const channelView = (context: ViewContext, life: Lifetime, slug: string):
   return h(
     'div',
     { class: 'channel-ask-host' },
-    region(life, [state.channels, state.channelsLoaded, state.rosters], () => {
+    region(life, [state.channels, state.channelsLoaded, state.workspace, state.rosters], () => {
       const channel = channelNamed(state.channels.get(), slug)
-      if (channel === null && !state.channelsLoaded.get()) return loading()
+      if (channel === null && !state.channelsLoaded.get()) return checking(context, strings.checking.channels)
       if (channel === null)
         return emptyWithPip(
           'failed',

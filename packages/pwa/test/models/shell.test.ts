@@ -147,6 +147,11 @@ describe('sidebarModel', () => {
     ...fields,
   })
 
+  it('does not say there is no channel before the conversations have loaded', () => {
+    expect(sidebarModel(input({ loaded: false })).channelRoomsEmpty).toBeNull()
+    expect(sidebarModel(input({ loaded: true })).channelRoomsEmpty).toBe(strings.noChannelRooms)
+  })
+
   it('waits for the list, says when there are no conversations, and invites connecting an agent', () => {
     expect(sidebarModel(input({ loaded: false })).people).toEqual({ kind: 'loading' })
     expect(sidebarModel(input({ agentCount: 0 }))).toEqual({

@@ -47,13 +47,14 @@ import {
   archivedMark,
   button,
   channelCounts,
+  checking,
   empty,
   humanDot,
-  loading,
   timeLabel,
 } from './parts.ts'
 import { switcher } from './switcher.ts'
 import { watchWaiting } from './waiting.ts'
+import { workspaceLine } from './workspace-line.ts'
 
 /** The app around a page: the header with its tabs, the connection, the sidebar and the user menu. */
 export const shell = (
@@ -68,7 +69,7 @@ export const shell = (
     'div',
     { class: 'app' },
     titleBar(context, life, me),
-    connectionNotice(context, life),
+    h('div', { class: 'notice-host' }, connectionNotice(context, life), workspaceLine(context, life)),
     sidebar(context, life, me, waiting),
     stage,
   )
@@ -116,7 +117,7 @@ const connectionNotice = (context: ViewContext, life: Lifetime): HTMLElement =>
       const shown = connectionShown(context.state.connection.get(), strings)
       return shown.state === 'offline' && h('p', { class: 'connection-notice' }, shown.description)
     },
-    { class: 'connection-notice-host' },
+    { class: 'notice-slot' },
   )
 
 const titleBar = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
@@ -328,11 +329,14 @@ const sidebar = (
     state.directory,
     state.route,
     state.conversationsLoaded,
+    state.workspace,
     state.held,
     state.waitingOnly,
     waiting,
   ]
   const roomSources = [
+    state.conversationsLoaded,
+    state.workspace,
     state.conversations,
     state.route,
     state.channels,
@@ -370,11 +374,15 @@ const sidebar = (
     ),
     region(
       life,
-      [slice(peopleSources, () => model().people.kind)],
+      [
+        slice(peopleSources, () =>
+          model().people.kind === 'loading' ? `loading:${state.workspace.get()}` : model().people.kind,
+        ),
+      ],
       (drawing) => {
         const people = model().people
         const kind = people.kind
-        if (kind === 'loading') return loading()
+        if (kind === 'loading') return checking(context, strings.checking.notes)
         if (people.kind === 'nothing-waits') return empty(people.text)
         if (kind === 'none')
           return h(
@@ -398,10 +406,16 @@ const sidebar = (
     ),
     region(
       life,
-      [slice(roomSources, () => (model().channelRooms.length === 0 ? model().channelRoomsEmpty : null))],
+      [
+        slice(roomSources, () =>
+          model().channelRooms.length === 0
+            ? (model().channelRoomsEmpty ?? `checking:${state.workspace.get()}`)
+            : null,
+        ),
+      ],
       (drawing) =>
         model().channelRooms.length === 0
-          ? empty(model().channelRoomsEmpty)
+          ? roomsEmpty(context, model().channelRoomsEmpty)
           : rowList(
               context,
               drawing,
@@ -663,3 +677,7 @@ const TAB_GLYPHS: Readonly<Record<TabGlyph, string>> = {
   channels: 'M6.5 2 5 14M11 2 9.5 14M2.5 5.5h11M2 10.5h11',
   debates: 'M1.5 2h8v6H5l-2.5 2V8h-1zM12 5.5h2.5v6h-1V14l-2.5-2.5H7v-1.5',
 }
+
+/** The channels' empty state: what it says once the list has loaded, that it is checking before, nothing once the line speaks. */
+const roomsEmpty = (context: ViewContext, loadedText: string | null): HTMLElement | null =>
+  loadedText === null ? checking(context, strings.checking.channels) : empty(loadedText)
