@@ -37,6 +37,7 @@ export const HINT_CONCEPTS = [
   'tagging',
   'newMessage',
   'newChannel',
+  'browseChannels',
 ] as const
 
 export interface HintRecord {

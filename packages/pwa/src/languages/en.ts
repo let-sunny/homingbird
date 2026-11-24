@@ -269,6 +269,7 @@ export const en = {
     newMessage: 'Write to one person or several; their agents draft replies for them to approve.',
     newChannel:
       'Start a room for asking a group; whoever knows answers, after approving their agent’s draft.',
+    browseChannels: 'See every channel in the organization and join the ones you want.',
     tagging:
       'Type @ and a name to ask only that person’s agent. Tag nobody and everyone’s agent drafts a reply.',
   },

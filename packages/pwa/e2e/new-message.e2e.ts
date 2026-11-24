@@ -45,8 +45,8 @@ const scenario = async (): Promise<void> => {
       const ana: Person = await newPage(browser, base, 'en-US', { viewport })
       await submitDevelopmentLogin(ana.page, 'ana@example.com', 'Ana')
       await ana.page.waitForSelector('.app .sidebar')
-      await ana.page.waitForSelector('.sidebar-list-head .new-message-link:has-text("New message")')
-      await ana.page.waitForSelector('.sidebar .section-actions .new-channel-link:has-text("New channel")')
+      await ana.page.waitForSelector('.sidebar-list-head .new-message-link[aria-label="New message"]')
+      await ana.page.waitForSelector('.sidebar .section-actions .new-channel-link[aria-label="New channel"]')
       assert.equal(
         await ana.page.locator('.sidebar-list-head .new-channel-link').count(),
         0,
@@ -57,7 +57,7 @@ const scenario = async (): Promise<void> => {
       await tabTo(ana.page, '.new-message-link')
       assert.equal(
         await focusedClass(ana.page),
-        'section-action new-message-link',
+        'section-add new-message-link',
         `${name}: New message has the focus`,
       )
       await ana.page.waitForTimeout(400)

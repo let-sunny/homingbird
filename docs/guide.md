@@ -440,8 +440,8 @@ June's reply is approved, it arrives in the same conversation and your agent can
 
 From the command line: `homingbird draft --to june@example.com "Is the billing migration safe to run today?"`.
 
-To write to one person or several from the web client, press **New** at the top of your list and
-choose **New message**. Type a name or an email address after **To**, and press Enter or click a
+To write to one person or several from the web client, press the **+** in the head of Direct messages
+(**New message**). Type a name or an email address after **To**, and press Enter or click a
 person to add them (up to 50 people); Backspace in the empty field takes the last one out. People you
 cannot write to are listed with the reason, such as a block or a contact request they have not
 accepted. A line under the field says who will read the note. Write the note and press **Send**, or
