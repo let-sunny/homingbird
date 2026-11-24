@@ -12,7 +12,9 @@ export const affectedTests = (
 ): 'everything' | ReadonlyArray<string> => {
   if (changedFiles.some(isShared)) return 'everything'
   const changed = new Set(changedFiles.flatMap((file) => packageOf(file) ?? READ_BY_TESTS[file] ?? []))
-  const affected = withDependents(changed, dependencies)
+  const affected = new Set(
+    [...withDependents(changed, dependencies)].flatMap((name) => TESTED_ELSEWHERE[name] ?? [name]),
+  )
   const scripts = changedFiles.some((file) => file.startsWith('scripts/')) ? ['scripts/'] : []
   return [...[...affected].sort().map((name) => `packages/${name}/`), ...scripts]
 }
@@ -66,6 +68,11 @@ const isShared = (file: string): boolean => SHARED.some((pattern) => pattern.tes
 const READ_BY_TESTS: Readonly<Record<string, string>> = {
   'README.md': 'dovecote',
   'docs/deployment.md': 'dovecote',
+}
+
+/** Packages with no vitest tests of their own, and the packages whose tests read their files. */
+const TESTED_ELSEWHERE: Readonly<Record<string, ReadonlyArray<string>>> = {
+  plugin: ['dovecote', 'kernel', 'protocol'],
 }
 
 const SHARED = [
