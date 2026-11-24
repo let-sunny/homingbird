@@ -22,7 +22,7 @@ import {
   note,
 } from '../support/fixtures.ts'
 import { heldDecision } from '../support/held.ts'
-import { setLoad, setWorkspace } from '../support/resource-load.ts'
+import { setRoomsDrawn, setWorkspace } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -50,7 +50,7 @@ describe('shell', () => {
     expect(textOf(shown)).toContain(strings.checking.notes)
     expect(textOf(shown)).not.toContain(strings.noChannelRooms)
     expect(shown.querySelector('.load-line')).toBeNull()
-    setLoad(context.state.conversations, { loaded: true })
+    setRoomsDrawn(context.state)
     setWorkspace(context.state, 'loaded')
     expect(textOf(shown)).toContain(strings.noChannelRooms)
     expect(textOf(shown)).not.toContain(strings.checking.channels)
@@ -183,7 +183,7 @@ describe('shell', () => {
       conversation({ id: billing.conversationId, kind: 'channel', title: 'billing' }),
       conversation({ id: ops.conversationId, kind: 'channel', title: 'ops' }),
     ])
-    setLoad(context.state.conversations, { loaded: true })
+    setRoomsDrawn(context.state)
     const rows = [...shown.querySelectorAll<HTMLElement>('.conversation-item')]
     getByRole(rows[0]!, 'button', { name: strings.conversationMore({ name: 'Ben' }) }).click()
     getByRole(rows[0]!, 'menuitem', { name: strings.mute.muteName({ name: 'Ben' }) }).click()
@@ -248,7 +248,7 @@ describe('shell', () => {
   it('offers the first steps without conversations, then invites connecting an agent beside them', () => {
     const { context } = testContext()
     const shown = shell(context, lifetime(), me(), document.createElement('main'))
-    setLoad(context.state.conversations, { loaded: true })
+    setRoomsDrawn(context.state)
     expect(shown.querySelector('.onboarding')).toBeNull()
     expect(textOf(shown)).toContain(strings.noConversations)
     expect(textOf(shown.querySelector('.starting-points')!)).toContain(strings.start.connectStep)
@@ -272,7 +272,7 @@ describe('shell', () => {
       conversation({ id: billing.conversationId, kind: 'channel', title: 'billing' }),
       conversation({ id: 'conv_old000000000' as never, kind: 'channel', title: 'old', archivedAt: 5 }),
     ]
-    setLoad(context.state.conversations, { loaded: true })
+    setRoomsDrawn(context.state)
     context.state.conversations.set(listed('Hello'))
     const before = [...shown.querySelectorAll('.conversation-item')]
     const lists = [...shown.querySelectorAll('.conversation-list')]
@@ -297,7 +297,7 @@ describe('shell', () => {
         lastNote: note('n9', { body: 'Quiet' }),
       }),
     ])
-    setLoad(context.state.conversations, { loaded: true })
+    setRoomsDrawn(context.state)
     context.state.threads.set(
       new Map([[ROOM, { notes: [asked, draft('note_d1', { inReplyTo: asked.id })], hasMore: false }]]),
     )
@@ -343,7 +343,7 @@ describe('shell', () => {
       conversation({ id: billing.conversationId, kind: 'channel', title: 'billing' }),
       conversation({ id: 'conv_old000000000' as never, kind: 'channel', title: 'old', archivedAt: 5 }),
     ])
-    setLoad(context.state.conversations, { loaded: true })
+    setRoomsDrawn(context.state)
     context.state.route.set({ name: 'conversation', id: ROOM, draft: null })
     const row = getByRole(shown, 'link', { name: /Hello/ })
     expect(row.getAttribute('aria-current')).toBe('page')

@@ -15,7 +15,7 @@ import { loadGroups } from './groups.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
 import { closeDraftNotice } from './notifications.ts'
 import { loadPreviews, reloadPreviews } from './previews.ts'
-import { ACTIVITY, WORKSPACE, invalidate, reread } from './resources.ts'
+import { ACTIVITY, type ResourceKey, WORKSPACE, expire, invalidate, reread } from './resources.ts'
 import { refreshInterview } from './teaching-interview.ts'
 import { followingWorkspace } from './workspace.ts'
 
@@ -30,14 +30,21 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
       cancel = later(app.clock, DIRECTORY_SETTLE_MS, () => launch(load))
     }
   }
-  const reloadDirectorySoon = settled(invalidate('directory', 'contacts', 'channels', 'conversations'))
+  const invalidateSoon = (...keys: ReadonlyArray<ResourceKey>): (() => void) => {
+    const soon = settled(invalidate(...keys))
+    return () => {
+      expire(app, keys)
+      soon()
+    }
+  }
+  const reloadDirectorySoon = invalidateSoon('directory', 'contacts', 'channels', 'conversations')
   const loadGroupsSoon = settled(loadGroups)
   const reloadGroupsSoon = (): void => {
     if (state.groupsLoaded.get()) loadGroupsSoon()
   }
-  const reloadReviewsSoon = settled(invalidate('reviews'))
+  const reloadReviewsSoon = invalidateSoon('reviews')
   const reloadInterviewSoon = settled(refreshInterview)
-  const reloadDebatesSoon = settled(invalidate('debates'))
+  const reloadDebatesSoon = invalidateSoon('debates')
   const refreshAgentsIfNoneKnown = (): void => {
     if (state.agentCredentials.get().length === 0) launch(invalidate('agentCredentials', 'draftRequests'))
   }

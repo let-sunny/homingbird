@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
 import { loadActivity } from '../../src/tasks/activity.ts'
 import { DIRECTORY_SETTLE_MS, liveEvents } from '../../src/tasks/live.ts'
+import { open } from '../../src/tasks/resources.ts'
 import { settle, testApp } from '../support/app.ts'
 import {
   ANA,
@@ -355,6 +356,18 @@ describe('liveEvents', () => {
     await clock.advance(1)
     await settle()
     expect(routes().filter((route) => route === 'groups.list')).toHaveLength(1)
+  })
+
+  it('lets a page that opens in between read the people at once, however new the last answer is', async () => {
+    const { apply, state, run, routes } = live()
+    state.connection.set('live')
+    const asked = () => routes().filter((route) => route === 'directory.list').length
+    await run(open('directory'))
+    await run(open('directory'))
+    expect(asked()).toBe(1)
+    apply(event({ type: 'directory.changed', memberId: BEN }, 0))
+    await run(open('directory'))
+    expect(asked()).toBe(2)
   })
 
   it('reads the waiting answers again once a run of review changes settles', async () => {

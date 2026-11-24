@@ -139,6 +139,10 @@ export const resource = <A>(empty: A): Resource<A> => {
     next = null
   }
 
+  const expire = (): void => {
+    newestAnswerAskedAt = Number.NEGATIVE_INFINITY
+  }
+
   const wasJustAsked = (source: Source<A>): boolean => {
     const { loaded, step } = load.get()
     if (!loaded || step === 'failed' || !source.hearsChanges) return false
@@ -165,10 +169,11 @@ export const resource = <A>(empty: A): Resource<A> => {
         load.update((now) => (isGivenUp(now) ? { ...now, step: 'idle' } : now))
         askNext(source)
       }),
+    expire,
     reset: () => {
       stop()
       endWaiting()
-      newestAnswerAskedAt = Number.NEGATIVE_INFINITY
+      expire()
       batch(() => {
         value.set(empty)
         load.set(NOT_ASKED)
@@ -195,6 +200,8 @@ export interface Resource<A> extends Signal<A> {
   readonly refresh: (source: Source<A>) => T.Task<boolean>
   /** Try again: ends the running request and asks afresh. */
   readonly again: (source: Source<A>) => T.Task<void>
+  /** It changed and is asked for shortly: until then a page that opens asks, however new the last answer is. */
+  readonly expire: () => void
   /** The session ended: ends whatever runs or waits, and leaves it as it was before it was first asked for. */
   readonly reset: () => void
 }

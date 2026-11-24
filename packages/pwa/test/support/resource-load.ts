@@ -18,3 +18,8 @@ export const setWorkspace = (state: AppState, workspace: Workspace, error: ApiEr
   for (const key of WORKSPACE)
     setLoad(state[key], workspace === 'loaded' ? { loaded: true } : { step: workspace, error })
 }
+
+/** The rooms came, and the people who name them. */
+export const setRoomsDrawn = (state: AppState): void => {
+  for (const key of ['conversations', 'directory'] as const) setLoad(state[key], { loaded: true })
+}

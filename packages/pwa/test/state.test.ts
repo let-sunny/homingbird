@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { type AppState, OUTLIVES_SESSION, createState, forgetSession, signedIn } from '../src/state.ts'
-import { ANA, BEN, ROOM, channel, draft, entry, me, member } from './support/fixtures.ts'
+import { ANA, BEN, ROOM, channel, conversation, draft, entry, me, member } from './support/fixtures.ts'
+import { setLoad } from './support/resource-load.ts'
 
 describe('createState', () => {
   it('starts on the route of the address, loading, with nothing known yet', () => {
@@ -24,6 +25,35 @@ describe('createState', () => {
     state.session.set(me())
     state.directory.set([entry(BEN, 'Ben')])
     expect([...state.members.get().keys()]).toEqual([ANA, BEN])
+  })
+
+  it('draws the rooms once the people who name them came, or take longer than usual', () => {
+    const state = createState('')
+    setLoad(state.conversations, { loaded: true })
+    expect(state.conversationsLoaded.get()).toBe(false)
+    setLoad(state.directory, { step: 'loading' })
+    expect(state.conversationsLoaded.get()).toBe(false)
+    for (const load of [{ step: 'slow' }, { step: 'failed' }, { loaded: true }] as const) {
+      setLoad(state.directory, load)
+      expect(state.conversationsLoaded.get()).toBe(true)
+    }
+  })
+
+  it('never takes someone for a former member before the people came, and follows the rooms only until then', () => {
+    const state = createState('')
+    let changes = 0
+    state.members.subscribe(() => {
+      changes++
+    })
+    state.conversations.set([conversation()])
+    expect(state.members.get().get(BEN)?.name).toBe('…')
+    state.directory.set([entry(ANA, 'Ana')])
+    setLoad(state.directory, { loaded: true })
+    expect([...state.members.get().keys()]).toEqual([ANA])
+    changes = 0
+    state.conversations.set([conversation({ unreadCount: 1 })])
+    setLoad(state.directory, { loaded: true, step: 'loading' })
+    expect(changes).toBe(0)
   })
 
   it('knows the channels’ agents by name, and each answer a manager reviews as first read', () => {

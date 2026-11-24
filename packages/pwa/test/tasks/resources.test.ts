@@ -236,7 +236,7 @@ describe('a list on its way', () => {
     { type: 'channel.left', slug: 'billing', conversationId: ROOM },
   ])('never brings back a room that $type says was left meanwhile', async (body) => {
     const { state, shown } = await left({}, ({ app }) => liveEvents(app)(event(body)))
-    expect(state.conversationsLoaded.get()).toBe(true)
+    expect(state.conversations.load.get().loaded).toBe(true)
     expect(state.conversations.get()).toEqual([])
     expect(shown.every((count) => count === 0)).toBe(true)
   })
@@ -291,7 +291,7 @@ describe('what an action reads again', () => {
       return outcome
     })
     await settle()
-    expect(state.conversationsLoaded.get()).toBe(true)
+    expect(state.conversations.load.get().loaded).toBe(true)
     expect(isOver).toBe(false)
     await clock.advance(5000)
     expect((await waiting)._tag).toBe('Ok')

@@ -11,7 +11,7 @@ import type { Action } from './app.ts'
 import { type Roster, agentMembersOf } from './channels.ts'
 import { withDraftsAsRead, withReviewsAsRead } from './drafts-read.ts'
 import { HOLD_SECONDS } from './held-decisions.ts'
-import { type Resource, resource } from './resource.ts'
+import { type Load, type Resource, resource } from './resource.ts'
 import { type Route, parseRoute } from './routes.ts'
 import { type ChangeCounter, changeCounter } from './thread-changes.ts'
 import { workspaceRefusalText, workspaceStep } from './workspace-step.ts'
@@ -27,6 +27,11 @@ export const createState = (hash: string): AppState => {
   const channels = resource<ReadonlyArray<AsRead.Channel>>([])
   const agentCredentials = resource<ReadonlyArray<AsRead.Credential>>([])
   const draftRequests = resource<ReadonlyArray<DraftRequest>>([])
+  const notNamedYet = derived(
+    [conversations, directory.load],
+    (rooms, people) => (people.loaded ? [] : rooms.flatMap((room) => room.participantIds)),
+    isSameData,
+  )
   const loads = [conversations, directory, contacts, channels, agentCredentials, draftRequests].map(
     (one) => one.load,
   )
@@ -49,7 +54,7 @@ export const createState = (hash: string): AppState => {
     branding: signal<Branding>({ name: 'Homingbird', logo: null }),
     route: signal<Route>(parseRoute(hash)),
     conversations,
-    conversationsLoaded: isLoaded(conversations),
+    conversationsLoaded: derived([conversations.load, directory.load], areRoomsDrawn),
     threads,
     draftsRead,
     directory,
@@ -94,9 +99,10 @@ export const createState = (hash: string): AppState => {
     shownDebate: signal<AsRead.Debate | 'missing' | null>(null),
     waitingOnly: signal(false),
     members: derived(
-      [directory, session, channels],
-      (entries, me, known): ReadonlyMap<MemberId, AsRead.Member> =>
+      [directory, session, channels, notNamedYet],
+      (entries, me, known, waiting): ReadonlyMap<MemberId, AsRead.Member> =>
         new Map([
+          ...waiting.map((id) => [id, unnamed(id)] as const),
           ...agentMembersOf(known),
           ...(me !== null && me !== 'loading' ? [[me.member.id, me.member] as const] : []),
           ...entries.map((entry) => [entry.member.id, entry.member] as const),
@@ -155,6 +161,7 @@ export interface AppState {
   readonly branding: Signal<Branding>
   readonly route: Signal<Route>
   readonly conversations: Resource<ReadonlyArray<AsRead.Conversation>>
+  /** The rooms may be drawn: they were read, and so were the people who name them unless that takes longer than usual. */
   readonly conversationsLoaded: ReadableSignal<boolean>
   readonly threads: Signal<ReadonlyMap<ConversationId, Thread>>
   /** Each draft's text and room as the person last read them on this page. */
@@ -269,6 +276,22 @@ const isResource = (held: object): held is Resource<unknown> => 'reset' in held
 const isSignal = (held: object): held is Signal<unknown> => 'get' in held && 'set' in held
 
 const isChangeCounter = (held: object): held is ChangeCounter => 'changesTo' in held
+
+const areRoomsDrawn = (rooms: Load, people: Load): boolean =>
+  rooms.loaded && (people.loaded || (people.step !== 'idle' && people.step !== 'loading'))
+
+/** Someone in a room before the people were read, who must not read as having left the organization. */
+const unnamed = (id: MemberId): AsRead.Member => ({
+  id,
+  email: '',
+  name: '…',
+  profile: '',
+  role: 'member',
+  status: 'active',
+  kind: 'person',
+  createdAt: 0,
+  character: null,
+})
 
 const isLoaded = ({ load }: Pick<Resource<unknown>, 'load'>): ReadableSignal<boolean> =>
   derived([load], (now) => now.loaded)

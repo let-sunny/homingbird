@@ -15,6 +15,11 @@ export const open = (...keys: ReadonlyArray<ResourceKey>): Action => each(keys, 
 /** These changed: each is asked for once more, after its running request when there is one. Never fails. */
 export const invalidate = (...keys: ReadonlyArray<ResourceKey>): Action => each(keys, invalidateOne)
 
+/** These changed and are asked for shortly: until then a page that opens asks, however new the last answer is. */
+export const expire = (app: App, keys: ReadonlyArray<ResourceKey>): void => {
+  for (const key of keys) resourceOf(app, key).expire()
+}
+
 /** Ends with a request that started after this call; true when it was answered. Never fails. */
 export const refresh = (key: ResourceKey): Action<boolean> => withApp((app) => refreshOne(app, key))
 
