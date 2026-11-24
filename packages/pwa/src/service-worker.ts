@@ -11,7 +11,6 @@ const SHELL = [
   '/app.css',
   '/pip.css',
   '/pip/pip-sheet.png',
-  '/pip/pip-turn.png',
   '/icons/mark.svg',
   '/manifest.webmanifest',
 ]

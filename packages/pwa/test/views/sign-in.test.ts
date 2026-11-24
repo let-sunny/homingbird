@@ -17,7 +17,6 @@ describe('signInView', () => {
     expect(link.getAttribute('href')).toBe('/auth/login?return_to=%2F%23%2Fpeople')
     expect(queryByRole(shown, 'alert')).toBeNull()
     expect(getByRole(shown, 'heading', { name: 'homingbird' })).toBeTruthy()
-    expect(shown.querySelector('.turning-bird.is-pip')).not.toBeNull()
   })
 
   it('says why the person was signed out', () => {

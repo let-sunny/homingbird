@@ -2,13 +2,12 @@ import type { AsRead, MemberId } from '@homingbird/protocol'
 import { type Child, type Lifetime, type Properties, h, replaceChildren } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
 import { type ProfileCard, profileCardModel } from '../models/profile-card.ts'
-import { turningBirdOf } from '../models/turning-bird.ts'
 import type { PageDocument } from '../page-document.ts'
 import { strings } from '../strings.ts'
+import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { placeMenu } from './menu.ts'
 import { presenceDots, youMark } from './parts.ts'
-import { renderTurningBird } from './turning-bird.ts'
 
 /**
  * The one profile card of the page, which every name and face that `opensProfile` marks opens next to
@@ -93,7 +92,7 @@ const renderProfileCard = (context: ViewContext, model: ProfileCard, close: () =
   h(
     'div',
     { class: 'profile-head' },
-    renderTurningBird(context, turningBirdOf(model.avatar, 2)),
+    renderAvatar(context, model.avatar),
     h(
       'p',
       { class: 'profile-who' },

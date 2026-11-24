@@ -178,7 +178,7 @@ const debateCreateForm = (context: ViewContext, life: Lifetime, me: AsRead.Me): 
 
 const renderDebateList = (model: DebateListModel): HTMLElement => {
   if (model.kind === 'loading') return loading()
-  if (model.kind === 'empty') return emptyWithPip(model.text)
+  if (model.kind === 'empty') return emptyWithPip('searching', model.text)
   return h(
     'ul',
     { class: 'debate-list' },

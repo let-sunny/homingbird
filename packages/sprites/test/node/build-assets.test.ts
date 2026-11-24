@@ -17,16 +17,12 @@ describe('buildAssets', () => {
       'brand/homingbird-icon-1024.png',
       'pip/pip-sending.gif',
       'pip/pip-sheet.json',
-      'pip/pip-turn@1x.png',
-      'pip/pip-turn@4x.png',
       'characters/fox/fox-sheet@8x.png',
       'characters/gif/fox.gif',
     ])
       expect(existsSync(join(root, file)), file).toBe(true)
     const sheet = JSON.parse(readFileSync(join(root, 'pip/pip-sheet.json'), 'utf8'))
     expect(Object.keys(sheet.states)).toHaveLength(22)
-    const turn = JSON.parse(readFileSync(join(root, 'pip/pip-turn.json'), 'utf8'))
-    expect(turn).toEqual({ cell: { w: 39, h: 39 }, directions: 16, ms: 140 })
   }, 60_000)
 
   it('indexes the characters it was given', () => {

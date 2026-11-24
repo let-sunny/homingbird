@@ -1,5 +1,6 @@
 import { signInHref } from '../routes.ts'
 import { strings } from '../strings.ts'
+import type { PipState } from '../views/pip.ts'
 import { wordmark } from './branding.ts'
 
 /**
@@ -11,6 +12,7 @@ export const signInModel = (input: SignInInput): SignInModel => {
   if (input.invite !== null && input.refusal === null)
     return {
       title: strings.invites.invitedTitle,
+      pip: 'sign-in',
       wordmark: wordmark(input.brandingName),
       tagline:
         input.brandingName === DEFAULT_NAME
@@ -21,6 +23,7 @@ export const signInModel = (input: SignInInput): SignInModel => {
     }
   return {
     title: input.refusal === null ? strings.welcome : strings.signedOutTitle,
+    pip: input.refusal === null ? 'sign-in' : 'failed',
     wordmark: wordmark(input.brandingName),
     tagline: strings.tagline,
     refusal: input.refusal,
@@ -41,6 +44,7 @@ export interface SignInInput {
 
 export interface SignInModel {
   readonly title: string
+  readonly pip: PipState
   readonly wordmark: string
   readonly tagline: string
   readonly refusal: string | null

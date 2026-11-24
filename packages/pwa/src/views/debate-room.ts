@@ -125,6 +125,7 @@ const renderDebateRoom = (model: DebateRoomModel, context: ViewContext, drawn: L
   if (model.kind === 'loading') return loading()
   if (model.kind === 'missing')
     return emptyWithPip(
+      'failed',
       model.text,
       h('a', { class: 'button', href: hrefFor({ name: 'debates' }) }, strings.debates.allRooms),
     )

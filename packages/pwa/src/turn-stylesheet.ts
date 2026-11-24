@@ -1,39 +1,35 @@
-/** What the generated turn sheet says about itself in `assets/pip/pip-turn.json`. */
-export interface TurnSheet {
-  readonly cell: { readonly w: number; readonly h: number }
-  readonly directions: number
-  readonly ms: number
-}
+import { BIRD_SLICES, TURN_DIRECTIONS } from '@homingbird/sprites'
 
 /**
- * The rules that turn a bird: one row of cells stepped through with `steps()`, Pip's sheet from
- * `pipUrl`, any other from `--turn-sheet`, and the front held still for reduced motion.
+ * The rules that turn a bird in the character editor: one row of cells, drawn by the page and handed over
+ * as `--turn-sheet`, stepped through with `steps()`. With reduced motion the 3D bird is hidden and the
+ * flat sprite beside it shows instead.
  */
-export const turnStylesheet = (sheet: TurnSheet, pipUrl: string): string => {
-  const { w, h } = sheet.cell
-  const row = w * sheet.directions
+export const turnStylesheet = (): string => {
+  const { width, height } = BIRD_SLICES.cell
+  const row = width * TURN_DIRECTIONS
   return [
     '.turning-bird {',
     '  --turn-scale: 2;',
     '  display: inline-block;',
     '  flex: none;',
-    `  inline-size: calc(${w}px * var(--turn-scale));`,
-    `  block-size: calc(${h}px * var(--turn-scale));`,
+    `  inline-size: calc(${width}px * var(--turn-scale));`,
+    `  block-size: calc(${height}px * var(--turn-scale));`,
     '  background-image: var(--turn-sheet);',
     '  background-repeat: no-repeat;',
-    `  background-size: calc(${row}px * var(--turn-scale)) calc(${h}px * var(--turn-scale));`,
+    `  background-size: calc(${row}px * var(--turn-scale)) calc(${height}px * var(--turn-scale));`,
     '  image-rendering: pixelated;',
-    `  animation: bird-turn var(--hb-duration-bird-turn) steps(${sheet.directions}) infinite;`,
+    `  animation: bird-turn var(--hb-duration-bird-turn) steps(${TURN_DIRECTIONS}) infinite;`,
     '}',
-    `.turning-bird.is-pip { --turn-sheet: url("${pipUrl}"); }`,
-    ...SCALES.map((scale) => `.turn-x${scale} { --turn-scale: ${scale}; }`),
+    '.character-turn .turn-still { display: none; }',
     '@keyframes bird-turn {',
     '  from { background-position: 0 0; }',
     `  to { background-position: calc(-${row}px * var(--turn-scale)) 0; }`,
     '}',
-    '@media (prefers-reduced-motion: reduce) { .turning-bird { animation: none; background-position: 0 0; } }',
+    '@media (prefers-reduced-motion: reduce) {',
+    '  .character-turn .turning-bird { display: none; }',
+    '  .character-turn .turn-still { display: inline-block; }',
+    '}',
     '',
   ].join('\n')
 }
-
-const SCALES = [1, 2, 3] as const

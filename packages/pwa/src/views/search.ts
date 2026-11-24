@@ -136,7 +136,7 @@ const nameLink = (context: ViewContext, match: NameMatch): HTMLElement => {
 const renderResults = (model: SearchModel): HTMLElement => {
   switch (model.kind) {
     case 'prompt':
-      return emptyWithPip(model.text)
+      return emptyWithPip('searching', model.text)
     case 'searching':
       return loading()
     case 'empty':
