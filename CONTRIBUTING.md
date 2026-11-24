@@ -63,6 +63,15 @@ HB_TEST_DATABASE_URL=postgres://homingbird:homingbird@localhost:5432/homingbird 
 socket directory such as `postgres://homingbird:homingbird@/homingbird?host=/var/run/postgresql`, runs
 the socket tests in `packages/dovecote/test/postgres.test.ts`, the shape Cloud SQL needs.
 
+### Seeing how lists load
+
+In `pnpm dev`, run `hbInspect()` in the browser's console. The page starts anew with a small panel at its
+edge: each resource with its step, the age of its answer, what runs, waits and is to be applied again, and the
+last hundred transitions and requests, to filter, to ask again and to export. `hbInspect()` again, or Turn off,
+removes it. It holds names from the code, counts, steps and times only, forgets them when the session ends and
+keeps nothing in the browser but that it is on. A test prints the same with `recordOf` and `withTimeline`
+(`packages/pwa/test/support/timeline.ts`).
+
 ## What the tooling fixes for you
 
 | Concern | Tool | Config |

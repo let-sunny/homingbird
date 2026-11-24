@@ -19,8 +19,10 @@ export const resource = <A>(empty: A): Resource<A> => {
   let next: Deferred<boolean> | null = null
   let newestAnswerAskedAt = Number.NEGATIVE_INFINITY
   let cancelRepair = (): void => {}
+  let tell: Tell | null = null
 
   const change = (made: (current: A) => A): void => {
+    tell?.('changed')
     run?.changes.push(made)
     value.set(made(value.get()))
   }
@@ -42,7 +44,7 @@ export const resource = <A>(empty: A): Resource<A> => {
       endWaiting()
       return
     }
-    const own: Run<A> = { changes: [], waiting: null, isResting: false, interrupt: () => {} }
+    const own: Run<A> = { changes: [], waiting: null, isResting: false, attempts: 0, interrupt: () => {} }
     run = own
     if (telling === 'told') load.update((now) => (isGivenUp(now) ? now : { ...now, step: 'loading' }))
     const task = T.map((exit: T.Exit<void, never>) => settleBroken(source, own, exit))(
@@ -62,6 +64,8 @@ export const resource = <A>(empty: A): Resource<A> => {
           const askedAt = source.clock.now()
           const answer = yield* T.result(withinLimit(source.ask))
           if (run !== own) return
+          if (answer._tag === 'Ok') tell?.('answered')
+          else tell?.('failed', answer.error)
           const wait = answer._tag === 'Err' && isTransient(answer.error) ? waits.shift() : undefined
           if (wait === undefined) {
             run = null
@@ -86,6 +90,8 @@ export const resource = <A>(empty: A): Resource<A> => {
     own.waiting = waiting
     own.changes = []
     own.isResting = false
+    own.attempts++
+    tell?.('asked')
     return waiting
   }
 
@@ -120,7 +126,9 @@ export const resource = <A>(empty: A): Resource<A> => {
       clear(null)
       startNext(source)
     }
-    if (exit.error._tag === 'Die') source.broke(exit.error.defect)
+    if (exit.error._tag !== 'Die') return
+    tell?.('broke')
+    source.broke(exit.error.defect)
   }
 
   const sayWhileNotLoaded = (step: 'slow' | 'long'): void =>
@@ -157,26 +165,51 @@ export const resource = <A>(empty: A): Resource<A> => {
     load,
     open: (source) =>
       T.suspend(() => {
+        tell?.('opened')
         if (run === null) return wasJustAsked(source) ? T.succeed(true) : askNext(source).wait
         if (run.isResting) return T.succeed(false)
         return (run.waiting ?? afterRunning()).wait
       }),
-    invalidate: (source) => T.sync(() => void askNext(source)),
-    refresh: (source) => T.suspend(() => askNext(source).wait),
+    invalidate: (source) =>
+      T.sync(() => {
+        tell?.('invalidated')
+        askNext(source)
+      }),
+    refresh: (source) =>
+      T.suspend(() => {
+        tell?.('refreshed')
+        return askNext(source).wait
+      }),
     again: (source) =>
       T.sync(() => {
+        tell?.('again')
         stop()
         load.update((now) => (isGivenUp(now) ? { ...now, step: 'idle' } : now))
         askNext(source)
       }),
-    expire,
+    expire: () => {
+      tell?.('expired')
+      expire()
+    },
     reset: () => {
+      tell?.('reset')
       stop()
       endWaiting()
       expire()
       batch(() => {
         value.set(empty)
         load.set(NOT_ASKED)
+      })
+    },
+    inspect: (heard) => {
+      tell = heard
+      return () => ({
+        running: run !== null,
+        resting: run?.isResting ?? false,
+        queued: next !== null,
+        patches: run?.changes.length ?? 0,
+        attempts: run?.attempts ?? 0,
+        items: sizeOf(value.get()),
       })
     },
   }
@@ -204,7 +237,38 @@ export interface Resource<A> extends Signal<A> {
   readonly expire: () => void
   /** The session ended: ends whatever runs or waits, and leaves it as it was before it was first asked for. */
   readonly reset: () => void
+  /** For developers: tells `heard` of each move, and reads what the machine holds, as counts and never its value. */
+  readonly inspect: (heard: Tell) => () => Inside
 }
+
+/** What happened to a resource; the same word as the call, where a call made it. */
+export type Move =
+  | 'opened'
+  | 'invalidated'
+  | 'refreshed'
+  | 'again'
+  | 'changed'
+  | 'expired'
+  | 'reset'
+  | 'asked'
+  | 'answered'
+  | 'failed'
+  | 'broke'
+
+/** What a resource holds besides its value and its load. */
+export interface Inside {
+  readonly running: boolean
+  /** Between two attempts of a running request. */
+  readonly resting: boolean
+  /** One more request follows the running one. */
+  readonly queued: boolean
+  /** The changes to be made again on the answer of the attempt on its way. */
+  readonly patches: number
+  readonly attempts: number
+  readonly items: number
+}
+
+export type Tell = (move: Move, error?: ApiError) => void
 
 /** How a resource is asked for, and who hears how that went. */
 export interface Source<A> {
@@ -233,6 +297,7 @@ interface Run<A> {
   waiting: Deferred<boolean> | null
   /** Between two attempts, when nothing is on its way. */
   isResting: boolean
+  attempts: number
   interrupt: () => void
 }
 
@@ -241,6 +306,8 @@ type Telling = 'told' | 'quiet'
 
 /** One that was never read and failed stays told until it is read or the person tries again. */
 const isGivenUp = ({ loaded, step }: Load): boolean => !loaded && step === 'failed'
+
+const sizeOf = (held: unknown): number => (Array.isArray(held) ? held.length : 0)
 
 const NOT_ASKED: Load = { loaded: false, step: 'idle', error: null }
 

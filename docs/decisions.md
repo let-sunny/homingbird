@@ -791,6 +791,17 @@ states the decision first, then the reason. Add new entries at the top of their 
   workspace is going is derived from them. Their first request waits for the event stream to open, at most a second:
   one round trip at each opening, for no event sent once being lost between a list and the stream. A reconnect never ends a request on its way, so that a
   stream that comes and goes cannot hold a slow list back; one that hangs ends after its 30 seconds. Threads keep their own rule.
+- **How lists load is shown by a panel that only a development build has, and that is told of nothing by hand.**
+  A list that is slow, asked for twice or failing was debugged by adding prints. The panel derives what it
+  shows: resources from the keys of the state as it was made, routes from the keys of the API, and what a
+  resource holds from its own `inspect`, so a new list or route appears without an edit. It is not a setting and
+  not a server feature: `hbInspect()` sets a flag in one browser. Text can enter its recording only as an own key of
+  an object the code made (`CodeName`) or as one of the protocol's refusal tags, and a type test refuses a field of free text,
+  so no note, name, id, address, token or header gets in (rules 2 and 5); it is kept in the page only and forgotten with
+  the session. A keyed resource would have an id in its path: name it by its key's kind before adding one. Shipping it behind a dynamic
+  import was refused: a release would serve a tool for reading a signed-in page to everyone, for a need that
+  development meets. A release bundle grows by the hook, 146 bytes of gzip, and a test builds it to check that
+  nothing else is in it. A request gets an API of its own while recorded, so that its HTTP status is its own.
 - **A debate room's rules are one pure state machine in `protocol`; Dovecote loads, applies and
   stores.** `stepDebate` and `settleDebateRoom` in `protocol/src/debate-room.ts` take a room's facts
   (who takes part, turns, drafts, votes, limits, time) and return the next stage and the effects to

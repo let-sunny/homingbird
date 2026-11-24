@@ -644,6 +644,10 @@ sequenceDiagram
   a second later serves whatever asked meanwhile. The limit is twice `TOO_LONG_LOAD_SECONDS` and more than double the
   Slow 3G figure above, so it ends requests that hang rather than slow ones; too long is still said at
   15 seconds.
+- **Seeing it.** A development build (`pnpm dev`) can show how lists load: `hbInspect()` in the console turns a panel on
+  in that browser (`CONTRIBUTING.md`). `pwa/src/inspector/` finds each resource in the state and each route in the API by
+  their keys, so a new one needs no entry, and records through the one optional hook of a resource, `inspect`. A
+  release has the hook and nothing else of it.
 - **Reconnecting.** The web client hides the draft previews it holds as soon as it knows its events are
   lost (offline, a stream that ended, broke or was refused) and shows them again only as the server then
   answers; a failed answer keeps them hidden, since a discarded draft's preview must not show (rule 2).

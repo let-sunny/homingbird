@@ -11,6 +11,7 @@ const output = join(here, 'dist')
 const repository = join(here, '..', '..')
 const buildId = Date.now().toString(36)
 const assets = join(repository, 'assets')
+const withInspector = process.argv.includes('--inspector')
 const shared = { bundle: true, minify: true, sourcemap: true, target: 'es2022', logLevel: 'warning' } as const
 
 await rm(output, { recursive: true, force: true })
@@ -33,9 +34,11 @@ const brandFiles: ReadonlyArray<readonly [string, string]> = [
 await Promise.all([
   build({
     ...shared,
-    entryPoints: [join(source, 'main.ts')],
-    outfile: join(output, 'app.js'),
+    entryPoints: { app: join(source, 'main.ts') },
+    outdir: output,
     format: 'esm',
+    splitting: withInspector,
+    define: { WITH_INSPECTOR: String(withInspector) },
   }),
   build({
     ...shared,
@@ -50,6 +53,15 @@ await Promise.all([
     entryPoints: [join(source, 'styles', 'dev-login.css')],
     outfile: join(output, 'dev-login.css'),
   }),
+  ...(withInspector
+    ? [
+        build({
+          ...styles,
+          entryPoints: [join(source, 'styles', 'inspector.css')],
+          outfile: join(output, 'inspector.css'),
+        }),
+      ]
+    : []),
   writeFile(join(output, 'pip.css'), pipStylesheet(pipSheet, '/pip/pip-sheet.png') + turnStylesheet()),
   ...brandFiles.map(([from, to]) => cp(join(assets, from), join(output, to))),
   cp(join(assets, 'fonts', 'pretendard'), join(output, 'fonts', 'pretendard'), { recursive: true }),
