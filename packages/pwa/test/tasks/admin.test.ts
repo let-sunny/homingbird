@@ -29,7 +29,6 @@ describe('administration tasks', () => {
       'admin.members.list': () => ({ members: [member(ANA, 'Ana')] }),
       'admin.members.resetCharacter': () => member(ANA, 'Ana'),
       'directory.list': () => ({ entries: [] }),
-      'contacts.list': () => ({ contacts: [] }),
     })
     await run(tasks.loadSettings)
     await run(tasks.saveSettings({ allowedDomains: [], contactMode: 'open' }))
@@ -41,7 +40,7 @@ describe('administration tasks', () => {
     await run(tasks.updateMember(ANA, { role: 'admin' }))
     expect(await run(tasks.resetMemberCharacter(ANA))).toEqual({ _tag: 'Ok', value: member(ANA, 'Ana') })
     await run(tasks.loadInsights)
-    expect(routes().filter((route) => route !== 'directory.list' && route !== 'contacts.list')).toEqual([
+    expect(routes().filter((route) => route !== 'directory.list')).toEqual([
       'admin.settings.get',
       'admin.settings.put',
       'server.info',

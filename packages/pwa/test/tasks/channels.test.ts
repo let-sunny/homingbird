@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import * as tasks from '../../src/tasks/channels.ts'
-import { fail, testApp } from '../support/app.ts'
+import { fail, settle, testApp } from '../support/app.ts'
 import { BEN, ROOM, TEAM, channel, conversation, group, note } from '../support/fixtures.ts'
 
 const answers = {
   'channels.list': () => ({ channels: [channel('billing')], hasMore: false, cursor: null }),
   'conversations.list': () => ({ conversations: [] }),
   'directory.list': () => ({ entries: [] }),
-  'contacts.list': () => ({ contacts: [] }),
   'channels.create': () => channel('ops'),
   'channels.members.list': () => ({ members: [{ memberId: BEN, manager: true, answering: false }] }),
   'drafts.create': () => note('d1', { conversationId: ROOM }),
@@ -17,14 +16,20 @@ const answers = {
 }
 
 describe('channel tasks', () => {
-  it('loads a page of channels for a query and a cursor', async () => {
-    const { run, sent } = testApp(answers)
-    await run(tasks.loadChannelPage('', null, true))
-    await run(tasks.loadChannelPage('bill', 'next', false))
+  it('opens the first page of the channel list afresh, then asks for what is typed and the page after', async () => {
+    const { run, sent, state } = testApp(answers)
+    state.channelPage.set({ query: 'old', channels: [channel('old')], hasMore: false, cursor: null })
+    await run(tasks.openChannelPage)
+    expect(state.channelPage.get()).toMatchObject({ query: '', channels: [{ slug: 'billing' }] })
+    await run(tasks.loadChannelPage('bill', { ...state.channelPage.get(), cursor: 'next' }))
+    await run(tasks.reloadChannelPage)
+    await settle()
     expect(sent.map((one) => one.request)).toEqual([
       { query: { limit: '20' } },
       { query: { limit: '20', q: 'bill', cursor: 'next' } },
+      { query: { limit: '20', q: 'bill' } },
     ])
+    expect(state.channelPageWish.get()).toEqual({ query: 'bill', after: null })
   })
 
   it('opens a channel and keeps it in the known list after the reload', async () => {
@@ -54,7 +59,7 @@ describe('channel tasks', () => {
     await run(tasks.archiveChannel('billing', null))
     await run(tasks.archiveChannel('billing', 'ops'))
     const changes = routes().filter(
-      (route) => !['channels.list', 'conversations.list', 'directory.list', 'contacts.list'].includes(route),
+      (route) => !['channels.list', 'conversations.list', 'directory.list'].includes(route),
     )
     expect(changes).toEqual([
       'channels.join',

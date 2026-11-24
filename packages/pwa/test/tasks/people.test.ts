@@ -5,7 +5,6 @@ import { ANA, BEN, CY, ROOM, conversation, me, note } from '../support/fixtures.
 
 const answers = {
   'directory.list': () => ({ entries: [] }),
-  'contacts.list': () => ({ contacts: [] }),
   'conversations.create': () => conversation(),
   'search.notes': () => ({ notes: [note('n1')] }),
 }
@@ -83,7 +82,7 @@ describe('people tasks', () => {
       tasks.unblockMember,
     ])
       await run(task(BEN))
-    expect(routes().filter((route) => route !== 'directory.list' && route !== 'contacts.list')).toEqual([
+    expect(routes().filter((route) => route !== 'directory.list')).toEqual([
       'contacts.request',
       'contacts.accept',
       'contacts.remove',

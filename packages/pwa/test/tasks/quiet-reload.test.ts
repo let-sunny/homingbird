@@ -62,7 +62,6 @@ const RELOADS = [
   'conversations.get',
   'conversations.notes',
   'directory.list',
-  'contacts.list',
   'channels.list',
   'channels.agent.get',
   'groups.list',

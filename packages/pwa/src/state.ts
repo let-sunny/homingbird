@@ -8,7 +8,13 @@ import type {
 } from '@homingbird/protocol'
 import { type ReadableSignal, type Signal, batch, derived, isSameData, signal } from '@homingbird/ui'
 import type { Action } from './app.ts'
-import { type Roster, agentMembersOf } from './channels.ts'
+import {
+  type ChannelPageWish,
+  type ListedChannels,
+  NO_CHANNELS_LISTED,
+  type Roster,
+  agentMembersOf,
+} from './channels.ts'
 import { withDraftsAsRead, withReviewsAsRead } from './drafts-read.ts'
 import { HOLD_SECONDS } from './held-decisions.ts'
 import { type Load, type Resource, resource } from './resource.ts'
@@ -21,7 +27,6 @@ export const createState = (hash: string): AppState => {
   const session = signal<AsRead.Me | null | 'loading'>('loading')
   const conversations = resource<ReadonlyArray<AsRead.Conversation>>([])
   const directory = resource<ReadonlyArray<AsRead.DirectoryEntry>>([])
-  const contacts = resource<ReadonlyArray<AsRead.Contact>>([])
   const threads = signal<ReadonlyMap<ConversationId, Thread>>(new Map())
   const draftsRead = signal<ReadonlyMap<NoteId, DraftAsShown>>(new Map())
   const channels = resource<ReadonlyArray<AsRead.Channel>>([])
@@ -39,9 +44,7 @@ export const createState = (hash: string): AppState => {
     (rooms, people) => (people.loaded ? [] : rooms.flatMap((room) => room.participantIds)),
     isSameData,
   )
-  const loads = [conversations, directory, contacts, channels, agentCredentials, draftRequests].map(
-    (one) => one.load,
-  )
+  const loads = [conversations, directory, channels, agentCredentials, draftRequests].map((one) => one.load)
   const reviews = resource<ReadonlyArray<AsRead.Review>>([])
   const reviewsRead = signal<ReadonlyMap<NoteId, DraftAsShown>>(new Map())
   reviews.subscribe((all) => reviewsRead.update((read) => withReviewsAsRead(read, all)))
@@ -56,7 +59,6 @@ export const createState = (hash: string): AppState => {
     stream: signal<StreamStart>('settled'),
     workspace: derived(loads, (...now) => workspaceStep(now)),
     workspaceRefusal: derived(loads, (...now) => workspaceRefusalText(now)),
-    workspaceRestarts: signal(0),
     serverInfo: signal<AsRead.ServerInfo | null>(null),
     branding: signal<Branding>({ name: 'Homingbird', logo: null }),
     route: signal<Route>(parseRoute(hash)),
@@ -66,7 +68,6 @@ export const createState = (hash: string): AppState => {
     draftsRead,
     directory,
     directoryLoaded: isLoaded(directory),
-    contacts,
     connection: signal<Connection>('connecting'),
     notice: signal<Notice | null>(null),
     held: signal<ReadonlyArray<HeldDecision>>([]),
@@ -83,8 +84,9 @@ export const createState = (hash: string): AppState => {
     channelAgents: signal<ReadonlyMap<string, AsRead.ChannelAgent>>(new Map()),
     channelTeaching: signal<ReadonlyMap<string, AsRead.ChannelTeaching | 'failed'>>(new Map()),
     channelsLoaded: isLoaded(channels),
-    groups: signal<ReadonlyArray<AsRead.Group>>([]),
-    groupsLoaded: signal(false),
+    groups: resource<ReadonlyArray<AsRead.Group>>([]),
+    channelPage: resource<ListedChannels>(NO_CHANNELS_LISTED),
+    channelPageWish: signal<ChannelPageWish>({ query: '', after: null }),
     rosters: signal<ReadonlyMap<string, Roster>>(new Map()),
     rostersLoading: new Set(),
     threadsLoading: new Set(),
@@ -102,7 +104,6 @@ export const createState = (hash: string): AppState => {
     interview: signal<AsRead.TeachingInterview | 'failed' | null>(null),
     suggestions: resource<ReadonlyArray<AsRead.DebateSuggestion>>([]),
     debates: resource<ReadonlyArray<AsRead.DebateSummary>>([]),
-    listLoads: { channels: listLoad() },
     shownDebate: signal<AsRead.Debate | 'missing' | null>(null),
     waitingOnly: signal(false),
     members: derived(
@@ -162,8 +163,6 @@ export interface AppState {
   readonly workspace: ReadableSignal<Workspace>
   /** What the server refused the workspace with, when `workspace` is `'failed'` for a reason waiting does not mend. */
   readonly workspaceRefusal: ReadableSignal<string>
-  /** Counts the person's asks to load the workspace afresh. */
-  readonly workspaceRestarts: Signal<number>
   readonly serverInfo: Signal<AsRead.ServerInfo | null>
   readonly branding: Signal<Branding>
   readonly route: Signal<Route>
@@ -175,7 +174,6 @@ export interface AppState {
   readonly draftsRead: Signal<ReadonlyMap<NoteId, DraftAsShown>>
   readonly directory: Resource<ReadonlyArray<AsRead.DirectoryEntry>>
   readonly directoryLoaded: ReadableSignal<boolean>
-  readonly contacts: Resource<ReadonlyArray<AsRead.Contact>>
   readonly connection: Signal<Connection>
   readonly notice: Signal<Notice | null>
   /**
@@ -204,8 +202,11 @@ export interface AppState {
   readonly channelTeaching: Signal<ReadonlyMap<string, AsRead.ChannelTeaching | 'failed'>>
   readonly channelsLoaded: ReadableSignal<boolean>
   /** Every group, as the server shows them to the person; none while the organization has groups off. */
-  readonly groups: Signal<ReadonlyArray<AsRead.Group>>
-  readonly groupsLoaded: Signal<boolean>
+  readonly groups: Resource<ReadonlyArray<AsRead.Group>>
+  /** The channel list as the person searched and paged it; what it holds is what `channelPageWish` asked for. */
+  readonly channelPage: Resource<ListedChannels>
+  /** What the channel list is asked for: the search, and the pages shown before the one on its way. */
+  readonly channelPageWish: Signal<ChannelPageWish>
   /** The members of the channels the person manages, as last loaded, by slug. */
   readonly rosters: Signal<ReadonlyMap<string, Roster>>
   /** Rosters on their way, by slug and member count, so that each is asked for once. */
@@ -233,8 +234,6 @@ export interface AppState {
   /** The short debates the person's agent suggested, each a card until they open the room or answer alone. */
   readonly suggestions: Resource<ReadonlyArray<AsRead.DebateSuggestion>>
   readonly debates: Resource<ReadonlyArray<AsRead.DebateSummary>>
-  /** How the lists that load when their page opens are going, for the words in place of a list that has not come. */
-  readonly listLoads: { readonly [List in ListName]: ListLoad }
   readonly shownDebate: Signal<AsRead.Debate | 'missing' | null>
   /** Whether the conversation list shows only what waits for the person. */
   readonly waitingOnly: Signal<boolean>
@@ -254,18 +253,6 @@ export interface AppState {
 
 /** Loading, slower than usual, too long (with a way to try again), or given up because the server stays away or refused. */
 export type Start = 'loading' | 'slow' | 'long' | 'failed' | 'refused'
-
-/** The lists that load on their own and are no resource, each with its own load. */
-export type ListName = 'channels'
-
-/** A list's first answer: still awaited, awaited too long, or not coming. */
-export type ListStep = 'loading' | 'long' | 'failed'
-
-/** The step of a list's latest load, and how many loads it has started; a load ends when it sees a newer one begin. */
-export interface ListLoad {
-  readonly step: Signal<ListStep>
-  readonly started: Signal<number>
-}
 
 const makeInitial = (held: unknown, initial: unknown): void => {
   if (typeof held !== 'object' || held === null) return
@@ -302,8 +289,6 @@ const unnamed = (id: MemberId): AsRead.Member => ({
 
 const isLoaded = ({ load }: Pick<Resource<unknown>, 'load'>): ReadableSignal<boolean> =>
   derived([load], (now) => now.loaded)
-
-const listLoad = (): ListLoad => ({ step: signal<ListStep>('loading'), started: signal(0) })
 
 /** The same steps for the workspace, which is loaded behind the drawn page; `'loaded'` once it is. */
 export type Workspace = 'loading' | 'slow' | 'long' | 'failed' | 'loaded'

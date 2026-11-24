@@ -22,12 +22,14 @@ import {
   ANA,
   BEN,
   ROOM,
+  TEAM,
   channel,
   conversation,
   credential,
   draft,
   entry,
   everything,
+  group,
   me,
   member,
   serverInfo,
@@ -46,7 +48,6 @@ const review = (id: string): AsRead.Review => ({
 const ROUTES = {
   conversations: 'conversations.list',
   directory: 'directory.list',
-  contacts: 'contacts.list',
   channels: 'channels.list',
   agentCredentials: 'credentials.list',
   draftRequests: 'draftRequests.list',
@@ -54,14 +55,14 @@ const ROUTES = {
   reviews: 'reviews.list',
   suggestions: 'debateSuggestions.list',
   debates: 'debates.list',
-} as const satisfies Record<ResourceKey, string>
+  groups: 'groups.list',
+} as const satisfies Record<Exclude<ResourceKey, 'channelPage'>, string>
 
-const KEYS = Object.keys(ROUTES) as ResourceKey[]
+const KEYS = Object.keys(ROUTES) as Array<keyof typeof ROUTES>
 
 const lists = {
   'conversations.list': () => ({ conversations: [conversation()] }),
   'directory.list': () => ({ entries: [entry(BEN, 'Ben')] }),
-  'contacts.list': () => ({ contacts: [{ memberId: BEN, state: 'accepted', since: 1 }] }),
   'channels.list': () => ({ channels: [channel('billing')], hasMore: false, cursor: null }),
   'credentials.list': () => ({
     credentials: [
@@ -75,6 +76,7 @@ const lists = {
   'reviews.list': () => ({ reviews: [review('note_a')] }),
   'debateSuggestions.list': () => ({ suggestions: [suggestion()] }),
   'debates.list': () => ({ debates: [summary()] }),
+  'groups.list': () => ({ groups: [group(TEAM, { memberIds: [BEN] })] }),
 }
 
 const REQUEST = {
@@ -103,7 +105,6 @@ describe('the resources', () => {
     expect([...routes()].sort()).toEqual(Object.values(ROUTES).sort())
     expect(state.conversations.get()).toEqual([conversation()])
     expect(state.directory.get()).toEqual([entry(BEN, 'Ben')])
-    expect(state.contacts.get()).toEqual([{ memberId: BEN, state: 'accepted', since: 1 }])
     expect(state.channels.get()).toEqual([channel('billing')])
     expect(state.agentCredentials.get().map((one) => one.id)).toEqual(['cred_agent'])
     expect(state.draftRequests.get()).toEqual([REQUEST])
@@ -111,6 +112,7 @@ describe('the resources', () => {
     expect(state.reviews.get()).toEqual([review('note_a')])
     expect(state.suggestions.get()).toEqual([suggestion()])
     expect(state.debates.get()).toEqual([summary()])
+    expect(state.groups.get()).toEqual([group(TEAM, { memberIds: [BEN] })])
     for (const key of KEYS) expect(state[key].load.get().loaded).toBe(true)
   })
 
@@ -122,11 +124,12 @@ describe('the resources', () => {
         channelAgents: false,
         debateSuggestions: false,
         debateRooms: false,
+        groups: false,
       }),
     )
-    await run(open('draftRequests', 'reviews', 'suggestions', 'debates'))
+    await run(open('draftRequests', 'reviews', 'suggestions', 'debates', 'groups'))
     expect(routes()).toEqual([])
-    for (const key of ['draftRequests', 'reviews', 'suggestions', 'debates'] as const) {
+    for (const key of ['draftRequests', 'reviews', 'suggestions', 'debates', 'groups'] as const) {
       expect(state[key].get()).toEqual([])
       expect(state[key].load.get().loaded).toBe(true)
     }
@@ -312,6 +315,65 @@ describe('a list on its way', () => {
     await settle()
     expect(state.directory.get()[0]!.presence.humanOnline).toBe(true)
     expect(state.draftRequests.get()).toEqual([REQUEST])
+  })
+})
+
+describe('the channel list', () => {
+  const found = (...slugs: string[]) => ({
+    channels: slugs.map((slug) => channel(slug)),
+    hasMore: false,
+    cursor: null,
+  })
+  const listedBy = (test: ReturnType<typeof start>) =>
+    test.sent.filter((one) => one.route === 'channels.list').map((one) => one.request)
+
+  it('asks for what the person typed and adds the next page to the pages shown', async () => {
+    const test = start({ 'channels.list': () => ({ ...found('billing'), hasMore: true, cursor: 'next' }) })
+    test.state.channelPageWish.set({ query: 'bill', after: null })
+    await test.run(open('channelPage'))
+    expect(listedBy(test)).toEqual([{ query: { limit: '20', q: 'bill' } }])
+    const first = test.state.channelPage.get()
+    expect(first).toMatchObject({ query: 'bill', hasMore: true, cursor: 'next' })
+    test.state.channelPageWish.set({ query: 'bill', after: first })
+    await test.run(again('channelPage'))
+    await settle()
+    expect(listedBy(test)[1]).toEqual({ query: { limit: '20', q: 'bill', cursor: 'next' } })
+    expect(test.state.channelPage.get().channels.map((one) => one.slug)).toEqual(['billing', 'billing'])
+  })
+
+  it('never shows an answer to what the person typed before what they type now', async () => {
+    const older = hold<unknown>()
+    let asked = 0
+    const { app, run, state } = start({
+      'channels.list': () => (asked++ === 0 ? older.waiting : found('now')),
+    })
+    state.channelPageWish.set({ query: 'a', after: null })
+    app.launch(open('channelPage'))
+    await settle()
+    state.channelPageWish.set({ query: 'ab', after: null })
+    await run(again('channelPage'))
+    older.release(found('then'))
+    await settle()
+    expect(state.channelPage.get()).toMatchObject({ query: 'ab', channels: [{ slug: 'now' }] })
+  })
+
+  it('empties, and tells through its load only, when the person may no longer read it, and is tried again with the others', async () => {
+    let isRefused = false
+    const { run, state } = start({
+      'channels.list': () => (isRefused ? fail({ _tag: 'Forbidden', message: 'no' }) : found('billing')),
+    })
+    await run(open('channelPage'))
+    isRefused = true
+    await run(again('channelPage'))
+    await settle()
+    expect(state.channelPage.get().channels).toEqual([])
+    expect(state.channelPage.load.get()).toMatchObject({ loaded: false, step: 'failed' })
+    expect(state.notice.get()).toBeNull()
+    isRefused = false
+    await run(againWhatIsStuck)
+    await settle()
+    expect(state.channelPage.get().channels).toHaveLength(1)
+    expect(state.channelPage.load.get()).toMatchObject({ loaded: true, step: 'idle' })
   })
 })
 

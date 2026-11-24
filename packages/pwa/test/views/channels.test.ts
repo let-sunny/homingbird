@@ -1,6 +1,7 @@
 import { lifetime } from '@homingbird/ui'
-import { fire, getByRole, getByText, queryByRole, textOf } from '@homingbird/ui/testing'
+import { allByRole, fire, getByRole, getByText, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
+import type { AppState } from '../../src/state.ts'
 import { strings } from '../../src/strings.ts'
 import { channelView, channelsView } from '../../src/views/channels.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
@@ -17,62 +18,61 @@ const page = (channels: ReturnType<typeof channel>[], hasMore = false) => ({
   cursor: hasMore ? 'next' : null,
 })
 
+const listed = (state: AppState, found: ReturnType<typeof page>, query = ''): void => {
+  state.channelPage.set({ query, ...found })
+  setLoad(state.channelPage, { loaded: true })
+}
+
 describe('channelsView', () => {
-  it('loads a page of channels, invites the first one, and searches what is typed', () => {
+  it('opens the first page, invites the first channel, and searches what is typed', () => {
     const { context, called } = testContext()
     const shown = channelsView(context, lifetime())
+    expect(called('openChannelPage')).toHaveLength(1)
     expect(textOf(shown)).toContain(strings.checking.channels)
     expect(textOf(shown)).not.toContain(strings.noChannelsYet)
-    called('loadChannelPage')[0]!.then!.done!(page([]))
+    listed(context.state, page([]))
     expect(textOf(shown)).toContain(strings.noChannelsYet)
     fire.type(getByRole(shown, 'searchbox'), ' bill ')
-    const [, search] = called('loadChannelPage')
-    expect(search!.args).toEqual(['bill', null, false])
-    called('loadChannelPage')[0]!.then!.done!(page([channel('stale')]))
-    expect(textOf(shown)).toContain(strings.noChannelsYet)
-    search!.then!.done!(page([]))
+    expect(called('loadChannelPage')[0]!.args).toEqual(['bill', null])
+    listed(context.state, page([]), 'bill')
     expect(textOf(shown)).toContain(strings.noChannels)
   })
 
-  it('says it is taking too long or failed in place of the list, and Try again loads the first page again', () => {
+  it('says it is taking too long or failed in place of the list, and Try again loads the typed page again', () => {
     const { context, called } = testContext()
     const shown = mount(channelsView(context, lifetime()))
-    context.state.listLoads.channels.step.set('long')
+    setLoad(context.state.channelPage, { step: 'long' })
     expect(textOf(shown)).toContain(strings.firstLoad.tooLong)
     expect(textOf(shown)).not.toContain(strings.noChannelsYet)
+    context.state.channelPageWish.set({ query: 'bill', after: null })
     getByRole(shown, 'button', { name: strings.tryAgain }).click()
-    expect(called('loadChannelPage')).toHaveLength(2)
-    expect(called('loadChannelPage')[1]!.args).toEqual(['', null, true])
-    context.state.listLoads.channels.step.set('failed')
+    expect(called('loadChannelPage')[0]!.args).toEqual(['bill', null])
+    setLoad(context.state.channelPage, { step: 'failed' })
     expect(textOf(shown)).toContain(strings.loadFailed)
-    called('loadChannelPage')[1]!.then!.done!(page([]))
+    expect(allByRole(shown, 'button', { name: strings.tryAgain })).toHaveLength(1)
+    listed(context.state, page([]))
     expect(textOf(shown)).toContain(strings.noChannelsYet)
     expect(queryByRole(shown, 'button', { name: strings.tryAgain })).toBeNull()
   })
 
-  it('says nothing of its own while the line above offers to try again, which loads the list again too', () => {
-    const { context, called } = testContext()
+  it('says nothing of its own while the line above offers to try again', () => {
+    const { context } = testContext()
     const shown = mount(channelsView(context, lifetime()))
-    context.state.listLoads.channels.step.set('long')
+    setLoad(context.state.channelPage, { step: 'long' })
     for (const workspace of ['long', 'failed'] as const) {
       setWorkspace(context.state, workspace)
       expect(textOf(shown)).not.toContain(strings.firstLoad.tooLong)
       expect(textOf(shown)).not.toContain(strings.noChannelsYet)
       expect(queryByRole(shown, 'button', { name: strings.tryAgain })).toBeNull()
     }
-    context.state.workspaceRestarts.update((count) => count + 1)
-    expect(called('loadChannelPage')).toHaveLength(2)
     setWorkspace(context.state, 'loaded')
     expect(textOf(shown)).toContain(strings.firstLoad.tooLong)
-    called('loadChannelPage')[1]!.then!.done!(page([]))
-    context.state.workspaceRestarts.update((count) => count + 1)
-    expect(called('loadChannelPage')).toHaveLength(2)
   })
 
   it('shows each card, the hint for the only channel, more on request, and joins one', () => {
     const { context, called } = testContext()
     const shown = mount(channelsView(context, lifetime()))
-    called('loadChannelPage')[0]!.then!.done!(page([channel('billing')]))
+    listed(context.state, page([channel('billing')]))
     expect(textOf(shown)).toContain(strings.onlyOneChannel)
     expect(getByRole(shown, 'link', { name: '#billing' }).getAttribute('href')).toBe('#/channel/billing')
     getByRole(shown, 'button', { name: strings.join }).click()
@@ -85,10 +85,10 @@ describe('channelsView', () => {
     getByRole(menu, 'menuitem', { name: strings.joinAndAnswer }).click()
     expect(menu.matches(':popover-open')).toBe(false)
     expect(called('joinChannel')[1]!.args).toEqual(['billing', true])
-    called('loadChannelPage')[0]!.then!.done!(page([channel('billing')], true))
+    listed(context.state, page([channel('billing')], true))
     getByRole(shown, 'button', { name: strings.showMoreChannels }).click()
-    expect(called('loadChannelPage')[1]!.args).toEqual(['', 'next', false])
-    called('loadChannelPage')[1]!.then!.done!(page([channel('ops', { joined: true })]))
+    expect(called('loadChannelPage')[0]!.args).toEqual(['', context.state.channelPage.get()])
+    listed(context.state, page([channel('billing'), channel('ops', { joined: true })]))
     expect(getByRole(shown, 'link', { name: '#ops' })).toBeTruthy()
   })
 
@@ -96,11 +96,11 @@ describe('channelsView', () => {
     const { context, called } = testContext()
     const shown = channelsView(context, lifetime())
     context.state.channels.set([channel('billing')])
-    expect(called('loadChannelPage')).toHaveLength(2)
+    expect(called('reloadChannelPage')).toHaveLength(1)
     const many = Array.from({ length: 21 }, (_, index) => channel(`c${index}`))
-    called('loadChannelPage')[1]!.then!.done!(page(many))
+    listed(context.state, page(many))
     context.state.channels.set([channel('c0', { description: 'Renamed' })])
-    expect(called('loadChannelPage')).toHaveLength(2)
+    expect(called('reloadChannelPage')).toHaveLength(1)
     expect(getByText(shown, 'Renamed')).toBeTruthy()
   })
 
@@ -180,7 +180,7 @@ describe('channelView', () => {
       channelView(context, lifetime(), 'billing').querySelector('.answering-agent-note')?.textContent,
     ).toBe(note)
     const list = channelsView(context, lifetime())
-    called('loadChannelPage').at(-1)!.then!.done!(page([billing]))
+    listed(context.state, page([billing]))
     expect(list.querySelector('[data-slug="billing"] .answering-agent-note')?.textContent).toBe(note)
   })
 

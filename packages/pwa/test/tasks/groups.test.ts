@@ -1,6 +1,7 @@
 import { NotFound } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import * as tasks from '../../src/tasks/groups.ts'
+import { open } from '../../src/tasks/resources.ts'
 import { fail, testApp } from '../support/app.ts'
 import { BEN, CY, TEAM, channel, entry, group, serverInfo } from '../support/fixtures.ts'
 
@@ -16,21 +17,21 @@ const answers = {
 describe('group tasks', () => {
   it('keeps every group the person may see', async () => {
     const { run, state } = testApp(answers)
-    await run(tasks.loadGroups)
+    await run(open('groups'))
     expect(state.groups.get()).toEqual([group(TEAM, { memberIds: [BEN] })])
-    expect(state.groupsLoaded.get()).toBe(true)
+    expect(state.groups.load.get().loaded).toBe(true)
   })
 
   it('asks for no group while the organization has groups off, or the server has none', async () => {
     const off = testApp(answers)
     off.state.serverInfo.set(serverInfo())
-    await off.run(tasks.loadGroups)
+    await off.run(open('groups'))
     expect(off.routes()).toEqual([])
-    expect(off.state.groupsLoaded.get()).toBe(true)
+    expect(off.state.groups.load.get().loaded).toBe(true)
     const missing = testApp({ 'groups.list': () => fail(NotFound({ message: 'Not found' })) })
-    await missing.run(tasks.loadGroups)
+    await missing.run(open('groups'))
     expect(missing.state.groups.get()).toEqual([])
-    expect(missing.state.groupsLoaded.get()).toBe(true)
+    expect(missing.state.groups.load.get().loaded).toBe(true)
   })
 
   it('renames, sets the members, and deletes a group, then reloads the groups and channels', async () => {

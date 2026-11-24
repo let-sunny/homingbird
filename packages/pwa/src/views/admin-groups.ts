@@ -1,6 +1,6 @@
 import { type AsRead, GROUP_NAME_MAX } from '@homingbird/protocol'
 import type { MemberId } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
+import { type Child, type Lifetime, h, region, signal, slice } from '@homingbird/ui'
 import {
   type AdminGroupModel,
   type AdminGroupRow,
@@ -12,27 +12,24 @@ import {
   importModel,
 } from '../models/admin-groups.ts'
 import { groupNameFrom } from '../models/group-page.ts'
+import { firstAnswersStep } from '../models/start.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { groupEditor, loadedGroup } from './group-page.ts'
-import { dialogActions, empty, field, loadFailed, loading } from './parts.ts'
+import { dialogActions, empty, field, listWait, loading } from './parts.ts'
 
 /** Administration → Groups: every team, each opening its editor, and creating one. */
 export const adminGroupsSection = (context: ViewContext, life: Lifetime): HTMLElement => {
   const { state, actions } = context
-  const failed = signal(false)
-  const load = (): void => {
-    failed.set(false)
-    actions.loadGroups({ failed: () => failed.set(true) })
-  }
-  load()
-  return region(life, [state.groups, state.groupsLoaded, failed], () =>
+  actions.loadGroups()
+  const awaited = slice([state.groups.load], () => firstAnswersStep([state.groups.load.get()]))
+  return region(life, [state.groups, awaited, state.workspace], () =>
     renderAdminGroups(
-      adminGroupsModel(state.groups.get(), state.groupsLoaded.get(), failed.get()),
+      adminGroupsModel(state.groups.get(), awaited.get(), state.workspace.get()),
       context,
-      load,
+      actions.loadGroupsAgain,
     ),
   )
 }
@@ -54,8 +51,7 @@ export const adminGroupEditor = (
 }
 
 const renderAdminGroups = (model: AdminGroupsModel, context: ViewContext, retry: () => void): Child => {
-  if (model.kind === 'loading') return loading()
-  if (model.kind === 'failed') return loadFailed(retry)
+  if (model.kind === 'waiting') return listWait(model.wait, retry)
   return [
     h(
       'div',
@@ -90,14 +86,7 @@ const groupRow = (row: AdminGroupRow): HTMLElement =>
 const renderAdminGroup = (model: AdminGroupModel, context: ViewContext, retry: () => void): Child => {
   const back = h('a', { class: 'admin-group-back', href: model.back.href }, `← ${model.back.label}`)
   if (model.kind !== 'group')
-    return [
-      back,
-      model.kind === 'loading'
-        ? loading()
-        : model.kind === 'failed'
-          ? loadFailed(retry)
-          : empty(strings.notFound),
-    ]
+    return [back, model.kind === 'waiting' ? listWait(model.wait, retry) : empty(strings.notFound)]
   const group = model.page.group
   return [
     back,

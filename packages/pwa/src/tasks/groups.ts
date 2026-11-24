@@ -1,23 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
 import { type AsRead, type GroupId, Invalid, type MemberId } from '@homingbird/protocol'
 import { type Action, type App, withApp } from '../app.ts'
-import { featureOn } from '../features.ts'
-import { reloadQuietly } from './quiet-reload.ts'
 import { reread } from './resources.ts'
-
-/** Every group the person may see, kept in state; none while the organization has groups off. */
-export const loadGroups: Action<ReadonlyArray<AsRead.Group>> = withApp(({ api, state }) => {
-  const keep = (groups: ReadonlyArray<AsRead.Group>): ReadonlyArray<AsRead.Group> => {
-    state.groups.set(groups)
-    state.groupsLoaded.set(true)
-    return groups
-  }
-  return featureOn('groups', state.serverInfo.get())
-    ? T.map((listed: { groups: ReadonlyArray<AsRead.Group> }) => keep(listed.groups))(
-        T.catchTag('NotFound', () => T.succeed({ groups: [] as AsRead.Group[] }))(api['groups.list']({})),
-      )
-    : T.sync(() => keep([]))
-})
 
 export const renameGroup = (id: GroupId, name: string): Action =>
   withApp(({ api }) =>
@@ -36,7 +20,7 @@ export const createGroup = (name: string): Action<AsRead.Group> =>
   T.gen(function* () {
     const { api } = yield* T.ask<App>()
     const created = yield* api['admin.groups.create']({ body: { name } })
-    yield* reloadQuietly(T.asUnit(loadGroups))
+    yield* reread('groups')
     return created
   })
 
@@ -61,6 +45,4 @@ export const readImportFile = (file: Blob): Action<string> =>
   )
 
 /** A group's change can change who manages, and so who is in, its channels. */
-const afterGroupChange: Action = T.suspend(() =>
-  T.asUnit(T.all([reloadQuietly(T.asUnit(loadGroups)), reread('channels')])),
-)
+const afterGroupChange: Action = reread('groups', 'channels')

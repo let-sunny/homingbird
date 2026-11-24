@@ -38,7 +38,6 @@ const withStreams = (
 const empty = {
   'conversations.list': () => ({ conversations: [] }),
   'directory.list': () => ({ entries: [] }),
-  'contacts.list': () => ({ contacts: [] }),
   'draftRequests.list': () => ({ requests: [] }),
   'credentials.list': () => ({ credentials: [] }),
   'channels.list': () => ({ channels: [], hasMore: false, cursor: null }),
@@ -300,7 +299,7 @@ describe('boot', () => {
         ...empty,
         'server.info': () => everything(),
         'me.get': () => me(),
-        'contacts.list': () => (recovered ? { contacts: [] } : refusal),
+        'credentials.list': () => (recovered ? { credentials: [] } : refusal),
       })
       const streams = withStreams(out)
       const sessions: unknown[] = []
@@ -456,8 +455,7 @@ describe('boot', () => {
           'debates.list',
         ])
           expect(times(route), route).toBe(2)
-        for (const route of ['contacts.list', 'draftRequests.list', 'inbox.list'])
-          expect(times(route), route).toBe(1)
+        for (const route of ['draftRequests.list', 'inbox.list']) expect(times(route), route).toBe(1)
         expect(out.routes().filter((route) => route === 'me.get')).toHaveLength(1)
         out.app.endSession()
       })
@@ -515,20 +513,20 @@ describe('boot', () => {
 
     it('loads the failed workspace on online and on Try again, and does not call a refusal a lost connection', async () => {
       const { out, streams, running, recover } = await failingWorkspace(
-        fail({ _tag: 'Forbidden', message: 'No contacts for you.' }),
+        fail({ _tag: 'Forbidden', message: 'No agents for you.' }),
         0,
       )
       await settle()
-      expect(out.routes().filter((route) => route === 'contacts.list')).toHaveLength(1)
+      expect(out.routes().filter((route) => route === 'credentials.list')).toHaveLength(1)
       expect(out.state.workspace.get()).toBe('failed')
       expect(out.state.workspaceRefusal.get()).not.toBe('')
       expect(out.state.workspaceRefusal.get()).not.toBe(strings.firstLoad.failed)
       expect(streams()).toBe(1)
       await out.clock.advance(QUIET_RETRY_MS * 3)
-      expect(out.routes().filter((route) => route === 'contacts.list')).toHaveLength(1)
+      expect(out.routes().filter((route) => route === 'credentials.list')).toHaveLength(1)
       await out.run(startAgain)
       await settle()
-      expect(out.routes().filter((route) => route === 'contacts.list')).toHaveLength(2)
+      expect(out.routes().filter((route) => route === 'credentials.list')).toHaveLength(2)
       recover()
       out.page.emit('online')
       await running

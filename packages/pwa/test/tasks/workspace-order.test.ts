@@ -41,7 +41,6 @@ const HALL = CHANNEL.conversationId
 interface Held {
   readonly rooms: ReadonlyArray<AsRead.Conversation>
   readonly entries: ReadonlyArray<AsRead.DirectoryEntry>
-  readonly contacts: ReadonlyArray<AsRead.Contact>
   readonly channels: ReadonlyArray<AsRead.Channel>
   readonly requests: ReadonlyArray<DraftRequest>
   readonly notes: ReadonlyArray<AsRead.Note>
@@ -83,7 +82,6 @@ const setUp = () => {
       conversation({ id: HALL, kind: 'channel', title: 'billing' }),
     ],
     entries: [entry(BEN, 'Ben', { relation: 'contact' }), entry(CY, 'Cy', { relation: 'contact' })],
-    contacts: [BEN, CY].map((memberId) => ({ memberId, state: 'accepted' as const, since: 1 })),
     channels: [{ ...CHANNEL, joined: true }],
     requests: [],
     notes: [note('n0', { receipts: [receiptOf(1)] })],
@@ -107,7 +105,6 @@ const setUp = () => {
     ...Object.fromEntries([
       list('conversations.list', () => ({ conversations: held.rooms })),
       list('directory.list', () => ({ entries: held.entries })),
-      list('contacts.list', () => ({ contacts: held.contacts })),
       list('channels.list', () => ({ channels: held.channels })),
       list('credentials.list', () => ({ credentials: [] })),
       list('draftRequests.list', () => ({ requests: held.requests })),
@@ -214,7 +211,6 @@ const setUp = () => {
     contactRemoved: () => {
       held = {
         ...held,
-        contacts: held.contacts.filter((one) => one.memberId !== CY),
         entries: held.entries.map((one) => (one.member.id === CY ? { ...one, relation: 'none' } : one)),
       }
       emit({ type: 'contact.changed', memberId: CY })
@@ -431,7 +427,6 @@ describe('the workspace, whatever the order of events, actions and answers', () 
             roomsOf(server.rooms),
           )
           expect(state.directory.get(), 'names, presence and relations').toEqual(server.entries)
-          expect(state.contacts.get(), 'contacts').toEqual(server.contacts)
           expect(state.channels.get(), 'channels').toEqual(server.channels)
           expect(state.draftRequests.get(), 'draft requests').toEqual(server.requests)
           const thread = state.threads.get().get(ROOM)

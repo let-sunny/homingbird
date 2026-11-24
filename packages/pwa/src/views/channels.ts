@@ -1,24 +1,22 @@
 import { CHANNEL_DESCRIPTION_MAX, NOTE_BODY_MAX } from '@homingbird/protocol'
 import type { AsRead, GroupId } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, region, replaceChildren, signal } from '@homingbird/ui'
-import { channelNamed, slugFrom } from '../channels.ts'
+import { type Child, type Lifetime, h, region, replaceChildren, signal, slice } from '@homingbird/ui'
+import { CHANNEL_PAGE, channelNamed, slugFrom } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import {
   type ChannelCard,
   type ChannelListModel,
-  type ListedChannels,
   askPageModel,
   channelListModel,
   joinedRoom,
   listAfterChange,
   nameCheck,
   slugToCreate,
-  withPage,
 } from '../models/channels.ts'
+import { firstAnswersStep } from '../models/start.ts'
 import { hrefFor } from '../routes.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
-import { CHANNEL_PAGE } from '../tasks/channels.ts'
 import { agentAsk } from './agent-ask.ts'
 import { joinButtons, privateMark, roomControls } from './channel-membership.ts'
 import type { ViewContext } from './context.ts'
@@ -41,24 +39,13 @@ import {
 export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement => {
   const { state, actions } = context
   actions.loadKnownChannels()
-  const query = signal('')
-  const listed = signal<ListedChannels>({
-    query: '',
-    channels: [],
-    hasMore: false,
-    cursor: null,
-    loaded: false,
-  })
-  const load = (typed: string, after: ListedChannels | null): void =>
-    actions.loadChannelPage(typed, after?.cursor ?? null, !listed.get().loaded, {
-      done: (found) => {
-        if (query.get() === typed) listed.set(withPage(after, typed, found))
-      },
-    })
+  actions.openChannelPage()
+  const listed = state.channelPage
+  const awaited = slice([listed.load], () => firstAnswersStep([listed.load.get()]))
   life.add(
     state.channels.subscribe((known) => {
       const next = listAfterChange(listed.get(), known, CHANNEL_PAGE)
-      if (next === 'reload') load(query.get(), null)
+      if (next === 'reload') actions.reloadChannelPage()
       else listed.set(next)
     }),
   )
@@ -68,28 +55,20 @@ export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement 
     placeholder: strings.channelsSearchPlaceholder,
     on: {
       input: () => {
-        const typed = search.value.trim()
-        query.set(typed)
-        load(typed, null)
+        actions.loadChannelPage(search.value.trim(), null)
       },
     },
   })
-  load('', null)
-  life.add(
-    state.workspaceRestarts.subscribe(() => {
-      if (!listed.get().loaded) load(query.get(), null)
-    }),
-  )
   return page(
     strings.channels,
     h('div', { class: 'channels-intro' }, h('p', {}, strings.channelsIntro), newChannelButton(context)),
     field(strings.channelsSearchLabel, search),
-    region(life, [listed, state.listLoads.channels.step, state.workspace], () =>
+    region(life, [listed, awaited, state.workspace], () =>
       renderChannelList(
-        channelListModel(listed.get(), state.listLoads.channels.step.get(), state.workspace.get()),
+        channelListModel(listed.get(), awaited.get(), state.workspace.get()),
         context,
-        () => load(listed.get().query, listed.get()),
-        () => load(query.get(), null),
+        () => actions.loadChannelPage(listed.get().query, listed.get()),
+        () => actions.loadChannelPage(state.channelPageWish.get().query, null),
       ),
     ),
   )

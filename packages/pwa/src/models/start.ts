@@ -1,6 +1,6 @@
 import { USUAL_LOAD_SECONDS } from '../load-timing.ts'
 import type { Load } from '../resource.ts'
-import type { ListStep, Start, Workspace } from '../state.ts'
+import type { Start, Workspace } from '../state.ts'
 import { strings } from '../strings.ts'
 import type { PipState } from '../views/pip.ts'
 
@@ -51,6 +51,9 @@ export const firstAnswersStep = (loads: ReadonlyArray<Load>): ListStep | null =>
 
 /** Whether the line above the lists says the load is slow or failed, so that no list says it again. */
 const isToldAbove = (workspace: Workspace): boolean => workspace === 'long' || workspace === 'failed'
+
+/** A list's first answer: still awaited, awaited too long, or not coming. */
+export type ListStep = 'loading' | 'long' | 'failed'
 
 export type ListWait =
   | { readonly kind: 'told-above' }

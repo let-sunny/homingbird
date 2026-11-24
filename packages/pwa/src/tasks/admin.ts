@@ -45,7 +45,7 @@ export const resetMemberCharacter = (memberId: MemberId): Action<AsRead.Member> 
   T.gen(function* () {
     const { api } = yield* T.ask<App>()
     const member = yield* api['admin.members.resetCharacter']({ params: { id: memberId } })
-    yield* reread('directory', 'contacts')
+    yield* reread('directory')
     return member
   })
 

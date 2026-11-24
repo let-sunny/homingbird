@@ -7,6 +7,7 @@ import { groupPageView } from '../../src/views/group-page.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import { ANA, BEN, CY, ROOM, TEAM, conversation, entry, group } from '../support/fixtures.ts'
+import { setLoad } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -15,10 +16,11 @@ describe('groupPageView', () => {
     const { context, called } = testContext()
     const shown = groupPageView(context, lifetime(), ANA, TEAM)
     expect(textOf(shown)).toContain(strings.loading)
-    called('loadGroups')[0]!.then!.failed!({ _tag: 'Unavailable', message: 'down' })
+    expect(called('loadGroups')).toHaveLength(1)
+    setLoad(context.state.groups, { step: 'failed' })
     getByRole(shown, 'button', { name: strings.tryAgain }).click()
-    expect(called('loadGroups')).toHaveLength(2)
-    context.state.groupsLoaded.set(true)
+    expect(called('loadGroupsAgain')).toHaveLength(1)
+    setLoad(context.state.groups, { loaded: true })
     expect(textOf(shown)).toContain(strings.notFound)
   })
 
@@ -26,7 +28,7 @@ describe('groupPageView', () => {
     const { context } = testContext()
     context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben')])
     context.state.groups.set([group(TEAM, { name: 'Finance', memberIds: [ANA, BEN] })])
-    context.state.groupsLoaded.set(true)
+    setLoad(context.state.groups, { loaded: true })
     const shown = groupPageView(context, lifetime(), ANA, TEAM)
     expect(getByRole(shown, 'heading', { name: 'Finance' })).toBeTruthy()
     expect(textOf(shown)).toContain(strings.groups.membersOf({ group: 'Finance' }))
@@ -43,7 +45,7 @@ describe('groupPageView', () => {
     context.state.groups.set([
       group(TEAM, { name: 'Finance', memberIds: [ANA, BEN], mayAdd: true, mayRemove: true }),
     ])
-    context.state.groupsLoaded.set(true)
+    setLoad(context.state.groups, { loaded: true })
     const shown = mount(groupPageView(context, lifetime(), ANA, TEAM))
     const ben = shown.querySelector(`[data-member-id="${BEN}"]`) as HTMLElement
     getByRole(ben, 'button', { name: strings.removeMember }).click()
@@ -71,7 +73,7 @@ describe('groupPageView', () => {
     const { context } = testContext()
     context.state.directory.set([entry(BEN, 'Ben'), entry(CY, 'Cy')])
     context.state.groups.set([group(TEAM, { memberIds: [BEN], mayRemove: true })])
-    context.state.groupsLoaded.set(true)
+    setLoad(context.state.groups, { loaded: true })
     const shown = groupPageView(context, lifetime(), CY, TEAM)
     expect(getByRole(shown, 'button', { name: strings.removeMember })).toBeTruthy()
     expect(shown.querySelector('form.add-member')).toBeNull()
@@ -83,7 +85,7 @@ describe('groupPageView', () => {
     const { context, called } = testContext()
     context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben'), entry(CY, 'Cy')])
     context.state.groups.set([group(TEAM, { name: 'Finance', memberIds: [ANA, BEN, CY] })])
-    context.state.groupsLoaded.set(true)
+    setLoad(context.state.groups, { loaded: true })
     const shown = groupPageView(context, lifetime(), ANA, TEAM)
     expect(called('loadPeople')).toHaveLength(1)
     const ana = shown.querySelector(`[data-member-id="${ANA}"]`) as HTMLElement
