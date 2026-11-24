@@ -197,6 +197,7 @@ export const TASKS = {
   resetMemberCharacter: admin.resetMemberCharacter,
   loadInsights: () => admin.loadInsights,
   loadDebates: () => debates.loadDebates,
+  loadDebateList: () => debates.loadDebateList,
   loadDebate: debates.loadDebate,
   createDebate: debates.createDebate,
   createSchedulingRoom: debates.createSchedulingRoom,

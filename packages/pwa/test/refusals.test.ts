@@ -1,6 +1,6 @@
 import { type ApiError, SLACK_THREAD_MOVED } from '@homingbird/protocol'
 import { afterEach, describe, expect, it } from 'vitest'
-import { refusalText } from '../src/refusals.ts'
+import { firstScreenRefusal, refusalText } from '../src/refusals.ts'
 import { strings, useLanguage } from '../src/strings.ts'
 
 const conflict = (message: string): ApiError => ({ _tag: 'Conflict', message })
@@ -89,5 +89,38 @@ describe('refusalText', () => {
       expect(refusalText(conflict(message), 'meeting')).toBe(strings.refusals.meetingNotNow)
     useLanguage('ko')
     expect(refusalText(conflict('x'), 'meeting')).toBe(strings.refusals.meetingNotNow)
+  })
+})
+
+describe('firstScreenRefusal', () => {
+  afterEach(() => useLanguage('en'))
+
+  it('keeps the server’s English words only in English and only when they say more than the status', () => {
+    expect(firstScreenRefusal({ _tag: 'Forbidden', message: 'This account may not use this server.' })).toBe(
+      'This account may not use this server.',
+    )
+    expect(firstScreenRefusal({ _tag: 'Forbidden', message: 'Forbidden' })).toBe(
+      strings.firstLoad.refused.Forbidden,
+    )
+    expect(firstScreenRefusal({ _tag: 'NotFound', message: ' not found. ' })).toBe(
+      strings.firstLoad.refused.NotFound,
+    )
+    expect(firstScreenRefusal({ _tag: 'Invalid', message: '' })).toBe(strings.firstLoad.refused.Invalid)
+  })
+
+  it('speaks in the page’s language for each kind of refusal', () => {
+    useLanguage('ko')
+    for (const tag of ['Forbidden', 'NotFound', 'Invalid', 'Conflict'] as const)
+      expect(firstScreenRefusal({ _tag: tag, message: 'The server’s English words.' })).toBe(
+        strings.firstLoad.refused[tag],
+      )
+    expect(firstScreenRefusal({ _tag: 'Forbidden', message: 'x' })).toBe(
+      '이 서버를 쓸 권한이 없어요. 관리자에게 물어보세요.',
+    )
+  })
+
+  it('leaves the kinds that are not a refusal of this page to the usual words', () => {
+    useLanguage('ko')
+    expect(firstScreenRefusal({ _tag: 'Unavailable', message: 'down' })).toBe(strings.errors.Unavailable)
   })
 })

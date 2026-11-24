@@ -4,8 +4,8 @@ import { trackSignIn } from '../analytics.ts'
 import { type Action, type App, withApp } from '../app.ts'
 import { keptComposerTexts } from '../composer-texts.ts'
 import { preferredLanguage } from '../languages.ts'
-import { QUIET_RETRY_SECONDS } from '../load-timing.ts'
-import { refusalText } from '../refusals.ts'
+import { QUIET_RETRY_SECONDS, TOO_LONG_LOAD_SECONDS } from '../load-timing.ts'
+import { firstScreenRefusal, refusalText } from '../refusals.ts'
 import { strings, useLanguage } from '../strings.ts'
 import { followEvents, latestEvent } from './events.ts'
 import { reportUnsettled } from './held.ts'
@@ -97,15 +97,16 @@ const identify: Action<Known> = T.gen(function* () {
  * and then offers to try again while it goes on; Try again ends it and loads afresh. One that failed after
  * its repeats stays told until a load works: it loads again when the network is back and, for a server that was
  * away, every so often. Live events start once the load is done or has taken too long, never before: events that
- * arrive during a load would be overwritten by its older answers.
+ * arrive during a load would be overwritten by its older answers. A load that finishes with events already live
+ * is loaded once more, quietly, which starts after those events and so ends the state current.
  */
 const keepLoadingWorkspace = (after: number): Action =>
   T.gen(function* () {
     const { state } = yield* T.ask<App>()
-    let live = false
+    const events = { live: false }
     const startLive: Action = T.suspend(() => {
-      if (live) return T.unit
-      live = true
+      if (events.live) return T.unit
+      events.live = true
       return T.gen(function* () {
         yield* trackSignIn
         yield* followEvents(after)
@@ -130,8 +131,10 @@ const keepLoadingWorkspace = (after: number): Action =>
         continue
       }
       if (attempt._tag === 'Ok') {
+        const mayBeOlderThanEvents = events.live
         state.workspace.set('loaded')
         yield* startLive
+        if (mayBeOlderThanEvents) yield* loadAgainQuietly
         yield* T.result(reportUnsettled)
         return
       }
@@ -149,6 +152,9 @@ const keepLoadingWorkspace = (after: number): Action =>
       quiet = woken === 'quiet'
     }
   })
+
+/** One more load that says nothing and gives up quietly: what the first one showed stays if this one fails. */
+const loadAgainQuietly: Action = T.asUnit(T.result(T.timeout(TOO_LONG_LOAD_SECONDS * 1000)(loadWorkspace)))
 
 const quietRetryTimer: Action<'quiet'> = T.map(() => 'quiet' as const)(T.sleep(QUIET_RETRY_SECONDS * 1000))
 
@@ -176,7 +182,7 @@ const giveUp = (error: ApiError): Action =>
     T.sync(() => {
       if (error._tag === 'Unauthorized') return state.session.set(null)
       if (isTransient(error)) return state.start.set('failed')
-      state.startRefusal.set(refusalText(error))
+      state.startRefusal.set(firstScreenRefusal(error))
       state.start.set('refused')
     }),
   )

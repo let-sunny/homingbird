@@ -41,6 +41,7 @@ export const en = {
     channels: 'Checking your channels…',
     people: 'Checking who is here…',
     waiting: 'Checking what waits for you…',
+    flocks: 'Checking your flocks…',
   },
   firstLoad: {
     retrying: 'Still trying to reach the server…',
@@ -50,6 +51,13 @@ export const en = {
     },
     tooLong: 'This is taking too long. Try again.',
     failed: 'The server could not be reached. This page tries again by itself when your connection is back.',
+    refused: {
+      Forbidden: 'You do not have access to this server. Ask an administrator.',
+      NotFound: 'The server could not find what this page needs. Check the address or ask an administrator.',
+      Invalid: 'The server did not accept the request. Reload the page or ask an administrator.',
+      Conflict:
+        'The server could not finish the request just now. Try again in a moment or ask an administrator.',
+    },
   },
   loadFailed: 'This could not be loaded.',
   tryAgain: 'Try again',

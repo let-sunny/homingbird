@@ -8,14 +8,42 @@ import { ANA, BEN, CY, entry, summary } from '../support/fixtures.ts'
 const awake = { humanOnline: false, agentOnline: true }
 
 describe('debateListModel', () => {
+  it('says it is taking too long or could not load, with Try again, and never says none before the list came', () => {
+    const input = { debates: [], loaded: false, directory: [], now: 0, schedulingOn: false } as const
+    expect(debateListModel({ ...input, step: 'long' })).toEqual({
+      kind: 'waiting',
+      wait: { kind: 'long', text: strings.firstLoad.tooLong, retry: strings.tryAgain },
+    })
+    expect(debateListModel({ ...input, step: 'failed' })).toEqual({
+      kind: 'waiting',
+      wait: { kind: 'failed', text: strings.loadFailed, retry: strings.tryAgain },
+    })
+    expect(debateListModel({ ...input, loaded: true, step: 'failed' }).kind).toBe('empty')
+  })
+
   it('waits for the flocks and says when there are none', () => {
     expect(
-      debateListModel({ debates: [], loaded: false, directory: [], now: 0, schedulingOn: false }),
+      debateListModel({
+        debates: [],
+        loaded: false,
+        step: 'loading',
+        directory: [],
+        now: 0,
+        schedulingOn: false,
+      }),
     ).toEqual({
-      kind: 'loading',
+      kind: 'waiting',
+      wait: { kind: 'checking', text: strings.checking.flocks },
     })
     expect(
-      debateListModel({ debates: [], loaded: true, directory: [], now: 0, schedulingOn: false }),
+      debateListModel({
+        debates: [],
+        loaded: true,
+        step: 'loading',
+        directory: [],
+        now: 0,
+        schedulingOn: false,
+      }),
     ).toEqual({
       kind: 'empty',
       text: strings.debates.empty,
@@ -26,6 +54,7 @@ describe('debateListModel', () => {
     const model = debateListModel({
       debates: [summary({ visibility: 'private', participantIds: [ANA], turnCount: 0 })],
       loaded: true,
+      step: 'loading',
       directory: [],
       now: 10,
       schedulingOn: false,
@@ -54,7 +83,14 @@ describe('debateListModel', () => {
   it('says agents are debating only while an agent taking part is awake to take a turn', () => {
     const room = summary({ participantIds: [ANA, BEN], turnCount: 3 })
     const stageWith = (directory: ReturnType<typeof entry>[]) => {
-      const model = debateListModel({ debates: [room], loaded: true, directory, now: 0, schedulingOn: false })
+      const model = debateListModel({
+        debates: [room],
+        loaded: true,
+        step: 'loading',
+        directory,
+        now: 0,
+        schedulingOn: false,
+      })
       return model.kind === 'rooms' ? [model.rooms[0]!.stage, model.rooms[0]!.className] : []
     }
     expect(stageWith([entry(BEN, 'Ben', { presence: awake })])).toEqual([
@@ -78,6 +114,7 @@ describe('debateListModel with scheduling flocks', () => {
     const model = debateListModel({
       debates: [{ ...meeting, status }],
       loaded: true,
+      step: 'loading',
       directory: [],
       now: 0,
       schedulingOn,
@@ -105,6 +142,7 @@ describe('debateListModel with scheduling flocks', () => {
     const none = debateListModel({
       debates: [{ ...meeting, status: 'closed', outcome: 'no_slot' }],
       loaded: true,
+      step: 'loading',
       directory: [],
       now: 0,
       schedulingOn: true,

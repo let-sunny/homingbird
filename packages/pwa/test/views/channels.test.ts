@@ -20,7 +20,8 @@ describe('channelsView', () => {
   it('loads a page of channels, invites the first one, and searches what is typed', () => {
     const { context, called } = testContext()
     const shown = channelsView(context, lifetime())
-    expect(textOf(shown)).toContain(strings.loading)
+    expect(textOf(shown)).toContain(strings.checking.channels)
+    expect(textOf(shown)).not.toContain(strings.noChannelsYet)
     called('loadChannelPage')[0]!.then!.done!(page([]))
     expect(textOf(shown)).toContain(strings.noChannelsYet)
     fire.type(getByRole(shown, 'searchbox'), ' bill ')
@@ -30,6 +31,22 @@ describe('channelsView', () => {
     expect(textOf(shown)).toContain(strings.noChannelsYet)
     search!.then!.done!(page([]))
     expect(textOf(shown)).toContain(strings.noChannels)
+  })
+
+  it('says it is taking too long or failed in place of the list, and Try again loads the first page again', () => {
+    const { context, called } = testContext()
+    const shown = mount(channelsView(context, lifetime()))
+    context.state.listLoads.channels.step.set('long')
+    expect(textOf(shown)).toContain(strings.firstLoad.tooLong)
+    expect(textOf(shown)).not.toContain(strings.noChannelsYet)
+    getByRole(shown, 'button', { name: strings.tryAgain }).click()
+    expect(called('loadChannelPage')).toHaveLength(2)
+    expect(called('loadChannelPage')[1]!.args).toEqual(['', null])
+    context.state.listLoads.channels.step.set('failed')
+    expect(textOf(shown)).toContain(strings.loadFailed)
+    called('loadChannelPage')[1]!.then!.done!(page([]))
+    expect(textOf(shown)).toContain(strings.noChannelsYet)
+    expect(queryByRole(shown, 'button', { name: strings.tryAgain })).toBeNull()
   })
 
   it('shows each card, the hint for the only channel, more on request, and joins one', () => {

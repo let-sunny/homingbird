@@ -2,8 +2,9 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { QUIET_RETRY_SECONDS, TOO_LONG_LOAD_SECONDS, USUAL_LOAD_SECONDS } from '../../src/load-timing.ts'
 import { locale, strings, useLanguage } from '../../src/strings.ts'
 import { boot, startAgain } from '../../src/tasks/boot.ts'
+import { DIRECTORY_SETTLE_MS } from '../../src/tasks/live.ts'
 import { fail, hold, settle, testApp } from '../support/app.ts'
-import { ANA, ROOM, conversation, everything, me, note } from '../support/fixtures.ts'
+import { ANA, BEN, ROOM, conversation, entry, everything, me, note } from '../support/fixtures.ts'
 
 afterEach(() => useLanguage('en'))
 
@@ -260,7 +261,7 @@ describe('boot', () => {
       out.page.emit('offline')
     })
 
-    it('ends the slow workspace load when asked to try again and loads it afresh, without a second stream', async () => {
+    it('ends the slow workspace load when asked to try again and loads it afresh, then once more quietly, without a second stream', async () => {
       const first = hold<unknown>()
       let listed = 0
       const out = testApp({
@@ -276,7 +277,7 @@ describe('boot', () => {
       await out.run(startAgain)
       await running
       expect(out.aborted).toContain('conversations.list')
-      expect(listed).toBe(2)
+      expect(listed).toBe(3)
       expect(out.state.workspace.get()).toBe('loaded')
       expect(streams()).toBe(1)
       expect(out.page.listening('online')).toBe(1)
@@ -298,6 +299,119 @@ describe('boot', () => {
       await out.clock.advance(waits)
       return { out, streams, sessions, running, recover: () => (recovered = true) }
     }
+
+    describe('when a load finishes after the live events started', () => {
+      const entryNow = entry(BEN, 'Ben', { presence: { humanOnline: true, agentOnline: false } })
+      const requestNow = {
+        id: 'dreq_000000000000',
+        conversationId: ROOM,
+        inReplyTo: null,
+        instruction: '',
+        agentId: null,
+        createdAt: 1,
+        expiresAt: 2,
+        cancelledAt: null,
+        draftIds: [],
+      } as const
+      const reviewNow = { note: note('note_answer00000'), question: note('note_question000') } as never
+      const eventFrames = (after: string | null) =>
+        after === '5'
+          ? [
+              { seq: 6, at: 1, body: { type: 'draft.requested', request: requestNow } },
+              { seq: 7, at: 1, body: { type: 'directory.changed', memberId: BEN } },
+              { seq: 8, at: 1, body: { type: 'review.changed', noteId: null } },
+            ]
+              .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+              .join('')
+          : ''
+
+      const slowFirstLoad = () => {
+        const firstDirectory = hold<unknown>()
+        let directoryCalls = 0
+        let requestCalls = 0
+        const out = testApp({
+          ...empty,
+          'server.info': () => everything(),
+          'me.get': () => me(),
+          'events.poll': () => ({ events: [], cursor: 5 }),
+          'directory.list': () => (directoryCalls++ === 0 ? firstDirectory.waiting : { entries: [entryNow] }),
+          'draftRequests.list': () => ({ requests: requestCalls++ === 0 ? [] : [requestNow] }),
+          'reviews.list': () => ({
+            reviews: out.routes().filter((route) => route === 'inbox.list').length === 1 ? [] : [reviewNow],
+          }),
+        })
+        withStreams(out, eventFrames)
+        return { out, firstDirectory }
+      }
+
+      it('loads the workspace once more, quietly, so what the events changed is kept in directory, requests and reviews', async () => {
+        const { out, firstDirectory } = slowFirstLoad()
+        const running = out.run(boot)
+        await out.clock.advance(TOO_LONG_MS)
+        for (let round = 0; round < 5; round++) await settle()
+        await out.clock.advance(DIRECTORY_SETTLE_MS)
+        for (let round = 0; round < 5; round++) await settle()
+        expect(out.state.draftRequests.get()).toEqual([requestNow])
+        expect(out.state.directory.get()).toEqual([entryNow])
+        const seen: string[] = []
+        out.state.workspace.subscribe((step) => seen.push(step))
+        out.state.notice.subscribe((notice) => seen.push(`notice ${notice?.kind}`))
+        firstDirectory.release({ entries: [] })
+        await running
+        expect(out.routes().filter((route) => route === 'inbox.list')).toHaveLength(2)
+        expect(out.routes().filter((route) => route === 'draftRequests.list')).toHaveLength(2)
+        expect(out.state.directory.get()).toEqual([entryNow])
+        expect(out.state.draftRequests.get()).toEqual([requestNow])
+        expect(out.state.reviews.get()).toEqual([reviewNow])
+        expect(seen).toEqual(['loaded'])
+        out.page.emit('offline')
+      })
+
+      it('does not load again when the load finished before the events started', async () => {
+        const out = testApp({ ...empty, 'server.info': () => everything(), 'me.get': () => me() })
+        await out.run(boot)
+        for (let round = 0; round < 5; round++) await settle()
+        expect(out.routes().filter((route) => route === 'inbox.list')).toHaveLength(1)
+        out.page.emit('offline')
+      })
+
+      it('gives up on the quiet load after the limit and says nothing, leaving the page as it was', async () => {
+        const first = hold<unknown>()
+        const never = hold<unknown>()
+        let directoryCalls = 0
+        const out = testApp({
+          ...empty,
+          'server.info': () => everything(),
+          'me.get': () => me(),
+          'directory.list': () => (directoryCalls++ === 0 ? first.waiting : never.waiting),
+        })
+        withStreams(out)
+        const running = out.run(boot)
+        await out.clock.advance(TOO_LONG_MS)
+        first.release({ entries: [] })
+        for (let round = 0; round < 5; round++) await settle()
+        expect(directoryCalls).toBe(2)
+        expect(out.state.workspace.get()).toBe('loaded')
+        await out.clock.advance(TOO_LONG_MS)
+        await running
+        expect(out.aborted).toContain('directory.list')
+        expect(out.state.workspace.get()).toBe('loaded')
+        expect(out.state.notice.get()).toBeNull()
+        out.page.emit('offline')
+      })
+
+      it('loads once more, quietly, after the quiet retry of a failed workspace finishes with the events live', async () => {
+        const { out, streams, running, recover } = await failingWorkspace(down, 15_000)
+        expect(streams()).toBe(1)
+        expect(out.routes().filter((route) => route === 'inbox.list')).toHaveLength(0)
+        recover()
+        await out.clock.advance(QUIET_RETRY_MS)
+        await running
+        expect(out.routes().filter((route) => route === 'inbox.list')).toHaveLength(2)
+        expect(out.state.workspace.get()).toBe('loaded')
+        out.page.emit('offline')
+      })
+    })
 
     it('keeps the page up with a notice, the line and one live stream when the server stays away, and loads again without online once it is back', async () => {
       const { out, streams, sessions, running, recover } = await failingWorkspace(down, 15_000)
@@ -417,6 +531,38 @@ describe('boot', () => {
       expect(out.state.startRefusal.get()).not.toBe(strings.firstLoad.failed)
       expect(out.state.session.get()).toBe('loading')
     })
+
+    const refusedKinds = [
+      { _tag: 'Forbidden', message: 'This account may not use this server.' },
+      { _tag: 'NotFound', message: 'Not found' },
+      { _tag: 'Invalid', message: 'Invalid' },
+      { _tag: 'Conflict', message: 'Conflict' },
+    ] as const
+
+    it.each(refusedKinds)(
+      'says a refusal of the first screen ($_tag) in a sentence of the page’s language, never the server’s English',
+      async (refusal) => {
+        useLanguage('ko')
+        const out = testApp({ 'server.info': () => everything(), 'me.get': () => fail(refusal) })
+        await out.run(boot)
+        expect(out.state.start.get()).toBe('refused')
+        expect(out.state.startRefusal.get()).toBe(strings.firstLoad.refused[refusal._tag])
+        expect(out.state.startRefusal.get()).not.toContain(refusal.message)
+        expect(out.state.startRefusal.get()).not.toContain('메시지')
+        expect(out.state.startRefusal.get()).toMatch(/[가-힣]/)
+      },
+    )
+
+    it.each(refusedKinds)(
+      'says a refusal ($_tag) in English with the server’s words only when they say more',
+      async (refusal) => {
+        const out = testApp({ 'server.info': () => everything(), 'me.get': () => fail(refusal) })
+        await out.run(boot)
+        expect(out.state.startRefusal.get()).toBe(
+          refusal.message.length > 12 ? refusal.message : strings.firstLoad.refused[refusal._tag],
+        )
+      },
+    )
 
     it('signs the person out when the session ends while the workspace loads', async () => {
       const out = testApp({

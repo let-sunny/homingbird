@@ -1,5 +1,5 @@
 import { USUAL_LOAD_SECONDS } from '../load-timing.ts'
-import type { Start, Workspace } from '../state.ts'
+import type { ListStep, Start, Workspace } from '../state.ts'
 import { strings } from '../strings.ts'
 import type { PipState } from '../views/pip.ts'
 
@@ -27,6 +27,20 @@ export const workspaceLineModel = (workspace: Workspace, refusal: string): Works
 /** What an empty list says while its data has not come: that it is checking, or nothing once the line speaks. */
 export const checkingWords = (workspace: Workspace, words: string): string | null =>
   workspace === 'loading' || workspace === 'slow' ? words : null
+
+/**
+ * What stands in place of a list that has not come: that it is checking, then, once it took too long or
+ * failed, the way to try again. Never "none".
+ */
+export const listWaitModel = (step: ListStep, checkingWords: string): ListWait => {
+  if (step === 'long') return { kind: 'long', text: strings.firstLoad.tooLong, retry: strings.tryAgain }
+  if (step === 'failed') return { kind: 'failed', text: strings.loadFailed, retry: strings.tryAgain }
+  return { kind: 'checking', text: checkingWords }
+}
+
+export type ListWait =
+  | { readonly kind: 'checking'; readonly text: string }
+  | { readonly kind: 'long' | 'failed'; readonly text: string; readonly retry: string }
 
 export interface StartInput {
   readonly start: Start

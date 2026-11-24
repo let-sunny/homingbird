@@ -14,14 +14,14 @@ import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { hinted } from './hint.ts'
-import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
+import { emptyWithPip, field, listWait, page, privateMarkOf, timeLabel } from './parts.ts'
 import { peoplePicker } from './people-picker.ts'
 import { schedulingForm } from './scheduling-form.ts'
 
 /** Flocks: the flocks the person may see, and a way to open one for a question. */
 export const debatesView = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const { state, actions } = context
-  actions.loadDebates()
+  actions.loadDebateList()
   return page(
     strings.debates.title,
     h(
@@ -30,16 +30,21 @@ export const debatesView = (context: ViewContext, life: Lifetime, me: AsRead.Me)
       h('p', { class: 'hint' }, strings.debates.intro),
       newRoomButton(context, me),
     ),
-    region(life, [state.debates, state.debatesLoaded, state.directory, state.serverInfo], () =>
-      renderDebateList(
-        debateListModel({
-          debates: state.debates.get(),
-          loaded: state.debatesLoaded.get(),
-          directory: state.directory.get(),
-          now: context.clock.now(),
-          schedulingOn: featureOn('schedulingRooms', state.serverInfo.get()),
-        }),
-      ),
+    region(
+      life,
+      [state.debates, state.debatesLoaded, state.listLoads.flocks.step, state.directory, state.serverInfo],
+      () =>
+        renderDebateList(
+          debateListModel({
+            debates: state.debates.get(),
+            loaded: state.debatesLoaded.get(),
+            step: state.listLoads.flocks.step.get(),
+            directory: state.directory.get(),
+            now: context.clock.now(),
+            schedulingOn: featureOn('schedulingRooms', state.serverInfo.get()),
+          }),
+          actions.loadDebateList,
+        ),
     ),
   )
 }
@@ -177,8 +182,8 @@ const debateCreateForm = (context: ViewContext, life: Lifetime, me: AsRead.Me): 
   return form
 }
 
-const renderDebateList = (model: DebateListModel): HTMLElement => {
-  if (model.kind === 'loading') return loading()
+const renderDebateList = (model: DebateListModel, retry: () => void): HTMLElement => {
+  if (model.kind === 'waiting') return listWait(model.wait, retry)
   if (model.kind === 'empty') return emptyWithPip('searching', model.text)
   return h(
     'ul',

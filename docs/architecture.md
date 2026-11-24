@@ -601,7 +601,13 @@ sequenceDiagram
   seconds (not for a refusal), and goes on telling until a load works. Live events start once, when
   the workspace has loaded or has taken too long, never earlier: an event that arrived during the load
   would be overwritten by its older answers, except for the conversation list, where an answer never
-  replaces one that started later. The figures come from 20 loads each against a built server with 30
+  replaces one that started later. A load that finishes with events already live (a slow one, or one
+  after Try again or the quiet retry) is followed by one more load that says nothing and gives up after
+  `TOO_LONG_LOAD_SECONDS`; it starts after those events, so the state ends current. That one is not
+  checked again, so a second load slower than the next event can still be overwritten until the one
+  after. Flocks and the Channels tab load when they open and say "Checking…", then too long or failed
+  with Try again, in place of the list until it has loaded (`pwa/src/tasks/list-load.ts`); Try again
+  ends the running load of that list and starts one. The figures come from 20 loads each against a built server with 30
   people and 50 conversations, measured from the page's first request: no throttling 0.2 s at the 95th
   percentile; Chromium's Fast 3G / Slow 4G 4.2 s, cold or warm cache; Slow 3G 11.8 s. "Usually" is the
   Fast 3G figure rounded up (5 s) and "too long" the Slow 3G figure with a margin (15 s, never under
