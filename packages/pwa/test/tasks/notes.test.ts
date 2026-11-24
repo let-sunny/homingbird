@@ -112,6 +112,56 @@ describe('loading a conversation', () => {
     expect((await other.run(openThread(ROOM)))._tag).toBe('Err')
   })
 
+  it('keeps the older notes the person already loaded when the first page is read again', async () => {
+    const app = testApp({
+      'conversations.get': () => conversation(),
+      'conversations.notes': () =>
+        page([note('n5', { sentAt: 5 }), note('n6', { sentAt: 6 }), note('n7', { sentAt: 7 })], true),
+    })
+    app.state.threads.set(
+      new Map([
+        [
+          ROOM,
+          {
+            notes: [
+              note('n1', { sentAt: 1 }),
+              note('n4', { sentAt: 4 }),
+              note('n5', { sentAt: 5 }),
+              note('n6', { sentAt: 6 }),
+            ],
+            hasMore: false,
+          },
+        ],
+      ]),
+    )
+    await app.run(loadThread(ROOM))
+    expect(app.state.threads.get().get(ROOM)).toEqual({
+      notes: [
+        note('n1', { sentAt: 1 }),
+        note('n4', { sentAt: 4 }),
+        note('n5', { sentAt: 5 }),
+        note('n6', { sentAt: 6 }),
+        note('n7', { sentAt: 7 }),
+      ],
+      hasMore: false,
+    })
+  })
+
+  it('replaces the notes held when the first page no longer reaches them, as after many new notes', async () => {
+    const app = testApp({
+      'conversations.get': () => conversation(),
+      'conversations.notes': () => page([note('n8', { sentAt: 8 }), note('n9', { sentAt: 9 })], true),
+    })
+    app.state.threads.set(
+      new Map([[ROOM, { notes: [note('n1', { sentAt: 1 }), note('n2', { sentAt: 2 })], hasMore: false }]]),
+    )
+    await app.run(loadThread(ROOM))
+    expect(app.state.threads.get().get(ROOM)).toEqual({
+      notes: [note('n8', { sentAt: 8 }), note('n9', { sentAt: 9 })],
+      hasMore: true,
+    })
+  })
+
   it('loads older notes before the oldest sent one, keeping notes that arrived meanwhile', async () => {
     const app = testApp({
       'conversations.notes': () => page([note('old', { sentAt: 1 }), note('n1', { sentAt: 5 })]),
@@ -165,6 +215,17 @@ describe('sending a note', () => {
         .get(ROOM)!
         .notes.map((one) => one.id),
     ).toEqual(['q', 'd1'])
+  })
+
+  it('is sent, and no longer sending, when only the reload after it fails', async () => {
+    const app = testApp({
+      'drafts.create': () => note('d1', { status: 'draft', authorId: ANA }),
+      'drafts.send': () => note('d1', { authorId: ANA }),
+      'conversations.list': () => fail({ _tag: 'Unavailable', message: 'down' }),
+    })
+    app.state.session.set(me())
+    expect((await app.run(sendNote(ROOM, 'Yes')))._tag).toBe('Ok')
+    expect(app.state.sendingIn.get().size).toBe(0)
   })
 
   it('binds a reply typed to a question from Slack to that thread as the page shows it', async () => {

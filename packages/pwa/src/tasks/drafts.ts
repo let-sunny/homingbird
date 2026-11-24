@@ -8,6 +8,7 @@ import { hrefFor } from '../routes.ts'
 import type { AppState, HeldWords } from '../state.ts'
 import { holdDecision } from './held.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote, shownNote } from './notes.ts'
+import { reloadQuietly } from './quiet-reload.ts'
 import { refreshAgentReport, refreshPrinciples } from './teaching.ts'
 import { loadConversations } from './workspace.ts'
 
@@ -33,12 +34,14 @@ export const approveDraft = (
       ),
     )
     yield* track('draft_approved', {})
-    for (const alternative of alternatives)
-      yield* T.result(api['drafts.discard']({ params: { id: alternative.id }, body: {} }))
+    for (const alternative of alternatives) {
+      const discarded = yield* T.result(api['drafts.discard']({ params: { id: alternative.id }, body: {} }))
+      if (discarded._tag === 'Ok') forgetNote(state, alternative.conversationId, alternative.id)
+    }
     yield* refreshAgentReport
     yield* refreshPrinciples
-    yield* loadThread(draft.conversationId)
-    yield* loadConversations
+    yield* reloadQuietly(loadThread(draft.conversationId))
+    yield* reloadQuietly(loadConversations)
   })
 
 /** Sends a draft once the moment to undo it is over; until it is sent its card says so in its place. */
@@ -86,7 +89,7 @@ export const discardDraft = (draft: AsRead.Note): Action =>
     forgetNote(state, draft.conversationId, draft.id)
     yield* refreshAgentReport
     yield* refreshPrinciples
-    yield* loadConversations
+    yield* reloadQuietly(loadConversations)
   })
 
 /** Sends a draft to another channel's room, and opens that room. */
@@ -95,7 +98,7 @@ export const readdressDraft = (draft: AsRead.Note, slug: string): Action =>
     const { api, state, page } = yield* T.ask<App>()
     const moved = yield* api['drafts.update']({ params: { id: draft.id }, body: { channel: slug } })
     rememberOwnChange(state)(moved)
-    yield* loadConversations
+    yield* reloadQuietly(loadConversations)
     page.go(hrefFor({ name: 'conversation', id: moved.conversationId, draft: null }))
   })
 

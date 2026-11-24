@@ -13,6 +13,7 @@ import {
   saveDraft,
   withdrawRequest,
 } from '../../src/tasks/drafts.ts'
+import { commitHeld } from '../../src/tasks/held.ts'
 import { fail, testApp } from '../support/app.ts'
 import { ROOM, conversation, draft, note } from '../support/fixtures.ts'
 
@@ -52,7 +53,54 @@ const SLACK_VIA = {
   newerMessages: 0,
 }
 
+const reloadDown = {
+  ...answers,
+  'conversations.get': () => fail({ _tag: 'Unavailable', message: 'down' }),
+  'conversations.list': () => fail({ _tag: 'Unavailable', message: 'down' }),
+}
+
 describe('deciding on drafts', () => {
+  it('shows the note as sent, and its alternatives gone, when only the reload after sending fails', async () => {
+    const { run, state } = testApp(reloadDown)
+    state.threads.set(new Map([[ROOM, { notes: [draft('d1'), draft('d2')], hasMore: false }]]))
+    expect((await run(approveDraft(draft('d1'), null, [draft('d2')])))._tag).toBe('Ok')
+    expect(
+      state.threads
+        .get()
+        .get(ROOM)!
+        .notes.map((one) => [one.id, one.status]),
+    ).toEqual([['d1', 'sent']])
+  })
+
+  it('counts a held send as done, with no card to send again, when only the reload after it fails', async () => {
+    const { run, state } = testApp(reloadDown)
+    state.threads.set(new Map([[ROOM, { notes: [draft('d1')], hasMore: false }]]))
+    await run(holdSend(draft('d1'), null, [], heldWordsFor('Ben').send))
+    expect((await run(commitHeld))._tag).toBe('Ok')
+    expect(state.held.get()).toMatchObject([{ noteId: 'd1', phase: 'done' }])
+    expect(
+      state.threads
+        .get()
+        .get(ROOM)!
+        .notes.map((one) => one.status),
+    ).toEqual(['sent'])
+  })
+
+  it('counts a held discard as done when only the reload after it fails', async () => {
+    const { run, state } = testApp(reloadDown)
+    state.threads.set(new Map([[ROOM, { notes: [draft('d1')], hasMore: false }]]))
+    await run(holdDiscard(draft('d1'), heldWordsFor('Ben').discard))
+    expect((await run(commitHeld))._tag).toBe('Ok')
+    expect(state.held.get()).toMatchObject([{ noteId: 'd1', phase: 'done' }])
+    expect(state.threads.get().get(ROOM)!.notes).toEqual([])
+  })
+
+  it('goes to the room of a draft it moved even when the list cannot be read again', async () => {
+    const { run, page } = testApp(reloadDown)
+    expect((await run(readdressDraft(draft('d1'), 'billing')))._tag).toBe('Ok')
+    expect(page.visited).toEqual(['go #/c/conv_moved0000000'])
+  })
+
   it('sends a draft as written or edited, discards its alternatives, and refreshes what it changed', async () => {
     const { run, sent, state } = testApp(answers)
     await run(approveDraft(draft('d1'), null, [draft('d2')]))

@@ -8,7 +8,8 @@ import { featureOn } from '../features.ts'
 import { type MISSING, orMissing } from '../missing.ts'
 import { type AppState, signedIn } from '../state.ts'
 import { tagsToSend } from '../tagging.ts'
-import { isUnreadBy, withNoteFiled, withoutNote } from '../thread.ts'
+import { isUnreadBy, withFirstPageReloaded, withNoteFiled, withoutNote } from '../thread.ts'
+import { reloadQuietly } from './quiet-reload.ts'
 import { loadConversations } from './workspace.ts'
 
 export const openThread = (id: ConversationId): Action<void | typeof MISSING> => orMissing(loadThread(id))
@@ -18,7 +19,9 @@ export const loadThread = (id: ConversationId): Action =>
     const { state } = yield* T.ask<App>()
     const { conversation, page } = yield* currentSnapshot(id)
     state.conversations.update((list) => (list.some((c) => c.id === id) ? list : [conversation, ...list]))
-    state.threads.update((all) => new Map(all).set(id, { notes: page.notes, hasMore: page.hasMore }))
+    state.threads.update((all) =>
+      new Map(all).set(id, withFirstPageReloaded(all.get(id), { notes: page.notes, hasMore: page.hasMore })),
+    )
     rememberNotices(state, id, page.notices)
   })
 
@@ -114,7 +117,7 @@ export const shownNote = (state: AppState, id: NoteId): AsRead.Note | null => {
 /** Takes back a note the person's saved answer sent: recipients stop seeing it; the person sees it recalled. */
 export const recallNote = (note: AsRead.Note): Action =>
   withApp(({ api, state }) =>
-    T.flatMap(() => loadConversations)(
+    T.flatMap(() => reloadQuietly(loadConversations))(
       T.map(rememberNote(state))(api['notes.recall']({ params: { id: note.id } })),
     ),
   )
@@ -233,7 +236,7 @@ const deliverNote = (conversationId: ConversationId, body: string): Action =>
       state.replyTargets.update((targets) => withoutKey(targets, conversationId))
       state.composerTags.update((all) => withoutKey(all, conversationId))
     })
-    yield* loadConversations
+    yield* reloadQuietly(loadConversations)
   })
 
 const withoutKey = <K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> => {

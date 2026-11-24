@@ -8,6 +8,7 @@ import type {
   Settings,
 } from '@homingbird/protocol'
 import { type Action, type App, withApp } from '../app.ts'
+import { reloadQuietly } from './quiet-reload.ts'
 import { loadPeople } from './workspace.ts'
 
 export const loadSettings: Action<AsRead.Settings> = withApp(({ api }) => api['admin.settings.get']({}))
@@ -45,7 +46,7 @@ export const resetMemberCharacter = (memberId: MemberId): Action<AsRead.Member> 
   T.gen(function* () {
     const { api } = yield* T.ask<App>()
     const member = yield* api['admin.members.resetCharacter']({ params: { id: memberId } })
-    yield* loadPeople
+    yield* reloadQuietly(loadPeople)
     return member
   })
 
