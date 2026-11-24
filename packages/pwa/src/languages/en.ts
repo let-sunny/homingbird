@@ -60,6 +60,8 @@ export const en = {
     },
   },
   loadFailed: 'This could not be loaded.',
+  choose: 'Choose…',
+  chooseFirst: 'Choose one first.',
   chooseAgain: 'Choose again',
   choiceGone: 'That choice is no longer there. Choose again.',
   tryAgain: 'Try again',
@@ -2046,6 +2048,7 @@ export const en = {
     unmanageSelfTitle: 'Stop managing {channel}?',
     unmanageSelfBody:
       'You stay in the channel, and no longer review its agent’s answers or add people to it.',
+    gone: 'This group is no longer there.',
     onlyManagerYou:
       'You will be its only manager: when its agent answers a question of yours, the answer waits until you add another manager.',
     onlyManagerOther: '{name} will be its only manager.',

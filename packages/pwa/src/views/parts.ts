@@ -202,12 +202,18 @@ export const isChoiceGone = (unsaved: Unsaved, key: string, offered: ReadonlyArr
   return kept !== undefined && !offered.includes(kept)
 }
 
-/** What is chosen, or null, said to the person, when they have to choose again. */
-export const chosenIn = (context: Pick<ViewContext, 'state'>, select: HTMLSelectElement): string | null => {
-  if (select.value !== GONE) return select.value
-  context.state.notice.set({ kind: 'error', text: strings.choiceGone })
-  select.focus()
-  return null
+/** What is chosen, or null, said at the field, when the person has to choose again. */
+export const chosenIn = (context: Pick<ViewContext, 'random'>, select: HTMLSelectElement): string | null =>
+  select.value === GONE ? refuseChoice(context, select, strings.choiceGone) : select.value
+
+/** The same where choosing nothing is no choice. */
+export const requiredIn = (context: Pick<ViewContext, 'random'>, select: HTMLSelectElement): string | null =>
+  select.value === '' ? refuseChoice(context, select, strings.chooseFirst) : chosenIn(context, select)
+
+/** The choice was sent: nothing is chosen until the person chooses the next one. */
+export const forgetChoice = (unsaved: Unsaved, key: string, select: HTMLSelectElement): void => {
+  unsaved.delete(key)
+  select.value = ''
 }
 
 /** Keeps open what the person unfolded. */
@@ -342,5 +348,24 @@ export const dialogActions = (label: string, kind: 'primary' | 'danger'): HTMLEl
 
 /** The choice of a person who has to choose again, which no list of choices offers. */
 const GONE = '?gone'
+
+/** Says why at the field, tied to it, until the person chooses. */
+const refuseChoice = (context: Pick<ViewContext, 'random'>, select: HTMLSelectElement, why: string): null => {
+  const before = select.getAttribute('aria-describedby')
+  if (before !== null) select.ownerDocument.getElementById(before)?.remove()
+  const problem = h('p', { id: `choice-${context.random.id()}`, class: 'choice-problem', role: 'alert' }, why)
+  const place = select.closest('label') ?? select
+  place.parentNode?.insertBefore(problem, place.nextSibling)
+  select.setAttribute('aria-invalid', 'true')
+  select.setAttribute('aria-describedby', problem.id)
+  const mend = (): void => {
+    problem.remove()
+    select.removeAttribute('aria-invalid')
+    select.removeAttribute('aria-describedby')
+  }
+  select.addEventListener('input', mend, { once: true })
+  select.focus()
+  return null
+}
 
 const EMPTY_PIP_SCALE = 3

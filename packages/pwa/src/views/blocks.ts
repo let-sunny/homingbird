@@ -15,7 +15,17 @@ export const blocks = <Host extends HTMLElement>(
   life.add(() => {
     for (const drawing of lives.values()) drawing.end()
   })
-  keyedRegion(life, host, [source], () => list().filter((one) => one !== null), {
+  const present = (): ReadonlyArray<Block> => {
+    const now = list().filter((one) => one !== null)
+    const keys = new Set(now.map((one) => one.key))
+    for (const [key, drawing] of lives) {
+      if (keys.has(key)) continue
+      drawing.end()
+      lives.delete(key)
+    }
+    return now
+  }
+  keyedRegion(life, host, [source], present, {
     key: (one) => one.key,
     signature: (one) => JSON.stringify(one.from),
     render: (one) => {

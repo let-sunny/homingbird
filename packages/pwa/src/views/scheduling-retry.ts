@@ -12,6 +12,9 @@ export const schedulingRetryCard = (
 ): HTMLElement | null => {
   const model = schedulingRetryModel({ ...input, now: context.clock.now() })
   if (model === null) return null
+  const windowOf = (name: string) =>
+    schedulingRetryModel({ ...input, now: context.clock.now() })?.actions.find((one) => one.name === name)
+      ?.window ?? null
   return section(
     model.title,
     'scheduling-retry',
@@ -27,7 +30,7 @@ export const schedulingRetryCard = (
             class: `${action.emphasis === 'primary' ? 'primary ' : ''}scheduling-retry-${action.name}`,
             on: {
               click: () =>
-                context.actions.retrySchedulingRoom(input.debate.id, action.window, {
+                context.actions.retrySchedulingRoom(input.debate.id, windowOf(action.name), {
                   done: (created) => context.page.go(hrefFor({ name: 'debate', id: created.id, tab: null })),
                 }),
             },
