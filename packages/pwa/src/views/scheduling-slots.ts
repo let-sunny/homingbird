@@ -1,12 +1,13 @@
 import type { AsRead, MemberId } from '@homingbird/protocol'
-import { type Lifetime, type Signal, h, region, signal } from '@homingbird/ui'
+import { type Lifetime, type Signal, h, region } from '@homingbird/ui'
 import { type SchedulingSlotsModel, schedulingSlotsModel } from '../models/scheduling-slots.ts'
 import type { ViewContext } from './context.ts'
 import { section } from './debate-result.ts'
 
 /**
- * The card on which a person ticks the hours they are free. The ticks live in `picked`, which the flock
- * view keeps, so that drawing the flock again while the person picks does not lose them.
+ * The card on which a person ticks the hours they are free. The ticks live in `picked`, and whether
+ * every hour is shown in `showsAll`, which the flock view keeps, so that drawing the flock again while the
+ * person picks does not lose them.
  */
 export const schedulingSlotsCard = (
   context: ViewContext,
@@ -15,10 +16,10 @@ export const schedulingSlotsCard = (
     readonly debate: AsRead.Debate
     readonly viewerId: MemberId
     readonly picked: Signal<ReadonlySet<number> | null>
+    readonly showsAll: Signal<boolean>
   },
 ): HTMLElement | null => {
-  const { debate, picked } = input
-  const showsAll = signal(false)
+  const { debate, picked, showsAll } = input
   const modelOf = (chosen: ReadonlySet<number> | null): SchedulingSlotsModel | null =>
     schedulingSlotsModel({
       debate,

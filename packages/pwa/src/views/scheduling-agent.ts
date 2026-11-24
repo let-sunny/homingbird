@@ -3,7 +3,7 @@ import { h } from '@homingbird/ui'
 import { schedulingAgentModel } from '../models/scheduling-agent.ts'
 import type { ViewContext } from './context.ts'
 import { section } from './debate-result.ts'
-import { field } from './parts.ts'
+import { type Unsaved, field, keepTyped } from './parts.ts'
 
 /** The card that opts the person's agent in to answer a scheduling flock it did not join by itself. */
 export const schedulingAgentCard = (
@@ -12,6 +12,7 @@ export const schedulingAgentCard = (
     readonly debate: AsRead.Debate
     readonly viewerId: MemberId
     readonly agents: ReadonlyArray<AsRead.Credential>
+    readonly unsaved: Unsaved
   },
 ): HTMLElement | null => {
   const model = schedulingAgentModel(input)
@@ -21,6 +22,7 @@ export const schedulingAgentCard = (
     { name: 'agent' },
     model.agents.map((agent) => h('option', { value: agent.value }, agent.label)),
   )
+  keepTyped(input.unsaved, 'scheduling agent', choice, choice.value)
   return section(
     model.title,
     'scheduling-agent',

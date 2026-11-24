@@ -2,6 +2,7 @@ import { lifetime } from '@homingbird/ui'
 import { allByRole, fire, getByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
+import { withPresence } from '../../src/thread.ts'
 import { debateView } from '../../src/views/debate-room.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
@@ -24,6 +25,13 @@ const conclusion = {
   nextSteps: [{ step: 'Tag it', owner: BEN, proposedBy: ANA }],
   contributions: [{ memberId: BEN, summary: 'Checked.', credits: ['gap_filled' as const] }],
 }
+
+const closedFlock = debate({
+  status: 'closed',
+  participants: [participant(ANA), participant(BEN)],
+  turns: [{ position: 1, memberId: ANA, agentName: 'Desk', body: 'Yes.', at: 3 }],
+  result: { result: conclusion, draftedBy: BEN, draftedAt: 4 },
+})
 
 describe('debateView', () => {
   it('loads the flock, and says when the person may not see it', () => {
@@ -276,6 +284,95 @@ describe('debateView', () => {
     expect(called('postResult')[0]!.args).toEqual(['debate_000000000000', { to: BEN }])
     called('postResult')[0]!.then!.done!({ conversationId: 'conv_x' })
     expect(page.visited).toEqual(['go #/c/conv_x'])
+  })
+
+  it('keeps where a result goes while colleagues come and go, so that the click still drafts it', () => {
+    const { context, called } = testContext()
+    context.state.channels.set([channel('billing', { joined: true })])
+    context.state.directory.set([entry(BEN, 'Ben'), entry(CY, 'Cy')])
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
+    context.state.shownDebate.set(closedFlock)
+    const form = shown.querySelector('form.debate-post-form')!
+    fire.select(getByRole(shown, 'combobox', { name: strings.debates.postToPerson }), BEN)
+    context.state.directory.update((entries) =>
+      withPresence(entries, [{ memberId: BEN, humanOnline: true, agentOnline: false }]),
+    )
+    expect(shown.querySelector('form.debate-post-form')).toBe(form)
+    fire.submit(shown.querySelector('form.debate-post-form')!)
+    expect(called('postResult')[0]!.args[1]).toEqual({ to: BEN })
+  })
+
+  it('keeps where a result goes when its choices change, unless that choice is gone', () => {
+    const { context, called } = testContext()
+    context.state.directory.set([entry(BEN, 'Ben')])
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
+    context.state.shownDebate.set(closedFlock)
+    const person = () => getByRole(shown, 'combobox', { name: strings.debates.postToPerson })
+    fire.select(person(), BEN)
+    context.state.directory.set([entry(BEN, 'Ben'), entry(CY, 'Cy')])
+    expect((person() as HTMLSelectElement).value).toBe(BEN)
+    context.state.channels.set([channel('billing', { joined: true })])
+    fire.select(getByRole(shown, 'combobox', { name: strings.debates.postToChannel }), 'billing')
+    context.state.directory.set([entry(CY, 'Cy')])
+    expect((person() as HTMLSelectElement).value).toBe('')
+    fire.submit(shown.querySelector('form.debate-post-form')!)
+    expect(called('postResult')[0]!.args[1]).toEqual({ channel: 'billing' })
+  })
+
+  it('keeps the agent and the note a person is opting in with while others join', () => {
+    const { context, called } = testContext()
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
+    context.state.agentCredentials.set([credential('cred_desk'), credential('cred_laptop')])
+    context.state.shownDebate.set(debate())
+    const advice = shown.querySelector<HTMLDetailsElement>('details.debate-opt-in-advice')!
+    advice.open = true
+    fire.select(getByRole(shown, 'combobox', { name: strings.debates.chooseAgent }), 'cred_laptop')
+    fire.type(shown.querySelector('.debate-opt-in-form textarea')!, 'Use the Q3 budget.')
+    context.state.shownDebate.set(debate({ participants: [participant(BEN)] }))
+    expect(shown.querySelector<HTMLDetailsElement>('details.debate-opt-in-advice')!.open).toBe(true)
+    fire.submit(shown.querySelector('form.debate-opt-in-form')!)
+    expect(called('optInAgent')[0]!.args.slice(1)).toEqual(['cred_laptop', 'Use the Q3 budget.'])
+  })
+
+  it('keeps the note and the limits a person is changing while turns come, until they are saved', () => {
+    const { context, called } = testContext()
+    const shown = debateView(context, lifetime(), me(), 'debate_1', 'turns')
+    const taking = debate({ participants: [participant(ANA), participant(BEN)], brief: 'Q3 only.' })
+    context.state.shownDebate.set(taking)
+    const unfolded = () =>
+      [...shown.querySelectorAll<HTMLDetailsElement>('.debate-settings, .debate-change-limits')].map(
+        (each) => each.open,
+      )
+    const note = () => shown.querySelector<HTMLTextAreaElement>('.debate-brief-form textarea')!
+    const limit = () => shown.querySelector<HTMLInputElement>('input[name="turnsPerAgent"]')!
+    const grace = () => shown.querySelector<HTMLSelectElement>('select[name="graceMinutes"]')!
+    for (const each of shown.querySelectorAll<HTMLDetailsElement>('.debate-settings, .debate-change-limits'))
+      each.open = true
+    fire.type(note(), 'Public figures only.')
+    fire.type(limit(), '3')
+    fire.select(grace(), '10')
+    const before = limit()
+    context.state.shownDebate.set({
+      ...taking,
+      participants: [participant(ANA), participant(BEN), participant(CY)],
+    })
+    expect(limit()).not.toBe(before)
+    expect([unfolded(), note().value, limit().value, grace().value]).toEqual([
+      [true, true],
+      'Public figures only.',
+      '3',
+      '10',
+    ])
+    fire.submit(shown.querySelector('form.debate-limits-form')!)
+    fire.submit(shown.querySelector('form.debate-brief-form')!)
+    const saved = { ...taking, brief: 'Public figures only.' }
+    context.state.shownDebate.set(saved)
+    called('changeLimits')[0]!.then!.done!(undefined)
+    called('setBrief')[0]!.then!.done!(undefined)
+    shown.querySelector<HTMLDetailsElement>('.debate-change-limits')!.open = false
+    context.state.shownDebate.set({ ...saved, brief: 'Changed elsewhere.' })
+    expect(unfolded()).toEqual([true, false])
+    expect([note().value, limit().value]).toEqual(['Changed elsewhere.', String(taking.limits.turnsPerAgent)])
   })
 
   it('opens the details of who wrote a turn or a draft, with the model its agent stated', () => {

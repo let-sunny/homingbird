@@ -119,10 +119,12 @@ describe('the card to pick free times', () => {
         ],
       },
     })
-    const { shown } = opened(night, false)
+    const { shown, context } = opened(night, false)
     expect(shown.querySelectorAll('.scheduling-pick-cell')).toHaveLength(12)
     expect(textOf(shown)).toContain('GMT+9')
     getByRole(shown, 'button', { name: strings.scheduling.pickShowAll }).click()
+    expect(shown.querySelectorAll('.scheduling-pick-cell')).toHaveLength(24)
+    context.state.shownDebate.set({ ...night, question: 'Planning' })
     expect(shown.querySelectorAll('.scheduling-pick-cell')).toHaveLength(24)
     getByRole(shown, 'button', { name: strings.scheduling.pickShowWorking }).click()
     expect(shown.querySelectorAll('.scheduling-pick-cell')).toHaveLength(12)

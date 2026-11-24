@@ -161,20 +161,31 @@ export const listWait = (wait: ListWait | null, retry: () => void): HTMLElement 
     : empty(wait.text, button(wait.retry, retry))
 }
 
-/** What the person typed and has not saved, by field, so that drawing its part of the page again keeps it. */
+/** What the person typed, chose or unfolded and has not saved, so that drawing its part of the page again keeps it. */
 export type Unsaved = Map<string, string>
 
 export const keepTyped = (
   unsaved: Unsaved,
   key: string,
-  input: HTMLInputElement | HTMLTextAreaElement,
+  input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
   value: string,
 ): void => {
-  input.value = unsaved.get(key) ?? value
+  const typed = unsaved.get(key)
+  input.value = typed !== undefined && mayHold(input, typed) ? typed : value
   input.addEventListener('input', () => {
     if (input.value === value) unsaved.delete(key)
     else unsaved.set(key, input.value)
   })
+}
+
+/** Keeps open what the person unfolded. */
+export const keepOpen = (unsaved: Unsaved, key: string, details: HTMLDetailsElement): HTMLDetailsElement => {
+  details.open = unsaved.has(key)
+  details.addEventListener('toggle', () => {
+    if (details.open) unsaved.set(key, 'open')
+    else unsaved.delete(key)
+  })
+  return details
 }
 
 /** The field was saved as it was then; what the person typed since stays. */
@@ -296,5 +307,10 @@ export const dialogActions = (label: string, kind: 'primary' | 'danger'): HTMLEl
     h('button', { type: 'button', ...closesDialog }, strings.cancel),
     h('button', { type: 'submit', class: kind }, label),
   )
+
+/** A choice that is no longer offered is not kept. */
+const mayHold = (input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, value: string): boolean =>
+  input.localName !== 'select' ||
+  [...(input as HTMLSelectElement).options].some((option) => option.value === value)
 
 const EMPTY_PIP_SCALE = 3
