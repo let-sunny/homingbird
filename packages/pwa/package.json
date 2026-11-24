@@ -9,7 +9,7 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.e2e.json",
     "dev": "tsx build.ts --inspector && HB_PUBLIC_URL=http://localhost:8080 HB_DEV_LOGIN=1 HB_ALLOWED_DOMAINS=example.com HB_WEB_DIR=dist tsx ../dovecote/src/main.ts",
     "screenshots:readme": "tsx build.ts && tsx e2e/readme-screenshots.e2e.ts",
-    "e2e": "tsx build.ts && tsx e2e/conversation.e2e.ts && tsx e2e/characters.e2e.ts && tsx e2e/channels.e2e.ts && tsx e2e/groups.e2e.ts && tsx e2e/feedback.e2e.ts && tsx e2e/dashboard.e2e.ts && tsx e2e/my-agent.e2e.ts && tsx e2e/thread.e2e.ts && tsx e2e/debate.e2e.ts && tsx e2e/new-message.e2e.ts && tsx e2e/pages.e2e.ts && tsx e2e/switcher.e2e.ts && tsx e2e/profile-card.e2e.ts && tsx e2e/hints.e2e.ts"
+    "e2e": "tsx build.ts && tsx e2e/conversation.e2e.ts && tsx e2e/characters.e2e.ts && tsx e2e/channels.e2e.ts && tsx e2e/groups.e2e.ts && tsx e2e/feedback.e2e.ts && tsx e2e/dashboard.e2e.ts && tsx e2e/my-agent.e2e.ts && tsx e2e/thread.e2e.ts && tsx e2e/debate.e2e.ts && tsx e2e/new-message.e2e.ts && tsx e2e/pages.e2e.ts && tsx e2e/switcher.e2e.ts && tsx e2e/profile-card.e2e.ts && tsx e2e/hints.e2e.ts && tsx e2e/flock-form.e2e.ts"
   },
   "dependencies": {
     "@homingbird/client": "workspace:*",

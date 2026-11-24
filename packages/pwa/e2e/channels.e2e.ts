@@ -64,18 +64,8 @@ const scenario = async (): Promise<void> => {
     await billingCard.getByRole('button', { name: 'Join', exact: true }).click()
     await ben.page.waitForSelector('.channel-card[data-slug="billing"] .kind.is-joined')
     const deploysCard = ben.page.locator('.channel-card[data-slug="deploys"]')
-    // Joining redraws the list once the server answers, which can close a menu opened before it.
-    for (let attempt = 0; ; attempt++) {
-      try {
-        await deploysCard.getByRole('button', { name: 'More for #deploys' }).click()
-        await deploysCard
-          .getByRole('menuitem', { name: 'Join and answer', exact: true })
-          .click({ timeout: 3000 })
-        break
-      } catch (error) {
-        if (attempt === 2) throw error
-      }
-    }
+    await deploysCard.getByRole('button', { name: 'More for #deploys' }).click()
+    await deploysCard.getByRole('menuitem', { name: 'Join and answer', exact: true }).click()
     await ben.page.waitForSelector('.channel-card.is-helping[data-slug="deploys"]')
     await capture(ben.page, 'joined-one-channel-answering-in-another')
 

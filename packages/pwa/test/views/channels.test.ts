@@ -95,6 +95,20 @@ describe('channelsView', () => {
     expect(getByRole(shown, 'link', { name: '#ops' })).toBeTruthy()
   })
 
+  it('keeps an open menu open when the list is loaded again with the same channels', () => {
+    const { context } = testContext()
+    const shown = mount(channelsView(context, lifetime()))
+    listed(context.state, page([channel('billing'), channel('deploys')]))
+    const more = getByRole(shown, 'button', { name: strings.channelMore({ channel: '#deploys' }) })
+    const menu = shown.querySelector<HTMLElement>(`#${more.getAttribute('popovertarget')}`)!
+    menu.showPopover()
+    listed(context.state, page([channel('billing'), channel('deploys')]))
+    expect(menu.isConnected).toBe(true)
+    expect(menu.matches(':popover-open')).toBe(true)
+    listed(context.state, page([channel('billing'), channel('deploys', { joined: true })]))
+    expect(menu.isConnected).toBe(false)
+  })
+
   it('newest wins while channels change: one page is read again, several are updated in place, and a search is never undone', async () => {
     const first = page(
       [channel('a'), ...Array.from({ length: 19 }, (_, index) => channel(`c${index}`))],

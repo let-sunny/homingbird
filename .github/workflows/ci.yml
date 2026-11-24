@@ -27,6 +27,7 @@ jobs:
       database: ${{ steps.diff.outputs.database }}
       image: ${{ steps.diff.outputs.image }}
       terraform: ${{ steps.diff.outputs.terraform }}
+      web: ${{ steps.diff.outputs.web }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -41,7 +42,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          jobs="desktop plugin database image terraform"
+          jobs="desktop plugin database image terraform web"
           if [ "$EVENT" != pull_request ]; then
             { echo "release=false"; echo "tests="; for job in $jobs; do echo "$job=false"; done; } >> "$GITHUB_OUTPUT"
             exit 0
@@ -62,6 +63,7 @@ jobs:
             echo "database=$(matches "$core|^packages/(a2a|dovecote)/")"
             echo "image=$(matches "^packages/(kernel|protocol|sprites|client|cli|mcp|a2a|dovecote|ui|pwa)/|^Dockerfile$|^\.dockerignore$")"
             echo "terraform=$(matches '^deploy/terraform/')"
+            echo "web=$(matches '^packages/(kernel|protocol|dovecote|client|ui|pwa|demo|sprites)/|^scripts/web-e2e\.ts$')"
           } >> "$GITHUB_OUTPUT"
 
   check:
@@ -188,6 +190,45 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Every test drops and recreates the tables of the one shared database, so files must run one at a time.
       - run: ${{ matrix.url_variable }}=${{ matrix.url }} npx vitest run packages/dovecote/ --no-file-parallelism --shard=${{ matrix.shard }}/3
+
+  web:
+    name: web client end-to-end (${{ matrix.shard }}/3)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    env:
+      HB_PLAYWRIGHT_DEPS: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Playwright is not a dependency of the project: the runner installs the one version it names into a
+      # folder outside the workspace, and the folder is cached by that version.
+      - id: playwright
+        run: echo "version=$(node -e "import('./scripts/web-e2e.ts').then((runner) => console.log(runner.PLAYWRIGHT_VERSION))")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/homingbird
+          key: playwright-${{ steps.playwright.outputs.version }}-chromium
+      - name: Build, install Chromium and run this shard
+        timeout-minutes: 15
+        run: pnpm e2e:web --shard ${{ matrix.shard }}/3
+      - name: Screenshots and logs of the failed run
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: web-e2e-${{ matrix.shard }}
+          path: reports/web-e2e
+          retention-days: 7
 
   commits:
     name: commit messages

@@ -40,7 +40,7 @@ Run the tests of the packages you changed; `pnpm test` runs them all. On a pull 
 type-checks, lints and builds everything, runs the tests of the changed packages and of the packages
 that depend on them (all of them when a shared file such as the lockfile changes), and, when the files
 that need them change, runs the Dovecote suite again against PostgreSQL and MySQL, the command line on
-macOS and Windows, the plugin tests, builds and starts the Docker image, and checks the Terraform
+macOS and Windows, the plugin tests, the web client's browser tests (`pnpm e2e:web`, in three shards), builds and starts the Docker image, and checks the Terraform
 setups with `terraform fmt -check`, `terraform init -backend=false` and `terraform validate`. The
 release workflow runs the full suite with the coverage thresholds, and the plugin tests, before it
 publishes, so coverage is checked once before each release; the version pull request it opens starts

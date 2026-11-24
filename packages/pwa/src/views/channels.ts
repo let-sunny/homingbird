@@ -41,6 +41,9 @@ export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement 
   actions.openChannelPage()
   const listed = state.channelPage
   const awaited = slice([listed.load], () => firstAnswersStep([listed.load.get()]))
+  const shown = slice([listed, awaited, state.workspace], () =>
+    channelListModel(listed.get(), state.channelPageWish.get(), awaited.get(), state.workspace.get()),
+  )
   life.add(state.channels.subscribe(() => actions.reloadChannelPage()))
   const search = h('input', {
     type: 'search',
@@ -57,9 +60,9 @@ export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement 
     strings.channels,
     h('div', { class: 'channels-intro' }, h('p', {}, strings.channelsIntro), newChannelButton(context)),
     field(strings.channelsSearchLabel, search),
-    region(life, [listed, awaited, state.workspace], () =>
+    region(life, [shown], () =>
       renderChannelList(
-        channelListModel(listed.get(), state.channelPageWish.get(), awaited.get(), state.workspace.get()),
+        shown.get(),
         context,
         () => {
           const { query } = state.channelPageWish.get()
