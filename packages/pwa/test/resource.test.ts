@@ -2,7 +2,12 @@ import { Task as T, err, makeTestClock, ok } from '@homingbird/kernel'
 import type { ApiError } from '@homingbird/protocol'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { QUIET_RETRY_SECONDS, TOO_LONG_LOAD_SECONDS, USUAL_LOAD_SECONDS } from '../src/load-timing.ts'
+import {
+  ATTEMPT_LIMIT_SECONDS,
+  QUIET_RETRY_SECONDS,
+  TOO_LONG_LOAD_SECONDS,
+  USUAL_LOAD_SECONDS,
+} from '../src/load-timing.ts'
 import { type Source, resource } from '../src/resource.ts'
 import { settle } from './support/app.ts'
 
@@ -30,6 +35,7 @@ const setUp = (initial: Ids = ['kept']) => {
   const ending = new AbortController()
   const ids = resource<Ids>([])
   const requests: Request[] = []
+  const counts = { timedOut: 0 }
   const failures: ApiError[] = []
   const defects: unknown[] = []
   const answered: number[] = []
@@ -45,7 +51,9 @@ const setUp = (initial: Ids = ['kept']) => {
       },
     }
     requests.push(request)
+    const askedAt = clock.now()
     return () => {
+      if (clock.now() - askedAt >= ATTEMPT_LIMIT_SECONDS * 1000) counts.timedOut++
       request.isOver = true
     }
   })
@@ -77,6 +85,7 @@ const setUp = (initial: Ids = ['kept']) => {
     clock,
     ids,
     requests,
+    counts,
     failures,
     defects,
     answered,
@@ -280,7 +289,7 @@ describe('a resource, whatever the order of events, actions and answers', () => 
   it('has one request at a time, ends every refresh with a newer answer, and ends as the server is', async () => {
     await fc.assert(
       fc.asyncProperty(steps(false), async (script) => {
-        const { ids, server, refreshes, requests, counted, answered } = await play(script)
+        const { ids, server, refreshes, requests, counted, counts, answered } = await play(script)
         for (const refreshed of refreshes) {
           expect(refreshed.outcome, 'I5: every refresh ends').not.toBeNull()
           if (refreshed.outcome === true)
@@ -293,7 +302,7 @@ describe('a resource, whatever the order of events, actions and answers', () => 
           expect([...ids.get()].sort(), 'I3: ends as the server is').toEqual([...server.ids].sort())
         if (answered.length > 0) expect(loaded, 'I7').toBe(true)
         expect(requests.length, 'I9: no request nobody asked for').toBeLessThanOrEqual(
-          counted.wanted + counted.failed,
+          counted.wanted + counted.failed + counts.timedOut,
         )
       }),
       { numRuns: 1000 },
@@ -594,6 +603,80 @@ describe('a failed request', () => {
     await settle()
     expect(defects).toHaveLength(1)
     expect(ids.get()).toEqual(['a'])
+  })
+})
+
+describe('a request that never answers', () => {
+  const LIMIT_MS = ATTEMPT_LIMIT_SECONDS * 1000
+
+  it('does not hold back what changed meanwhile on a list that is shown, which tells nothing', async () => {
+    const { ids, source, run, go, requests, running, reply, clock, askAndAnswer } = setUp()
+    await askAndAnswer(['shown'])
+    go(ids.invalidate(source()))
+    await settle()
+    const hung = running()[0]!
+    const refreshed = run(ids.refresh(source()))
+    await clock.advance(LIMIT_MS - 1)
+    expect(hung.isOver).toBe(false)
+    expect(ids.get()).toEqual(['shown'])
+    await clock.advance(1)
+    expect(hung.isOver).toBe(true)
+    expect(ids.get()).toEqual(['shown'])
+    expect(ids.load.get()).toMatchObject({ loaded: true, step: 'loading' })
+    await clock.advance(1000)
+    expect(requests).toHaveLength(3)
+    reply(running()[0]!, ['newer'])
+    expect(await refreshed).toMatchObject({ value: true })
+    expect(ids.get()).toEqual(['newer'])
+    await settle()
+    expect(clock.pending()).toBe(0)
+  })
+
+  it('has its late answer dropped, also after a newer one', async () => {
+    const { ids, source, go, running, reply, clock, askAndAnswer } = setUp()
+    await askAndAnswer(['shown'])
+    go(ids.invalidate(source()))
+    await settle()
+    const hung = running()[0]!
+    await clock.advance(LIMIT_MS)
+    reply(hung, ['late'])
+    await settle()
+    expect(ids.get()).toEqual(['shown'])
+    await clock.advance(1000)
+    reply(running()[0]!, ['newer'])
+    reply(hung, ['late'])
+    await settle()
+    expect(ids.get()).toEqual(['newer'])
+  })
+
+  it('is ended in a quiet repair too, which is made again', async () => {
+    const { ids, source, go, requests, running, refuse, reply, clock } = setUp()
+    go(ids.open(source()))
+    await settle()
+    for (const seconds of [1, 2, 4, 8]) {
+      refuse(running()[0]!, AWAY)
+      await settle()
+      await clock.advance(seconds * 1000)
+    }
+    refuse(running()[0]!, AWAY)
+    await settle()
+    await clock.advance(QUIET_RETRY_SECONDS * 1000)
+    expect(requests).toHaveLength(6)
+    await clock.advance(LIMIT_MS)
+    expect(running()).toEqual([])
+    await clock.advance(QUIET_RETRY_SECONDS * 1000)
+    reply(running()[0]!, ['back'])
+    await settle()
+    expect(ids.get()).toEqual(['back'])
+  })
+
+  it('is still told as too long after fifteen seconds while the first answer is awaited', async () => {
+    const { ids, source, go, clock } = setUp()
+    go(ids.open(source()))
+    await clock.advance(TOO_LONG_LOAD_SECONDS * 1000)
+    expect(ids.load.get().step).toBe('long')
+    await clock.advance(LIMIT_MS)
+    expect(ids.load.get().step).toBe('long')
   })
 })
 

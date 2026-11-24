@@ -1,6 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
 import { describe, expect, it } from 'vitest'
 import {
+  ATTEMPT_LIMIT_SECONDS,
   QUIET_RETRY_SECONDS,
   TOO_LONG_LOAD_SECONDS,
   USUAL_LOAD_SECONDS,
@@ -37,6 +38,10 @@ describe('load timing', () => {
   it('repeats after 1, 2, 4 and 8 seconds, so that it gives up as it is called too long', () => {
     expect([...retryWaits()]).toEqual([1000, 2000, 4000, 8000])
     expect([...retryWaits()].reduce((sum, wait) => sum + wait)).toBe(TOO_LONG_LOAD_SECONDS * 1000)
+  })
+
+  it('ends an attempt only well after it was called too long', () => {
+    expect(ATTEMPT_LIMIT_SECONDS).toBeGreaterThanOrEqual(2 * TOO_LONG_LOAD_SECONDS)
   })
 
   it('waits longer than the repeats of a load before it quietly loads again', () => {

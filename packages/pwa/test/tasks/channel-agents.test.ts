@@ -117,7 +117,9 @@ describe('the channel agent tasks', () => {
       sent.filter((one) => one.route === route).map((one) => (one.request as { body: unknown }).body)
     state.serverInfo.set(everything())
     await run(tasks.discardReview(review(), '  '))
+    await settle()
     await run(tasks.discardReview(review(), ' Out of date. '))
+    await settle()
     expect(routes()).toEqual(['drafts.discard', 'reviews.list', 'drafts.discard', 'reviews.list'])
     expect(bodies('drafts.discard')).toEqual([{}, { reason: 'Out of date.' }])
     expect(state.discardedAnswers.get().get('note_question000' as NoteId)).toBe('Payments wiki')
@@ -187,14 +189,16 @@ describe('the channel agent tasks', () => {
     })
     state.serverInfo.set(everything())
     await run(tasks.sendReview(review(), null))
+    await settle()
     expect(routes()).toEqual(['drafts.send', 'reviews.list'])
     state.threads.set(new Map([[review().note.conversationId, { notes: [], hasMore: false }]]))
     await run(tasks.sendReview(review(), null))
-    expect(routes().slice(2)).toEqual([
-      'drafts.send',
-      'reviews.list',
+    await settle()
+    expect(routes().slice(2).sort()).toEqual([
       'conversations.get',
       'conversations.notes',
+      'drafts.send',
+      'reviews.list',
     ])
   })
 

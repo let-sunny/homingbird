@@ -1,7 +1,7 @@
 import { type Clock, type Deferred, Task as T, makeDeferred } from '@homingbird/kernel'
 import type { ApiError } from '@homingbird/protocol'
 import { type ReadableSignal, type Signal, batch, later, signal } from '@homingbird/ui'
-import { QUIET_RETRY_SECONDS, growingSlow, retryWaits } from './load-timing.ts'
+import { ATTEMPT_LIMIT_SECONDS, QUIET_RETRY_SECONDS, growingSlow, retryWaits } from './load-timing.ts'
 import { isTransient } from './refusals.ts'
 
 /**
@@ -60,7 +60,7 @@ export const resource = <A>(empty: A): Resource<A> => {
         while (run === own) {
           const waiting = beginAttempt(own)
           const askedAt = source.clock.now()
-          const answer = yield* T.result(source.ask)
+          const answer = yield* T.result(withinLimit(source.ask))
           if (run !== own) return
           const wait = answer._tag === 'Err' && isTransient(answer.error) ? waits.shift() : undefined
           if (wait === undefined) {
@@ -175,6 +175,12 @@ export const resource = <A>(empty: A): Resource<A> => {
     },
   }
 }
+
+/** A request that takes longer than an attempt may is ended, and counts as a server that is away. */
+const withinLimit = <A>(ask: T.Task<A, ApiError>) =>
+  T.catchTag('TimeoutError', () => T.fail<ApiError>({ _tag: 'Unavailable', message: 'No answer in time.' }))(
+    T.timeout(ATTEMPT_LIMIT_SECONDS * 1000)(ask),
+  )
 
 export interface Resource<A> extends Signal<A> {
   /** A change that is already true on the server. It may be made twice, so twice must mean the same as once. */

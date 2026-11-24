@@ -22,5 +22,12 @@ export const USUAL_LOAD_SECONDS = 5
 /** Above what the slowest connection we tested needs, and never under ten; above it the page offers to try again. */
 export const TOO_LONG_LOAD_SECONDS = 15
 
+/**
+ * After this long an attempt to read a list counts as a lost connection, so that a request that never ends
+ * holds nothing back. Twice what calls a load too long, whose slowest measured whole load (Slow 3G, 11.8
+ * seconds at the 95th percentile) it leaves more than double the time.
+ */
+export const ATTEMPT_LIMIT_SECONDS = 30
+
 /** After a failure that repeating did not mend, how long before the page quietly asks again. */
 export const QUIET_RETRY_SECONDS = 30
