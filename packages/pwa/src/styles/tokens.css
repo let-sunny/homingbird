@@ -140,6 +140,12 @@
   /* A checkbox or radio a finger can hit without zooming. */
   --hb-control-size-touch: 1.5rem;
   --hb-tab-bar-size: 3.25rem;
+  /* Where a floating layer docks on a phone: the edge of whatever is fixed to the bottom of the screen. */
+  --hb-dock-offset: calc(
+    var(--hb-tab-bar-size) + var(--hb-border-width) + env(safe-area-inset-bottom, 0px) + var(--hb-space-2)
+  );
+  --hb-dock-offset-no-tabs: calc(env(safe-area-inset-bottom, 0px) + var(--hb-space-2));
+  --hb-dock-room: 40dvh;
 
   --hb-duration-fast: 120ms;
   --hb-duration-slow: 280ms;

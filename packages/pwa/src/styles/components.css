@@ -1992,6 +1992,21 @@ a.quote:hover {
   justify-content: end;
 }
 
+/* On a phone a dialog is a sheet from the bottom edge that scrolls on its own, so no field or button falls off it. */
+@container page (max-width: 32rem) {
+  .dialog {
+    inline-size: 100%;
+    max-inline-size: none;
+    max-block-size: calc(100dvh - var(--hb-space-6));
+    margin: auto 0 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    border-inline: 0;
+    border-block-end: 0;
+    padding-block-end: env(safe-area-inset-bottom, 0px);
+  }
+}
+
 .switcher {
   container-type: inline-size;
   inline-size: min(36rem, calc(100% - 2rem));
@@ -2845,6 +2860,30 @@ button.group-member-name:focus-visible::after {
 /* On a touch screen the hint shows once on its own line under the control, never over it. */
 .hint-inline[hidden] {
   display: none;
+}
+
+/* The title bar and the tab bar have no room for a line of text: a hint there is still read out as the control's description. */
+.titlebar .hint-inline,
+.tabs-host .hint-inline {
+  display: none;
+}
+
+/* A section head that shows a hint gives it a row of its own, so it never squeezes the head's controls. */
+.sidebar-section-head:has(.hint-inline) {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.sidebar-section-head:has(.hint-inline) > .sidebar-title {
+  margin-inline-end: auto;
+}
+
+.sidebar-section-head:has(.hint-inline) > .section-actions {
+  display: contents;
+}
+
+.sidebar-section-head .hint-inline {
+  order: 1;
 }
 
 .has-tap-hint {
@@ -4188,6 +4227,33 @@ button:disabled {
     inset: auto var(--hb-space-4) var(--hb-space-4);
     inline-size: auto;
     margin: 0;
+  }
+}
+
+/*
+ * On a phone a step is a sheet docked above the tab bar, whatever it points at: it never floats over the
+ * control it explains, and the page scrolls that control clear of the sheet.
+ */
+@container page (max-width: 32rem) {
+  .tour,
+  .tour.is-anchored,
+  .tour.is-anchored[data-placement],
+  .tour.is-anchored.is-in-header {
+    position-area: none;
+    position-try-fallbacks: none;
+    inset: auto var(--hb-space-2) var(--hb-dock-offset);
+    inline-size: auto;
+    min-inline-size: 0;
+    max-block-size: var(--hb-dock-room);
+    margin: 0;
+  }
+
+  :root:has(.app[data-tab-bar="hidden"]) .tour {
+    inset-block-end: var(--hb-dock-offset-no-tabs);
+  }
+
+  .tour-target {
+    scroll-margin-block-end: calc(var(--hb-dock-room) + var(--hb-dock-offset));
   }
 }
 

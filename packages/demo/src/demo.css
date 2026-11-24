@@ -1,5 +1,5 @@
 body {
-  container: demo / inline-size;
+  container: demo page / inline-size;
   display: flex;
   flex-direction: column;
   block-size: 100dvh;
