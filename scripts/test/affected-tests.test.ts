@@ -46,6 +46,14 @@ describe('the tests a change needs', () => {
     expect(dependencies.get('plugin')).toEqual([])
   })
 
+  it('runs the tests that read the plugin, which has no vitest tests of its own', () => {
+    expect(affectedTests(['packages/plugin/hooks/character-rules.mjs'], dependencies)).toEqual([
+      'packages/dovecote/',
+      'packages/kernel/',
+      'packages/protocol/',
+    ])
+  })
+
   it('runs the scripts tests when a script changes', () => {
     expect(affectedTests(['scripts/next-version.ts'], dependencies)).toEqual(['scripts/'])
   })
