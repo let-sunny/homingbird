@@ -6,7 +6,7 @@ import { usingFakeDom } from '../support/dom.ts'
 usingFakeDom()
 
 describe('blocks', () => {
-  it('draws a block again only when what it is drawn from changes, and ends each drawing', () => {
+  it('draws a block again only when what it is drawn from changes, and ends each drawing as it goes', () => {
     const life = lifetime()
     const words = signal({ first: 'a', second: 'b', third: true })
     const ended: string[] = []
@@ -27,7 +27,7 @@ describe('blocks', () => {
     expect(host.children[0]).toBe(first)
     expect(host.children[1]).not.toBe(second)
     expect(host.textContent).toBe('aB')
-    expect(ended).toEqual(['b'])
+    expect(ended.sort()).toEqual(['b', 'c'])
     life.end()
     expect(ended.sort()).toEqual(['B', 'a', 'b', 'c'])
   })

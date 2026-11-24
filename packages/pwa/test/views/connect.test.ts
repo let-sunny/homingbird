@@ -65,7 +65,7 @@ describe('deviceView', () => {
       context.state.channels.set(left)
       fire.submit(shown.querySelector('form')!)
       expect(called('decideDevice')).toHaveLength(0)
-      expect(context.state.notice.get()).toEqual({ kind: 'error', text: strings.choiceGone })
+      expect(shown.querySelector('.choice-problem')?.textContent).toBe(strings.choiceGone)
     }
     fire.select(shown.querySelector('select')!, '')
     fire.submit(shown.querySelector('form')!)

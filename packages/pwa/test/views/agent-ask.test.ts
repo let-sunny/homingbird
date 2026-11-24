@@ -58,7 +58,7 @@ describe('agentAsk', () => {
       context.state.agentCredentials.set(left)
       getByRole(shown, 'button', { name: strings.askAgent }).click()
       expect(called('askAgent')).toHaveLength(1)
-      expect(context.state.notice.get()).toEqual({ kind: 'error', text: strings.choiceGone })
+      expect(shown.querySelector('.choice-problem')?.textContent).toBe(strings.choiceGone)
     }
     fire.select(picker(), 'cred_one')
     getByRole(shown, 'button', { name: strings.askAgent }).click()

@@ -15,13 +15,14 @@ import { closeDialog, opensDialog } from './dialog.ts'
 import {
   type Unsaved,
   button,
-  chosenIn,
   dialogActions,
   emptyWithPip,
   field,
+  forgetChoice,
   keepChoice,
   listWait,
   page,
+  requiredIn,
   youMark,
 } from './parts.ts'
 
@@ -206,6 +207,7 @@ const addMemberForm = (
   const choice = h(
     'select',
     { name: 'member', 'aria-label': add.label },
+    h('option', { value: '' }, strings.choose),
     add.choices.map((one) => h('option', { value: one.value }, one.label)),
   )
   keepChoice(unsaved, 'member', choice)
@@ -216,8 +218,10 @@ const addMemberForm = (
       on: {
         submit: (event) => {
           event.preventDefault()
-          const chosen = chosenIn(context, choice)
-          if (chosen !== null) choose(chosen as MemberId)
+          const chosen = requiredIn(context, choice)
+          if (chosen === null) return
+          forgetChoice(unsaved, 'member', choice)
+          choose(chosen as MemberId)
         },
       },
     },

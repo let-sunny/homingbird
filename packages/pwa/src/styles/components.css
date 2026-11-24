@@ -3287,6 +3287,7 @@ button.group-member-name:focus-visible::after {
 
 .channel-ask-head,
 .debate-head,
+.debate-not-awake-host,
 .managed-by-host {
   display: contents;
 }
@@ -5183,6 +5184,12 @@ textarea:disabled {
 
 .chance.suggestion-card {
   border-style: solid;
+}
+
+.choice-problem {
+  margin: 0;
+  color: var(--hb-color-danger-text);
+  font-size: var(--hb-text-meta);
 }
 
 .suggestion-card > .region:empty {
