@@ -129,8 +129,8 @@ const POPUPS: ReadonlyArray<Popup> = [
   },
   {
     name: 'new channel dialog',
-    route: '#/channels',
-    invoker: '.new-channel-link, [command=show-modal]',
+    route: '#/',
+    invoker: '.new-channel-link',
     shown: 'dialog[open]',
     primary: '.dialog-actions .primary, button.primary',
     clearOfInvoker: false,
