@@ -21,6 +21,23 @@ describe('turn', () => {
     expect(turnCellOf(body)).toEqual(BIRD_SLICES.cell)
   })
 
+  it('clips nothing in any direction, and leaves a free pixel on each side', () => {
+    const { width, height } = BIRD_SLICES.cell
+    const sheet = turnSheet(body, BIRD_SLICES.cell)
+    const opaque = sheet.data.filter((value, at) => at % 4 === 3 && value > 0).length
+    let drawn = 0
+    for (let direction = 0; direction < TURN_DIRECTIONS; direction++) {
+      const frame = renderTurn(body, (360 * direction) / TURN_DIRECTIONS, {})
+      drawn += frame.data.filter((value, at) => at % 4 === 3 && value > 0).length
+    }
+    expect(opaque).toBe(drawn)
+    for (let at = 3; at < sheet.data.length; at += 4) {
+      const pixel = (at - 3) / 4
+      const [x, y] = [(pixel % sheet.width) % width, Math.floor(pixel / sheet.width)]
+      if (x === 0 || y === 0 || x === width - 1 || y === height - 1) expect(sheet.data[at]).toBe(0)
+    }
+  })
+
   it('lays the directions out in one row of equal cells', () => {
     const sheet = turnSheet(body, BIRD_SLICES.cell)
     expect([sheet.width, sheet.height]).toEqual([

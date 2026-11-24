@@ -23,19 +23,25 @@ states the decision first, then the reason. Add new entries at the top of their 
   mark. The preview is the one place where the bird is the subject: a person is making it, and seeing
   it from every side shows what the markings do. The technique is sprite stacking, after Daniel
   White's MIT-licensed `sprite-stacking`: `packages/sprites` draws Pip's body from four sides
-  (`bird-model.ts`), carves them into 26 slices of 34 × 26 voxels (`carve.ts`), paints the eyes, the
-  wing patches and the tail feathers onto the surface afterwards so that they hold still from every
-  direction, and renders 16 directions by turning each slice, squashing it to 0.8 for a view from above
+  (`bird-model.ts`), carves them into 26 slices of 34 × 26 voxels (`carve.ts`), adds the tail (`tail.ts`),
+  paints the eyes and the wing patches onto the surface so that they hold still from every direction,
+  and renders 16 directions by turning each slice, squashing it to 0.8 for a view from above
   and lifting each one 0.88 pixels over the one below, with one ink outline around the stack. The body
   is shared, as with the flat characters: a character differs only in palette and markings, so its
   markings are painted on both flanks where its side view puts them and its palette recolours the
-  voxels. The carved body ships to every client as `BIRD_SLICES`, about 5.5 KB of text, from which the
-  editor draws the sheet (16 cells of 39 × 39 pixels) in the browser, once per look, and hands it to
+  voxels. The carved body ships to every client as `BIRD_SLICES`, about 6 KB of text, from which the
+  editor draws the sheet (16 cells of 45 × 51 pixels) in the browser, once per look, and hands it to
   the stylesheet as a `data:` image. The turn is CSS `steps(16)` over 2.24 seconds
   (`--hb-duration-bird-turn`), no script. With `prefers-reduced-motion` the 3D bird is hidden and the
   character's flat sprite, the same image shown elsewhere, takes its place; the 3D bird's front frame
   was tried and found ugly. A canvas per frame or a WebGL model would have needed script or a
   dependency, for no gain at this size. Pip's own turn sheet is no longer generated or shipped.
+  The tail is the speech bubble's, as on the flat bird and the mark: body-colour steps at the bottom
+  rear, down and back to a point, the brand's signature. It replaces a dark tuft and feathers painted on
+  the back, which said nothing of the mark; the rump it filled stays as body. It goes on
+  after carving because carving rounds every slice to an ellipse and would take a thin point off. The
+  slices get three empty rows before the beak for the three the tail reaches behind, so the body still
+  turns about the same point and the eyes stay where they were.
 - **A debate room asks one agent at a time for a turn.** Until now the room asked every agent with
   turns left at once: all of them wrote, the first to post won, and the others were refused as stale
   and rewrote. Evaluation round 3 saw 96 of 149 turn attempts refused, 79 of them as stale, and in a

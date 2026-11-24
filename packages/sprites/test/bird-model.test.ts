@@ -25,8 +25,8 @@ describe('birdViews', () => {
     expect(views.side.keys.slice(-views.side.width)).toContain('F')
   })
 
-  it('shows the tail tuft from above and the wing tips beside the body', () => {
-    expect(views.top.keys.slice(0, views.top.width)).toContain('D')
+  it('shows the wing tips beside the body, and no tail', () => {
+    expect(new Set(views.top.keys.slice(0, views.top.width))).toEqual(new Set([null, 'B']))
     expect(views.front.keys).toContain('D')
   })
 
