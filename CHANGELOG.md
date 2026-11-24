@@ -5,6 +5,26 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.6.2] - 2026-11-24
+
+### Fixed
+
+- **pwa:** show notes that arrive while the page is loading (#182)
+
+  A note or draft that arrived after the page loaded its data but before its live connection opened stayed hidden until a reload. The same could happen after going offline and online again before any event arrived. The page now notes its place in the events before it loads anything, so the live connection first delivers what it missed. Nothing typed is lost.
+- **pwa:** try again by itself when the first load fails (#184)
+
+  When the server cannot be reached as the page opens, it repeats the load a few times by itself, and starts again when your connection is back. Sign-in shows only when your session really ended, never for a dropped connection. If the server fails on one of the lists, the rest of the page stays usable and live notes keep arriving.
+- **pwa:** offer to try again when loading takes too long (#185)
+
+  A page that is slow to load used to say nothing, and one whose request never answered stayed on "Loading…" for good. Now the page says what is usual, then that it is taking too long, and offers Try again while the load goes on behind it. If the load answers, the page carries on by itself. Try again ends the running load and starts one fresh one.
+- **pwa:** keep slow loads current and say what is being checked (#186)
+
+  A slow first load no longer leaves old information on screen. When the page finishes loading after live updates have already started, it loads once more in the background, so people, requests and reviews match what the updates said. The page shows nothing extra for this, and it gives up quietly if the second load is slow too. Lists say what they are checking, such as your channels or flocks, instead of claiming there are none, and offer Try again when that takes too long or fails. When the server refuses the first load, the page says why in your language.
+- **pwa:** say once that loading is slow or failed (#187)
+
+  A slow or failed load is told in one place: a line above the page while everything is affected, otherwise the list itself. Try again in the line also loads the list on screen.
+
 ## [0.6.1] - 2026-11-24
 
 ### Added
@@ -843,6 +863,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.6.2]: https://github.com/let-sunny/homingbird/releases/tag/v0.6.2
 [0.6.1]: https://github.com/let-sunny/homingbird/releases/tag/v0.6.1
 [0.6.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.6.0
 [0.5.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.5.0
