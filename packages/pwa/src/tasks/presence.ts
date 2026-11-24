@@ -8,10 +8,12 @@ import { type Action, withApp } from '../app.ts'
 export const reportVisibility: Action = withApp((app) =>
   T.sync(() => {
     const page = app.random.id()
-    app.page.on('visibilitychange', () => app.launch(report(page)))
+    const stop = app.page.on('visibilitychange', () => app.launch(report(page)))
+    app.ended.addEventListener('abort', stop, { once: true })
     T.runFork(
       T.forever(VISIBLE_RENEWAL_MS)(T.suspend(() => (app.page.isVisible() ? report(page) : T.unit))),
       app,
+      app.ended,
     )
   }),
 )

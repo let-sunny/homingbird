@@ -14,6 +14,13 @@ describe('thread changes', () => {
     expect(changes.changesTo(room('conv_b'))).toBe(0)
   })
 
+  it('forgets every conversation it counted', () => {
+    const changes = changeCounter()
+    changes.count(room('conv_a'))
+    changes.forget()
+    expect(changes.changesTo(room('conv_a'))).toBe(0)
+  })
+
   it('tells a load whether its conversation changed while the snapshot was on its way', () => {
     const changes = changeCounter()
     const before = changes.changesTo(room('conv_c'))

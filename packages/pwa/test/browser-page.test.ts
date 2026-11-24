@@ -11,6 +11,7 @@ const fakeWindow = (fields: Partial<Record<keyof BrowserWindow, unknown>> = {}) 
     hash: '#/',
     replace: vi.fn(),
     assign: vi.fn(),
+    reload: vi.fn(),
   }
   const observed: unknown[] = []
   const window = {
@@ -77,11 +78,25 @@ describe('browserPage', () => {
     expect(location.hash).toBe('#/people')
     page.replace('#/a')
     page.assign('/')
+    page.reload()
     page.replaceAddress('#/search?q=x')
     expect(location.replace).toHaveBeenCalledWith('#/a')
     expect(location.assign).toHaveBeenCalledWith('/')
+    expect(location.reload).toHaveBeenCalledOnce()
     expect(window.history.replaceState).toHaveBeenCalledWith(null, '', '#/search?q=x')
     expect(page.linkTo('#/c/conv_1?note=n1')).toBe('https://homingbird.example/app/#/c/conv_1?note=n1')
+  })
+
+  it('tells a page brought back from the back-forward cache from one shown for the first time', () => {
+    const { window, listeners } = fakeWindow()
+    const restored = vi.fn()
+    browserPage(window).onRestored(restored)
+    const pageshow = listeners.get('pageshow') as unknown as (event?: object) => void
+    pageshow({ persisted: false })
+    pageshow()
+    expect(restored).not.toHaveBeenCalled()
+    pageshow({ persisted: true })
+    expect(restored).toHaveBeenCalledOnce()
   })
 
   it('fetches, reads the languages, the visibility and the person’s preferences', async () => {

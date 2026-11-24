@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { followEvents, latestEvent } from '../../src/tasks/events.ts'
 import { settle, testApp } from '../support/app.ts'
-import { BEN } from '../support/fixtures.ts'
+import { BEN, ROOM, me, serverInfo } from '../support/fixtures.ts'
 
 const sse = (...events: unknown[]) =>
   new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(''), {
@@ -129,5 +129,105 @@ describe('followEvents', () => {
     expect(calls).toBeGreaterThan(3)
     expect(polling.state.connection.get()).toBe('polling')
     polling.page.emit('offline')
+  })
+})
+
+describe('a preview of a draft discarded while events cannot arrive', () => {
+  const PREVIEW = { noteId: 'note_p1', conversationId: ROOM, state: 'unconfirmed', body: 'Early words' }
+
+  /** A page that shows a preview, live, and a server whose author discards the draft when told to. */
+  const livePage = async () => {
+    let isDiscarded = false
+    let respond: () => Promise<Response> = () => Promise.resolve(new Response(new ReadableStream()))
+    const out = testApp({
+      'me.get': () => me(),
+      'previews.list': () => ({ previews: isDiscarded ? [] : [PREVIEW] }),
+    })
+    out.state.session.set(me())
+    out.state.serverInfo.set(serverInfo({ draftPreviews: true }))
+    out.state.previews.set(new Map([[ROOM, [PREVIEW as never]]]))
+    Object.assign(out.page.page, {
+      fetch: (url: string) =>
+        url.includes('/poll') ? Promise.resolve(Response.json({ events: [], cursor: 0 })) : respond(),
+    })
+    const pass = async (ms: number) => {
+      for (let round = 0; round < 5; round++) await settle()
+      await out.clock.advance(ms)
+      for (let round = 0; round < 5; round++) await settle()
+    }
+    return {
+      ...out,
+      pass,
+      discard: () => {
+        isDiscarded = true
+      },
+      streamsAnswer: (answer: () => Promise<Response>) => {
+        respond = answer
+      },
+      shown: () => out.state.previews.get().get(ROOM),
+    }
+  }
+
+  it('is gone after offline and online again, and is not shown meanwhile', async () => {
+    const { run, page, pass, discard, shown } = await livePage()
+    await run(followEvents(0))
+    await pass(0)
+    expect(shown()).toHaveLength(1)
+    page.emit('offline')
+    expect(shown()).toEqual([])
+    discard()
+    page.emit('online')
+    await pass(0)
+    expect(shown()).toEqual([])
+    page.emit('offline')
+  })
+
+  it('is gone after the stream ended and opened again, where one still waiting comes back', async () => {
+    const { run, page, pass, discard, shown, streamsAnswer } = await livePage()
+    const ends: Array<() => void> = []
+    streamsAnswer(() =>
+      Promise.resolve(
+        new Response(new ReadableStream({ start: (stream) => void ends.push(() => stream.close()) })),
+      ),
+    )
+    await run(followEvents(0))
+    await pass(0)
+    ends[0]!()
+    await pass(60_000)
+    expect(shown()).toHaveLength(1)
+    discard()
+    ends[1]!()
+    await pass(60_000)
+    expect(shown()).toEqual([])
+    page.emit('offline')
+  })
+
+  it('is gone once the stream that broke while the computer slept is refused, and while the page polls', async () => {
+    const { run, page, pass, discard, shown, streamsAnswer, state } = await livePage()
+    let fail = (): void => {}
+    streamsAnswer(() =>
+      Promise.resolve(
+        new Response(
+          new ReadableStream({
+            start: (stream) => {
+              fail = () => stream.error(new Error('broken'))
+            },
+          }),
+        ),
+      ),
+    )
+    await run(followEvents(0))
+    await pass(0)
+    streamsAnswer(() => Promise.resolve(new Response('', { status: 503 })))
+    fail()
+    await pass(2_000)
+    expect(shown()).toEqual([])
+    for (let round = 0; round < 4; round++) await pass(60_000)
+    expect(state.connection.get()).toBe('polling')
+    expect(shown()).toHaveLength(1)
+    discard()
+    for (let round = 0; round < 4; round++) await pass(1_000)
+    expect(shown()).toEqual([])
+    page.emit('offline')
   })
 })

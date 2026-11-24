@@ -7,6 +7,7 @@ export const changeCounter = (): ChangeCounter => {
   return {
     changesTo,
     count: (id) => void counts.set(id, changesTo(id) + 1),
+    forget: () => counts.clear(),
     changedSince: (id, before) => changesTo(id) !== before,
   }
 }
@@ -14,6 +15,8 @@ export const changeCounter = (): ChangeCounter => {
 export interface ChangeCounter {
   readonly changesTo: (id: ConversationId) => number
   readonly count: (id: ConversationId) => void
+  /** Forgets every conversation, as when the session that counted them ended. */
+  readonly forget: () => void
   /** Whether something changed the conversation while a snapshot of it was on its way. */
   readonly changedSince: (id: ConversationId, before: number) => boolean
 }

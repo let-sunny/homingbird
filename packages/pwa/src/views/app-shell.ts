@@ -51,6 +51,7 @@ export const showApp = (
     )
   const draw = (): void => {
     appLife.end()
+    stageLife.end()
     const me = state.session.get()
     if (me === 'loading') {
       const model = startModel({
@@ -68,6 +69,7 @@ export const showApp = (
       if (state.start.get() === 'failed') appLife.add(page.on('online', () => context.actions.startAgain()))
       return
     }
+    if (me === null) closeWhatIsOpen(context, root)
     if (me === null && arrivedToConnect(state.route.get())) {
       page.replace(signInHref(page.hash()))
       return
@@ -103,6 +105,15 @@ export const showApp = (
   state.session.subscribe(draw)
   state.serverInfo.subscribe(draw)
   draw()
+}
+
+/** Closes the dialog and the popovers, so that what they follow ends with them; removing them alone ends nothing. */
+const closeWhatIsOpen = (context: ViewContext, root: HTMLElement): void => {
+  context.tour.end()
+  const dialog = context.document.byId(DIALOG_ID) as HTMLDialogElement | null
+  if (dialog?.open === true) dialog.close()
+  for (const popover of root.querySelectorAll<HTMLElement>('[popover]'))
+    if (popover.matches(':popover-open')) popover.hidePopover()
 }
 
 const replaceOldAddress = (context: ViewContext): boolean => {

@@ -1,7 +1,7 @@
 import { Task as T } from '@homingbird/kernel'
 import type { AsRead, ConversationId } from '@homingbird/protocol'
 import { batch, later } from '@homingbird/ui'
-import type { App } from '../app.ts'
+import type { Action, App } from '../app.ts'
 import { channelLabel, channelOfRoom, withChannel, withoutRoom } from '../channels.ts'
 import { upsertRequest } from '../draft-requests.ts'
 import { hrefFor } from '../routes.ts'
@@ -22,34 +22,22 @@ import { loadAgents, loadConversations, loadKnownChannels, loadPeople, loadWorks
 /** What each live event changes in the page, as one change: the state it updates and what it loads again. */
 export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
   const { state, launch } = app
-  let cancelDirectoryReload = (): void => {}
-  const reloadDirectorySoon = (): void => {
-    cancelDirectoryReload()
-    cancelDirectoryReload = later(app.clock, DIRECTORY_SETTLE_MS, () =>
-      launch(T.all([loadPeople, loadKnownChannels, loadConversations])),
-    )
+  const settled = (load: Action<unknown>): (() => void) => {
+    let cancel = (): void => {}
+    app.ended.addEventListener('abort', () => cancel(), { once: true })
+    return () => {
+      cancel()
+      cancel = later(app.clock, DIRECTORY_SETTLE_MS, () => launch(load))
+    }
   }
-  let cancelGroupsReload = (): void => {}
+  const reloadDirectorySoon = settled(T.all([loadPeople, loadKnownChannels, loadConversations]))
+  const loadGroupsSoon = settled(loadGroups)
   const reloadGroupsSoon = (): void => {
-    if (!state.groupsLoaded.get()) return
-    cancelGroupsReload()
-    cancelGroupsReload = later(app.clock, DIRECTORY_SETTLE_MS, () => launch(loadGroups))
+    if (state.groupsLoaded.get()) loadGroupsSoon()
   }
-  let cancelReviewsReload = (): void => {}
-  const reloadReviewsSoon = (): void => {
-    cancelReviewsReload()
-    cancelReviewsReload = later(app.clock, DIRECTORY_SETTLE_MS, () => launch(loadReviews))
-  }
-  let cancelInterviewReload = (): void => {}
-  const reloadInterviewSoon = (): void => {
-    cancelInterviewReload()
-    cancelInterviewReload = later(app.clock, DIRECTORY_SETTLE_MS, () => launch(refreshInterview))
-  }
-  let cancelDebatesReload = (): void => {}
-  const reloadDebatesSoon = (): void => {
-    cancelDebatesReload()
-    cancelDebatesReload = later(app.clock, DIRECTORY_SETTLE_MS, () => launch(loadDebates))
-  }
+  const reloadReviewsSoon = settled(loadReviews)
+  const reloadInterviewSoon = settled(refreshInterview)
+  const reloadDebatesSoon = settled(loadDebates)
   const refreshAgentsIfNoneKnown = (): void => {
     if (state.agentCredentials.get().length === 0) launch(loadAgents)
   }

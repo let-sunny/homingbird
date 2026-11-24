@@ -554,8 +554,11 @@ Every durable event is written to the recipient's own event log in the same tran
 change, so a client that reconnects resumes from its last sequence number and loses nothing kept in
 the log, however far behind it is. `emit` in `dovecote/src/events/events.ts` increments `members.event_seq`, stores the event in
 `events`, and hands it to the in-process hub only after the transaction commits. Events are kept for
-seven days. Three event types are ephemeral and carry sequence number 0: `presence`,
-`directory.changed` and `resync`.
+seven days. Eight event types are ephemeral: `presence`, `directory.changed`, `group.changed`,
+`review.changed`, `debate.changed`, `suggestions.changed`, `proposals.changed` and `preview.changed`.
+They carry sequence number 0 and go to the hub only, so they reach the streams open at that moment, are
+never replayed, and never reach a long-poll client (`waitForEvents` answers from the log). A `resync` the
+stream makes up for itself carries sequence number 0 too.
 
 ```mermaid
 sequenceDiagram
@@ -613,6 +616,20 @@ sequenceDiagram
   percentile; Chromium's Fast 3G / Slow 4G 4.2 s, cold or warm cache; Slow 3G 11.8 s. "Usually" is the
   Fast 3G figure rounded up (5 s) and "too long" the Slow 3G figure with a margin (15 s, never under
   10). A deployment far from its people can differ, so the words only say "usually".
+- **Reconnecting.** The web client hides the draft previews it holds as soon as it knows its events are
+  lost (offline, a stream that ended, broke or was refused) and shows them again only as the server then
+  answers; a failed answer keeps them hidden, since a discarded draft's preview must not show (rule 2).
+  While it polls it reads them again after each poll. It also asks `me.get`, and starts the page anew when
+  another person signed in meanwhile in another tab (`pwa/src/tasks/reconnect.ts`).
+- **Session end.** A 401 on any request or on the event stream, and signing out, end the session in the
+  page (`endSession` in `pwa/src/app.ts`): the one `AbortSignal` that every launched task, the stream,
+  the visibility reports and the delayed reloads follow is aborted, so no late answer is applied;
+  `forgetSession` (`pwa/src/state.ts`) sets every part of the state back, except the server's facts, the
+  branding and the address; and the shell draws sign-in, closing dialogs and popovers. Nothing starts
+  again in that page, because signing in loads it anew. This browser keeps what it kept before: language
+  and appearance, the decisions not yet carried out, and the unsent texts, which signing out removes. A
+  page the browser brings back from its back-forward cache stays hidden until the server says the same
+  person is signed in, and is otherwise loaded anew (`pwa/src/restored-page.ts`).
 - **Presence.** The hub counts each member's open streams by credential kind: a human stream makes
   `humanOnline` true, an agent stream makes `agentOnline` true. Long-poll subscribes as hidden and
   counts for neither. Changes are collected and broadcast to everyone as one `presence` event per

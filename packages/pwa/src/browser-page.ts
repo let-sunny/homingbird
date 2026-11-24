@@ -13,6 +13,7 @@ export const browserPage = (window: BrowserWindow): Page => {
     },
     replace: (href) => location.replace(href),
     assign: (url) => location.assign(url),
+    reload: () => location.reload(),
     replaceAddress: (href) => window.history.replaceState(null, '', href),
     linkTo: (href) => new URL(href, location.href).href,
     fetch: (url, init) => window.fetch(url, init),
@@ -37,6 +38,10 @@ export const browserPage = (window: BrowserWindow): Page => {
       target.addEventListener(event, listener)
       return () => target.removeEventListener(event, listener)
     },
+    onRestored: (listener) =>
+      window.addEventListener('pageshow', (event) => {
+        if (event?.persisted === true) listener()
+      }),
     nextFrame: (run) => void window.requestAnimationFrame(() => run()),
     prefersReducedMotion: () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? true,
     isCoarsePointer: () => window.matchMedia?.('(pointer: coarse)').matches ?? false,
@@ -130,6 +135,8 @@ export interface Page {
   readonly replace: (href: string) => void
   /** Loads another page, such as a sign-out or an agent's return address. */
   readonly assign: (url: string) => void
+  /** Loads this page again at the address it is at. */
+  readonly reload: () => void
   readonly replaceAddress: (href: string) => void
   /** The full address of a place in the app, for a link the person copies elsewhere. */
   readonly linkTo: (href: string) => string
@@ -143,6 +150,8 @@ export interface Page {
   readonly showWaiting: (title: string, badge: number | 'unread' | null) => void
   readonly isVisible: () => boolean
   readonly on: (event: PageEvent, listener: () => void) => Unsubscribe
+  /** Listens for the browser bringing back this page as the person left it, from its back-forward cache. */
+  readonly onRestored: (listener: () => void) => void
   readonly nextFrame: (run: () => void) => void
   readonly prefersReducedMotion: () => boolean
   /** Whether the main pointer is a finger, where a touch keyboard's return key starts a new line. */
@@ -209,7 +218,7 @@ export interface BrowserWindow {
     Document,
     'visibilityState' | 'createElement' | 'body' | 'addEventListener' | 'removeEventListener' | 'title'
   >
-  readonly location: Pick<Location, 'origin' | 'href' | 'hash' | 'replace' | 'assign'>
+  readonly location: Pick<Location, 'origin' | 'href' | 'hash' | 'replace' | 'assign' | 'reload'>
   readonly history: Pick<History, 'replaceState'>
   readonly navigator?: Pick<Navigator, 'languages'> & {
     readonly userAgent?: string
@@ -219,7 +228,10 @@ export interface BrowserWindow {
     readonly clipboard?: { readonly writeText: (text: string) => Promise<void> }
   }
   readonly fetch: Fetch
-  readonly addEventListener: (type: string, listener: () => void) => void
+  readonly addEventListener: (
+    type: string,
+    listener: (event?: { readonly persisted?: boolean }) => void,
+  ) => void
   readonly removeEventListener: (type: string, listener: () => void) => void
   readonly requestAnimationFrame: (run: () => void) => unknown
   readonly matchMedia?: (query: string) => { readonly matches: boolean }

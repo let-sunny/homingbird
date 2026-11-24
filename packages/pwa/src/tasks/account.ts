@@ -112,7 +112,7 @@ export const returnAfterAMoment = (url: string): Action =>
   })
 
 export const signOut: Action = T.gen(function* () {
-  const { page, state } = yield* T.ask<App>()
+  const { page, state, endSession } = yield* T.ask<App>()
   const me = signedIn(state)
   if (me !== null) forgetComposerTexts(page.storage, me.member.id)
   yield* T.tryPromise(
@@ -120,6 +120,7 @@ export const signOut: Action = T.gen(function* () {
       page.fetch('/auth/logout', { method: 'POST', headers: { 'x-homingbird-request': '1' }, signal }),
     (): ApiError => ({ _tag: 'Unavailable', message: strings.serverUnreachable }),
   )
+  endSession()
   page.assign('/')
 })
 
