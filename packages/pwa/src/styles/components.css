@@ -1008,7 +1008,7 @@ a.quote:hover {
   margin: 0;
 }
 
-.draft button {
+.draft button:not(.hint-close) {
   border-color: var(--hb-color-on-pending);
   background: var(--hb-color-on-pending-surface);
   color: var(--hb-color-on-pending);
@@ -1098,7 +1098,13 @@ a.quote:hover {
   font-size: var(--hb-text-meta);
 }
 
-.reply-chip span {
+.reply-chip {
+  flex-wrap: wrap;
+}
+
+.reply-chip > span:first-child {
+  min-inline-size: 0;
+  max-inline-size: calc(100% - var(--hb-space-6) - var(--hb-space-3));
   overflow: hidden;
   padding-inline-start: var(--hb-space-2);
   border-inline-start: var(--hb-border-quote);
@@ -2851,14 +2857,21 @@ button.group-member-name:focus-visible::after {
 @supports (position-area: block-end span-inline-end) {
   .hint-tip.is-anchored {
     inset: auto;
+    inline-size: max-content;
     margin-block-start: var(--hb-space-1);
     position-area: block-end span-inline-end;
-    position-try-fallbacks: flip-block, flip-inline;
+    position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline;
   }
 }
 
 /* On a touch screen the hint shows once on its own line under the control, never over it. */
 .hint-inline[hidden] {
+  display: none;
+}
+
+/* A draft card shows one inline hint at a time, so what it says about the draft stays on screen. */
+.draft > .hint-inline ~ .draft-actions .hint-inline,
+.draft-actions > .hint-inline ~ .hint-inline {
   display: none;
 }
 
@@ -2884,6 +2897,8 @@ button.group-member-name:focus-visible::after {
 
 .sidebar-section-head .hint-inline {
   order: 1;
+  margin-inline-start: var(--hb-space-3);
+  max-inline-size: calc(100% - var(--hb-space-3));
 }
 
 .has-tap-hint {
@@ -3228,6 +3243,10 @@ button.group-member-name:focus-visible::after {
   grid-auto-flow: column;
   justify-content: start;
   gap: var(--hb-space-4);
+}
+
+.room-type-choice:has(.hint-inline) {
+  grid-auto-flow: row;
 }
 
 .visibility-choice label,
@@ -3788,11 +3807,13 @@ button.group-member-name:focus-visible::after {
   margin-inline-start: var(--hb-space-1);
 }
 
+.thread-profile.channel-head-meta {
+  flex-wrap: wrap;
+}
+
 .channel-head-meta > .channel-counts {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: flex;
+  flex-wrap: wrap;
 }
 
 .channel-head-meta > .channel-counts > span:not(:last-child)::after {

@@ -53,7 +53,7 @@ const ko: SlackTexts = {
   linkOffered: (url) =>
     `Slack 사용자를 Homingbird에 연결하려면 Homingbird에 로그인한 상태로 10분 안에 ${slackLink(url, '이 링크를 여세요')}.`,
   alreadyLinked: (name) =>
-    `이 Slack 사용자는 Homingbird의 ${escapeSlackText(name)}에 연결되어 있습니다. 바꾸려면 먼저 Homingbird의 내 에이전트에서 연결을 끊으세요.`,
+    `이 Slack 사용자는 Homingbird의 ${escapeSlackText(name)}에 연결되어 있습니다. 바꾸려면 먼저 Homingbird의 둥지에서 연결을 끊으세요.`,
   membersOnly: (team) => `Homingbird는 ${escapeSlackText(team)}의 정식 멤버에게만 답합니다.`,
   reviewWaiting: (url) => `결정을 기다리는 초안이 있습니다. ${slackLink(url, 'Homingbird에서 열기')}`,
   notPosted: (url) =>

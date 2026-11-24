@@ -347,3 +347,51 @@ describe('the token contrast check', () => {
     expect(() => luminance('rebeccapurple')).toThrow('six-digit')
   })
 })
+
+describe('the hint rules in the stylesheets', () => {
+  const components = readFileSync(join(STYLES, 'components.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  const body = (selector: string): string => {
+    const start = components.indexOf(`${selector} {`)
+    expect(start, `no rule for ${selector}`).toBeGreaterThanOrEqual(0)
+    return components.slice(start, components.indexOf('}', start))
+  }
+
+  it('lets only the quoted text of a reply chip shrink, so its hint and cross keep their room', () => {
+    expect(components).not.toContain('.reply-chip span {')
+    expect(body('.reply-chip > span:first-child')).toContain('min-inline-size: 0')
+    expect(body('.reply-chip')).toContain('flex-wrap: wrap')
+  })
+
+  it('stacks the kinds of flock when a hint is shown beside them', () => {
+    expect(body('.room-type-choice:has(.hint-inline)')).toContain('grid-auto-flow: row')
+  })
+
+  it('sizes an anchored hint to its text and lets it flip to the side with room', () => {
+    const rule = body('.hint-tip.is-anchored')
+    expect(rule).toContain('inline-size: max-content')
+    expect(rule).toContain('flip-inline')
+  })
+
+  it('leaves the close cross of a hint in a draft card plain, without the card buttons’ shadow', () => {
+    expect(components).toContain('.draft button:not(.hint-close) {')
+    expect(components).not.toMatch(/\n\.draft button \{/)
+  })
+
+  it('shows one inline hint at a time in a draft card', () => {
+    expect(
+      body(
+        '.draft > .hint-inline ~ .draft-actions .hint-inline,\n.draft-actions > .hint-inline ~ .hint-inline',
+      ),
+    ).toContain('display: none')
+  })
+
+  it('starts the inline hint of a section head at the gutter its title keeps', () => {
+    expect(body('.sidebar-section-head .hint-inline')).toContain('margin-inline-start: var(--hb-space-3)')
+  })
+
+  it('wraps the counts in a channel head instead of cutting them', () => {
+    const rule = body('.channel-head-meta > .channel-counts')
+    expect(rule).toContain('flex-wrap: wrap')
+    expect(rule).not.toContain('nowrap')
+  })
+})

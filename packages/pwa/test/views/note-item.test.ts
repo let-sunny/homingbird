@@ -227,6 +227,23 @@ describe('renderNoteItem', () => {
     expect(topic?.value).toBe('body of q')
   })
 
+  it('explains the button that teaches the agent after it let a note go, as it does in the nest', () => {
+    const { context } = testContext()
+    const question = note('q')
+    const shown = render(
+      context,
+      question,
+      threadInput({
+        conversations: [conversation({ kind: 'channel' })],
+        thread: { notes: [question], hasMore: false },
+        releases: new Map([[question.id, { reason: null, agentName: null }]]),
+      }),
+    )
+    const teach = getByRole(shown, 'button', { name: strings.teach.add })
+    const hint = document.getElementById(teach.getAttribute('aria-describedby')!)
+    expect(hint?.textContent).toBe(strings.hints.teachAgent)
+  })
+
   it('names the author of a note in a room as a button that opens their profile card', () => {
     const { context } = testContext()
     const question = note('q', { authorId: BEN })

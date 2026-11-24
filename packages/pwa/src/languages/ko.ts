@@ -274,7 +274,7 @@ export const ko: Translation<typeof en> = {
     activityBell: '승인을 기다리는 초안과, 마지막으로 본 뒤 에이전트가 한 일을 봐요.',
     teachAgent: '다음번에 이런 질문에 어떻게 답할지 에이전트에게 알려 줘요. 초안은 항상 내가 승인해요.',
     changeChannel: '이 초안을 다른 채널로 보내요. 승인하기 전에는 아무것도 나가지 않아요.',
-    withdrawRequest: '상대 에이전트에게 보낸 요청을 거둬들여요.',
+    withdrawRequest: '내 에이전트에게 보낸 요청을 거둬들여요.',
     replyTarget: '이 노트에 대한 답장을 멈추고 새 노트를 써요.',
     connectAgent: '내 에이전트를 Homingbird에 연결하는 곳으로 가요. 에이전트가 초안을 쓰면 내가 승인해요.',
     debateKind: '에이전트들이 차례로 질문을 토론하고 투표로 결론을 정해요. 결론은 사람이 보내요.',
@@ -1079,7 +1079,7 @@ export const ko: Translation<typeof en> = {
       chat: '에이전트와의 채팅에서 시작',
     },
     chat: {
-      title: '채팅로 가르치기',
+      title: '채팅으로 가르치기',
       intro:
         '내 에이전트가 몇 가지 질문에 평소 어떻게 답하는지 물어요. 여기에 붙여넣은 문서와 내가 고쳐 쓴 초안을 참고하고, 내 답을 원칙 제안으로 바꿔요. 여기서 저장하기 전에는 아무것도 저장되지 않아요.',
       steps: {
@@ -1089,7 +1089,7 @@ export const ko: Translation<typeof en> = {
       },
       command: '/homingbird teach',
       noModel:
-        '웹 클라이언트에는 모델이 없어요. 채팅는 평소처럼 내 에이전트와 하고, 저장은 여기서 내가 눌러야만 돼요.',
+        '웹 클라이언트에는 모델이 없어요. 채팅은 평소처럼 내 에이전트와 하고, 저장은 여기서 내가 눌러야만 돼요.',
       documentLabel: '원칙 문서 (선택)',
       documentHint:
         '가이드라인이나 내 메모를 {max}자까지 붙여넣을 수 있어요. 나와 내 에이전트만 데이터로 읽어요.',
@@ -1100,7 +1100,7 @@ export const ko: Translation<typeof en> = {
       proposalsTitle: '채팅에서 제안된 원칙',
       rewritesTitle: '고쳐 쓴 초안에서 나온 제안',
       rewritesIntro: '내가 고치거나 버린 에이전트 초안을 보고 에이전트가 제안했어요.',
-      empty: '아직 제안이 없어요. 에이전트와 채팅를 시작하면 제안이 생기는 대로 여기에 나타나요.',
+      empty: '아직 제안이 없어요. 에이전트와 채팅을 시작하면 제안이 생기는 대로 여기에 나타나요.',
       asked: '에이전트의 질문: {question}',
       fromEdit: '내가 고친 초안에서',
       fromDiscard: '내가 버린 초안에서',
@@ -1971,7 +1971,7 @@ export const ko: Translation<typeof en> = {
     pageIntro:
       'Homingbird는 아래에 적힌 것만 노트와 초안 자체에서 세요. 노트에 무엇이 적혔는지는 절대 세지 않아요.',
     youTitle: '나에 대해 내가 보는 것',
-    youPrivacy: '내 에이전트 페이지에서 나만 봐요. 에이전트는 읽을 수 없고, 관리자도 내 숫자는 보지 못해요.',
+    youPrivacy: '둥지에서 나만 봐요. 에이전트는 읽을 수 없고, 관리자도 내 숫자는 보지 못해요.',
     managersTitle: '채널 운영자가 그 채널 에이전트에 대해 보는 것',
     managersPrivacy:
       '그 채널의 운영자만 에이전트 페이지에서 봐요. 운영하지 않는 관리자는 보지 못하고, 에이전트도 읽을 수 없어요.',

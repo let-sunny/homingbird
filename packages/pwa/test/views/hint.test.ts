@@ -1,5 +1,5 @@
 import { h } from '@homingbird/ui'
-import { fire, installFakeDom, isPopoverOpen, uninstallFakeDom } from '@homingbird/ui/testing'
+import { fakeEvent, fire, installFakeDom, isPopoverOpen, uninstallFakeDom } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { HINTS_RETIRE_AFTER_MS, HINT_DELAY_MS } from '../../src/hints.ts'
 import { strings } from '../../src/strings.ts'
@@ -70,6 +70,53 @@ describe('hinted', () => {
     target.focus()
     await clock.advance(HINT_DELAY_MS)
     expect(isOpen(hint)).toBe(false)
+  })
+
+  it('shows nothing when focus returns to a control a press used, until the keyboard takes over', async () => {
+    const { context, clock } = testContext()
+    const { target, hint } = shown(context)
+    target.focus()
+    fire.event(target, 'pointerdown')
+    target.click()
+    target.blur()
+    fire.key(document.body, 'Escape')
+    target.focus()
+    await clock.advance(HINT_DELAY_MS)
+    expect(isOpen(hint)).toBe(false)
+    target.blur()
+    fire.key(document.body, 'Tab')
+    target.focus()
+    await clock.advance(HINT_DELAY_MS)
+    expect(isOpen(hint)).toBe(true)
+  })
+
+  it('lets the mouse moving on a control a press used bring its hint back', async () => {
+    const { context, clock } = testContext()
+    const { target, hint } = shown(context)
+    target.click()
+    fire.event(target, 'pointermove')
+    target.focus()
+    await clock.advance(HINT_DELAY_MS)
+    expect(isOpen(hint)).toBe(false)
+    target.blur()
+    const moved = fakeEvent('pointermove')
+    Object.assign(moved, { movementX: 3 })
+    target.dispatchEvent(moved as never)
+    target.focus()
+    await clock.advance(HINT_DELAY_MS)
+    expect(isOpen(hint)).toBe(true)
+  })
+
+  it('keeps the browser from showing an invoker’s hint on the focus that returns after a press', () => {
+    const { context, page } = testContext()
+    page.state.interest = true
+    const { target, hint } = shown(context)
+    expect(fire.event(hint, 'beforetoggle', { newState: 'open' })).toBe(true)
+    target.click()
+    expect(fire.event(hint, 'beforetoggle', { newState: 'open' })).toBe(false)
+    expect(fire.event(hint, 'beforetoggle', { newState: 'closed' })).toBe(true)
+    fire.key(document.body, 'Tab')
+    expect(fire.event(hint, 'beforetoggle', { newState: 'open' })).toBe(true)
   })
 
   it('keeps showing the hint on hover after the control is used', async () => {

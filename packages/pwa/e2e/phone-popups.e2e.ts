@@ -23,7 +23,14 @@ const scenario = async (): Promise<void> => {
         const label = `${language}-${theme}`
         problems.push(...(await tourProblems(browser, port, language, theme, label)))
         for (const popup of POPUPS)
-          problems.push(...(await popupProblems(browser, port, language, theme, popup, label)))
+          for (const width of popup.widths)
+            problems.push(
+              ...(await popupProblems(browser, port, language, theme, popup, width, `${label} ${width}`)),
+            )
+        for (const width of [390, 320])
+          problems.push(
+            ...(await replyChipProblems(browser, port, language, theme, width, `${label} ${width}`)),
+          )
       }
   } finally {
     await browser.close()
@@ -59,9 +66,10 @@ const popupProblems = async (
   language: string,
   theme: string,
   popup: Popup,
+  width: number,
   label: string,
 ): Promise<string[]> => {
-  const page = await phonePage(browser, port, language, theme, true, popup.route)
+  const page = await phonePage(browser, port, language, theme, true, popup.route, width)
   const invoker = page.locator(popup.invoker).first()
   await invoker.click({ timeout: 2000 })
   await page.waitForSelector(popup.shown, { timeout: 2000 })
@@ -79,9 +87,10 @@ const phonePage = async (
   theme: string,
   tourSeen: boolean,
   route = '#/',
+  width = 375,
 ): Promise<any> => {
   const context = await browser.newContext({
-    viewport: { width: 375, height: 667 },
+    viewport: { width, height: 667 },
     deviceScaleFactor: 2,
     isMobile: true,
     hasTouch: true,
@@ -108,6 +117,41 @@ interface Popup {
   readonly primary: string | null
   /** Whether the popup floats beside its invoker, so must not cover it; a sheet may. */
   readonly clearOfInvoker: boolean
+  /** The phone widths to open it at. */
+  readonly widths: ReadonlyArray<number>
+}
+
+/** The chip over the composer that names the note being replied to keeps its quote, its hint and its cross on screen. */
+const replyChipProblems = async (
+  browser: any,
+  port: number,
+  language: string,
+  theme: string,
+  width: number,
+  label: string,
+): Promise<string[]> => {
+  const page = await phonePage(browser, port, language, theme, true, '#/c/conv_demowithana0', width)
+  await page.evaluate(() => [...(globalThis as any).document.querySelectorAll('.note-reply')].pop().click())
+  await page.waitForSelector('.reply-chip', { timeout: 2000 })
+  await page.waitForTimeout(400)
+  const found: string[] = await page.evaluate(measureReplyChip)
+  await page.context().close()
+  return found.map((problem) => `${label} reply chip: ${problem}`)
+}
+
+/** Runs in the page. */
+const measureReplyChip = (): string[] => {
+  const { document, innerWidth } = globalThis as any
+  const chip = document.querySelector('.reply-chip')
+  const problems: string[] = []
+  const quote = chip.querySelector(':scope > span:first-child').getBoundingClientRect()
+  if (quote.width < 100) problems.push(`its quote is squeezed to ${Math.round(quote.width)} pixels`)
+  for (const part of chip.querySelectorAll('button, .hint-inline')) {
+    const box = part.getBoundingClientRect()
+    if (box.left < -0.5 || box.right > innerWidth + 0.5)
+      problems.push(`${part.className || part.localName} leaves the screen`)
+  }
+  return problems
 }
 
 const POPUPS: ReadonlyArray<Popup> = [
@@ -118,6 +162,7 @@ const POPUPS: ReadonlyArray<Popup> = [
     shown: '.menu:popover-open',
     primary: null,
     clearOfInvoker: true,
+    widths: [375],
   },
   {
     name: 'activity panel',
@@ -126,6 +171,7 @@ const POPUPS: ReadonlyArray<Popup> = [
     shown: '.activity-panel:popover-open',
     primary: null,
     clearOfInvoker: false,
+    widths: [375],
   },
   {
     name: 'new channel dialog',
@@ -134,6 +180,16 @@ const POPUPS: ReadonlyArray<Popup> = [
     shown: 'dialog[open]',
     primary: '.dialog-actions .primary, button.primary',
     clearOfInvoker: false,
+    widths: [375],
+  },
+  {
+    name: 'new flock dialog',
+    route: '#/debates',
+    invoker: '.new-flock-button',
+    shown: 'dialog[open]',
+    primary: null,
+    clearOfInvoker: false,
+    widths: [390, 320],
   },
   {
     name: 'profile card',
@@ -142,6 +198,7 @@ const POPUPS: ReadonlyArray<Popup> = [
     shown: '#profile-card:popover-open',
     primary: '.primary',
     clearOfInvoker: false,
+    widths: [375],
   },
 ]
 
@@ -179,6 +236,8 @@ const measurePopup = (popup: Popup): string[] => {
   const problems: string[] = []
   if (box.left < -0.5 || box.right > innerWidth + 0.5 || box.top < -0.5 || box.bottom > innerHeight + 0.5)
     problems.push(`leaves the screen (${[box.left, box.top, box.right, box.bottom].map(Math.round)})`)
+  if (shown.scrollWidth > shown.clientWidth + 1)
+    problems.push(`scrolls sideways (${shown.scrollWidth} in ${shown.clientWidth})`)
   if (popup.primary !== null) {
     const primary = shown.querySelector(popup.primary)
     if (primary !== null) {

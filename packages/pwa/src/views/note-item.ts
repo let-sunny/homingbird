@@ -147,7 +147,12 @@ export const renderNoteItem = (
           model.release.askAnyway !== null &&
             button(model.release.askAnyway, askAgent, { class: 'ask-anyway' }),
           model.release.teach !== null &&
-            teachFromMiss(context, model.release.teach.label, model.release.teach.seed),
+            hinted(
+              context,
+              'teachAgent',
+              strings.hints.teachAgent,
+              teachFromMiss(context, model.release.teach.label, model.release.teach.seed),
+            ),
         ),
       model.meta !== null &&
         h(
