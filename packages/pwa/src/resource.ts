@@ -44,7 +44,7 @@ export const resource = <A>(empty: A): Resource<A> => {
     }
     const own: Run<A> = { changes: [], waiting: null, isResting: false, interrupt: () => {} }
     run = own
-    if (telling === 'told') load.update((now) => ({ ...now, step: 'loading' }))
+    if (telling === 'told') load.update((now) => (isGivenUp(now) ? now : { ...now, step: 'loading' }))
     const task = T.map((exit: T.Exit<void, never>) => settleBroken(source, own, exit))(
       T.exit(attempts(source, own, telling)),
     )
@@ -124,7 +124,7 @@ export const resource = <A>(empty: A): Resource<A> => {
   }
 
   const sayWhileNotLoaded = (step: 'slow' | 'long'): void =>
-    load.update((now) => (now.loaded ? now : { ...now, step }))
+    load.update((now) => (now.loaded || isGivenUp(now) ? now : { ...now, step }))
 
   const stop = (): void => {
     cancelRepair()
@@ -162,6 +162,7 @@ export const resource = <A>(empty: A): Resource<A> => {
     again: (source) =>
       T.sync(() => {
         stop()
+        load.update((now) => (isGivenUp(now) ? { ...now, step: 'idle' } : now))
         askNext(source)
       }),
     reset: () => {
@@ -230,6 +231,9 @@ interface Run<A> {
 
 /** A quiet run repairs a failure that was told already, or that nobody had to be told of. */
 type Telling = 'told' | 'quiet'
+
+/** One that was never read and failed stays told until it is read or the person tries again. */
+const isGivenUp = ({ loaded, step }: Load): boolean => !loaded && step === 'failed'
 
 const NOT_ASKED: Load = { loaded: false, step: 'idle', error: null }
 
