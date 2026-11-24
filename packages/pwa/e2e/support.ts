@@ -225,22 +225,20 @@ export const clippedText = (page: any): Promise<string[]> =>
     }
     const walker = document.createTreeWalker(document.body, 4)
     for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-      const words = node.textContent.trim().split(/\s+/)
       if (node.parentElement?.closest('.visually-hidden, [hidden], dialog:not([open]), .note-body, .quote'))
         continue
       if (node.parentElement?.checkVisibility() !== true) continue
-      for (const word of words) {
-        if (word.length < 2 || !/[\uac00-\ud7a3]/.test(word)) continue
-        const start = node.textContent.indexOf(word)
+      // Only a run of Korean letters: a line may break where a Latin address meets it, as at "https://" and "로".
+      for (const found of node.textContent.matchAll(/[\uac00-\ud7a3]{2,}/g)) {
         const range = document.createRange()
-        range.setStart(node, start)
-        range.setEnd(node, start + word.length)
+        range.setStart(node, found.index)
+        range.setEnd(node, found.index + found[0].length)
         const lines = new Set(
           [...range.getClientRects()]
             .filter((rect: any) => rect.width > 0)
             .map((rect: any) => Math.round(rect.top)),
         )
-        if (lines.size > 1) clipped.push(`word broken across lines: ${word}`)
+        if (lines.size > 1) clipped.push(`word broken across lines: ${found[0]}`)
       }
     }
     return clipped
