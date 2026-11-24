@@ -195,7 +195,8 @@ jobs:
     name: web client end-to-end (${{ matrix.shard }}/3)
     needs: changes
     if: needs.changes.outputs.web == 'true'
-    runs-on: ubuntu-latest
+    # Playwright 1.59 supports no newer Ubuntu than this one, which ubuntu-latest has moved past.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
