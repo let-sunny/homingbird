@@ -130,6 +130,15 @@ describe('the card to pick free times', () => {
     expect(shown.querySelectorAll('.scheduling-pick-cell')).toHaveLength(12)
   })
 
+  it('leaves out hours that passed, even when only what time it is changed', async () => {
+    const { shown, context, clock } = opened(collecting(), false)
+    const hours = () => shown.querySelectorAll('.scheduling-pick-cell').length
+    const before = hours()
+    await clock.advance(WORK + HOUR - clock.now())
+    context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben')])
+    expect(hours()).toBeLessThan(before)
+  })
+
   it('says the person is busy throughout by sending no hour', () => {
     const { shown, called } = opened(collecting(), true)
     getByRole(shown, 'button', { name: strings.scheduling.pickBusy }).click()

@@ -89,6 +89,23 @@ describe('groupPageView', () => {
     expect(called('setGroupMembers')[1]!.args[1]).toEqual([ANA, CY])
   })
 
+  it('never adds a newly listed person in place of the first one shown, nor one once added', () => {
+    const { context, called } = testContext()
+    const team = (memberIds: ReadonlyArray<typeof CY>) =>
+      group(TEAM, { name: 'Finance', memberIds: [...memberIds], mayAdd: true })
+    context.state.directory.set([entry(ANA, 'Ana'), entry(CY, 'Cy')])
+    context.state.groups.set([team([ANA])])
+    setLoad(context.state.groups, { loaded: true })
+    const shown = groupPageView(context, lifetime(), ANA, TEAM)
+    context.state.directory.set([entry(BEN, 'Ben'), entry(ANA, 'Ana'), entry(CY, 'Cy')])
+    fire.submit(shown.querySelector('form.add-member')!)
+    expect(called('setGroupMembers')[0]!.args[1]).toEqual([ANA, CY])
+    context.state.groups.set([team([ANA, CY])])
+    fire.submit(shown.querySelector('form.add-member')!)
+    expect(called('setGroupMembers')).toHaveLength(1)
+    expect(context.state.notice.get()?.text).toBe(strings.choiceGone)
+  })
+
   it('shows an administrator who may only remove the remove buttons and no add control', () => {
     const { context } = testContext()
     context.state.directory.set([entry(BEN, 'Ben'), entry(CY, 'Cy')])

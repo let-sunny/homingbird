@@ -2721,7 +2721,8 @@ button.group-member-name:focus-visible::after {
   white-space: nowrap;
 }
 
-.page-body > .private-mark {
+.page-body > .private-mark,
+.channel-ask-head > .private-mark {
   justify-self: start;
   margin-inline-start: 0;
 }
@@ -2779,7 +2780,8 @@ button.group-member-name:focus-visible::after {
   gap: var(--hb-space-2);
 }
 
-.page-body > .room-controls {
+.page-body > .room-controls,
+.channel-ask-head > .room-controls {
   padding: var(--hb-space-3);
   border: var(--hb-border);
   background: var(--hb-color-surface);
@@ -3281,6 +3283,12 @@ button.group-member-name:focus-visible::after {
 .private-choice {
   display: inline-flex;
   gap: var(--hb-space-2);
+}
+
+.channel-ask-head,
+.debate-head,
+.managed-by-host {
+  display: contents;
 }
 
 .members-host {

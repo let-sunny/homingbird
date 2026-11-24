@@ -5,7 +5,8 @@
  * content is gone and the new is not yet in: every container that scrolls around the host shrinks to
  * what is left and loses its place. So the scroll of each one is put back, and the focus moves to the
  * control that stands where the focused one stood, held at the same place on screen, with the caret where
- * it was in a text that stayed the same. An element with a `data-key` is followed by its key, so a row that moved keeps the focus on its own control.
+ * it was in a text that stayed the same. An element with a `data-key` is followed by its key, so a row that
+ * moved keeps the focus on its own control.
  */
 export const keepingPlace = (host: Element, change: () => void): void => {
   const focused = host.ownerDocument.activeElement

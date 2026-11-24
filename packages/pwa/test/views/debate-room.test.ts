@@ -314,7 +314,10 @@ describe('debateView', () => {
     context.state.channels.set([channel('billing', { joined: true })])
     fire.select(getByRole(shown, 'combobox', { name: strings.debates.postToChannel }), 'billing')
     context.state.directory.set([entry(CY, 'Cy')])
-    expect((person() as HTMLSelectElement).value).toBe('')
+    fire.submit(shown.querySelector('form.debate-post-form')!)
+    expect(called('postResult')).toHaveLength(0)
+    expect(context.state.notice.get()).toEqual({ kind: 'error', text: strings.choiceGone })
+    fire.select(person(), '')
     fire.submit(shown.querySelector('form.debate-post-form')!)
     expect(called('postResult')[0]!.args[1]).toEqual({ channel: 'billing' })
   })
@@ -333,6 +336,7 @@ describe('debateView', () => {
     fire.submit(shown.querySelector('form.debate-opt-in-form')!)
     expect(called('optInAgent')[0]!.args.slice(1)).toEqual(['cred_laptop', 'Use the Q3 budget.'])
     called('optInAgent')[0]!.then!.done!(undefined)
+    context.state.shownDebate.set(debate({ participants: [participant(ANA)] }))
     context.state.shownDebate.set(debate())
     expect(shown.querySelector<HTMLTextAreaElement>('.debate-opt-in-form textarea')!.value).toBe('')
   })
@@ -353,29 +357,45 @@ describe('debateView', () => {
     expect(note(other).value).toBe('Q3 only.')
   })
 
-  it('does not draw the note anew while a character is being composed in it', () => {
-    const { context, page } = testContext()
+  it('gives a note typed for one agent to no other once that agent is gone', () => {
+    const { context, called } = testContext()
+    const shown = debateView(context, lifetime(), me(), 'debate_1', null)
+    context.state.agentCredentials.set([credential('cred_desk'), credential('cred_laptop')])
+    context.state.shownDebate.set(debate())
+    fire.type(shown.querySelector('.debate-opt-in-form textarea')!, 'For the desk only.')
+    for (const left of [[credential('cred_laptop')], [credential('cred_desk'), credential('cred_laptop')]]) {
+      context.state.agentCredentials.set(left)
+      fire.submit(shown.querySelector('form.debate-opt-in-form')!)
+      expect(called('optInAgent')).toHaveLength(0)
+      expect(context.state.notice.get()).toEqual({ kind: 'error', text: strings.choiceGone })
+    }
+    fire.select(getByRole(shown, 'combobox', { name: strings.debates.chooseAgent }), 'cred_laptop')
+    fire.submit(shown.querySelector('form.debate-opt-in-form')!)
+    expect(called('optInAgent')[0]!.args.slice(1)).toEqual(['cred_laptop', 'For the desk only.'])
+  })
+
+  it('keeps the field a character is being composed in, and the button being pressed, while turns come', () => {
+    const { context, called, page } = testContext()
     const shown = mount(debateView(context, lifetime(), me(), 'debate_1', 'turns'))
     const taking = debate({ participants: [participant(ANA), participant(BEN)] })
     context.state.shownDebate.set(taking)
-    const note = () => shown.querySelector<HTMLTextAreaElement>('.debate-brief-form textarea')!
-    const field = note()
-    field.focus()
+    const form = () => shown.querySelector<HTMLFormElement>('.debate-brief-form')!
+    const [field, save] = [form().querySelector('textarea')!, form().querySelector('button')!]
     fire.event(field, 'compositionstart')
     fire.type(field, '하')
-    context.state.shownDebate.set({ ...taking, question: 'Asked anew?' })
-    expect(note()).toBe(field)
+    context.state.shownDebate.set({
+      ...taking,
+      turns: [{ position: 1, memberId: BEN, agentName: 'Desk', body: 'One.', at: 4 }],
+    })
+    expect(textOf(shown)).toContain('One.')
+    expect(form().querySelector('textarea')).toBe(field)
+    fire.event(save, 'pointerdown')
     fire.event(field, 'compositionend')
-    expect(note()).toBe(field)
     page.runFrames()
-    expect(textOf(shown)).toContain('Asked anew?')
-    expect(note().value).toBe('하')
-    expect(document.activeElement).toBe(note())
-    fire.event(note(), 'compositionstart')
-    fire.event(note(), 'compositionend')
-    const drawn = note()
-    page.runFrames()
-    expect(note()).toBe(drawn)
+    fire.event(save, 'pointerup')
+    expect(form().querySelector('button')).toBe(save)
+    fire.submit(form())
+    expect(called('setBrief')[0]!.args[1]).toBe('하')
   })
 
   it('keeps the note and the limits a person is changing while turns come, until they are saved', () => {
@@ -396,10 +416,7 @@ describe('debateView', () => {
     fire.type(limit(), '3')
     fire.select(grace(), '10')
     const before = limit()
-    context.state.shownDebate.set({
-      ...taking,
-      participants: [participant(ANA), participant(BEN), participant(CY)],
-    })
+    context.state.shownDebate.set({ ...taking, limits: { ...taking.limits, turnCharacters: 900 } })
     expect(limit()).not.toBe(before)
     expect([unfolded(), note().value, limit().value, grace().value]).toEqual([
       [true, true],
@@ -409,14 +426,22 @@ describe('debateView', () => {
     ])
     fire.submit(shown.querySelector('form.debate-limits-form')!)
     fire.submit(shown.querySelector('form.debate-brief-form')!)
-    const saved = { ...taking, brief: 'Public figures only.' }
+    const saved = {
+      ...taking,
+      brief: 'Public figures only.',
+      limits: { ...taking.limits, turnsPerAgent: 3 },
+    }
     context.state.shownDebate.set(saved)
     called('changeLimits')[0]!.then!.done!(undefined)
     called('setBrief')[0]!.then!.done!(undefined)
     shown.querySelector<HTMLDetailsElement>('.debate-change-limits')!.open = false
-    context.state.shownDebate.set({ ...saved, brief: 'Changed elsewhere.' })
+    context.state.shownDebate.set({
+      ...saved,
+      brief: 'Changed elsewhere.',
+      limits: { ...taking.limits, turnsPerAgent: 4 },
+    })
     expect(unfolded()).toEqual([true, false])
-    expect([note().value, limit().value]).toEqual(['Changed elsewhere.', String(taking.limits.turnsPerAgent)])
+    expect([note().value, limit().value]).toEqual(['Changed elsewhere.', '4'])
   })
 
   it('opens the details of who wrote a turn or a draft, with the model its agent stated', () => {

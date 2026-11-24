@@ -31,8 +31,8 @@ export const loadDebate = (id: string): Action =>
   withApp(({ api, state }) =>
     T.suspend(() => {
       const show = showInOrder(state)
-      return T.catchTag('NotFound', () => T.sync(() => show(id, 'missing')))(
-        T.map((debate: AsRead.Debate) => show(id, debate))(api['debates.get']({ params: { id } })),
+      return T.catchTag('NotFound', () => T.sync(() => void show(id, 'missing')))(
+        T.map((debate: AsRead.Debate) => void show(id, debate))(api['debates.get']({ params: { id } })),
       )
     }),
   )
@@ -111,19 +111,26 @@ export const exportDebate = (
 ): Action<AsRead.DebateExport> =>
   withApp(({ api }) => api['debates.export']({ params: { id }, body: { format, language } }))
 
+/** Shows the answer to a change; when something asked for later is shown already, the flock is read again. */
 const shown = (state: AppState, change: T.Task<AsRead.Debate, ApiError>): Action =>
   T.suspend(() => {
     const show = showInOrder(state)
-    return T.map((debate: AsRead.Debate) => show(debate.id, debate))(change)
+    return T.flatMap(
+      (debate: AsRead.Debate): Action =>
+        show(debate.id, debate) ? T.unit : T.asUnit(T.result(loadDebate(debate.id))),
+    )(change)
   })
 
-const showInOrder = (state: AppState): ((id: string, shownNow: AsRead.Debate | 'missing') => void) => {
+/** Shows an answer unless the person left for another address; false when a newer answer is shown. */
+const showInOrder = (state: AppState): ((id: string, shownNow: AsRead.Debate | 'missing') => boolean) => {
   const asked = state.debateAnswers.get().asked + 1
   state.debateAnswers.update((answers) => ({ ...answers, asked }))
   return (id, shownNow) => {
     const at = state.route.get()
-    if (at.name !== 'debate' || at.id !== id || asked < state.debateAnswers.get().shown) return
+    if (at.name !== 'debate' || at.id !== id) return true
+    if (asked < state.debateAnswers.get().shown) return false
     state.debateAnswers.update((answers) => ({ ...answers, shown: asked }))
     state.shownDebate.set(shownNow)
+    return true
   }
 }

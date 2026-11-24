@@ -35,7 +35,7 @@ describe('agentAsk', () => {
     expect(asked).toHaveBeenCalledWith({ id: 'dreq_1' })
   })
 
-  it('keeps the agent chosen while the agents are read again, and lets it go once it is gone', () => {
+  it('keeps the agent chosen while the agents are read again, and asks anew, once, when it is gone', () => {
     const { context, called } = testContext()
     const shown = agentAsk(context, lifetime(), () => ({ conversationId: ROOM }))
     const picker = () => getByRole(shown, 'combobox', { name: strings.agentPickerLabel }) as HTMLSelectElement
@@ -50,8 +50,19 @@ describe('agentAsk', () => {
     ])
     getByRole(shown, 'button', { name: strings.askAgent }).click()
     expect(called('askAgent')[0]!.args[0]).toMatchObject({ agentId: 'cred_two' })
-    context.state.agentCredentials.set([credential('cred_one'), credential('cred_three')])
-    expect(picker().value).toBe('')
+    for (const left of [
+      [credential('cred_one'), credential('cred_three')],
+      [credential('cred_one')],
+      [credential('cred_one'), credential('cred_two')],
+    ]) {
+      context.state.agentCredentials.set(left)
+      getByRole(shown, 'button', { name: strings.askAgent }).click()
+      expect(called('askAgent')).toHaveLength(1)
+      expect(context.state.notice.get()).toEqual({ kind: 'error', text: strings.choiceGone })
+    }
+    fire.select(picker(), 'cred_one')
+    getByRole(shown, 'button', { name: strings.askAgent }).click()
+    expect(called('askAgent')[1]!.args[0]).toMatchObject({ agentId: 'cred_one' })
   })
 
   it('asks any agent with the button, and is left out while requests are off', () => {

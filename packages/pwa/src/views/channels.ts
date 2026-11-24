@@ -18,7 +18,6 @@ import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import { agentAsk } from './agent-ask.ts'
 import { joinButtons, privateMark, roomControls } from './channel-membership.ts'
-import { unlessComposing } from './composing.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { type MenuParts, actionMenu } from './menu.ts'
@@ -95,44 +94,49 @@ export const channelView = (context: ViewContext, life: Lifetime, slug: string):
   life.add(state.conversations.subscribe(enterRoomIfJoined))
   queueMicrotask(enterRoomIfJoined)
   const unsaved: Unsaved = new Map()
-  const ask = agentAsk(
-    context,
-    life,
-    () => ({ channel: slug }),
-    (request) => actions.enterRoom(request.conversationId),
+  const channelNow = (): AsRead.Channel | null => channelNamed(state.channels.get(), slug)
+  const shownPage = slice(
+    [state.channels, state.channelsLoaded, state.workspace, state.session, state.serverInfo],
+    () => {
+      const channel = channelNow()
+      const model = channel === null ? null : askPageModel(channel, signedIn(state)?.member.role === 'admin')
+      return {
+        loaded: state.channelsLoaded.get(),
+        workspace: channel === null && state.workspace.get(),
+        title: model?.title ?? null,
+        mayAsk: model?.mayAsk === true,
+        mayAskAgent: featureOn('draftRequests', state.serverInfo.get()),
+      }
+    },
   )
-  const { drawn, watch } = unlessComposing(
-    context,
-    life,
-    slice([state.channels, state.channelsLoaded, state.workspace, state.rosters], () => ({
-      channel: channelNamed(state.channels.get(), slug),
-      loaded: state.channelsLoaded.get(),
-      workspace: state.workspace.get(),
-      roster: state.rosters.get().get(slug),
-    })),
-  )
+  const head = slice([state.channels, state.rosters, state.session], () => [
+    channelNow(),
+    state.rosters.get().get(slug),
+    signedIn(state)?.member,
+  ])
   return h(
     'div',
     { class: 'channel-ask-host' },
-    watch(
-      region(life, [drawn], () => {
-        const channel = channelNamed(state.channels.get(), slug)
-        if (channel === null && !state.channelsLoaded.get())
-          return checking(context, strings.checking.channels)
-        if (channel === null)
-          return emptyWithPip(
-            'failed',
-            strings.unknownChannel,
-            h(
-              'div',
-              { class: 'empty-actions' },
-              h('a', { class: 'button', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
-              newChannelButton(context),
-            ),
-          )
-        return askPage(context, channel, unsaved, ask)
-      }),
-    ),
+    region(life, [shownPage], (drawing) => {
+      const shown = shownPage.get()
+      if (shown.title === null && !shown.loaded) return checking(context, strings.checking.channels)
+      if (shown.title === null)
+        return emptyWithPip(
+          'failed',
+          strings.unknownChannel,
+          h(
+            'div',
+            { class: 'empty-actions' },
+            h('a', { class: 'button', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
+            newChannelButton(context),
+          ),
+        )
+      return page(
+        shown.title,
+        region(drawing, [head], () => askHead(context, channelNow()), { class: 'channel-ask-head' }),
+        shown.mayAsk && askForm(context, drawing, slug, unsaved),
+      )
+    }),
   )
 }
 
@@ -294,13 +298,20 @@ const visibilityChoice = (): HTMLFieldSetElement =>
     h('p', { class: 'hint' }, strings.visibilityFixed),
   )
 
-const askPage = (
-  context: ViewContext,
-  channel: AsRead.Channel,
-  unsaved: Unsaved,
-  ask: HTMLElement,
-): Child => {
+const askHead = (context: ViewContext, channel: AsRead.Channel | null): Child => {
+  if (channel === null) return null
   const model = askPageModel(channel, signedIn(context.state)?.member.role === 'admin')
+  return [
+    privateMark(channel),
+    model.description !== '' && h('p', { class: 'channel-description' }, model.description),
+    h('p', { class: 'channel-meta' }, channelCounts(channel)),
+    model.mayJoin && joinButtons(context, channel),
+    model.seesMembers && roomControls(context, channel),
+    model.intro !== null && h('p', {}, model.intro),
+  ]
+}
+
+const askForm = (context: ViewContext, life: Lifetime, slug: string, unsaved: Unsaved): HTMLElement => {
   const text = h('textarea', {
     name: 'body',
     rows: '4',
@@ -311,31 +322,26 @@ const askPage = (
   })
   keepTyped(unsaved, 'question', text, '')
   const enterRoom = (conversationId: string): void => context.actions.enterRoom(conversationId)
-  return page(
-    model.title,
-    privateMark(channel),
-    model.description !== '' && h('p', { class: 'channel-description' }, model.description),
-    h('p', { class: 'channel-meta' }, channelCounts(channel)),
-    model.mayJoin && joinButtons(context, channel),
-    model.seesMembers && roomControls(context, channel),
-    model.intro !== null && h('p', {}, model.intro),
-    model.mayAsk &&
-      h(
-        'form',
-        {
-          class: 'form ask-channel',
-          on: {
-            submit: (event) => {
-              event.preventDefault()
-              const body = text.value.trim()
-              if (body !== '') context.actions.askChannel(channel.slug, body, { done: enterRoom })
-            },
-          },
+  return h(
+    'form',
+    {
+      class: 'form ask-channel',
+      on: {
+        submit: (event) => {
+          event.preventDefault()
+          const body = text.value.trim()
+          if (body !== '') context.actions.askChannel(slug, body, { done: enterRoom })
         },
-        text,
-        h('button', { type: 'submit', class: 'primary' }, strings.send),
-        ask,
-      ),
+      },
+    },
+    text,
+    h('button', { type: 'submit', class: 'primary' }, strings.send),
+    agentAsk(
+      context,
+      life,
+      () => ({ channel: slug }),
+      (request) => enterRoom(request.conversationId),
+    ),
   )
 }
 

@@ -13,7 +13,16 @@ import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { codeForm } from './connection.ts'
 import type { ViewContext } from './context.ts'
-import { type Unsaved, button, field, keepTyped, loading } from './parts.ts'
+import {
+  type Unsaved,
+  button,
+  chosenIn,
+  field,
+  isChoiceGone,
+  keepChoice,
+  keepTyped,
+  loading,
+} from './parts.ts'
 import { pip } from './pip.ts'
 
 /** Approving a device sign-in: the code, then what the device asks for, then the outcome. */
@@ -44,7 +53,13 @@ export const deviceView = (context: ViewContext, life: Lifetime, code: string | 
     context,
     strings.deviceTitle,
     region(life, [stage, targets], () =>
-      renderConnect(deviceModel(stage.get()), context, decide, targets.get(), unsaved),
+      renderConnect(
+        deviceModel(stage.get()),
+        context,
+        decide,
+        targetsOffered(targets.get(), unsaved),
+        unsaved,
+      ),
     ),
     true,
   )
@@ -103,7 +118,7 @@ const renderConnect = (
         { name: 'target' },
         (targets?.choices ?? []).map((choice) => h('option', { value: choice.value }, choice.label)),
       )
-      keepTyped(unsaved, 'target', target, '')
+      keepChoice(unsaved, 'target', target)
       return h(
         'form',
         {
@@ -111,7 +126,8 @@ const renderConnect = (
           on: {
             submit: (event) => {
               event.preventDefault()
-              decide(true, name.value, target.value)
+              const chosen = chosenIn(context, target)
+              if (chosen !== null) decide(true, name.value, chosen)
             },
           },
         },
@@ -128,6 +144,14 @@ const renderConnect = (
     }
   }
 }
+
+/** Whom to connect as; the person themself is offered alone only to someone whose other choice is gone. */
+const targetsOffered = (targets: DeviceTargets | null, unsaved: Unsaved): DeviceTargets | null => {
+  const alone = { label: strings.channelAgent.connectAs, choices: [connectAsMe()] }
+  return targets ?? (isChoiceGone(unsaved, 'target', ['']) ? alone : null)
+}
+
+const connectAsMe = () => ({ value: '', label: strings.channelAgent.connectAsMe })
 
 const connectWindow = (
   context: ViewContext,

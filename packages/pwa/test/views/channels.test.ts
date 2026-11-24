@@ -10,7 +10,7 @@ import { dialogHost } from '../../src/views/dialog.ts'
 import { hold, testApp } from '../support/app.ts'
 import { testContext } from '../support/context.ts'
 import { mount, settle, usingFakeDom } from '../support/dom.ts'
-import { CY, channel, conversation, serverInfo } from '../support/fixtures.ts'
+import { CY, channel, conversation, everything, serverInfo } from '../support/fixtures.ts'
 import { setLoad, setWorkspace } from '../support/resource-load.ts'
 
 usingFakeDom()
@@ -260,6 +260,16 @@ describe('channelView', () => {
     ).toBe('Be brief')
     fire.submit(shown.querySelector('form.ask-channel')!)
     expect(called('askChannel')[0]!.args).toEqual(['billing', 'When?'])
+  })
+
+  it('offers the person’s agent once the server says it takes requests', () => {
+    const { context } = testContext()
+    context.state.serverInfo.set(serverInfo())
+    context.state.channels.set([channel('billing')])
+    const shown = channelView(context, lifetime(), 'billing')
+    expect(shown.querySelector<HTMLElement>('details.ask-agent')!.hidden).toBe(true)
+    context.state.serverInfo.set(everything())
+    expect(shown.querySelector<HTMLElement>('details.ask-agent')!.hidden).toBe(false)
   })
 
   it('opens the room of a channel the person is in, and only names a private one they are not in', async () => {

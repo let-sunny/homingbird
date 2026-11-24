@@ -60,6 +60,8 @@ export const en = {
     },
   },
   loadFailed: 'This could not be loaded.',
+  chooseAgain: 'Choose again',
+  choiceGone: 'That choice is no longer there. Choose again.',
   tryAgain: 'Try again',
   sections: 'Sections',
   navNotes: 'Notes',

@@ -15,10 +15,11 @@ import { closeDialog, opensDialog } from './dialog.ts'
 import {
   type Unsaved,
   button,
+  chosenIn,
   dialogActions,
   emptyWithPip,
   field,
-  keepTyped,
+  keepChoice,
   listWait,
   page,
   youMark,
@@ -154,7 +155,9 @@ export const groupEditor = (
       ),
     ),
     model.addMember !== null &&
-      addMemberForm(model.addMember, unsaved, (memberId) => setMembers([...group.memberIds, memberId])),
+      addMemberForm(context, model.addMember, unsaved, (memberId) =>
+        setMembers([...group.memberIds, memberId]),
+      ),
   ]
 }
 
@@ -195,6 +198,7 @@ const renameForm = (context: ViewContext, group: AsRead.Group, value: string): H
 }
 
 const addMemberForm = (
+  context: ViewContext,
   add: NonNullable<Extract<GroupPageModel, { kind: 'group' }>['addMember']>,
   unsaved: Unsaved,
   choose: (memberId: MemberId) => void,
@@ -204,7 +208,7 @@ const addMemberForm = (
     { name: 'member', 'aria-label': add.label },
     add.choices.map((one) => h('option', { value: one.value }, one.label)),
   )
-  keepTyped(unsaved, 'member', choice, choice.value)
+  keepChoice(unsaved, 'member', choice)
   return h(
     'form',
     {
@@ -212,7 +216,8 @@ const addMemberForm = (
       on: {
         submit: (event) => {
           event.preventDefault()
-          choose(choice.value as MemberId)
+          const chosen = chosenIn(context, choice)
+          if (chosen !== null) choose(chosen as MemberId)
         },
       },
     },

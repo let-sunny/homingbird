@@ -32,7 +32,8 @@ export const region = (
   const draw = (): void => {
     drawing.end()
     drawing = lifetime()
-    keepingPlace(host, () => replaceChildren(host, render(drawing)))
+    const content = render(drawing)
+    keepingPlace(host, () => replaceChildren(host, content))
   }
   draw()
   life.add(onAnyChange(sources, draw))

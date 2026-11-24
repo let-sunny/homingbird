@@ -59,6 +59,8 @@ export const ko: Translation<typeof en> = {
     },
   },
   loadFailed: '불러오지 못했어요.',
+  chooseAgain: '다시 선택해 주세요',
+  choiceGone: '선택했던 항목이 더 이상 없어요. 다시 선택해 주세요.',
   tryAgain: '다시 시도',
   sections: '메뉴',
   navNotes: '노트',

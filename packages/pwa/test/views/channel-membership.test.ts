@@ -206,6 +206,32 @@ describe('roomControls', () => {
     expect(called('setGroupMembers')[0]!.args[1]).toEqual([ANA, CY])
   })
 
+  it('changes the managers there are when the person confirms, not those shown before', () => {
+    const { context, called } = testContext()
+    signedIn(context)
+    context.state.serverInfo.set(everything())
+    context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben'), entry(CY, 'Cy')])
+    mount(dialogHost())
+    const secret = channel('secret', { joined: true, managing: true, visibility: 'private', memberCount: 3 })
+    choose(mount(roomControls(context, secret)), strings.manageMembers)
+    const dialog = document.getElementById('dialog')!
+    const managers = (memberIds: ReadonlyArray<typeof CY>) =>
+      context.state.groups.set([
+        managersOf('secret', { memberIds: [...memberIds], mayAdd: true, mayRemove: true }),
+      ])
+    managers([ANA, BEN])
+    called('loadChannelMembers').at(-1)!.then!.done!([
+      { memberId: ANA, manager: true, answering: true },
+      { memberId: BEN, manager: true, answering: false },
+      { memberId: CY, manager: false, answering: false },
+    ])
+    const ben = dialog.querySelector(`[data-member="${BEN}"]`) as HTMLElement
+    getByRole(ben, 'button', { name: strings.groups.unmanage }).click()
+    managers([ANA, BEN, CY])
+    fire.submit(dialog.querySelector('form.unmanage-confirmation')!)
+    expect(called('setGroupMembers')[0]!.args[1]).toEqual([ANA, CY])
+  })
+
   it('offers no change of managers while groups are off', () => {
     const { context, called } = testContext()
     signedIn(context)
