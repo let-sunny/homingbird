@@ -228,8 +228,9 @@ export const clippedText = (page: any): Promise<string[]> =>
       if (node.parentElement?.closest('.visually-hidden, [hidden], dialog:not([open]), .note-body, .quote'))
         continue
       if (node.parentElement?.checkVisibility() !== true) continue
-      // Only a run of Korean letters: a line may break where a Latin address meets it, as at "https://" and "로".
-      for (const found of node.textContent.matchAll(/[\uac00-\ud7a3]{2,}/g)) {
+      // A line may break after the slashes of an address, so "https://" and what follows it are two words.
+      for (const found of node.textContent.matchAll(/https?:\/\/|(?:(?!https?:\/\/)\S)+/g)) {
+        if (found[0].length < 2 || !/[\uac00-\ud7a3]/.test(found[0])) continue
         const range = document.createRange()
         range.setStart(node, found.index)
         range.setEnd(node, found.index + found[0].length)
