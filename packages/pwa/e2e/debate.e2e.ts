@@ -68,6 +68,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.waitForSelector(`h1:has-text("${QUESTION}")`)
     const id = decodeURIComponent(new URL(ana.page.url()).hash.replace('#/debate/', ''))
     await ana.page.waitForSelector('.debate-meta .debate-stage:has-text("Waiting for agents")')
+    await ana.page.click('.debate-settings > summary')
     await ana.page.waitForSelector('.debate-limits-summary:has-text("Turns per agent: 1. In total: 2.")')
 
     // -- Each person opts their own agent in; nobody else sees the private room -----------------

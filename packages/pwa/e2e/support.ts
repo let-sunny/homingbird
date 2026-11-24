@@ -202,6 +202,9 @@ export const clippedText = (page: any): Promise<string[]> =>
     for (const element of document.querySelectorAll('body *')) {
       if (element.closest('.visually-hidden, [hidden], dialog:not([open])')) continue
       const style = getComputedStyle(element)
+      const forAssistiveTechnologyOnly =
+        style.clipPath === 'inset(50%)' && element.getBoundingClientRect().width <= 1
+      if (forAssistiveTechnologyOnly) continue
       const hidesOverflow = style.overflowX !== 'visible' || style.overflowY !== 'visible'
       if (
         !hidesOverflow ||
