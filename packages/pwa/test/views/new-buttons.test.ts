@@ -3,7 +3,7 @@ import { getByRole } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
-import { newChannelButton, newMessageLink } from '../../src/views/new-buttons.ts'
+import { browseChannelsLink, newChannelButton, newMessageLink } from '../../src/views/new-buttons.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import { everything, serverInfo } from '../support/fixtures.ts'
@@ -14,7 +14,15 @@ const drawn = (info = everything()) => {
   const test = testContext()
   test.context.state.serverInfo.set(info)
   mount(dialogHost())
-  const shown = mount(h('div', {}, newMessageLink(test.context), newChannelButton(test.context)))
+  const shown = mount(
+    h(
+      'div',
+      {},
+      newMessageLink(test.context),
+      newChannelButton(test.context),
+      browseChannelsLink(test.context),
+    ),
+  )
   return { ...test, shown }
 }
 
@@ -23,6 +31,8 @@ describe('newMessageLink', () => {
     const { shown } = drawn()
     const link = getByRole(shown, 'link', { name: strings.newMessageButton })
     expect(link.getAttribute('href')).toBe('#/new')
+    expect(link.textContent).toBe('')
+    expect(link.querySelector('svg.plus-icon')!.getAttribute('aria-hidden')).toBe('true')
     const hint = shown.querySelectorAll('.hint-tip')[0]!
     expect([link.getAttribute('aria-describedby'), hint.textContent]).toEqual([
       hint.id,
@@ -40,6 +50,7 @@ describe('newChannelButton', () => {
       hint.id,
       strings.hints.newChannel,
     ])
+    expect(button.textContent).toBe('')
     button.click()
     expect(document.getElementById('dialog')!.querySelector('form.create-channel')).not.toBeNull()
   })
@@ -48,5 +59,19 @@ describe('newChannelButton', () => {
     const { shown } = drawn(serverInfo({ channels: false }))
     expect(shown.querySelector('.new-channel-link')).toBeNull()
     expect(shown.querySelector('.new-message-link')).not.toBeNull()
+  })
+})
+
+describe('browseChannelsLink', () => {
+  it('links to the channel directory by an icon named with its hint', () => {
+    const { shown } = drawn()
+    const link = getByRole(shown, 'link', { name: strings.browseChannels })
+    expect(link.getAttribute('href')).toBe('#/channels')
+    expect(link.textContent).toBe('')
+    const hint = shown.querySelectorAll('.hint-tip')[2]!
+    expect([link.getAttribute('aria-describedby'), hint.textContent]).toEqual([
+      hint.id,
+      strings.hints.browseChannels,
+    ])
   })
 })
