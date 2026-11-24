@@ -24,6 +24,7 @@ body {
 }
 
 body {
+  container: page / inline-size;
   background: var(--hb-color-page);
   color: var(--hb-color-text);
   font: var(--hb-text-body) / 1.45 var(--hb-font-body);

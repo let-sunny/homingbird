@@ -4177,6 +4177,33 @@ button:disabled {
   }
 }
 
+/*
+ * On a phone a step is a sheet docked above the tab bar, whatever it points at: it never floats over the
+ * control it explains, and the page scrolls that control clear of the sheet.
+ */
+@container page (max-width: 32rem) {
+  .tour,
+  .tour.is-anchored,
+  .tour.is-anchored[data-placement],
+  .tour.is-anchored.is-in-header {
+    position-area: none;
+    position-try-fallbacks: none;
+    inset: auto var(--hb-space-2) var(--hb-dock-offset);
+    inline-size: auto;
+    min-inline-size: 0;
+    max-block-size: var(--hb-dock-room);
+    margin: 0;
+  }
+
+  :root:has(.app[data-tab-bar="hidden"]) .tour {
+    inset-block-end: var(--hb-dock-offset-no-tabs);
+  }
+
+  .tour-target {
+    scroll-margin-block-end: calc(var(--hb-dock-room) + var(--hb-dock-offset));
+  }
+}
+
 .tour-head {
   display: flex;
   align-items: center;
