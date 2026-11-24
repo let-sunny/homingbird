@@ -5,6 +5,32 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.6.4] - 2026-11-24
+
+### Added
+
+- **pwa:** show how lists load, for developers (#194)
+
+  In `pnpm dev`, `hbInspect()` in the console shows a panel with each list's state and the last hundred transitions and requests. A release has none of it.
+
+### Fixed
+
+- **pwa:** load each activity list once (#191)
+
+  Reviews, suggestions, flocks and the notes waiting for your reply are each asked for once, however many places show them. An answer that comes late no longer brings back a review you already decided, a request that never answers is ended after half a minute, and a flock opened while you were disconnected shows when the connection is back.
+- **pwa:** keep rooms and people current while they load (#193)
+
+  A room you left while the page was loading no longer comes back, and an older list of people never replaces a newer one. After a dropped connection the page reads rooms, people, channels and flocks again, and an error page from a proxy no longer empties your list of rooms. Live notes keep arriving while a list is slow.
+- **pwa:** say a loading problem once on every list (#195)
+
+  A list that could not be read now says so once, in its own place, with one Try again, and never as a pop-up. This now holds for the groups (the profile, the groups page, administration) and for the channel list, as it already did for the lists that load with the workspace. When the line above the lists is already speaking, no list repeats it, and its Try again asks for these lists too.
+- **pwa:** load page data the way lists do (#196)
+
+  The teaching pages (principles, your agent's figures, the teaching chat) and a channel agent's page (its setup, figures, recent decisions and what it was taught) now tell a problem the way the lists do: once, in their own place, with one Try again, and never as a pop-up. Before, a channel agent's page showed a pop-up as well as its note, the teaching pages offered no way to try again, and a moment of trouble while reading again emptied what was already shown. Now what is shown stays while the server is only away, and is emptied only when the server refuses it. A channel agent's page empties as soon as you no longer run that agent, and what you typed stays when the same data is read again.
+- **pwa:** keep channel searches and typed text as they are (#197)
+
+  Searching the channels, or showing more of them, is no longer undone when a channel changes meanwhile, and says when it is slow or fails, with one way to try again. Text you are typing for a channel agent, a new principle or your scheduling note stays when people, channels or the connection change. A page whose parts could not be loaded says so once, and a channel agent dialog no longer waits forever once you stop managing the channel.
+
 ## [0.6.3] - 2026-11-24
 
 ### Fixed
@@ -874,6 +900,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.6.4]: https://github.com/let-sunny/homingbird/releases/tag/v0.6.4
 [0.6.3]: https://github.com/let-sunny/homingbird/releases/tag/v0.6.3
 [0.6.2]: https://github.com/let-sunny/homingbird/releases/tag/v0.6.2
 [0.6.1]: https://github.com/let-sunny/homingbird/releases/tag/v0.6.1
