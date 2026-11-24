@@ -84,26 +84,46 @@ describe('groupPageView', () => {
     )
     fire.submit(shown.querySelector('form.add-member')!)
     expect(called('setGroupMembers')[0]!.args[1]).toEqual([ANA, CY])
-    context.state.directory.update((entries) => [...entries, entry(DEE, 'Dee')])
-    fire.submit(shown.querySelector('form.add-member')!)
-    expect(called('setGroupMembers')[1]!.args[1]).toEqual([ANA, CY])
   })
 
-  it('never adds a newly listed person in place of the first one shown, nor one once added', () => {
+  it('keeps the person chosen when someone is listed newly, and asks again only when they are gone', () => {
+    const { context, called } = testContext()
+    context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben'), entry(CY, 'Cy')])
+    context.state.groups.set([group(TEAM, { name: 'Finance', memberIds: [ANA], mayAdd: true })])
+    setLoad(context.state.groups, { loaded: true })
+    const shown = groupPageView(context, lifetime(), ANA, TEAM)
+    const select = () => shown.querySelector<HTMLSelectElement>('.add-member select')!
+    fire.select(select(), CY)
+    context.state.directory.update((entries) => [entry(DEE, 'Dee'), ...entries])
+    expect(select().value).toBe(CY)
+    context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben')])
+    fire.submit(shown.querySelector('form.add-member')!)
+    expect(called('setGroupMembers')).toHaveLength(0)
+    expect(shown.querySelector('.choice-problem')?.textContent).toBe(strings.choiceGone)
+  })
+
+  it('starts from no choice, before and after the person adds someone, and says to choose first', () => {
     const { context, called } = testContext()
     const team = (memberIds: ReadonlyArray<typeof CY>) =>
       group(TEAM, { name: 'Finance', memberIds: [...memberIds], mayAdd: true })
-    context.state.directory.set([entry(ANA, 'Ana'), entry(CY, 'Cy')])
+    context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben'), entry(CY, 'Cy')])
     context.state.groups.set([team([ANA])])
     setLoad(context.state.groups, { loaded: true })
     const shown = groupPageView(context, lifetime(), ANA, TEAM)
-    context.state.directory.set([entry(BEN, 'Ben'), entry(ANA, 'Ana'), entry(CY, 'Cy')])
+    const select = () => shown.querySelector<HTMLSelectElement>('.add-member select')!
+    const refused = () => {
+      fire.submit(shown.querySelector('form.add-member')!)
+      return shown.querySelector('.choice-problem')?.textContent
+    }
+    expect(refused()).toBe(strings.chooseFirst)
+    fire.select(select(), CY)
     fire.submit(shown.querySelector('form.add-member')!)
-    expect(called('setGroupMembers')[0]!.args[1]).toEqual([ANA, CY])
+    expect(called('setGroupMembers').map((call) => call.args[1])).toEqual([[ANA, CY]])
+    expect(select().value).toBe('')
     context.state.groups.set([team([ANA, CY])])
-    fire.submit(shown.querySelector('form.add-member')!)
+    expect([...select().options].map((option) => option.textContent)).not.toContain(strings.chooseAgain)
+    expect(refused()).toBe(strings.chooseFirst)
     expect(called('setGroupMembers')).toHaveLength(1)
-    expect(context.state.notice.get()?.text).toBe(strings.choiceGone)
   })
 
   it('shows an administrator who may only remove the remove buttons and no add control', () => {

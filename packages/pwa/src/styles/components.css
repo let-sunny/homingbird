@@ -3287,6 +3287,7 @@ button.group-member-name:focus-visible::after {
 
 .channel-ask-head,
 .debate-head,
+.debate-not-awake-host,
 .managed-by-host {
   display: contents;
 }
@@ -3349,6 +3350,11 @@ button.group-member-name:focus-visible::after {
   flex-wrap: wrap;
   align-items: end;
   gap: var(--hb-space-2);
+}
+
+.add-member > .choice-problem {
+  order: 1;
+  flex-basis: 100%;
 }
 
 .add-member .people-picker,
@@ -5183,6 +5189,12 @@ textarea:disabled {
 
 .chance.suggestion-card {
   border-style: solid;
+}
+
+.choice-problem {
+  margin: 0;
+  color: var(--hb-color-danger-text);
+  font-size: var(--hb-text-meta);
 }
 
 .suggestion-card > .region:empty {

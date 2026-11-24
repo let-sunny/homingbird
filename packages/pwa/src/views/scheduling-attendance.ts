@@ -20,6 +20,10 @@ export const schedulingAttendanceCard = (
   const model = schedulingAttendanceModel({ ...input, now: context.clock.now() })
   if (model === null) return null
   const file = model.calendarFile
+  const download = (): void => {
+    const asked = schedulingAttendanceModel({ ...input, now: context.clock.now() })?.calendarFile
+    if (asked != null) context.page.download(asked)
+  }
   return section(
     model.title,
     'scheduling-attendance',
@@ -64,7 +68,7 @@ export const schedulingAttendanceCard = (
           {
             type: 'button',
             class: 'scheduling-calendar-file',
-            on: { click: () => context.page.download(file) },
+            on: { click: () => download() },
           },
           model.calendarFileLabel,
         ),

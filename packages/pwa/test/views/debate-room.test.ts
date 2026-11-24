@@ -316,7 +316,7 @@ describe('debateView', () => {
     context.state.directory.set([entry(CY, 'Cy')])
     fire.submit(shown.querySelector('form.debate-post-form')!)
     expect(called('postResult')).toHaveLength(0)
-    expect(context.state.notice.get()).toEqual({ kind: 'error', text: strings.choiceGone })
+    expect(shown.querySelector('.choice-problem')?.textContent).toBe(strings.choiceGone)
     fire.select(person(), '')
     fire.submit(shown.querySelector('form.debate-post-form')!)
     expect(called('postResult')[0]!.args[1]).toEqual({ channel: 'billing' })
@@ -357,6 +357,33 @@ describe('debateView', () => {
     expect(note(other).value).toBe('Q3 only.')
   })
 
+  it('asks again at the first choice that is gone, tied to its field, until something is chosen', () => {
+    const { context, called } = testContext()
+    context.state.channels.set([channel('billing', { joined: true })])
+    context.state.directory.set([entry(BEN, 'Ben')])
+    const shown = mount(debateView(context, lifetime(), me(), 'debate_1', null))
+    context.state.shownDebate.set(closedFlock)
+    const select = (name: string) =>
+      shown.querySelector<HTMLSelectElement>(`.debate-post-form select[name="${name}"]`)!
+    fire.select(select('channel'), 'billing')
+    fire.select(select('person'), BEN)
+    context.state.channels.set([])
+    context.state.directory.set([entry(CY, 'Cy')])
+    for (let press = 0; press < 2; press++) fire.submit(shown.querySelector('form.debate-post-form')!)
+    expect(called('postResult')).toHaveLength(0)
+    expect(document.activeElement).toBe(select('channel'))
+    expect(shown.querySelectorAll('.choice-problem')).toHaveLength(1)
+    const problem = shown.querySelector('.choice-problem')!
+    expect(select('channel').getAttribute('aria-describedby')).toBe(problem.id)
+    expect([select('channel'), select('person')].map((one) => one.getAttribute('aria-invalid'))).toEqual([
+      'true',
+      null,
+    ])
+    fire.select(select('channel'), '')
+    expect(shown.querySelector('.choice-problem')).toBeNull()
+    expect(select('channel').hasAttribute('aria-invalid')).toBe(false)
+  })
+
   it('gives a note typed for one agent to no other once that agent is gone', () => {
     const { context, called } = testContext()
     const shown = debateView(context, lifetime(), me(), 'debate_1', null)
@@ -367,7 +394,7 @@ describe('debateView', () => {
       context.state.agentCredentials.set(left)
       fire.submit(shown.querySelector('form.debate-opt-in-form')!)
       expect(called('optInAgent')).toHaveLength(0)
-      expect(context.state.notice.get()).toEqual({ kind: 'error', text: strings.choiceGone })
+      expect(shown.querySelector('.choice-problem')?.textContent).toBe(strings.choiceGone)
     }
     fire.select(getByRole(shown, 'combobox', { name: strings.debates.chooseAgent }), 'cred_laptop')
     fire.submit(shown.querySelector('form.debate-opt-in-form')!)

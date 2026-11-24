@@ -36,13 +36,14 @@ import { hinted } from './hint.ts'
 import {
   type Unsaved,
   button,
-  chosenIn,
   copyWithNotice,
   dialogActions,
   disabledWithReason,
+  forgetChoice,
   keepChoice,
   loading,
   privateMarkOf,
+  requiredIn,
   youMark,
 } from './parts.ts'
 import { peoplePicker } from './people-picker.ts'
@@ -213,7 +214,8 @@ const membersPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Chan
     addTeam: (groupId: GroupId) => actions.addTeam(channel.slug, groupId, changes),
     changeManagers: (groupId: GroupId, change: (now: ReadonlyArray<MemberId>) => ReadonlyArray<MemberId>) => {
       const group = groupById(state.groups.get(), groupId)
-      if (group !== null) actions.setGroupMembers(groupId, change(group.memberIds), changes)
+      if (group === null) state.notice.set({ kind: 'error', text: strings.groups.gone })
+      else actions.setGroupMembers(groupId, [...new Set(change(group.memberIds))], changes)
     },
     setMember: (memberId: MemberId, isMember: boolean) =>
       actions.setChannelMember(channel.slug, memberId, isMember, changes),
@@ -419,6 +421,7 @@ const choiceForm = <A extends string>(
   const choice = h(
     'select',
     { name: 'choice', 'aria-label': offer.label },
+    h('option', { value: '' }, strings.choose),
     offer.choices.map((one) => h('option', { value: one.value }, one.label)),
   )
   keepChoice(unsaved, className, choice)
@@ -429,8 +432,10 @@ const choiceForm = <A extends string>(
       on: {
         submit: (event) => {
           event.preventDefault()
-          const chosen = chosenIn(context, choice)
-          if (chosen !== null) choose(chosen as A)
+          const chosen = requiredIn(context, choice)
+          if (chosen === null) return
+          forgetChoice(unsaved, className, choice)
+          choose(chosen as A)
         },
       },
     },

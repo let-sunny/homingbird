@@ -232,6 +232,67 @@ describe('roomControls', () => {
     expect(called('setGroupMembers')[0]!.args[1]).toEqual([ANA, CY])
   })
 
+  it('adds a manager once, starts from no choice after that, and says when the group is gone', () => {
+    const { context, called } = testContext()
+    signedIn(context)
+    context.state.serverInfo.set(everything())
+    context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben'), entry(CY, 'Cy')])
+    mount(dialogHost())
+    const secret = channel('secret', { joined: true, managing: true, visibility: 'private', memberCount: 3 })
+    choose(mount(roomControls(context, secret)), strings.manageMembers)
+    const dialog = document.getElementById('dialog')!
+    const managers = (memberIds: ReadonlyArray<typeof CY>) =>
+      context.state.groups.set([
+        managersOf('secret', { memberIds: [...memberIds], mayAdd: true, mayRemove: true }),
+      ])
+    managers([ANA, BEN])
+    called('loadChannelMembers').at(-1)!.then!.done!([
+      { memberId: ANA, manager: true, answering: true },
+      { memberId: BEN, manager: true, answering: false },
+      { memberId: CY, manager: false, answering: false },
+    ])
+    const form = dialog.querySelector<HTMLFormElement>('form.add-manager')!
+    const select = form.querySelector('select')!
+    fire.submit(form)
+    expect(dialog.querySelector('.choice-problem')?.textContent).toBe(strings.chooseFirst)
+    fire.select(select, CY)
+    fire.submit(form)
+    expect(called('setGroupMembers').map((call) => call.args[1])).toEqual([[ANA, BEN, CY]])
+    expect(select.value).toBe('')
+    const ben = dialog.querySelector(`[data-member="${BEN}"]`) as HTMLElement
+    getByRole(ben, 'button', { name: strings.groups.unmanage }).click()
+    const confirm = dialog.querySelector('form.unmanage-confirmation')!
+    context.state.groups.set([])
+    fire.submit(confirm)
+    expect(called('setGroupMembers')).toHaveLength(1)
+    expect(context.state.notice.get()).toEqual({ kind: 'error', text: strings.groups.gone })
+  })
+
+  it('adds nobody twice when the group already holds them by the time it is sent', () => {
+    const { context, called } = testContext()
+    signedIn(context)
+    context.state.serverInfo.set(everything())
+    context.state.directory.set([entry(ANA, 'Ana'), entry(CY, 'Cy')])
+    mount(dialogHost())
+    const secret = channel('secret', { joined: true, managing: true, visibility: 'private', memberCount: 2 })
+    choose(mount(roomControls(context, secret)), strings.manageMembers)
+    const dialog = document.getElementById('dialog')!
+    const managers = (memberIds: ReadonlyArray<typeof CY>) =>
+      context.state.groups.set([
+        managersOf('secret', { memberIds: [...memberIds], mayAdd: true, mayRemove: true }),
+      ])
+    managers([ANA])
+    called('loadChannelMembers').at(-1)!.then!.done!([
+      { memberId: ANA, manager: true, answering: true },
+      { memberId: CY, manager: false, answering: false },
+    ])
+    const form = dialog.querySelector<HTMLFormElement>('form.add-manager')!
+    fire.select(form.querySelector('select')!, CY)
+    managers([ANA, CY])
+    fire.submit(form)
+    expect(called('setGroupMembers')[0]!.args[1]).toEqual([ANA, CY])
+  })
+
   it('offers no change of managers while groups are off', () => {
     const { context, called } = testContext()
     signedIn(context)

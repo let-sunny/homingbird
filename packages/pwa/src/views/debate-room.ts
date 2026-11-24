@@ -18,7 +18,7 @@ import {
   resultDestination,
 } from '../models/debate-room.ts'
 import type { Turn, TurnGroup } from '../models/debate-turn-list.ts'
-import { roomKindOf, schedulingRoomModel } from '../models/scheduling-room.ts'
+import { type SchedulingRoomModel, roomKindOf, schedulingRoomModel } from '../models/scheduling-room.ts'
 import { type DebateTab, hrefFor } from '../routes.ts'
 import { locale, strings } from '../strings.ts'
 import { authorButton } from './author-details.ts'
@@ -51,11 +51,8 @@ import {
   timeLabel,
 } from './parts.ts'
 import { profileName } from './profile-card.ts'
-import { schedulingAgentCard } from './scheduling-agent.ts'
-import { schedulingAttendanceCard } from './scheduling-attendance.ts'
-import { schedulingRetryCard } from './scheduling-retry.ts'
+import { schedulingCards } from './scheduling-cards.ts'
 import { renderSchedulingRoom } from './scheduling-room.ts'
-import { schedulingSlotsCard } from './scheduling-slots.ts'
 
 /**
  * One flock, one short tab at a time, each its own address: the result the agents settled, how they
@@ -102,47 +99,37 @@ export const debateView = (
     state.directory,
   ]
   const room = slice(sources, roomNow)
+  const schedulingNow = (): SchedulingRoomModel =>
+    schedulingRoomModel({
+      debate: state.shownDebate.get() as AsRead.Debate,
+      viewerId: me.member.id,
+      enabled: featureOn('schedulingRooms', state.serverInfo.get()),
+      members: state.members.get(),
+      timeZone: context.page.timeZone(),
+    })
+  const atEachChange = slice(sources, () => [...sources.map((source) => source.get()), context.clock.now()])
   const frame = slice(sources, () =>
-    isScheduling(state.shownDebate.get())
-      ? { kind: 'scheduling', sources: sources.map((source) => source.get()), now: context.clock.now() }
-      : frameOf(room.get()),
+    isScheduling(state.shownDebate.get()) ? schedulingFrameOf(schedulingNow()) : frameOf(room.get()),
   )
   return region(
     life,
     [frame],
     (drawn) => {
-      const current = state.shownDebate.get()
-      if (isScheduling(current)) {
-        const enabled = featureOn('schedulingRooms', state.serverInfo.get())
-        const room = schedulingRoomModel({
-          debate: current,
-          viewerId: me.member.id,
-          enabled,
-          members: state.members.get(),
-          timeZone: context.page.timeZone(),
+      if (isScheduling(state.shownDebate.get()))
+        return renderSchedulingRoom(drawn, atEachChange, schedulingNow, () => {
+          const debate = state.shownDebate.get()
+          if (!isScheduling(debate)) return []
+          return schedulingCards(context, {
+            debate,
+            viewerId: me.member.id,
+            agents: state.agentCredentials.get(),
+            directory: state.directory.get(),
+            members: state.members.get(),
+            unsaved,
+            picked: pickedHours,
+            showsAll: showsAllHours,
+          })
         })
-        const agents = state.agentCredentials.get()
-        const person = { debate: current, viewerId: me.member.id, hasAgent: agents.length > 0 }
-        return renderSchedulingRoom(
-          room,
-          room.kind === 'room'
-            ? [
-                schedulingAgentCard(context, { ...person, agents, unsaved }),
-                schedulingSlotsCard(context, drawn, {
-                  ...person,
-                  picked: pickedHours,
-                  showsAll: showsAllHours,
-                }),
-                schedulingAttendanceCard(context, {
-                  ...person,
-                  directory: state.directory.get(),
-                  members: state.members.get(),
-                }),
-                schedulingRetryCard(context, person),
-              ]
-            : [],
-        )
-      }
       const model = room.get()
       const view = renderDebateRoom(model, context, drawn, room, unsaved)
       if (model.kind === 'room' && model.focusTurn !== null && focusPending) {
@@ -167,6 +154,9 @@ export const debateView = (
 
 const isScheduling = (shown: AsRead.Debate | 'missing' | null): shown is AsRead.Debate =>
   shown !== null && shown !== 'missing' && roomKindOf(shown) !== 'debate'
+
+const schedulingFrameOf = (model: SchedulingRoomModel) =>
+  model.kind === 'room' ? { kind: 'scheduling', title: model.title } : model
 
 /** What the page stands on: while it stays the same, only the blocks inside it are drawn again. */
 const frameOf = (model: DebateRoomModel) =>
@@ -625,7 +615,7 @@ const optInSection = (
       drawn,
       [notAwake],
       () => notAwake.get() !== null && h('p', { class: 'advice debate-not-awake' }, notAwake.get()),
-      { class: 'debate-head' },
+      { class: 'debate-not-awake-host' },
     ),
     h('p', { class: 'hint' }, strings.debates.optInHint),
     keepOpen(
@@ -761,8 +751,10 @@ const postForm = (
       on: {
         submit: (event) => {
           event.preventDefault()
-          const [toChannel, toPerson] = [chosenIn(context, channel), chosenIn(context, person)]
-          if (toChannel === null || toPerson === null) return
+          const toChannel = chosenIn(context, channel)
+          if (toChannel === null) return
+          const toPerson = chosenIn(context, person)
+          if (toPerson === null) return
           const destination = resultDestination(toChannel, toPerson)
           if (destination === null) {
             problem.textContent = closed.chooseFirst

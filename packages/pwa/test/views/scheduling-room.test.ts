@@ -1,7 +1,7 @@
-import { h, lifetime } from '@homingbird/ui'
+import { h, lifetime, signal } from '@homingbird/ui'
 import { textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
-import { schedulingRoomModel } from '../../src/models/scheduling-room.ts'
+import { type SchedulingRoomModel, schedulingRoomModel } from '../../src/models/scheduling-room.ts'
 import { strings } from '../../src/strings.ts'
 import { debateView } from '../../src/views/debate-room.ts'
 import { renderSchedulingRoom } from '../../src/views/scheduling-room.ts'
@@ -34,9 +34,17 @@ const members = new Map([
 const model = (room: ReturnType<typeof meeting>) =>
   schedulingRoomModel({ debate: room, viewerId: ANA, enabled: true, members, timeZone: 'Asia/Seoul' })
 
+const drawn = (model: SchedulingRoomModel, cards: ReadonlyArray<HTMLElement> = []): HTMLElement =>
+  renderSchedulingRoom(
+    lifetime(),
+    signal(0),
+    () => model,
+    () => cards.map((one, index) => ({ key: `card ${index}`, from: null, draw: () => one })),
+  )
+
 describe('renderSchedulingRoom', () => {
   it('shows the title, who has answered, what each attendee does and that the result is still to come', () => {
-    const shown = mount(renderSchedulingRoom(model(meeting({ visibility: 'private' }))))
+    const shown = mount(drawn(model(meeting({ visibility: 'private' }))))
     expect(shown.querySelector('h1')?.textContent).toBe('Planning sync')
     expect(textOf(shown)).toContain('Answered: 1 of 2')
     expect(textOf(shown)).toContain(strings.scheduling.stage.collecting)
@@ -53,7 +61,7 @@ describe('renderSchedulingRoom', () => {
       { memberId: ANA, required: true, answer: 'by_person', attendance: 'added' },
       { memberId: BEN, required: false, answer: 'by_agent', attendance: 'declined' },
     ] as const
-    const shown = mount(renderSchedulingRoom(model({ ...room, schedule: { ...room.schedule!, attendees } })))
+    const shown = mount(drawn(model({ ...room, schedule: { ...room.schedule!, attendees } })))
     expect(shown.querySelector(`li[data-member="${BEN}"] .scheduling-attendee-part`)?.textContent).toBe(
       strings.scheduling.partOf.declined,
     )
@@ -70,7 +78,7 @@ describe('renderSchedulingRoom', () => {
       unanswered: [],
     }
     const shown = mount(
-      renderSchedulingRoom(
+      drawn(
         model(
           meeting({ status: 'closed', result: { draftedBy: null, draftedAt: 1, result: slot } as never }),
         ),
@@ -85,7 +93,7 @@ describe('renderSchedulingRoom', () => {
     const order = (shown: HTMLElement) =>
       [...shown.querySelector('.page-body')!.children].map((child) => child.getAttribute('class'))
     const card = h('section', { class: 'scheduling-card' })
-    const waiting = mount(renderSchedulingRoom(model(meeting()), [card]))
+    const waiting = mount(drawn(model(meeting()), [card]))
     expect(order(waiting).slice(2)).toEqual([
       'hint scheduling-result-waiting',
       'scheduling-card',
@@ -93,7 +101,7 @@ describe('renderSchedulingRoom', () => {
     ])
     const slot = { kind: 'slot', startsAt: 0, endsAt: 1, optionalFree: [], optionalBusy: [], unanswered: [] }
     const settled = mount(
-      renderSchedulingRoom(
+      drawn(
         model(
           meeting({ status: 'closed', result: { draftedBy: null, draftedAt: 1, result: slot } as never }),
         ),
@@ -108,7 +116,7 @@ describe('renderSchedulingRoom', () => {
 
   it('says why a flock it cannot show is not shown', () => {
     const shown = mount(
-      renderSchedulingRoom(
+      drawn(
         schedulingRoomModel({
           debate: meeting(),
           viewerId: ANA,
@@ -122,7 +130,7 @@ describe('renderSchedulingRoom', () => {
   })
 
   it('shows the time a flock ended without as a plain line', () => {
-    const shown = mount(renderSchedulingRoom(model(meeting({ status: 'ended' }))))
+    const shown = mount(drawn(model(meeting({ status: 'ended' }))))
     expect(textOf(shown)).toContain(strings.scheduling.endedNoTime)
   })
 })

@@ -59,6 +59,8 @@ export const ko: Translation<typeof en> = {
     },
   },
   loadFailed: '불러오지 못했어요.',
+  choose: '선택…',
+  chooseFirst: '먼저 하나를 골라 주세요.',
   chooseAgain: '다시 선택해 주세요',
   choiceGone: '선택했던 항목이 더 이상 없어요. 다시 선택해 주세요.',
   tryAgain: '다시 시도',
@@ -1943,6 +1945,7 @@ export const ko: Translation<typeof en> = {
     unmanageBody: '{name} 님은 채널에 그대로 남지만, 에이전트의 답을 검토하거나 사람을 추가하지 않게 돼요.',
     unmanageSelfTitle: '{channel} 운영을 그만둘까요?',
     unmanageSelfBody: '채널에는 그대로 남지만, 에이전트의 답을 검토하거나 사람을 추가하지 않게 돼요.',
+    gone: '이 그룹은 더 이상 없어요.',
     onlyManagerYou:
       '운영자가 나만 남아요. 내 질문에 에이전트가 쓴 답은 다른 운영자를 추가할 때까지 기다려요.',
     onlyManagerOther: '운영자가 {name} 님만 남아요.',
