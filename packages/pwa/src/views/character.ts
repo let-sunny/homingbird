@@ -4,7 +4,6 @@ import { characterOf, hasSavedCharacter } from '../characters.ts'
 import { featureOn } from '../features.ts'
 import { avatarOf, characterName, memberAvatarOf } from '../models/avatar.ts'
 import { type MyCharacterModel, myCharacterModel, previewModel } from '../models/character.ts'
-import { turningBirdOf } from '../models/turning-bird.ts'
 import { strings } from '../strings.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
@@ -102,7 +101,7 @@ export const characterPreview = (
   h(
     'div',
     { class: 'character-preview' },
-    renderTurningBird(context, turningBirdOf(avatarOf(spec, { label: characterName(spec) }), 2)),
+    renderTurningBird(context, avatarOf(spec, { label: characterName(spec) })),
     previewModel(spec).map((ground) =>
       h(
         'figure',

@@ -1,7 +1,7 @@
 import { h } from '@homingbird/ui'
 import { type SignInModel, signInModel } from '../models/sign-in.ts'
 import type { ViewContext } from './context.ts'
-import { renderTurningPip } from './turning-bird.ts'
+import { pip } from './pip.ts'
 
 export const signInView = (
   context: ViewContext,
@@ -30,7 +30,7 @@ const renderSignIn = (model: SignInModel): HTMLElement =>
       h(
         'div',
         { class: 'window-body' },
-        renderTurningPip(2),
+        pip(model.pip, 4),
         h('h1', { class: 'wordmark' }, model.wordmark),
         h('p', { class: 'tagline' }, model.tagline),
         model.refusal !== null && h('p', { class: 'refusal', role: 'alert' }, model.refusal),

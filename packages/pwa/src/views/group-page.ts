@@ -67,7 +67,7 @@ const renderGroupPage = (model: GroupPageModel, context: ViewContext, retry: () 
     case 'failed':
       return page(strings.groups.title, loadFailed(retry))
     case 'missing':
-      return emptyWithPip(model.text, h('a', { class: 'button', href: '#/' }, strings.backHome))
+      return emptyWithPip('failed', model.text, h('a', { class: 'button', href: '#/' }, strings.backHome))
     case 'group':
       return groupPage(model, context)
   }

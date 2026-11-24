@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 import { type PipSheet, pipStylesheet } from '../pwa/src/pip-stylesheet.ts'
-import { type TurnSheet, turnStylesheet } from '../pwa/src/turn-stylesheet.ts'
+import { turnStylesheet } from '../pwa/src/turn-stylesheet.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const repository = join(here, '..', '..')
@@ -20,13 +20,11 @@ for (const directory of ['icons', 'fonts/pretendard', 'pip'])
   await mkdir(join(output, directory), { recursive: true })
 
 const pipSheet = JSON.parse(await readFile(join(assets, 'pip', 'pip-sheet.json'), 'utf8')) as PipSheet
-const turnSheet = JSON.parse(await readFile(join(assets, 'pip', 'pip-turn.json'), 'utf8')) as TurnSheet
 const brandFiles: ReadonlyArray<readonly [string, string]> = [
   ['brand/homingbird-mark.svg', 'icons/mark.svg'],
   ['brand/homingbird-icon-180.png', 'icons/icon-180.png'],
   ['brand/favicon.ico', 'favicon.ico'],
   ['pip/pip-sheet@1x.png', 'pip/pip-sheet.png'],
-  ['pip/pip-turn@1x.png', 'pip/pip-turn.png'],
 ]
 
 const [, styles] = await Promise.all([
@@ -44,10 +42,7 @@ const [, styles] = await Promise.all([
     outfile: join(output, 'app.css'),
     external: ['/fonts/*', '/pip/*', '/icons/*'],
   }),
-  writeFile(
-    join(output, 'pip.css'),
-    pipStylesheet(pipSheet, 'pip/pip-sheet.png') + turnStylesheet(turnSheet, 'pip/pip-turn.png'),
-  ),
+  writeFile(join(output, 'pip.css'), pipStylesheet(pipSheet, 'pip/pip-sheet.png') + turnStylesheet()),
   cp(join(here, 'src', 'demo.css'), join(output, 'demo.css')),
   cp(join(here, 'src', 'index.html'), join(output, 'index.html')),
   cp(join(assets, 'fonts', 'pretendard'), join(output, 'fonts', 'pretendard'), { recursive: true }),

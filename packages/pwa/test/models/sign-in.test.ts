@@ -14,6 +14,7 @@ describe('signInModel', () => {
     })
     expect(model).toEqual({
       title: strings.welcome,
+      pip: 'sign-in',
       wordmark: 'homingbird',
       tagline: strings.tagline,
       refusal: null,
@@ -35,6 +36,7 @@ describe('signInModel', () => {
       origin: 'https://hb.example.com',
     })
     expect(model.title).toBe(strings.signedOutTitle)
+    expect(model.pip).toBe('failed')
     expect(model.refusal).toBe('Your domain is not allowed.')
     expect(model.signIn.label).toBe(strings.signInWith({ provider: '…' }))
     expect(model.wordmark).toBe('Acme')
@@ -51,6 +53,7 @@ describe('signInModel', () => {
     })
     expect(model).toMatchObject({
       title: strings.invites.invitedTitle,
+      pip: 'sign-in',
       tagline: strings.invites.invitedBody({ name: 'Acme', address: 'hb.example.com' }),
       refusal: null,
       signIn: {

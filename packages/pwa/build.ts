@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 import { type PipSheet, pipStylesheet } from './src/pip-stylesheet.ts'
-import { type TurnSheet, turnStylesheet } from './src/turn-stylesheet.ts'
+import { turnStylesheet } from './src/turn-stylesheet.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const source = join(here, 'src')
@@ -18,7 +18,6 @@ for (const directory of ['icons', 'fonts/pretendard', 'pip'])
   await mkdir(join(output, directory), { recursive: true })
 
 const pipSheet = JSON.parse(await readFile(join(assets, 'pip', 'pip-sheet.json'), 'utf8')) as PipSheet
-const turnSheet = JSON.parse(await readFile(join(assets, 'pip', 'pip-turn.json'), 'utf8')) as TurnSheet
 const styles = { ...shared, external: ['/fonts/*', '/pip/*', '/icons/*'] }
 const brandFiles: ReadonlyArray<readonly [string, string]> = [
   ['brand/homingbird-mark.svg', 'icons/mark.svg'],
@@ -29,7 +28,6 @@ const brandFiles: ReadonlyArray<readonly [string, string]> = [
   ['brand/homingbird-icon-512.png', 'icons/icon-512.png'],
   ['brand/favicon.ico', 'favicon.ico'],
   ['pip/pip-sheet@1x.png', 'pip/pip-sheet.png'],
-  ['pip/pip-turn@1x.png', 'pip/pip-turn.png'],
 ]
 
 await Promise.all([
@@ -52,10 +50,7 @@ await Promise.all([
     entryPoints: [join(source, 'styles', 'dev-login.css')],
     outfile: join(output, 'dev-login.css'),
   }),
-  writeFile(
-    join(output, 'pip.css'),
-    pipStylesheet(pipSheet, '/pip/pip-sheet.png') + turnStylesheet(turnSheet, '/pip/pip-turn.png'),
-  ),
+  writeFile(join(output, 'pip.css'), pipStylesheet(pipSheet, '/pip/pip-sheet.png') + turnStylesheet()),
   ...brandFiles.map(([from, to]) => cp(join(assets, from), join(output, to))),
   cp(join(assets, 'fonts', 'pretendard'), join(output, 'fonts', 'pretendard'), { recursive: true }),
   cp(join(here, 'public'), output, { recursive: true }),
