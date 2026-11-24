@@ -37,6 +37,17 @@ export const HINT_CONCEPTS = [
   'tagging',
   'newMessage',
   'newChannel',
+  'agentTab',
+  'flocksTab',
+  'waitingFilter',
+  'activityBell',
+  'teachAgent',
+  'changeChannel',
+  'withdrawRequest',
+  'replyTarget',
+  'connectAgent',
+  'debateKind',
+  'meetingKind',
   'browseChannels',
 ] as const
 

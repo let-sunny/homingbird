@@ -43,6 +43,7 @@ describe('tabsModel', () => {
       tour: 'connect',
       mark: null,
       glyph: 'agent',
+      hint: 'agentTab',
     })
     expect(tabs.map((tab) => tab.glyph)).toEqual(['notes', 'agent', 'people', 'channels'])
     expect(tabs.every((tab) => tab.mark === null)).toBe(true)
@@ -50,7 +51,7 @@ describe('tabsModel', () => {
       tabsModel({ name: 'debate', id: 'x', tab: null }, serverInfo({ debateRooms: true })).find(
         (tab) => tab.current,
       ),
-    ).toEqual(expect.objectContaining({ label: strings.navDebates, glyph: 'debates' }))
+    ).toEqual(expect.objectContaining({ label: strings.navDebates, glyph: 'debates', hint: 'flocksTab' }))
   })
 
   it('marks My agent, and only My agent, while the person’s agent cannot answer', () => {
@@ -70,6 +71,7 @@ describe('searchLinkModel', () => {
       tour: null,
       mark: null,
       glyph: null,
+      hint: null,
     })
     expect(searchLinkModel({ name: 'search', query: 'refund' }).current).toBe(true)
   })

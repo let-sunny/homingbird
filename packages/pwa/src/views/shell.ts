@@ -37,6 +37,7 @@ import { renderAvatar, renderGroupAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { conversationActionItems } from './conversation-actions.ts'
 import { opensDialog } from './dialog.ts'
+import { hinted } from './hint.ts'
 import { startingPoints } from './home.ts'
 import { type MenuParts, actionMenu } from './menu.ts'
 import { mutedMark } from './mute-toggle.ts'
@@ -193,7 +194,9 @@ const tabs = (context: ViewContext, agentUnavailable: string | null): Child => {
   const nav = h(
     'nav',
     { class: 'tabs', 'aria-label': strings.sections },
-    shown.map(({ link }) => link),
+    shown.map(({ tab, link }) =>
+      tab.hint === null ? link : hinted(context, tab.hint, strings.hints[tab.hint], link),
+    ),
   )
   const current = shown.find(({ tab }) => tab.current)?.link
   if (current !== undefined) context.page.nextFrame(() => scrollTabIntoView(nav, current))
@@ -344,7 +347,7 @@ const sidebar = (
     region(
       life,
       [state.agentCredentials, state.session, slice(peopleSources, () => model().onboarding)],
-      () => model().onboarding && onboarding(),
+      () => model().onboarding && onboarding(context),
       {
         class: 'onboarding-host',
       },
@@ -431,23 +434,28 @@ const sidebar = (
 }
 
 /** The list's Waiting for you filter, a button that stays pressed while it is on. */
-const waitingFilter = (context: ViewContext, waiting: Waiting): HTMLElement => {
+const waitingFilter = (context: ViewContext, waiting: Waiting): Child => {
   const model = waitingFilterModel(context.state.waitingOnly.get(), waiting)
-  return h(
-    'button',
-    {
-      type: 'button',
-      class: 'waiting-filter',
-      'aria-pressed': String(model.pressed),
-      title: model.label,
-      on: { click: () => context.state.waitingOnly.update((on) => !on) },
-    },
-    model.text,
-    model.count !== null && h('span', { class: 'count', 'aria-hidden': 'true' }, model.count),
+  return hinted(
+    context,
+    'waitingFilter',
+    strings.hints.waitingFilter,
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'waiting-filter',
+        'aria-pressed': String(model.pressed),
+        on: { click: () => context.state.waitingOnly.update((on) => !on) },
+      },
+      model.text,
+      h('span', { class: 'visually-hidden' }, ` ${model.label}`),
+      model.count !== null && h('span', { class: 'count', 'aria-hidden': 'true' }, model.count),
+    ),
   )
 }
 
-const onboarding = (): HTMLElement =>
+const onboarding = (context: ViewContext): HTMLElement =>
   h(
     'div',
     { class: 'onboarding', role: 'note' },
@@ -456,10 +464,15 @@ const onboarding = (): HTMLElement =>
       { class: 'onboarding-text' },
       h('strong', {}, strings.onboardingTitle),
       h('p', {}, strings.onboardingHint),
-      h(
-        'a',
-        { class: 'button primary', href: hrefFor({ name: 'agent', section: 'connection' }) },
-        strings.connectAgent,
+      hinted(
+        context,
+        'connectAgent',
+        strings.hints.connectAgent,
+        h(
+          'a',
+          { class: 'button primary', href: hrefFor({ name: 'agent', section: 'connection' }) },
+          strings.connectAgent,
+        ),
       ),
     ),
   )

@@ -155,16 +155,21 @@ const draftActions = (
       strings.edit,
     ),
     shown.changeChannel !== null &&
-      h(
-        'button',
-        {
-          type: 'button',
-          class: 'change-channel',
-          ...opensDialog(context, strings.changeChannel, (life) =>
-            readdressForm(context, life, draft, shown.changeChannel!),
-          ),
-        },
-        strings.changeChannel,
+      hinted(
+        context,
+        'changeChannel',
+        strings.hints.changeChannel,
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'change-channel',
+            ...opensDialog(context, strings.changeChannel, (life) =>
+              readdressForm(context, life, draft, shown.changeChannel!),
+            ),
+          },
+          strings.changeChannel,
+        ),
       ),
     discard,
   )

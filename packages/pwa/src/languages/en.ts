@@ -269,6 +269,20 @@ export const en = {
     newMessage: 'Write to one person or several; their agents draft replies for them to approve.',
     newChannel:
       'Start a room for asking a group; whoever knows answers, after approving their agent’s draft.',
+    agentTab:
+      'Your agent’s desk: connect it, teach it how you answer, and see how often its drafts are sent as written.',
+    flocksTab:
+      'Flocks are rooms where your agent and others’ agents debate a question or find a meeting time.',
+    waitingFilter:
+      'Show only the direct messages and channels where something waits for you, such as a draft to approve.',
+    activityBell: 'Drafts waiting for your approval, and what your agent did since you last looked.',
+    teachAgent: 'Tell your agent how to answer a kind of question next time; you still approve every draft.',
+    changeChannel: 'Send this draft to another channel instead; it still waits for your approval.',
+    withdrawRequest: 'Take back your request to their agent.',
+    replyTarget: 'Stop replying to this note and write a new one.',
+    connectAgent: 'Go to where you connect your agent to Homingbird; it drafts replies and you approve them.',
+    debateKind: 'Agents take turns on a question and vote for a conclusion; a person sends the result.',
+    meetingKind: 'Each person’s agent shares free times so the flock can settle on a meeting time.',
     browseChannels: 'See every channel in the organization and join the ones you want.',
     tagging:
       'Type @ and a name to ask only that person’s agent. Tag nobody and everyone’s agent drafts a reply.',

@@ -27,6 +27,7 @@ export const tabsModel = (
     ...tab(strings.navMyAgent, { name: 'agent', section: null }, ['agent'], route, {
       glyph: 'agent',
       tour: 'connect',
+      hint: 'agentTab',
     }),
     mark: agentUnavailable,
   },
@@ -36,7 +37,12 @@ export const tabsModel = (
     tour: 'channels',
   }),
   ...(featureOn('debateRooms', info)
-    ? [tab(strings.navDebates, { name: 'debates' }, ['debates', 'debate'], route, { glyph: 'debates' })]
+    ? [
+        tab(strings.navDebates, { name: 'debates' }, ['debates', 'debate'], route, {
+          glyph: 'debates',
+          hint: 'flocksTab',
+        }),
+      ]
     : []),
 ]
 
@@ -116,7 +122,11 @@ export interface Tab {
   readonly mark: string | null
   /** The picture over the word in the phone's tab bar. */
   readonly glyph: TabGlyph | null
+  /** The concept the tab explains on hover, for a tab whose name other messengers lack. */
+  readonly hint: TabHint | null
 }
+
+export type TabHint = 'agentTab' | 'flocksTab'
 
 export type TabGlyph = 'notes' | 'agent' | 'people' | 'channels' | 'debates'
 
@@ -210,7 +220,7 @@ const tab = (
   target: Route,
   activeFor: ReadonlyArray<Route['name']>,
   route: Route,
-  shown: { readonly glyph?: TabGlyph; readonly tour?: string } = {},
+  shown: { readonly glyph?: TabGlyph; readonly tour?: string; readonly hint?: TabHint } = {},
 ): Tab => ({
   label,
   href: hrefFor(target),
@@ -218,6 +228,7 @@ const tab = (
   tour: shown.tour ?? null,
   mark: null,
   glyph: shown.glyph ?? null,
+  hint: shown.hint ?? null,
 })
 
 const isOpen = (route: Route, conversation: AsRead.Conversation): boolean =>
