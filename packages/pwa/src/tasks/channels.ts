@@ -13,6 +13,7 @@ import { withChannel } from '../channels.ts'
 import { hrefFor } from '../routes.ts'
 import { loadGroups } from './groups.ts'
 import { loadingList } from './list-load.ts'
+import { reloadQuietly } from './quiet-reload.ts'
 import { loadConversations, loadKnownChannels, loadPeople } from './workspace.ts'
 
 export interface ChannelPage {
@@ -58,7 +59,7 @@ export const createChannel = (
       body: { slug, description, visibility },
     })
     yield* afterChannelChange
-    yield* loadGroups
+    yield* reloadQuietly(T.asUnit(loadGroups))
     state.channels.update((all) => withChannel(all, created))
     return created
   })
@@ -101,7 +102,7 @@ export const setChannelMember = (slug: string, memberId: MemberId, isMember: boo
 /** Adds the people in a team to a channel's managers, once; they join its room. */
 export const addTeam = (slug: string, groupId: GroupId): Action =>
   withApp(({ api }) =>
-    T.flatMap(() => T.asUnit(T.all([afterChannelChange, loadGroups])))(
+    T.flatMap(() => T.asUnit(T.all([afterChannelChange, reloadQuietly(loadGroups)])))(
       api['channels.managers.addTeam']({ params: { slug }, body: { groupId } }),
     ),
   )
@@ -115,7 +116,7 @@ export const askChannel = (slug: string, body: string): Action<ConversationId> =
       params: { id: draft.id },
       body: { expected: { body, conversationId: draft.conversationId } },
     })
-    yield* loadConversations
+    yield* reloadQuietly(loadConversations)
     return draft.conversationId
   })
 
@@ -123,7 +124,7 @@ export const askChannel = (slug: string, body: string): Action<ConversationId> =
 export const enterRoom = (conversationId: string): Action =>
   T.gen(function* () {
     const { page } = yield* T.ask<App>()
-    yield* loadConversations
+    yield* reloadQuietly(loadConversations)
     page.go(hrefFor({ name: 'conversation', id: conversationId, draft: null }))
   })
 
@@ -156,5 +157,5 @@ export const archiveChannel = (slug: string, moveMembersTo: string | null): Acti
   )
 
 const afterChannelChange: Action = T.suspend(() =>
-  T.asUnit(T.all([loadKnownChannels, loadConversations, loadPeople])),
+  reloadQuietly(T.asUnit(T.all([loadKnownChannels, loadConversations, loadPeople]))),
 )

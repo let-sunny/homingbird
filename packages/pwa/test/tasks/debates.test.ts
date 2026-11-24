@@ -1,7 +1,7 @@
 import { DEFAULT_DEBATE_LIMITS } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import * as tasks from '../../src/tasks/debates.ts'
-import { fail, testApp } from '../support/app.ts'
+import { fail, hold, testApp } from '../support/app.ts'
 import { debate } from '../support/fixtures.ts'
 
 const ID = 'debate_000000000000' as never
@@ -32,11 +32,14 @@ describe('flock tasks', () => {
   })
 
   it('gives free times, adds a meeting and takes it out, showing the flock each time', async () => {
-    const { run, sent, state } = testApp({
-      'scheduling.slots.set': () => debate({ question: 'Slots' }),
-      'scheduling.attendance.add': () => debate({ question: 'Added' }),
-      'scheduling.attendance.remove': () => debate({ question: 'Removed' }),
-    })
+    const { run, sent, state } = testApp(
+      {
+        'scheduling.slots.set': () => debate({ question: 'Slots' }),
+        'scheduling.attendance.add': () => debate({ question: 'Added' }),
+        'scheduling.attendance.remove': () => debate({ question: 'Removed' }),
+      },
+      `#/debate/${ID}`,
+    )
     const slots = [{ startsAt: 1, endsAt: 2 }]
     await run(tasks.setMyFreeTimes(ID, slots))
     expect((state.shownDebate.get() as ReturnType<typeof debate>).question).toBe('Slots')
@@ -52,22 +55,65 @@ describe('flock tasks', () => {
   })
 
   it('shows a flock, or shows it as missing when the person may not see it', async () => {
-    const shown = testApp({ 'debates.get': () => debate() })
+    const shown = testApp({ 'debates.get': () => debate() }, `#/debate/${ID}`)
     await shown.run(tasks.loadDebate(ID))
     expect(shown.state.shownDebate.get()).toEqual(debate())
-    const missing = testApp({ 'debates.get': () => fail({ _tag: 'NotFound', message: 'No such flock.' }) })
+    const missing = testApp(
+      { 'debates.get': () => fail({ _tag: 'NotFound', message: 'No such flock.' }) },
+      `#/debate/${ID}`,
+    )
     await missing.run(tasks.loadDebate(ID))
     expect(missing.state.shownDebate.get()).toBe('missing')
   })
 
+  it('does not show the answer for one flock under the address of another, nor after leaving', async () => {
+    const other = 'debate_other0000000' as never
+    const slow = hold<ReturnType<typeof debate>>()
+    const app = testApp({ 'debates.get': () => slow.waiting }, `#/debate/${ID}`)
+    const loading = app.run(tasks.loadDebate(ID))
+    app.state.route.set({ name: 'debate', id: other, tab: null })
+    slow.release(debate())
+    await loading
+    expect(app.state.shownDebate.get()).toBeNull()
+    const leaving = hold<ReturnType<typeof debate>>()
+    const left = testApp({ 'debates.get': () => leaving.waiting }, `#/debate/${ID}`)
+    const reading = left.run(tasks.loadDebate(ID))
+    left.state.route.set({ name: 'home' })
+    leaving.release(debate())
+    await reading
+    expect(left.state.shownDebate.get()).toBeNull()
+  })
+
+  it('does not show a flock as missing under the address of another', async () => {
+    const other = 'debate_other0000000' as never
+    const app = testApp(
+      { 'debates.get': () => fail({ _tag: 'NotFound', message: 'No such flock.' }) },
+      `#/debate/${other}`,
+    )
+    await app.run(tasks.loadDebate(ID))
+    expect(app.state.shownDebate.get()).toBeNull()
+  })
+
+  it('does not show the answer to a change of one flock under the address of another', async () => {
+    const slow = hold<ReturnType<typeof debate>>()
+    const app = testApp({ 'scheduling.attendance.add': () => slow.waiting }, '#/debate/debate_other0000000')
+    const adding = app.run(tasks.addMeeting(ID))
+    slow.release(debate())
+    await adding
+    expect(app.state.shownDebate.get()).toBeNull()
+  })
+
   it('opens a flock and reloads the list, opts an agent in, changes limits, posts and exports', async () => {
-    const { run, sent, state } = testApp({
-      'debates.create': () => debate(),
-      'debates.list': () => ({ debates: [] }),
-      'debates.optIn': () => debate({ question: 'Opted in' }),
-      'debates.limits.set': () => debate({ question: 'Changed' }),
-      'debates.export': () => ({ filename: 'debate.md', mediaType: 'text/markdown', text: '#' }),
-    })
+    const { run, sent, state } = testApp(
+      {
+        'debates.create': () => debate(),
+        'debates.list': () => ({ debates: [] }),
+        'debates.optIn': () => debate({ question: 'Opted in' }),
+        'debates.limits.set': () => debate({ question: 'Changed' }),
+        'debates.export': () => ({ filename: 'debate.md', mediaType: 'text/markdown', text: '#' }),
+      },
+      `#/debate/${ID}`,
+    )
     const wish = {
       question: 'Ship?',
       visibility: 'open' as const,
@@ -94,10 +140,13 @@ describe('flock tasks', () => {
   })
 
   it('opts an agent in with the person’s note, trimmed, and sets or clears that note', async () => {
-    const { run, sent, state } = testApp({
-      'debates.optIn': () => debate({ question: 'Opted in' }),
-      'debates.brief.set': () => debate({ question: 'Noted' }),
-    })
+    const { run, sent, state } = testApp(
+      {
+        'debates.optIn': () => debate({ question: 'Opted in' }),
+        'debates.brief.set': () => debate({ question: 'Noted' }),
+      },
+      `#/debate/${ID}`,
+    )
     await run(tasks.optInAgent(ID, 'cred_agent' as never, '  Use the Q3 budget.  '))
     await run(tasks.optInAgent(ID, 'cred_agent' as never, '   '))
     await run(tasks.setBrief(ID, ' Only public figures. '))

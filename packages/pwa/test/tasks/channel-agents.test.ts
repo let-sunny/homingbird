@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { heldWordsFor } from '../../src/held-decisions.ts'
 import { strings } from '../../src/strings.ts'
 import * as tasks from '../../src/tasks/channel-agents.ts'
+import { commitHeld } from '../../src/tasks/held.ts'
 import { fail, testApp } from '../support/app.ts'
 import { CY, conversation, draft, everything, member, note, serverInfo } from '../support/fixtures.ts'
 
@@ -147,6 +148,34 @@ describe('the channel agent tasks', () => {
     await run(tasks.holdReviewDiscard(review({ note: draft('note_other000000') }), 'Why', words.discard))
     expect(routes()).toEqual(['drafts.send', 'reviews.list'])
     expect(state.held.get().at(-1)).toMatchObject({ kind: 'discard', review: true, words: words.discard })
+  })
+
+  it('takes a sent or discarded answer off the waiting list when only the reload after it fails', async () => {
+    const down = {
+      'reviews.list': () => fail({ _tag: 'Unavailable', message: 'down' }),
+      'conversations.get': () => fail({ _tag: 'Unavailable', message: 'down' }),
+    }
+    const sent = testApp(down)
+    sent.state.serverInfo.set(everything())
+    sent.state.reviews.set([review()])
+    sent.state.threads.set(new Map([[review().note.conversationId, { notes: [], hasMore: false }]]))
+    expect((await sent.run(tasks.sendReview(review(), null)))._tag).toBe('Ok')
+    expect(sent.state.reviews.get()).toEqual([])
+    const discarded = testApp(down)
+    discarded.state.serverInfo.set(everything())
+    discarded.state.reviews.set([review()])
+    expect((await discarded.run(tasks.discardReview(review(), '')))._tag).toBe('Ok')
+    expect(discarded.state.reviews.get()).toEqual([])
+  })
+
+  it('counts a held decision on an answer as done when only the reload after it fails', async () => {
+    const { run, state } = testApp({ 'reviews.list': () => fail({ _tag: 'Unavailable', message: 'down' }) })
+    state.serverInfo.set(everything())
+    state.reviews.set([review()])
+    await run(tasks.holdReviewSend(review(), null, heldWordsFor('#payments-wiki').send))
+    expect((await run(commitHeld))._tag).toBe('Ok')
+    expect(state.held.get()).toMatchObject([{ noteId: review().note.id, phase: 'done' }])
+    expect(state.reviews.get()).toEqual([])
   })
 
   it('reads the room again after sending an answer when the page shows it, so the note takes the card’s place', async () => {
