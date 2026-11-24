@@ -59,7 +59,7 @@ const scenario = async (): Promise<void> => {
     const cardBox = await card.boundingBox()
     assert.ok(cardBox!.y >= authorBox!.y, 'the card opens beside the face that opened it')
     await capture(ana.page, 'card-from-a-note-author-wide')
-    await card.getByRole('link', { name: 'Message' }).click()
+    await card.getByRole('link', { name: 'Write a note' }).click()
     await ana.page.waitForSelector('.people-picker-chip:has-text("Ben")')
     assert.equal(
       await ana.page.evaluate(() => (globalThis as any).location.hash as string),
@@ -72,7 +72,7 @@ const scenario = async (): Promise<void> => {
     await sendThroughApi(ben, { to: [anaId], body: 'Lunch at noon?' })
     await ana.page.goto(`${base}/#/c/${room}`)
     await author.click()
-    await card.getByRole('link', { name: 'Message' }).click()
+    await card.getByRole('link', { name: 'Write a note' }).click()
     await ana.page.locator('.note:has-text("Lunch at noon?")').waitFor()
     const direct = await ana.page.evaluate(() => (globalThis as any).location.hash as string)
     assert.ok(direct.startsWith('#/c/') && direct !== `#/c/${room}`)
@@ -89,7 +89,7 @@ const scenario = async (): Promise<void> => {
     await ana.page.locator('.channel-counts .people-open').click()
     await ana.page.locator('.people-list').getByRole('button', { name: 'Billing helper' }).click()
     await card.getByText('Agent of #billing').waitFor()
-    assert.equal(await card.getByRole('link', { name: 'Message' }).count(), 0)
+    assert.equal(await card.getByRole('link', { name: 'Write a note' }).count(), 0)
     assert.equal(await card.getByRole('link').count(), 0)
     await capture(ana.page, 'card-of-a-channel-agent-wide')
 
@@ -115,7 +115,7 @@ const scenario = async (): Promise<void> => {
     assert.ok(Math.abs(sheetBox!.width - NARROW.width) <= 2, 'the sheet spans the width')
     assert.equal(await overflowsSideways(phone.page), false)
     await capture(phone.page, 'card-from-a-note-author-narrow')
-    await sheet.getByRole('link', { name: 'Message' }).tap()
+    await sheet.getByRole('link', { name: 'Write a note' }).tap()
     await phone.page.waitForFunction(
       (channelRoom: string) => (globalThis as any).location.hash !== `#/c/${channelRoom}`,
       room,
