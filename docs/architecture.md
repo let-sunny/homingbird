@@ -608,7 +608,8 @@ sequenceDiagram
   those never read, and Try again asks for the failed and slow ones only. The stream opens first, from the
   cursor, and the lists wait for its response, at most `STREAM_WAIT_SECONDS` (1), so that an event sent once
   is either in a list or arrives after it was asked for. When the stream is later than that, the lists that
-  such events feed are asked for once more when it opens. What a live event changes while a list is on its
+  such events feed are asked for once more, after those the page is first drawn from. Rooms are drawn
+  with the people who name them, unless those take longer than usual. What a live event changes while a list is on its
   way is made again on the answer, so a room left meanwhile does not come back; a list that only hears "look
   again" is asked for once more after the running request. A list that never answers holds back neither the
   stream, nor the page, nor the other lists. The Channels tab loads when it opens and says "Checking…", then

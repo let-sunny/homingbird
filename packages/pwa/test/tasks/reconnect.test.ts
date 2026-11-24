@@ -15,6 +15,7 @@ import {
   serverInfo,
   summary,
 } from '../support/fixtures.ts'
+import { setWorkspace } from '../support/resource-load.ts'
 
 const preview = (id: string): AsRead.DraftPreview => ({
   noteId: id as NoteId,
@@ -349,6 +350,9 @@ describe('catchUp with the lists that events sent once bring up to date', () => 
     state.stream.set('late')
     connect('stream')
     expect(shown()).toHaveLength(1)
+    await settle()
+    expect(listsAsked(routes())).toEqual([])
+    setWorkspace(state, 'loaded')
     await settle()
     expect(listsAsked(routes())).toEqual(LISTS)
     expect(routes()).not.toContain('me.get')

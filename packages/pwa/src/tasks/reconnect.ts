@@ -8,6 +8,7 @@ import { hidePreviews, loadPreviews } from './previews.ts'
 import { again, invalidate } from './resources.ts'
 import { requireSamePerson } from './same-person.ts'
 import { refreshInterview } from './teaching-interview.ts'
+import { untilHolds } from './waiting-for.ts'
 
 /**
  * Makes up for the events that are never sent again. A draft may be discarded while its event cannot
@@ -49,7 +50,7 @@ export const catchUp = (app: App): CatchUp => {
     answered: (transport) => {
       const isLate = app.state.stream.get() === 'late'
       if (isLate) app.state.stream.set('settled')
-      if (isLate && !owesCatchUp) app.launch(invalidate(...ACTIVITY_LISTS, ...WORKSPACE_LISTS))
+      if (isLate && !owesCatchUp) app.launch(askOnceMore)
       if (!owesCatchUp) read(readPreviews)
       else {
         hideAll()
@@ -88,6 +89,13 @@ const askMissed: Action = withApp(({ state }) => {
     ]),
   )
 })
+
+/** After what the page is first drawn from, which on a slow line must not wait behind what is asked twice. */
+const askOnceMore: Action = withApp(({ state }) =>
+  T.flatMap(() => invalidate(...ACTIVITY_LISTS, ...WORKSPACE_LISTS))(
+    untilHolds(state.workspace, (step) => step !== 'loading'),
+  ),
+)
 
 /** The rest that such events bring up to date, where this page holds it. */
 const rereadShown: Action = T.gen(function* () {
