@@ -8,6 +8,7 @@ import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import { principle } from '../support/fixtures.ts'
+import { setLoad } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -28,17 +29,35 @@ const shownWith = (loaded: unknown = teaching()) => {
   const { context, called } = testContext()
   mount(dialogHost())
   const shown = mount(channelTeachingSection(context, lifetime(), 'billing', AGENT))
-  if (loaded !== null) context.state.channelTeaching.set(new Map([['billing', loaded as never]]))
+  if (loaded !== null) {
+    const held = context.state.channelTeaching.find('billing')!
+    held.set(loaded as never)
+    setLoad(held, { loaded: true })
+  }
   return { context, called, shown }
 }
 
 describe('channelTeachingSection', () => {
-  it('loads what the agent was taught, and says when it could not load', () => {
+  it('loads what the agent was taught, and says once when it could not load, with a way to try again', () => {
     const { called, shown, context } = shownWith(null)
-    expect(called('loadChannelTeaching')[0]!.args).toEqual(['billing'])
+    expect(called('openAgentPage')[0]!.args).toEqual(['channelTeaching', 'billing'])
     expect(textOf(shown)).toBe(strings.loading)
-    context.state.channelTeaching.set(new Map([['billing', 'failed']]))
-    expect(getByRole(shown, 'alert').textContent).toBe(strings.channelTeach.loadFailed({ agent: AGENT }))
+    setLoad(context.state.channelTeaching.find('billing')!, { step: 'failed' })
+    expect(textOf(shown)).toContain(strings.loadFailed)
+    getByRole(shown, 'button', { name: strings.tryAgain }).click()
+    expect(called('askAgentPageAgain')[0]!.args).toEqual(['channelTeaching', 'billing'])
+  })
+
+  it('draws nothing again for what it already shows, so that what is typed stays', () => {
+    const { context, shown } = shownWith()
+    const instruction = getByRole(shown, 'textbox', {
+      name: `${strings.channelTeach.instruction} ${strings.channelTeach.instructionHint({ agent: AGENT, max: 500 })}`,
+    }) as HTMLTextAreaElement
+    fire.type(instruction, 'Half an instruction')
+    context.state.channelTeaching.find('billing')!.set(teaching())
+    context.state.channelTeaching.find('billing')!.set(teaching())
+    expect(shown.querySelector('textarea')).toBe(instruction)
+    expect(instruction.value).toBe('Half an instruction')
   })
 
   it('saves the instruction and its sources, and refuses an invalid source before sending', () => {

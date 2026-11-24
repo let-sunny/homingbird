@@ -18,6 +18,7 @@ import {
 } from '../../src/models/teaching.ts'
 import { strings } from '../../src/strings.ts'
 import { ROOM, channel, draft, principle, taught } from '../support/fixtures.ts'
+import { CHECKING } from '../support/resource-load.ts'
 
 const offer = (fields: Record<string, unknown> = {}) =>
   ({
@@ -32,13 +33,12 @@ const offer = (fields: Record<string, unknown> = {}) =>
   }) as never
 
 describe('taughtModel', () => {
-  it('waits for the principles and says when they could not load', () => {
-    expect(taughtModel(null)).toEqual({ kind: 'loading' })
-    expect(taughtModel('failed')).toEqual({ kind: 'failed', text: strings.trust.loadFailed })
+  it('waits until the principles have come', () => {
+    expect(taughtModel(null, CHECKING)).toEqual({ kind: 'waiting', wait: CHECKING })
   })
 
   it('invites a first principle while there is none', () => {
-    const model = taughtModel(taught())
+    const model = taughtModel(taught(), CHECKING)
     expect(model).toMatchObject({
       kind: 'taught',
       limit: strings.teach.limit({ count: 0, limit: 50 }),
@@ -56,7 +56,7 @@ describe('taughtModel', () => {
       rule: 'Nine to five.',
       autoSend: { enabled: true, places: ['conv_room00000000' as never] },
     })
-    const model = taughtModel(taught({ principles: [answer, principle('Tone')] }))
+    const model = taughtModel(taught({ principles: [answer, principle('Tone')] }), CHECKING)
     if (model.kind !== 'taught') throw new Error('expected the principles')
     expect(model.principles[0]!.autoSend).toEqual({
       menu: strings.autoSend.menu,
@@ -82,6 +82,7 @@ describe('taughtModel', () => {
         offers: [offer(), offer({ kind: 'discard', place: null })],
         achievements: ['first_principle', 'unknown' as never],
       }),
+      CHECKING,
     )
     if (model.kind !== 'taught') throw new Error('expected principles')
     const [dates, tone, forbidden] = model.principles
@@ -118,6 +119,7 @@ describe('taughtModel', () => {
           principle('New', { counts: { applied: 0, sentAsWritten: 0, edited: 0, discarded: 0, missed: 0 } }),
         ],
       }),
+      CHECKING,
     )
     expect(fresh.kind === 'taught' && fresh.principles[0]!.details.at(-1)).toBe(strings.teach.notApplied)
   })
@@ -129,7 +131,6 @@ describe('chancesHere', () => {
     expect(chancesHere(loaded, true, ROOM)).toHaveLength(1)
     expect(chancesHere(loaded, false, ROOM)).toEqual([])
     expect(chancesHere(null, true, ROOM)).toEqual([])
-    expect(chancesHere('failed', true, ROOM)).toEqual([])
   })
 
   it('words each chance as one line for the conversation, by what the person did', () => {
@@ -200,11 +201,9 @@ describe('appliedModel', () => {
     const card = draft('d1', { basis: 'Principles applied: Tone' })
     expect(appliedModel(card, taught({ principles }), false)).toEqual([])
     expect(appliedModel(card, null, true)).toEqual([])
-    expect(appliedModel(card, 'failed', true)).toEqual([])
     expect(showsAppliedMarkers(taught(), true)).toBe(true)
     expect(showsAppliedMarkers(taught(), false)).toBe(false)
     expect(showsAppliedMarkers(null, true)).toBe(false)
-    expect(showsAppliedMarkers('failed', true)).toBe(false)
   })
 })
 

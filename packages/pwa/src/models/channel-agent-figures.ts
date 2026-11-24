@@ -1,16 +1,17 @@
 import type { AsRead } from '@homingbird/protocol'
 import { channelLabel } from '../channels.ts'
 import { durationOf, formats, strings } from '../strings.ts'
+import type { ListWait } from './start.ts'
 
 /** How a channel's agent is doing, for its managers: its answers beside the period before, and who sent them. */
 export const channelAgentFiguresModel = (
-  report: ChannelAgentFiguresState,
+  report: AsRead.ChannelAgentReport | null,
+  wait: ListWait | null,
   slug: string,
   days: number,
 ): ChannelAgentFiguresModel => {
+  if (wait !== null) return { kind: 'waiting', wait }
   if (report === null) return { kind: 'hidden' }
-  if (report === 'loading') return { kind: 'loading' }
-  if (report === 'failed') return { kind: 'failed', text: strings.channelAgent.figuresLoadFailed }
   const period = report.periods.find((each) => each.days === days) ?? report.periods[0]!
   const channel = channelLabel(slug)
   const count = (value: number): string => formats.decimal.format(value)
@@ -53,13 +54,9 @@ export const channelAgentFiguresModel = (
   }
 }
 
-/** Null when the person does not manage the channel, so the section is not there at all. */
-export type ChannelAgentFiguresState = AsRead.ChannelAgentReport | 'loading' | 'failed' | null
-
 export type ChannelAgentFiguresModel =
   | { readonly kind: 'hidden' }
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'failed'; readonly text: string }
+  | { readonly kind: 'waiting'; readonly wait: ListWait }
   | {
       readonly kind: 'figures'
       readonly title: string

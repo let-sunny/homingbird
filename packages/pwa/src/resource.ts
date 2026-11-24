@@ -305,11 +305,11 @@ interface Run<A> {
 type Telling = 'told' | 'quiet'
 
 /** One that was never read and failed stays told until it is read or the person tries again. */
-const isGivenUp = ({ loaded, step }: Load): boolean => !loaded && step === 'failed'
+export const isGivenUp = ({ loaded, step }: Load): boolean => !loaded && step === 'failed'
 
 const sizeOf = (held: unknown): number => (Array.isArray(held) ? held.length : 0)
 
-const NOT_ASKED: Load = { loaded: false, step: 'idle', error: null }
+export const NOT_ASKED: Load = { loaded: false, step: 'idle', error: null }
 
 /** Places that open together, as the bell, the workspace and a page do at start, share one request. */
 const JUST_ASKED_MS = 2000

@@ -5,6 +5,7 @@ import { correctionPrefill } from '../../src/models/channel-teaching.ts'
 import { timeShown } from '../../src/models/time.ts'
 import { strings } from '../../src/strings.ts'
 import { ANA, BEN, CHANNEL_ROOM, everything, member, serverInfo } from '../support/fixtures.ts'
+import { CHECKING } from '../support/resource-load.ts'
 
 const NOW = Date.UTC(2026, 10, 19, 12)
 const AGENT = 'Billing helper'
@@ -40,7 +41,7 @@ const members = new Map<MemberId, AsRead.Member>([
 ])
 
 const modelOf = (decisions: ReadonlyArray<Decision>, info: AsRead.ServerInfo | null = everything()) =>
-  channelDecisionsModel(listed(decisions), { agent: AGENT, members, serverInfo: info, now: NOW })
+  channelDecisionsModel(listed(decisions), null, { agent: AGENT, members, serverInfo: info, now: NOW })
 
 const rowsOf = (decisions: ReadonlyArray<Decision>, info?: AsRead.ServerInfo | null) => {
   const model = modelOf(decisions, info)
@@ -49,14 +50,11 @@ const rowsOf = (decisions: ReadonlyArray<Decision>, info?: AsRead.ServerInfo | n
 }
 
 describe('channelDecisionsModel', () => {
-  it('shows nothing to someone who does not manage the channel, waits while loading and says when it failed', () => {
+  it('shows nothing to someone who does not manage the channel, and waits until that is known', () => {
     const context = { agent: AGENT, members, serverInfo: everything(), now: NOW }
-    expect(channelDecisionsModel(null, context)).toEqual({ kind: 'hidden' })
-    expect(channelDecisionsModel('loading', context)).toEqual({ kind: 'loading' })
-    expect(channelDecisionsModel('failed', context)).toEqual({
-      kind: 'failed',
-      text: strings.channelDecisions.loadFailed,
-    })
+    expect(channelDecisionsModel(null, null, context)).toEqual({ kind: 'hidden' })
+    expect(channelDecisionsModel(null, CHECKING, context)).toEqual({ kind: 'waiting', wait: CHECKING })
+    expect(channelDecisionsModel(listed([]), CHECKING, context).kind).toBe('waiting')
   })
 
   it('names the list, its period and who sees it, and says when nothing was decided', () => {

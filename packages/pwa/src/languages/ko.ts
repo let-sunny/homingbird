@@ -885,7 +885,6 @@ export const ko: Translation<typeof en> = {
     promise: '이 초안은 약속을 담고 있어요. 보내기 전에 읽어 주세요.',
   },
   trust: {
-    loadFailed: '에이전트 현황을 불러오지 못했어요.',
     pageTitle: '둥지',
     sections: {
       connection: '연결',
@@ -1134,7 +1133,6 @@ export const ko: Translation<typeof en> = {
       savedAll: { other: '원칙 {count}개를 저장했어요.' },
       discarded: '제안을 버렸어요.',
       waiting: '제안 {limit}개 중 {count}개 대기 중',
-      failed: '제안을 불러오지 못했어요.',
       topicEmpty: '먼저 제목을 적어 주세요.',
     },
     limit: '원칙 {limit}개 중 {count}개',
@@ -2079,7 +2077,6 @@ export const ko: Translation<typeof en> = {
     intro:
       '에이전트 하나가 이 채널의 질문에 답해요. 답은 운영자를 기다려요. 운영자 누구든 한 명이 보내면 되고, 먼저 보낸 사람의 승인이 적용돼요.',
     none: '이 채널에는 아직 에이전트가 없어요.',
-    loadFailed: '채널 에이전트를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
     pageTitle: '{channel} 채널의 에이전트',
     writtenBy: '{channel} 채널 에이전트 {agent} 작성',
     writtenByEdited: '{channel} 채널 에이전트 {agent} 작성, {name} 님이 수정',
@@ -2161,14 +2158,12 @@ export const ko: Translation<typeof en> = {
       '이 기간에 답변을 보낸 운영자가 {minimum}명 이상이면 운영자마다 센 수를 보여 줘요. 그전에는 위의 합계만 보여 줘요.',
     figuresFormerManagers: { other: '전 운영자: 답변 {count}개' },
     figuresApproved: { other: '{name}: 답변 {count}개' },
-    figuresLoadFailed: '에이전트가 어떻게 하고 있는지 불러오지 못했어요. 잠시 뒤에 다시 해 보세요.',
   },
   channelDecisions: {
     title: '최근 결정',
     intro:
       '최근 {days}일 동안 {channel} 채널 운영자가 에이전트 {agent}의 답을 어떻게 결정했는지 최근 것부터 보여 줘요. 운영자만 보고, 운영자 자신이 한 질문에 대한 결정은 보이지 않아요.',
     none: '최근 {days}일 동안 보내거나 버린 답이 없어요.',
-    loadFailed: '최근 결정을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
     listLabel: '에이전트 {agent}의 답에 대한 최근 결정',
     outcome: {
       sent_as_written: '그대로 보냄',
@@ -2228,7 +2223,6 @@ export const ko: Translation<typeof en> = {
     },
     privacy: '에이전트 {agent}에게 가르친 내용은 {channel} 채널 운영자만 봐요. 질문한 사람은 답만 봐요.',
     audit: '조직의 감사 기록에는 어느 운영자가 언제 바꿨는지만 남고, 내용은 남지 않아요.',
-    loadFailed: '에이전트 {agent}에게 가르친 내용을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
     fromCorrection: '고친 내용으로 가르치기',
     fromDiscard: '어떻게 했어야 하는지 가르치기',
     correctionHint:

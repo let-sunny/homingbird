@@ -2,6 +2,7 @@ import { type AsRead, TEACHING_DOCUMENT_MAX } from '@homingbird/protocol'
 import { describe, expect, it } from 'vitest'
 import { idsOf, interviewModel, proposalChange } from '../../src/models/teaching-interview.ts'
 import { strings } from '../../src/strings.ts'
+import { CHECKING } from '../support/resource-load.ts'
 
 const proposal = (overrides: Partial<AsRead.PrincipleProposal> = {}): AsRead.PrincipleProposal => ({
   id: 'prop_aaaaaaaaaaaa' as AsRead.PrincipleProposal['id'],
@@ -24,13 +25,12 @@ const interview = (proposals: ReadonlyArray<AsRead.PrincipleProposal>, document:
 })
 
 describe('interviewModel', () => {
-  it('waits while loading and says when the proposals could not load', () => {
-    expect(interviewModel(null)).toEqual({ kind: 'loading' })
-    expect(interviewModel('failed')).toEqual({ kind: 'failed', text: strings.teach.chat.failed })
+  it('waits until the proposals have come', () => {
+    expect(interviewModel(null, CHECKING)).toEqual({ kind: 'waiting', wait: CHECKING })
   })
 
   it('says how to start a chat with the person’s own agent, and that nothing waits yet', () => {
-    const model = interviewModel(interview([]))
+    const model = interviewModel(interview([]), CHECKING)
     if (model.kind !== 'shown') throw new Error('expected the section')
     expect(model.title).toBe(strings.teach.chat.title)
     expect(model.steps).toHaveLength(3)
@@ -51,7 +51,10 @@ describe('interviewModel', () => {
       place: 'billing',
     })
     const fromDiscard = proposal({ id: 'prop_cccccccccccc' as never, origin: 'discard', kind: 'answer' })
-    const model = interviewModel(interview([proposal(), fromEdit, fromDiscard], 'Refunds: 30 days.'))
+    const model = interviewModel(
+      interview([proposal(), fromEdit, fromDiscard], 'Refunds: 30 days.'),
+      CHECKING,
+    )
     if (model.kind !== 'shown') throw new Error('expected the section')
     expect(model.document).toMatchObject({
       value: 'Refunds: 30 days.',
@@ -83,6 +86,7 @@ describe('interviewModel', () => {
   it('warns on a card as the save dialog would, but not that it reads as a wish', () => {
     const model = interviewModel(
       interview([proposal({ rule: 'The refund window is 30 days.' }), proposal({ rule: 'be nice' })]),
+      CHECKING,
     )
     if (model.kind !== 'shown') throw new Error('expected the section')
     expect(model.groups[0]!.cards[0]!.warnings).toEqual([strings.teach.advice.stored_answer])
@@ -92,7 +96,7 @@ describe('interviewModel', () => {
 
 describe('proposalChange', () => {
   const card = () => {
-    const model = interviewModel(interview([proposal()]))
+    const model = interviewModel(interview([proposal()]), CHECKING)
     if (model.kind !== 'shown') throw new Error('expected the section')
     return model.groups[0]!.cards[0]!
   }
@@ -113,7 +117,7 @@ describe('proposalChange', () => {
   })
 
   it('checks an answer as an answer', () => {
-    const model = interviewModel(interview([proposal({ kind: 'answer' })]))
+    const model = interviewModel(interview([proposal({ kind: 'answer' })]), CHECKING)
     if (model.kind !== 'shown') throw new Error('expected the section')
     expect(proposalChange(model.groups[0]!.cards[0]!, { topic: 'Refunds', rule: '' })).toEqual({
       problem: strings.teach.problems.answer_empty,

@@ -14,6 +14,7 @@ import { featureOn } from '../features.ts'
 import { suggestionText } from '../principles.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
+import type { ListWait } from './start.ts'
 import { type ChannelPrincipleRow, channelPrincipleRow } from './teaching.ts'
 
 /**
@@ -42,11 +43,11 @@ export const channelAgentTabsModel = (
 
 /** What the managers taught the agent: its instruction and sources, then its principles in their order. */
 export const channelTeachingModel = (
-  teaching: AsRead.ChannelTeaching | 'loading' | 'failed',
+  teaching: AsRead.ChannelTeaching | null,
+  wait: ListWait,
   agent: string,
 ): ChannelTeachingModel => {
-  if (teaching === 'loading') return { kind: 'loading' }
-  if (teaching === 'failed') return { kind: 'failed', text: strings.channelTeach.loadFailed({ agent }) }
+  if (teaching === null) return { kind: 'waiting', wait }
   const channel = channelLabel(teaching.channel)
   return {
     kind: 'taught',
@@ -129,8 +130,7 @@ export interface ChannelAgentTabs {
 }
 
 export type ChannelTeachingModel =
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'failed'; readonly text: string }
+  | { readonly kind: 'waiting'; readonly wait: ListWait }
   | {
       readonly kind: 'taught'
       readonly intro: string

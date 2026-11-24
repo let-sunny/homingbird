@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { figuresModel, labelsTableModel, periodChoices } from '../../src/models/agent-figures.ts'
 import { durationOf, formats, listOf, percentOf, strings } from '../../src/strings.ts'
 import { figures, report } from '../support/fixtures.ts'
+import { CHECKING } from '../support/resource-load.ts'
 
 const shown = (model: ReturnType<typeof figuresModel>) => {
   if (model.kind !== 'figures') throw new Error('expected figures')
@@ -9,13 +10,12 @@ const shown = (model: ReturnType<typeof figuresModel>) => {
 }
 
 describe('figuresModel', () => {
-  it('waits for the report and says when it could not load', () => {
-    expect(figuresModel(null, 7)).toEqual({ kind: 'loading' })
-    expect(figuresModel('failed', 7)).toEqual({ kind: 'failed', text: strings.trust.loadFailed })
+  it('waits for the report, in the words the page gives its wait', () => {
+    expect(figuresModel(null, 7, CHECKING)).toEqual({ kind: 'waiting', wait: CHECKING })
   })
 
   it('gives too few decisions as the verdict, without a change, a nudge or skips', () => {
-    const model = shown(figuresModel(report(), 7))
+    const model = shown(figuresModel(report(), 7, CHECKING))
     expect(model.headline).toEqual({
       verdictClass: 'is-too-few',
       verdict: strings.trust.verdict.too_few,
@@ -52,6 +52,7 @@ describe('figuresModel', () => {
       figuresModel(
         report({ periods: [{ days: 7, current, previous: figures({ sentAsWritten: 1, discarded: 1 }) }] }),
         7,
+        CHECKING,
       ),
     )
     expect(model.headline.verdictClass).toBe('is-usually-as-written')
@@ -74,7 +75,7 @@ describe('figuresModel', () => {
 
   it('adds a line for notes saved answers sent only when either period has one', () => {
     const table = (current: ReturnType<typeof figures>, previous = figures()) =>
-      shown(figuresModel(report({ periods: [{ days: 7, current, previous }] }), 7)).table.rows
+      shown(figuresModel(report({ periods: [{ days: 7, current, previous }] }), 7, CHECKING)).table.rows
     expect(table(figures({ autoSent: 3 })).at(-1)).toEqual([strings.trust.rows.autoSent, '3', '0'])
     expect(table(figures(), figures({ autoSent: 1 })).at(-1)).toEqual([strings.trust.rows.autoSent, '0', '1'])
     expect(table(figures()).map((row) => row[0])).not.toContain(strings.trust.rows.autoSent)
@@ -97,6 +98,7 @@ describe('figuresModel', () => {
             ],
           }),
           7,
+          CHECKING,
         ),
       ).headline.change
     expect(change(5, 9)).toBe(strings.trust.shareDown({ share: percentOf(0.5), before: percentOf(0.9) }))
@@ -112,6 +114,7 @@ describe('figuresModel', () => {
             periods: [{ days: 7, current: figures({ skipped: 2, skipReasons }), previous: figures() }],
           }),
           7,
+          CHECKING,
         ),
       ).skips
     expect(withSkips([])).toEqual({
@@ -134,6 +137,7 @@ describe('figuresModel', () => {
           ],
         }),
         7,
+        CHECKING,
       ),
     ).trend
     const week = (start: number) => formats.day.format(new Date(start))

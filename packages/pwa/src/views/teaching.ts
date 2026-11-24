@@ -1,5 +1,5 @@
 import { PRINCIPLE_TEXT_MAX, PRINCIPLE_TOPIC_MAX, type PrincipleKind } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, region } from '@homingbird/ui'
+import { type Child, type Lifetime, h, region, slice } from '@homingbird/ui'
 import { featureOn } from '../features.ts'
 import {
   type AppliedMarker,
@@ -20,17 +20,21 @@ import { autoSendForm } from './auto-send-form.ts'
 import type { ViewContext } from './context.ts'
 import { opensDialog } from './dialog.ts'
 import { hinted } from './hint.ts'
-import { button, field, loading } from './parts.ts'
+import { pageData } from './page-data.ts'
+import { button, field, listWait } from './parts.ts'
 import { principleForm } from './principle-form.ts'
 import { todoList } from './todo-list.ts'
 
 /** "What I have taught it": the person's principles, chances to teach, and milestones. */
 export const taughtSection = (context: ViewContext, life: Lifetime): HTMLElement => {
-  context.actions.refreshPrinciples()
+  const { state, actions } = context
+  actions.refreshPrinciples()
+  const { shown, wait } = pageData(state, state.taught)
+  const channels = slice([state.channels], () => state.channels.get())
   return region(
     life,
-    [context.state.taught, context.state.channels],
-    () => renderTaught(taughtModel(context.state.taught.get()), context),
+    [shown, wait, channels],
+    () => renderTaught(taughtModel(shown.get(), wait.get()), context),
     { class: 'taught' },
   )
 }
@@ -359,8 +363,7 @@ export const placeSelect = (
   )
 
 const renderTaught = (model: TaughtModel, context: ViewContext): Child => {
-  if (model.kind === 'loading') return loading()
-  if (model.kind === 'failed') return h('p', { role: 'alert' }, model.text)
+  if (model.kind === 'waiting') return listWait(model.wait, () => context.actions.askAgain('taught'))
   return [
     h('p', { class: 'trust-footnote' }, model.intro),
     h('div', { class: 'teach-actions' }, teachButton(context), h('small', {}, model.limit)),

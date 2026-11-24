@@ -5,11 +5,7 @@ import type { ChannelAgentState } from '../channel-answerers.ts'
 import { channelLabel } from '../channels.ts'
 import { featureOn } from '../features.ts'
 import { heldLineFor } from '../held-decisions.ts'
-import {
-  type ChannelAgentFiguresModel,
-  type ChannelAgentFiguresState,
-  channelAgentFiguresModel,
-} from '../models/channel-agent-figures.ts'
+import { type ChannelAgentFiguresModel, channelAgentFiguresModel } from '../models/channel-agent-figures.ts'
 import {
   type AgentPanel,
   type AgentPanelPlace,
@@ -38,6 +34,7 @@ import { renderHeldLine } from './held-toast.ts'
 import { hinted } from './hint.ts'
 import { joinCodeSection } from './join-code.ts'
 import { noteBody } from './note-body.ts'
+import { readPageData } from './page-data.ts'
 import { button, field, listWait, loading, page as pageOf, slackReplyLines, sourceList } from './parts.ts'
 
 /** The agent's buttons among a channel's own controls: its panel for a manager, and asking it privately. */
@@ -131,7 +128,8 @@ const agentPanel = (
   place: AgentPanelPlace,
 ): HTMLElement => {
   const { state, actions } = context
-  const loaded = signal<'loading' | 'loaded' | 'failed'>('loading')
+  const held = state.channelAgents.use(channel.slug, life)
+  const { shown, wait } = readPageData(state, held)
   let joinSection: { readonly name: string; readonly element: HTMLElement } | null = null
   const joinCodeFor = (name: string): HTMLElement | null => {
     if (!featureOn('joinCodes', state.serverInfo.get())) return null
@@ -139,22 +137,21 @@ const agentPanel = (
       joinSection = {
         name,
         element: joinCodeSection(context, life, { channel: channel.slug, name }, () => {
-          actions.loadChannelAgent(channel.slug)
+          actions.reloadAgentPage('channelAgents', channel.slug)
           actions.reloadKnownChannels()
         }),
       }
     return joinSection.element
   }
-  actions.loadChannelAgent(channel.slug, {
-    done: () => loaded.set('loaded'),
-    failed: () => loaded.set('failed'),
-  })
+  actions.openAgentPage('channelAgents', channel.slug)
   const retiring = { open: false }
-  const setup = region(life, [loaded, state.channelAgents, state.members], () =>
+  const people = slice([state.members], () => state.members.get())
+  const setup = region(life, [shown, wait, people], () =>
     renderPanel(
       agentPanelModel(
-        agentState(loaded.get(), state.channelAgents.get(), channel.slug),
-        state.members.get(),
+        shown.get(),
+        wait.get(),
+        people.get(),
         place,
         featureOn('joinCodes', state.serverInfo.get()),
       ),
@@ -265,34 +262,28 @@ const waitingAnswers = (
 /** How the agent is doing, read again whenever an answer in the channel is sent or discarded. */
 const agentFigures = (context: ViewContext, life: Lifetime, channel: AsRead.Channel): HTMLElement => {
   const { state, actions } = context
-  const figures = signal<ChannelAgentFiguresState>('loading')
-  let latestFigures = 0
-  const loadFigures = (): void => {
-    const asked = ++latestFigures
-    actions.loadChannelAgentFigures(channel.slug, {
-      done: (report) => asked === latestFigures && figures.set(report),
-      failed: () => asked === latestFigures && figures.set('failed'),
-    })
-  }
+  const held = state.channelAgentFigures.use(channel.slug, life)
+  const { shown, wait } = readPageData(state, held)
   const waitingHere = derived([state.reviews], (reviews) =>
     reviews
       .filter((review) => review.channel === channel.slug)
       .map((review) => review.note.id)
       .join(' '),
   )
-  loadFigures()
-  life.add(waitingHere.subscribe(loadFigures))
-  return region(life, [figures], () =>
-    renderFigures(channelAgentFiguresModel(figures.get(), channel.slug, FIGURES_DAYS)),
+  actions.openAgentPage('channelAgentFigures', channel.slug)
+  life.add(waitingHere.subscribe(() => actions.reloadAgentPage('channelAgentFigures', channel.slug)))
+  return region(life, [shown, wait], () =>
+    renderFigures(channelAgentFiguresModel(shown.get(), wait.get(), channel.slug, FIGURES_DAYS), () =>
+      actions.askAgentPageAgain('channelAgentFigures', channel.slug),
+    ),
   )
 }
 
 const FIGURES_DAYS = 30
 
-const renderFigures = (model: ChannelAgentFiguresModel): Child => {
+const renderFigures = (model: ChannelAgentFiguresModel, askAgain: () => void): Child => {
   if (model.kind === 'hidden') return null
-  if (model.kind === 'loading') return loading()
-  if (model.kind === 'failed') return h('p', { class: 'hint', role: 'status' }, model.text)
+  if (model.kind === 'waiting') return listWait(model.wait, askAgain)
   return h(
     'section',
     { class: 'channel-agent-figures' },
@@ -341,13 +332,6 @@ const bringIntoView = (card: HTMLElement | null): void => {
   card?.focus({ preventScroll: true })
 }
 
-const agentState = (
-  loaded: 'loading' | 'loaded' | 'failed',
-  agents: ReadonlyMap<string, AsRead.ChannelAgent>,
-  slug: string,
-): AsRead.ChannelAgent | null | 'loading' | 'failed' =>
-  loaded === 'loaded' ? (agents.get(slug) ?? null) : loaded
-
 /** The section that makes a join code stays the same element across renders, so a shown code survives them. */
 const renderPanel = (
   model: AgentPanel,
@@ -356,8 +340,8 @@ const renderPanel = (
   joinCodeFor: (name: string) => HTMLElement | null,
   retiring: { open: boolean },
 ): Child => {
-  if (model.kind === 'loading') return loading()
-  if (model.kind === 'failed') return h('p', { class: 'hint', role: 'status' }, model.text)
+  if (model.kind === 'waiting')
+    return listWait(model.wait, () => context.actions.askAgentPageAgain('channelAgents', channel.slug))
   if (model.kind === 'none')
     return [
       h('p', {}, model.intro),

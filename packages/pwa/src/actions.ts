@@ -6,6 +6,7 @@ import * as activity from './tasks/activity.ts'
 import * as admin from './tasks/admin.ts'
 import { startAgain } from './tasks/boot.ts'
 import * as channelAgents from './tasks/channel-agents.ts'
+import * as channelPages from './tasks/channel-pages.ts'
 import * as channelTeaching from './tasks/channel-teaching.ts'
 import * as channels from './tasks/channels.ts'
 import * as cloudDesk from './tasks/cloud-desk.ts'
@@ -94,6 +95,7 @@ export const TASKS = {
   markPrincipleWrong: teaching.markPrincipleWrong,
   dismissOffer: teaching.dismissOffer,
   refreshInterview: () => interview.refreshInterview,
+  askAgain: (key: resources.ResourceKey) => resources.again(key),
   saveTeachingDocument: interview.saveTeachingDocument,
   acceptProposal: interview.acceptProposal,
   acceptProposals: interview.acceptProposals,
@@ -123,15 +125,14 @@ export const TASKS = {
   holdReviewSend: channelAgents.holdReviewSend,
   holdReviewDiscard: channelAgents.holdReviewDiscard,
   confirmReviewRead: channelAgents.confirmReviewRead,
-  loadChannelAgent: channelAgents.loadChannelAgent,
-  loadChannelAgentFigures: channelAgents.loadChannelAgentFigures,
-  loadChannelDecisions: channelAgents.loadChannelDecisions,
+  openAgentPage: channelPages.openChannelPage,
+  reloadAgentPage: channelPages.invalidateChannelPage,
+  askAgentPageAgain: channelPages.againChannelPage,
   createChannelAgent: channelAgents.createChannelAgent,
   renameChannelAgent: channelAgents.renameChannelAgent,
   retireChannelAgent: channelAgents.retireChannelAgent,
   disconnectAgentDesk: channelAgents.disconnectAgentDesk,
   askPrivately: channelAgents.askPrivately,
-  loadChannelTeaching: channelTeaching.loadChannelTeaching,
   saveChannelInstruction: channelTeaching.saveChannelInstruction,
   saveChannelPrinciple: channelTeaching.saveChannelPrinciple,
   changeChannelPrinciple: channelTeaching.changeChannelPrinciple,

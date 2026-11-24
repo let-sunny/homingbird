@@ -6,7 +6,6 @@ import { loadDebate } from './debates.ts'
 import { hidePreviews, loadPreviews } from './previews.ts'
 import { invalidate, refresh } from './resources.ts'
 import { requireSamePerson } from './same-person.ts'
-import { refreshInterview } from './teaching-interview.ts'
 import { untilHolds } from './waiting-for.ts'
 
 /**
@@ -91,7 +90,7 @@ const partsShown = ({ state }: App): ReadonlyArray<Action<unknown>> => {
   const shown = state.route.get()
   return [
     ...(state.groups.load.get().loaded ? [refresh('groups')] : []),
-    ...(state.interview.get() !== null ? [refreshInterview] : []),
+    ...(state.interview.load.get().loaded ? [refresh('interview')] : []),
     ...(shown.name === 'debate' ? [loadDebate(shown.id)] : []),
   ]
 }

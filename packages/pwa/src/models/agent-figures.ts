@@ -4,11 +4,15 @@ import { clientLabel } from '../client-labels.ts'
 import { hrefFor } from '../routes.ts'
 import { durationOf, formats, listOf, percentOf, strings } from '../strings.ts'
 import { PERIODS, compareSentAsWritten, decidedOf, periodOf, shareOf, trendBars } from '../trust.ts'
+import type { ListWait } from './start.ts'
 
 /** How the agent is doing over a period: the verdict first, then the numbers, labels and trend. */
-export const figuresModel = (report: AsRead.AgentReport | 'failed' | null, days: number): FiguresModel => {
-  if (report === null) return { kind: 'loading' }
-  if (report === 'failed') return { kind: 'failed', text: strings.trust.loadFailed }
+export const figuresModel = (
+  report: AsRead.AgentReport | null,
+  days: number,
+  wait: ListWait,
+): FiguresModel => {
+  if (report === null) return { kind: 'waiting', wait }
   const period = periodOf(report, days)
   return {
     kind: 'figures',
@@ -78,8 +82,7 @@ export const labelsTableModel = (
       }
 
 export type FiguresModel =
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'failed'; readonly text: string }
+  | { readonly kind: 'waiting'; readonly wait: ListWait }
   | {
       readonly kind: 'figures'
       readonly report: AsRead.AgentReport

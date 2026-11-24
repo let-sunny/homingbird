@@ -41,6 +41,10 @@ export const listWaitModel = (step: ListStep, workspace: Workspace, words: strin
   return { kind: 'checking', text: words }
 }
 
+/** What stands in place of one page's data until its first answer has come. */
+export const pageWaitModel = (load: Load, workspace: Workspace, words: string): ListWait =>
+  listWaitModel(firstAnswersStep([load]) ?? 'loading', workspace, words)
+
 /** The step of lists whose first answers are waited for together, or null once each has come. */
 export const firstAnswersStep = (loads: ReadonlyArray<Load>): ListStep | null => {
   const awaited = loads.filter((load) => !load.loaded)

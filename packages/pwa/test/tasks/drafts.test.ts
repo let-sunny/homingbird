@@ -14,8 +14,8 @@ import {
   withdrawRequest,
 } from '../../src/tasks/drafts.ts'
 import { commitHeld } from '../../src/tasks/held.ts'
-import { fail, testApp } from '../support/app.ts'
-import { ROOM, conversation, draft, note } from '../support/fixtures.ts'
+import { fail, settle, testApp } from '../support/app.ts'
+import { ROOM, conversation, draft, everything, note } from '../support/fixtures.ts'
 
 const request = {
   id: 'dreq_1',
@@ -103,7 +103,9 @@ describe('deciding on drafts', () => {
 
   it('sends a draft as written or edited, discards its alternatives, and refreshes what it changed', async () => {
     const { run, sent, state } = testApp(answers)
+    state.serverInfo.set(everything())
     await run(approveDraft(draft('d1'), null, [draft('d2')]))
+    await settle()
     const asRead = { body: draft('d1').body, conversationId: draft('d1').conversationId }
     expect(sent[0]!.request).toEqual({ params: { id: 'd1' }, body: { expected: asRead } })
     expect(sent.map((one) => one.route)).toEqual(
@@ -115,7 +117,7 @@ describe('deciding on drafts', () => {
         'conversations.list',
       ]),
     )
-    expect(state.agentReport.get()).toBe('failed')
+    expect(state.agentReport.get()).toBeNull()
     await run(approveDraft(draft('d1'), 'Edited', []))
     expect(sent.filter((one) => one.route === 'drafts.send')[1]!.request).toEqual({
       params: { id: 'd1' },

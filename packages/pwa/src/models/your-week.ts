@@ -2,8 +2,8 @@ import type { AsRead } from '@homingbird/protocol'
 import { durationOf, formats, strings } from '../strings.ts'
 
 /** The person's own week of notes, beyond their agent: nothing until the report has it. */
-export const yourWeekModel = (report: AsRead.AgentReport | 'failed' | null): YourWeekModel | null => {
-  if (report === null || report === 'failed' || report.week === undefined) return null
+export const yourWeekModel = (report: AsRead.AgentReport | null): YourWeekModel | null => {
+  if (report === null || report.week === undefined) return null
   const { current, previous } = report.week
   const approvedNow = current.approvedForChannels ?? 0
   const approvedBefore = previous.approvedForChannels ?? 0

@@ -3,7 +3,7 @@ import { type FiguresModel, type LabelsTable, type Trend, periodChoices } from '
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { hinted } from './hint.ts'
-import { loading } from './parts.ts'
+import { listWait } from './parts.ts'
 import { sessionSection } from './session-health-view.ts'
 
 /**
@@ -15,8 +15,7 @@ export const renderFigures = (
   behind: Child = null,
   context: ViewContext | null = null,
 ): Child => {
-  if (model.kind === 'loading') return loading()
-  if (model.kind === 'failed') return h('p', { role: 'alert' }, model.text)
+  if (model.kind === 'waiting') return listWait(model.wait, () => context?.actions.askAgain('agentReport'))
   const { headline, table } = model
   return [
     h(

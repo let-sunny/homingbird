@@ -36,8 +36,8 @@ export interface ThreadInput {
   readonly discardedAnswers?: ReadonlyMap<NoteId, string>
   readonly replyTarget: NoteId | null
   readonly draftRequests: ReadonlyArray<DraftRequest>
-  readonly taught: AsRead.MyPrinciples | 'failed' | null
-  readonly agentReport: AsRead.AgentReport | 'failed' | null
+  readonly taught: AsRead.MyPrinciples | null
+  readonly agentReport: AsRead.AgentReport | null
   readonly serverInfo: AsRead.ServerInfo | null
   readonly sending: boolean
   readonly now: number

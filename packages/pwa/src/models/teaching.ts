@@ -22,11 +22,11 @@ import {
 import { percentOf, strings } from '../strings.ts'
 import { autoSendDetails, canSendItself } from './auto-send.ts'
 import { placeName } from './places.ts'
+import type { ListWait } from './start.ts'
 
 /** "What I have taught it": the principles in the person's order, chances to teach, and milestones. */
-export const taughtModel = (taught: AsRead.MyPrinciples | 'failed' | null): TaughtModel => {
-  if (taught === null) return { kind: 'loading' }
-  if (taught === 'failed') return { kind: 'failed', text: strings.trust.loadFailed }
+export const taughtModel = (taught: AsRead.MyPrinciples | null, wait: ListWait): TaughtModel => {
+  if (taught === null) return { kind: 'waiting', wait }
   const milestones = taught.achievements.filter(isKnown).map((each) => strings.teach.achievements[each])
   return {
     kind: 'taught',
@@ -44,13 +44,11 @@ export const taughtModel = (taught: AsRead.MyPrinciples | 'failed' | null): Taug
 
 /** The chances to teach that came from one conversation, shown there right after the decision. */
 export const chancesHere = (
-  taught: AsRead.MyPrinciples | 'failed' | null,
+  taught: AsRead.MyPrinciples | null,
   teachingOn: boolean,
   conversationId: string,
 ): ReadonlyArray<ChanceModel> =>
-  taught === null || taught === 'failed' || !teachingOn
-    ? []
-    : offersIn(taught.offers, conversationId).map(chanceModel)
+  taught === null || !teachingOn ? [] : offersIn(taught.offers, conversationId).map(chanceModel)
 
 /**
  * On a draft card: what the agent says it applied, in the order its basis names them, each matched
@@ -58,10 +56,10 @@ export const chancesHere = (
  */
 export const appliedModel = (
   draft: Pick<AsRead.Note, 'id' | 'basis'>,
-  taught: AsRead.MyPrinciples | 'failed' | null,
+  taught: AsRead.MyPrinciples | null,
   teachingOn: boolean,
 ): ReadonlyArray<AppliedMarker> =>
-  taught === null || taught === 'failed' || !teachingOn
+  taught === null || !teachingOn
     ? []
     : appliedClaims(draft.basis, taught.principles).map((claim) => ({
         text: strings.teach.applied({ title: claim.title }),
@@ -70,10 +68,8 @@ export const appliedModel = (
       }))
 
 /** Whether a draft card names the applied principles itself, rather than leaving them in its basis. */
-export const showsAppliedMarkers = (
-  taught: AsRead.MyPrinciples | 'failed' | null,
-  teachingOn: boolean,
-): boolean => taught !== null && taught !== 'failed' && teachingOn
+export const showsAppliedMarkers = (taught: AsRead.MyPrinciples | null, teachingOn: boolean): boolean =>
+  taught !== null && teachingOn
 
 /** The places a principle may apply to: anywhere, or a channel the person is in. */
 export const placeChoices = (
@@ -225,8 +221,7 @@ export interface TeachSeed {
 }
 
 export type TaughtModel =
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'failed'; readonly text: string }
+  | { readonly kind: 'waiting'; readonly wait: ListWait }
   | {
       readonly kind: 'taught'
       readonly intro: string
