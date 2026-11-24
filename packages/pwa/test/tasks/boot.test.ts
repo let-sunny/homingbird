@@ -116,7 +116,7 @@ describe('boot', () => {
       out.page.emit('offline')
     })
 
-    it('goes back to loading when the workspace fails after the person is known, and starts one stream and one set of listeners', async () => {
+    it('keeps the page up while the workspace is retried, never back to loading, with one stream and one set of listeners', async () => {
       let listed = 0
       const out = testApp({
         ...empty,
@@ -124,16 +124,84 @@ describe('boot', () => {
         'me.get': () => me(),
         'conversations.list': () => (listed++ === 0 ? down : { conversations: [] }),
       })
+      const sessions: unknown[] = []
+      out.state.session.subscribe((session) => sessions.push(session))
       const running = out.run(boot)
-      await settle()
-      expect(out.state.session.get()).toBe('loading')
       await out.clock.advance(1000)
       await running
+      expect(sessions).toEqual([me()])
       expect(out.state.session.get()).toEqual(me())
+      expect(out.state.conversationsLoaded.get()).toBe(true)
       expect(out.page.listening('online')).toBe(1)
       expect(out.page.listening('offline')).toBe(1)
       expect(out.page.listening('visibilitychange')).toBe(1)
       expect(out.routes().filter((route) => route === 'analytics.track').length).toBeLessThanOrEqual(1)
+      out.page.emit('offline')
+    })
+
+    const keepsThePageUp = async (
+      workspaceRoute: 'conversations.list' | 'contacts.list',
+      refusal: unknown,
+      waits: number,
+    ) => {
+      let loaded = false
+      const out = testApp({
+        ...empty,
+        'server.info': () => everything(),
+        'me.get': () => me(),
+        [workspaceRoute]: () => (loaded ? empty[workspaceRoute]() : refusal),
+      })
+      const streams: string[] = []
+      Object.assign(out.page.page, {
+        fetch: (url: string) => {
+          streams.push(url)
+          return Promise.resolve(new Response(''))
+        },
+      })
+      const sessions: unknown[] = []
+      out.state.session.subscribe((session) => sessions.push(session))
+      const running = out.run(boot)
+      await out.clock.advance(waits)
+      await running
+      await settle()
+      return { out, streams, sessions, recover: () => (loaded = true) }
+    }
+
+    it('keeps the page up with a notice and one live stream when a workspace route keeps failing, and loads it when the network is back', async () => {
+      const { out, streams, sessions, recover } = await keepsThePageUp('conversations.list', down, 15_000)
+      expect(sessions).toEqual([me()])
+      expect(out.state.notice.get()?.kind).toBe('error')
+      expect(out.state.start.get()).not.toBe('failed')
+      expect(out.state.conversationsLoaded.get()).toBe(false)
+      expect(streams.filter((url) => url.includes('/events/stream'))).toHaveLength(1)
+      expect(out.page.listening('online')).toBe(2)
+      expect(out.page.listening('visibilitychange')).toBe(1)
+      recover()
+      out.page.emit('online')
+      await settle()
+      await settle()
+      expect(out.state.conversationsLoaded.get()).toBe(true)
+      expect(out.page.listening('online')).toBe(1)
+      expect(sessions).toEqual([me()])
+      out.page.emit('offline')
+    })
+
+    it('keeps the page up, and does not blame the connection, when a workspace route refuses', async () => {
+      const { out, streams, recover } = await keepsThePageUp(
+        'contacts.list',
+        fail({ _tag: 'Forbidden', message: 'No contacts for you.' }),
+        0,
+      )
+      expect(out.routes().filter((route) => route === 'contacts.list')).toHaveLength(1)
+      expect(out.state.session.get()).toEqual(me())
+      expect(out.state.notice.get()?.text).not.toBe(strings.firstLoad.failed)
+      expect(streams.filter((url) => url.includes('/events/stream'))).toHaveLength(1)
+      recover()
+      out.page.emit('online')
+      await settle()
+      await settle()
+      expect(out.state.directoryLoaded.get()).toBe(true)
+      expect(out.page.listening('online')).toBe(1)
       out.page.emit('offline')
     })
 
@@ -201,14 +269,17 @@ describe('boot', () => {
       expect(out.state.start.get()).toBe('failed')
     })
 
-    it('does not repeat a refusal that waiting cannot change', async () => {
+    it('does not repeat a refusal that waiting cannot change, and does not blame the connection', async () => {
       const out = testApp({
         'server.info': () => everything(),
-        'me.get': () => fail({ _tag: 'Forbidden', message: 'no' }),
+        'me.get': () => fail({ _tag: 'Forbidden', message: 'This account may not use this server.' }),
       })
       await out.run(boot)
       expect(out.routes()).toEqual(['server.info', 'me.get'])
-      expect(out.state.start.get()).toBe('failed')
+      expect(out.state.start.get()).toBe('refused')
+      expect(out.state.startRefusal.get()).not.toBe('')
+      expect(out.state.startRefusal.get()).not.toBe(strings.firstLoad.failed)
+      expect(out.state.session.get()).toBe('loading')
     })
 
     it('signs the person out when the session ends while the workspace loads', async () => {

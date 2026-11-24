@@ -17,4 +17,11 @@ describe('startModel', () => {
       retry: strings.tryAgain,
     })
   })
+
+  it('says what the server refused with, rather than blaming the connection', () => {
+    expect(startModel('refused', 'Acme', 'Not allowed.')).toMatchObject({
+      kind: 'failed',
+      text: 'Not allowed.',
+    })
+  })
 })

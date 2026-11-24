@@ -53,13 +53,13 @@ export const showApp = (
     appLife.end()
     const me = state.session.get()
     if (me === 'loading') {
-      const model = startModel(state.start.get(), state.branding.get().name)
+      const model = startModel(state.start.get(), state.branding.get().name, state.startRefusal.get())
       replaceChildren(
         root,
         startView(model, () => context.actions.startAgain()),
       )
       appLife.add(state.start.subscribe(draw))
-      if (model.kind === 'failed') appLife.add(page.on('online', () => context.actions.startAgain()))
+      if (state.start.get() === 'failed') appLife.add(page.on('online', () => context.actions.startAgain()))
       return
     }
     if (me === null && arrivedToConnect(state.route.get())) {

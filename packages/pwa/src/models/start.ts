@@ -3,13 +3,13 @@ import { strings } from '../strings.ts'
 import type { PipState } from '../views/pip.ts'
 
 /** What the page shows before the person's session is known: a quiet wait, or a way to try again. */
-export const startModel = (start: Start, brandingName: string): StartModel =>
-  start === 'failed'
+export const startModel = (start: Start, brandingName: string, refusal = ''): StartModel =>
+  start === 'failed' || start === 'refused'
     ? {
         kind: 'failed',
         title: brandingName,
         pip: 'offline',
-        text: strings.firstLoad.failed,
+        text: start === 'refused' ? refusal : strings.firstLoad.failed,
         retry: strings.tryAgain,
       }
     : { kind: 'loading', text: start === 'slow' ? strings.firstLoad.slow : strings.loading }
