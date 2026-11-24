@@ -5,7 +5,7 @@ import { heldWordsFor } from '../../src/held-decisions.ts'
 import { strings } from '../../src/strings.ts'
 import * as tasks from '../../src/tasks/channel-agents.ts'
 import { commitHeld } from '../../src/tasks/held.ts'
-import { fail, testApp } from '../support/app.ts'
+import { fail, settle, testApp } from '../support/app.ts'
 import { CY, conversation, draft, everything, member, note, serverInfo } from '../support/fixtures.ts'
 
 const AGENT = 'mem_agent0000000' as MemberId
@@ -40,12 +40,13 @@ describe('the channel agent tasks', () => {
   it('load the waiting answers only while channel agents are on, and close the notices of the others', async () => {
     const { run, state, routes, page } = testApp({ 'reviews.list': () => ({ reviews: [review()] }) })
     state.serverInfo.set(serverInfo())
-    await run(tasks.loadReviews)
+    await run(tasks.refreshReviews)
     expect(routes()).toEqual([])
     state.serverInfo.set(everything())
     page.notifications.set(`review:${review().note.id}`, 0).set('review:note_sent000000', 0)
-    await run(tasks.loadReviews)
+    await run(tasks.refreshReviews)
     expect(state.reviews.get()).toEqual([review()])
+    await settle()
     expect([...page.notifications.keys()]).toEqual([`review:${review().note.id}`])
     expect(state.reviewsRead.get().get(review().note.id)).toEqual({
       body: review().note.body,

@@ -1,21 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { acceptSuggestion, dismissSuggestion, loadSuggestions } from '../../src/tasks/debate-suggestions.ts'
+import { acceptSuggestion, dismissSuggestion } from '../../src/tasks/debate-suggestions.ts'
 import { testApp } from '../support/app.ts'
-import { everything, serverInfo, suggestion } from '../support/fixtures.ts'
+import { everything, suggestion } from '../support/fixtures.ts'
 
 describe('the debate suggestion tasks', () => {
-  it('load the suggestions, and ask for none while the feature is off', async () => {
-    const { run, state, routes } = testApp({
-      'debateSuggestions.list': () => ({ suggestions: [suggestion()] }),
-    })
-    state.serverInfo.set(serverInfo({ debateSuggestions: false }))
-    await run(loadSuggestions)
-    expect(routes()).toEqual([])
-    state.serverInfo.set(everything())
-    await run(loadSuggestions)
-    expect(state.suggestions.get()).toEqual([suggestion()])
-  })
-
   it('open the flock with the person’s changes, then list the flocks and drop the card', async () => {
     const { run, state, sent } = testApp({
       'debateSuggestions.accept': () => ({ id: 'debate_000000000000' }),

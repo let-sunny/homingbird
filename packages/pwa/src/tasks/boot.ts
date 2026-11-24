@@ -1,16 +1,17 @@
-import { Iter, Schedule, Task as T } from '@homingbird/kernel'
+import { Task as T } from '@homingbird/kernel'
 import { type ApiError, type AsRead, UNKNOWN, upgradeNeeded } from '@homingbird/protocol'
 import { trackSignIn } from '../analytics.ts'
 import { type Action, type App, withApp } from '../app.ts'
 import { keptComposerTexts } from '../composer-texts.ts'
 import { preferredLanguage } from '../languages.ts'
-import { QUIET_RETRY_SECONDS, TOO_LONG_LOAD_SECONDS } from '../load-timing.ts'
-import { firstScreenRefusal, refusalText } from '../refusals.ts'
+import { QUIET_RETRY_SECONDS, TOO_LONG_LOAD_SECONDS, growingSlow, retryWaits } from '../load-timing.ts'
+import { firstScreenRefusal, isTransient, refusalText } from '../refusals.ts'
 import { strings, useLanguage } from '../strings.ts'
+import { askActivityAgain, invalidateActivity } from './activity.ts'
 import { followEvents, latestEvent } from './events.ts'
 import { reportUnsettled } from './held.ts'
 import { reportVisibility } from './presence.ts'
-import { growingSlow, untilChanged, untilPageEvent } from './waiting-for.ts'
+import { untilChanged, untilPageEvent } from './waiting-for.ts'
 import { loadBranding, loadWorkspace } from './workspace.ts'
 
 /**
@@ -53,8 +54,9 @@ export const startAgain: Action = withApp(({ state }) =>
       return T.unit
     }
     const workspace = state.workspace.get()
-    if (workspace === 'long' || workspace === 'failed') state.workspaceRestarts.update((count) => count + 1)
-    return T.unit
+    if (workspace !== 'long' && workspace !== 'failed') return T.unit
+    state.workspaceRestarts.update((count) => count + 1)
+    return askActivityAgain
   }),
 )
 
@@ -76,7 +78,7 @@ const identifyWatched: Action<Known | typeof RESTART> = T.scoped((scope) =>
 )
 
 const identifyWithRetries: Action<Known> = T.suspend(() =>
-  T.retry({ schedule: startWaits, while: isTransient })(T.tapError((_: ApiError) => noteRetrying)(identify)),
+  T.retry({ schedule: retryWaits, while: isTransient })(T.tapError((_: ApiError) => noteRetrying)(identify)),
 )
 
 /** Reads only, and nothing is drawn until it is done, so a whole attempt may be repeated. */
@@ -150,12 +152,14 @@ const keepLoadingWorkspace = (after: number): Action =>
   })
 
 /** One more load that says nothing and gives up quietly: what the first one showed stays if this one fails. */
-const loadAgainQuietly: Action = T.asUnit(T.result(T.timeout(TOO_LONG_LOAD_SECONDS * 1000)(loadWorkspace)))
+const loadAgainQuietly: Action = T.asUnit(
+  T.result(T.timeout(TOO_LONG_LOAD_SECONDS * 1000)(T.flatMap(() => loadWorkspace)(invalidateActivity))),
+)
 
 const quietRetryTimer: Action<'quiet'> = T.map(() => 'quiet' as const)(T.sleep(QUIET_RETRY_SECONDS * 1000))
 
 const workspaceWithRetries: Action = T.suspend(() =>
-  T.retry({ schedule: startWaits, while: isTransient })(loadWorkspace),
+  T.retry({ schedule: retryWaits, while: isTransient })(loadWorkspace),
 )
 
 const serverInfo: Action<AsRead.ServerInfo> = withApp(({ api, state }) =>
@@ -182,10 +186,3 @@ const giveUp = (error: ApiError): Action =>
       state.start.set('refused')
     }),
   )
-
-function isTransient(error: ApiError): boolean {
-  return error._tag === 'Unavailable' || error._tag === 'RateLimited'
-}
-
-/** The waits between attempts: one, two, four and eight seconds, so a phase gives up after about fifteen. */
-const startWaits = (): Iterable<number> => Iter.take(4)(Schedule.exponential(1000, 2, 8000))

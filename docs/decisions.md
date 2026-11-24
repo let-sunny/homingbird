@@ -774,6 +774,20 @@ states the decision first, then the reason. Add new entries at the top of their 
 
 ## Architecture
 
+- **A list that several places of the web client show is one resource: one value, one request at a time.**
+  The bell, the activity panel and page, the workspace and the Flocks tab each loaded the same lists, two or
+  three times as the page opened, and nothing ordered the answers: an older one brought back an answer a
+  person had just sent, and what changed while the events were lost never showed. Guards per list would have
+  mended each of these once more. `pwa/src/resource.ts` is borrowed in idea from query libraries: a keyed value,
+  a single flight, "invalidate". Added to that: a change made while a request runs is replayed on its answer, so that
+  nothing flashes back and no answer is thrown away; and a `refresh` never takes the answer of a request that ran before it,
+  which may not know of the change yet. Discarding an answer and asking again, as a thread does, can go on for ever on a slow line,
+  and versions on every row would be a protocol change. Refused: refetching on focus, staleness by time,
+  expiry, a persistent cache (notes in a browser after access ended, rules 2 and 6), and a dependency. Live events say what
+  changed, and a reconnect makes up for those never sent again. The two-second rule only lets places that open
+  together share a request. An interrupted run also checks that it is still the running one: interruption alone
+  leaves a few microtasks in which an answer already taken in, or the queue, could still be used. Moving the
+  conversations, people and channels comes next; threads keep their own rule.
 - **A debate room's rules are one pure state machine in `protocol`; Dovecote loads, applies and
   stores.** `stepDebate` and `settleDebateRoom` in `protocol/src/debate-room.ts` take a room's facts
   (who takes part, turns, drafts, votes, limits, time) and return the next stage and the effects to

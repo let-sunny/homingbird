@@ -16,8 +16,8 @@ import { type TimeShown, timeShown } from './time.ts'
 
 /** Flocks: waiting for the list, none yet, or the flocks that want something first, then the newest. */
 export const debateListModel = (input: DebateListInput): DebateListModel => {
-  if (!input.loaded)
-    return { kind: 'waiting', wait: listWaitModel(input.step, input.workspace, strings.checking.flocks) }
+  if (input.awaited !== null)
+    return { kind: 'waiting', wait: listWaitModel(input.awaited, input.workspace, strings.checking.flocks) }
   const shown = input.debates.filter((summary) => input.schedulingOn || summary.type !== 'scheduling')
   if (shown.length === 0) return { kind: 'empty', text: strings.debates.empty }
   const awake = new Set(
@@ -92,9 +92,8 @@ export const typedLimits = (read: (name: NumberLimit | 'graceMinutes') => string
 
 export interface DebateListInput {
   readonly debates: ReadonlyArray<AsRead.DebateSummary>
-  readonly loaded: boolean
-  /** How the first answer is going while the list has not loaded. */
-  readonly step: ListStep
+  /** How the first answer is going, or null once the list has come. */
+  readonly awaited: ListStep | null
   readonly workspace: Workspace
   readonly directory: ReadonlyArray<AsRead.DirectoryEntry>
   readonly now: number

@@ -64,7 +64,7 @@ export const threadView = (
   if (featureOn('teaching', state.serverInfo.get()) && state.taught.get() === null)
     actions.refreshPrinciples()
   if (featureOn('agentFigures', state.serverInfo.get())) actions.refreshAgentReport()
-  if (focusedReview !== null && featureOn('channelAgents', state.serverInfo.get())) actions.loadReviews()
+  if (focusedReview !== null && featureOn('channelAgents', state.serverInfo.get())) actions.refreshReviews()
   if (featureOn('draftPreviews', state.serverInfo.get())) {
     actions.loadPreviews(id)
     if (state.previewAllowance.get() === null) actions.loadPreviewAllowance()

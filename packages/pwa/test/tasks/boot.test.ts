@@ -3,6 +3,7 @@ import { QUIET_RETRY_SECONDS, TOO_LONG_LOAD_SECONDS, USUAL_LOAD_SECONDS } from '
 import { locale, strings, useLanguage } from '../../src/strings.ts'
 import { boot, startAgain } from '../../src/tasks/boot.ts'
 import { DIRECTORY_SETTLE_MS } from '../../src/tasks/live.ts'
+import { open } from '../../src/tasks/resources.ts'
 import { fail, hold, settle, testApp } from '../support/app.ts'
 import { ANA, BEN, ROOM, conversation, entry, everything, me, note } from '../support/fixtures.ts'
 
@@ -453,6 +454,33 @@ describe('boot', () => {
       expect(out.state.workspace.get()).toBe('loaded')
       expect(out.page.listening('online')).toBe(1)
       out.page.emit('offline')
+    })
+
+    it('asks afresh at Try again for the lists of the activity that failed or hang, and for no other', async () => {
+      const hung = hold<unknown>()
+      let asked = 0
+      const out = testApp({
+        ...empty,
+        'server.info': () => everything(),
+        'me.get': () => me(),
+        'directory.list': () => down,
+        'debates.list': () => (asked++ === 0 ? hung.waiting : { debates: [] }),
+      })
+      withStreams(out)
+      out.app.launch(boot)
+      await settle()
+      await out.run(open('reviews'))
+      out.app.launch(open('debates'))
+      await out.clock.advance(TOO_LONG_MS)
+      await settle()
+      expect(out.state.workspace.get()).toBe('failed')
+      expect(out.state.debates.load.get().step).toBe('long')
+      await out.run(startAgain)
+      await settle()
+      expect(out.aborted).toContain('debates.list')
+      expect(out.state.debates.load.get()).toMatchObject({ loaded: true })
+      expect(out.routes().filter((route) => route === 'reviews.list')).toHaveLength(1)
+      out.app.endSession()
     })
 
     it('tries again after being rate limited', async () => {

@@ -1,4 +1,5 @@
 import { USUAL_LOAD_SECONDS } from '../load-timing.ts'
+import type { Load } from '../resource.ts'
 import type { ListStep, Start, Workspace } from '../state.ts'
 import { strings } from '../strings.ts'
 import type { PipState } from '../views/pip.ts'
@@ -38,6 +39,14 @@ export const listWaitModel = (step: ListStep, workspace: Workspace, words: strin
   if (step === 'long') return { kind: 'long', text: strings.firstLoad.tooLong, retry: strings.tryAgain }
   if (step === 'failed') return { kind: 'failed', text: strings.loadFailed, retry: strings.tryAgain }
   return { kind: 'checking', text: words }
+}
+
+/** The step of lists whose first answers are waited for together, or null once each has come. */
+export const firstAnswersStep = (loads: ReadonlyArray<Load>): ListStep | null => {
+  const awaited = loads.filter((load) => !load.loaded)
+  if (awaited.length === 0) return null
+  if (awaited.some((load) => load.step === 'failed')) return 'failed'
+  return awaited.some((load) => load.step === 'long') ? 'long' : 'loading'
 }
 
 /** Whether the line above the lists says the load is slow or failed, so that no list says it again. */

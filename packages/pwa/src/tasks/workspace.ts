@@ -20,7 +20,7 @@ export const loadWorkspace: Action = T.gen(function* () {
   state.contacts.set(ties.contacts)
   yield* loadAgents
   yield* loadKnownChannels
-  yield* T.result(loadActivity)
+  yield* loadActivity
   yield* T.result(closeNoticesOfSettledDrafts)
 })
 

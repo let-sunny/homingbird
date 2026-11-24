@@ -15,8 +15,9 @@ import {
   type ActivityKind,
   type ActivityPlace,
   activityModel,
+  activityWaitModel,
 } from '../models/activity.ts'
-import { checkingWords } from '../models/start.ts'
+import { firstAnswersStep } from '../models/start.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { reviewCard } from './channel-agent.ts'
@@ -26,7 +27,7 @@ import { renderDraftsItem, reportWhenSeen } from './drafts-item.ts'
 import { heldToastInPanel, placeHeldToast, renderHeldLine } from './held-toast.ts'
 import { hinted } from './hint.ts'
 import { bellIcon } from './mute-toggle.ts'
-import { button, timeLabel } from './parts.ts'
+import { button, listWait, timeLabel } from './parts.ts'
 import { profileName } from './profile-card.ts'
 import { teachFromMiss } from './teaching.ts'
 
@@ -37,6 +38,11 @@ import { teachFromMiss } from './teaching.ts'
 export const activityBell = (context: ViewContext, life: Lifetime, me: AsRead.Me): HTMLElement => {
   const { state, actions } = context
   actions.loadActivity()
+  life.add(
+    state.awaitingReply.subscribe(() => {
+      if (state.workspace.get() === 'loaded') actions.loadAwaitedThreads()
+    }),
+  )
   const shown = slice(activitySources(context), () => {
     const model = activityModel(activityInputOf(context, me))
     return { count: model.count, label: model.label, agent: model.agent?.heading ?? null }
@@ -226,18 +232,24 @@ const activityContent = (context: ViewContext, life: Lifetime, me: AsRead.Me): H
   const sources = activitySources(context)
   const model = () => activityModel(activityInputOf(context, me))
   life.add(state.conversations.subscribe(() => actions.loadDraftThreads()))
-  const empty = slice([...sources, state.workspace], () =>
-    model().empty === null || state.workspace.get() === 'loaded'
-      ? model().empty
-      : checkingWords(state.workspace.get(), strings.checking.waiting),
+  const loads = [state.awaitingReply, state.reviews, state.suggestions, state.debates].map((one) => one.load)
+  const wait = slice([...sources, ...loads, state.workspace], () =>
+    activityWaitModel({
+      empty: model().empty,
+      awaited: firstAnswersStep(loads.map((load) => load.get())),
+      workspace: state.workspace.get(),
+    }),
   )
   const agent = slice(sources, () => model().agent)
   return h(
     'div',
     { class: 'activity' },
-    region(life, [empty], () => {
-      const text = empty.get()
-      return text !== null && h('p', { class: 'activity-empty' }, text)
+    region(life, [wait], () => {
+      const shown = wait.get()
+      if (shown === null) return null
+      if (shown.kind === 'none' || shown.kind === 'checking')
+        return h('p', { class: 'activity-empty' }, shown.text)
+      return listWait(shown, actions.askActivityAgain)
     }),
     region(life, [agent], () => {
       const notice = agent.get()

@@ -1,6 +1,8 @@
-import type { ConversationId } from '@homingbird/protocol'
+import { arbitrary } from '@homingbird/kernel/testing'
+import { type ConversationId, DebateSuggestion, Review } from '@homingbird/protocol'
+import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { threadsForActivity } from '../src/activity.ts'
+import { threadsForActivity, withoutReview, withoutSuggestion } from '../src/activity.ts'
 import { ROOM, conversation } from './support/fixtures.ts'
 
 const room = (id: string, fields: Parameters<typeof conversation>[0] = {}) =>
@@ -25,5 +27,36 @@ describe('threadsForActivity', () => {
         new Set(['conv_loading00000' as ConversationId]),
       ),
     ).toEqual(['conv_drafts000000', 'conv_unread000000', 'conv_awaits000000'])
+  })
+})
+
+describe('the changes a running request repeats on its answer', () => {
+  it('take out the decided answer alone, and twice means the same as once', () => {
+    fc.assert(
+      fc.property(fc.array(arbitrary(Review), { maxLength: 4 }), fc.nat(), (reviews, chosen) => {
+        const decided =
+          reviews[chosen % Math.max(1, reviews.length)]?.note.id ?? ('note_none00000000' as never)
+        const once = withoutReview(decided)(reviews)
+        expect(withoutReview(decided)(once)).toEqual(once)
+        expect(once).toEqual(reviews.filter((review) => review.note.id !== decided))
+      }),
+      { numRuns: 100 },
+    )
+  })
+
+  it('take out the settled suggestion alone, and twice means the same as once', () => {
+    fc.assert(
+      fc.property(
+        fc.array(arbitrary(DebateSuggestion), { maxLength: 4 }),
+        fc.nat(),
+        (suggestions, chosen) => {
+          const settled = suggestions[chosen % Math.max(1, suggestions.length)]?.id ?? ('sugg_none' as never)
+          const once = withoutSuggestion(settled)(suggestions)
+          expect(withoutSuggestion(settled)(once)).toEqual(once)
+          expect(once).toEqual(suggestions.filter((suggestion) => suggestion.id !== settled))
+        },
+      ),
+      { numRuns: 100 },
+    )
   })
 })

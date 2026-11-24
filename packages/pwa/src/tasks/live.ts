@@ -4,18 +4,19 @@ import { batch, later } from '@homingbird/ui'
 import type { Action, App } from '../app.ts'
 import { channelLabel, channelOfRoom, withChannel, withoutRoom } from '../channels.ts'
 import { upsertRequest } from '../draft-requests.ts'
+import type { Resource } from '../resource.ts'
 import { hrefFor } from '../routes.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import { isMuted, withAgentPresence, withPresence, withReceipts } from '../thread.ts'
-import { loadReviews } from './channel-agents.ts'
+import { invalidateActivity } from './activity.ts'
 import { applyLeft } from './conversation-actions.ts'
-import { loadSuggestions } from './debate-suggestions.ts'
-import { loadDebate, loadDebates } from './debates.ts'
+import { loadDebate } from './debates.ts'
 import { loadGroups } from './groups.ts'
 import { forgetNote, forgetRelease, loadThread, rememberNote } from './notes.ts'
 import { closeDraftNotice } from './notifications.ts'
 import { loadPreviews, reloadPreviews } from './previews.ts'
+import { invalidate } from './resources.ts'
 import { refreshInterview } from './teaching-interview.ts'
 import { loadAgents, loadConversations, loadKnownChannels, loadPeople, loadWorkspace } from './workspace.ts'
 
@@ -35,9 +36,9 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
   const reloadGroupsSoon = (): void => {
     if (state.groupsLoaded.get()) loadGroupsSoon()
   }
-  const reloadReviewsSoon = settled(loadReviews)
+  const reloadReviewsSoon = settled(invalidate('reviews'))
   const reloadInterviewSoon = settled(refreshInterview)
-  const reloadDebatesSoon = settled(loadDebates)
+  const reloadDebatesSoon = settled(invalidate('debates'))
   const refreshAgentsIfNoneKnown = (): void => {
     if (state.agentCredentials.get().length === 0) launch(loadAgents)
   }
@@ -143,7 +144,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         if (state.interview.get() !== null) reloadInterviewSoon()
         break
       case 'suggestions.changed':
-        launch(loadSuggestions)
+        launch(invalidate('suggestions'))
         break
       case 'preview.changed':
         if (body.conversationId === null) launch(reloadPreviews)
@@ -151,7 +152,7 @@ export const liveEvents = (app: App): ((event: AsRead.StreamEvent) => void) => {
         break
       case 'debate.changed':
         reloadShownDebate(app, body.debateId)
-        if (state.route.get().name !== 'debates' && state.debatesLoaded.get()) reloadDebatesSoon()
+        if (state.route.get().name !== 'debates' && wasAsked(state.debates)) reloadDebatesSoon()
         break
       case 'presence': {
         state.directory.update((entries) => withPresence(entries, body.members))
@@ -202,17 +203,21 @@ const tellIfNotPosted = (app: App, note: AsRead.Note): void => {
 
 const reloadShownDebate = (app: App, id: string): void => {
   const current = app.state.route.get()
-  if (current.name === 'debates') app.launch(loadDebates)
+  if (current.name === 'debates') app.launch(invalidate('debates'))
   if (current.name === 'debate' && current.id === id) app.launch(loadDebate(id))
 }
 
 const reloadEverything = (app: App): void => {
+  app.launch(invalidateActivity)
   app.launch(loadWorkspace)
   if (app.state.groupsLoaded.get()) app.launch(loadGroups)
   const current = app.state.route.get()
   if (current.name === 'conversation') app.launch(loadThread(current.id as ConversationId))
   app.launch(reloadPreviews)
 }
+
+const wasAsked = ({ load }: Pick<Resource<unknown>, 'load'>): boolean =>
+  load.get().step !== 'idle' || load.get().loaded
 
 /** A note counts as just arrived, and is announced, while it is this fresh. */
 const FRESH_MS = 30_000

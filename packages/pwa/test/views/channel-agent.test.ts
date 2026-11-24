@@ -9,6 +9,7 @@ import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 import { ANA, CY, channel, draft, entry, everything, me, member, note } from '../support/fixtures.ts'
+import { setLoad } from '../support/resource-load.ts'
 
 usingFakeDom()
 
@@ -148,7 +149,7 @@ describe('the agent panel', () => {
     context.state.channelAgents.set(new Map([['payments-wiki', agentView()]]))
     called('loadChannelAgent')[0]!.then!.done!(null)
     context.state.reviews.set([review()])
-    expect(called('loadReviews')).toEqual([])
+    expect(called('refreshReviews')).toEqual([])
     expect(called('loadChannelAgentFigures')).toEqual([])
     expect(dialog.querySelector('.reviews, .channel-agent-figures')).toBeNull()
     expect(getByRole(dialog, 'button', { name: strings.channelAgent.rename }).className).not.toContain(
@@ -300,6 +301,7 @@ describe('the agent panel', () => {
 
   it('says when nothing waits, and marks a private question', () => {
     const { context, dialog } = onPage()
+    setLoad(context.state.reviews, { loaded: true })
     expect(textOf(dialog)).toContain(strings.channelAgent.reviewsNone)
     context.state.reviews.set([
       review({ privately: true, question: null, note: draft('note_x', { basis: null }) }),
@@ -409,7 +411,7 @@ describe('channelAgentView', () => {
       '#/channel/payments-wiki/agent',
     )
     expect(called('loadChannelTeaching')[0]!.args).toEqual(['payments-wiki'])
-    expect(called('loadReviews')).toHaveLength(0)
+    expect(called('refreshReviews')).toHaveLength(0)
   })
 
   it('has no tabs while the organization has teaching off', () => {
@@ -469,17 +471,39 @@ describe('the answer a stale notification opened', () => {
 
   it('says who already sent it instead of showing nothing', () => {
     const { called, shown } = openedFor('note_answer00000')
-    called('loadReviews')[0]!.then!.done!(undefined)
+    called('refreshReviews')[0]!.then!.done!(true)
     const asked = called('loadDecidedAnswer')
     expect(asked.map((call) => call.args)).toEqual([['note_answer00000']])
     asked[0]!.then!.done!(note('note_answer00000', { authorId: AGENT, approvedBy: CY }))
     expect(getByRole(shown, 'status').textContent).toBe('Cy already sent this answer.')
   })
 
+  it('never says that none waits before the list came: it is checked, or failed with the way to try again', () => {
+    const { context, called, shown } = openedFor('note_answer00000')
+    context.state.workspace.set('loaded')
+    expect(textOf(shown)).toContain(strings.checking.waiting)
+    expect(textOf(shown)).not.toContain(strings.channelAgent.reviewsNone)
+    setLoad(context.state.reviews, { step: 'failed' })
+    expect(textOf(shown)).toContain(strings.loadFailed)
+    getByRole(shown, 'button', { name: strings.tryAgain }).click()
+    expect(called('askActivityAgain')).toHaveLength(1)
+    setLoad(context.state.reviews, { loaded: true })
+    expect(textOf(shown)).toContain(strings.channelAgent.reviewsNone)
+  })
+
+  it('asks nothing while the list could not be read, until it was', () => {
+    const { context, called } = openedFor('note_answer00000')
+    called('refreshReviews')[0]!.then!.done!(false)
+    expect(called('loadDecidedAnswer')).toHaveLength(0)
+    context.state.reviews.set([])
+    context.state.reviews.set([])
+    expect(called('loadDecidedAnswer')).toHaveLength(1)
+  })
+
   it('asks once, when the card it opened leaves the list, and not while it waits', () => {
     const { context, called, shown } = openedFor('note_answer00000')
     context.state.reviews.set([review()])
-    called('loadReviews')[0]!.then!.done!(undefined)
+    called('refreshReviews')[0]!.then!.done!(true)
     expect(called('loadDecidedAnswer')).toHaveLength(0)
     context.state.reviews.set([])
     context.state.reviews.set([])
@@ -493,7 +517,7 @@ describe('the answer a stale notification opened', () => {
     for (const decide of ['send', 'discard'] as const) {
       const { context, called, shown } = openedFor('note_answer00000')
       context.state.reviews.set([review()])
-      called('loadReviews')[0]!.then!.done!(undefined)
+      called('refreshReviews')[0]!.then!.done!(true)
       if (decide === 'send') getByRole(shown, 'button', { name: strings.channelAgent.send }).click()
       else {
         getByRole(shown, 'button', { name: strings.channelAgent.discard }).click()
@@ -510,7 +534,7 @@ describe('the answer a stale notification opened', () => {
     context.state.channelsLoaded.set(true)
     context.state.channels.set([wiki])
     mount(channelAgentView(context, lifetime(), 'payments-wiki', null, 'answers'))
-    called('loadReviews')[0]!.then!.done!(undefined)
+    called('refreshReviews')[0]!.then!.done!(true)
     expect(called('loadDecidedAnswer')).toHaveLength(0)
   })
 })

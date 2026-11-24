@@ -1,4 +1,4 @@
-import type { AsRead, ConversationId } from '@homingbird/protocol'
+import type { AsRead, ConversationId, NoteId, SuggestionId } from '@homingbird/protocol'
 import type { Thread } from './state.ts'
 
 /**
@@ -21,3 +21,15 @@ export const threadsForActivity = (
     .map((room) => room.id)
     .filter((id) => !threads.has(id) && !loading.has(id))
 }
+
+/** The answers to review without one that was decided; a change of a list that a running request repeats. */
+export const withoutReview =
+  (id: NoteId) =>
+  (reviews: ReadonlyArray<AsRead.Review>): ReadonlyArray<AsRead.Review> =>
+    reviews.filter((review) => review.note.id !== id)
+
+/** The suggestions without one that was accepted or dismissed, like `withoutReview`. */
+export const withoutSuggestion =
+  (id: SuggestionId) =>
+  (suggestions: ReadonlyArray<AsRead.DebateSuggestion>): ReadonlyArray<AsRead.DebateSuggestion> =>
+    suggestions.filter((suggestion) => suggestion.id !== id)

@@ -11,12 +11,13 @@ import { featureOn } from '../features.ts'
 import { type HeldLine, type HeldShown, heldLineFor } from '../held-decisions.ts'
 import { deskUnavailableReason } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
-import type { Release, Thread } from '../state.ts'
+import type { ListStep, Release, Thread, Workspace } from '../state.ts'
 import { formats, strings } from '../strings.ts'
 import { conversationTitle, excerpt, isArchived, threadItems } from '../thread.ts'
 import { type ReviewCard, reviewCardModel } from './channel-agent.ts'
 import { type SuggestionCard, suggestionCardModel } from './debate-suggestion-card.ts'
 import { type DraftsItemModel, draftsItemModel } from './drafts-item.ts'
+import { type ListWait, listWaitModel } from './start.ts'
 import { type TeachSeed, teachSeedOf } from './teaching.ts'
 import type { ThreadInput } from './thread-room.ts'
 import { type TimeShown, timeShown } from './time.ts'
@@ -67,6 +68,32 @@ export const agentNotice = (input: Pick<ActivityInput, 'me' | 'directory'>): Age
 
 /** How long a closed room's result stays listed for a person whose agent helped reach it. */
 export const RESULT_LISTED_MS = 7 * 24 * 60 * 60_000
+
+/**
+ * What stands where nothing waits: that nothing does, only once every list has come; that they are being
+ * checked; or that some took too long or failed, which is said beside what waits too, since more may.
+ */
+export const activityWaitModel = (input: ActivityWaitInput): ActivityWait => {
+  const { empty, awaited, workspace } = input
+  const nothing: ActivityWait = empty === null ? null : { kind: 'none', text: empty }
+  if (workspace === 'loaded' && awaited === null) return nothing
+  const wait = listWaitModel(
+    workspace === 'loaded' && awaited !== null ? awaited : 'loading',
+    workspace,
+    strings.checking.waiting,
+  )
+  return wait.kind === 'checking' && empty === null ? null : wait
+}
+
+export interface ActivityWaitInput {
+  /** The words for nothing waiting, or null while something does. */
+  readonly empty: string | null
+  /** How the first answers of the lists are going, or null once all have come. */
+  readonly awaited: ListStep | null
+  readonly workspace: Workspace
+}
+
+export type ActivityWait = { readonly kind: 'none'; readonly text: string } | ListWait | null
 
 export interface ActivityInput {
   readonly me: AsRead.Me
