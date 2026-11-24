@@ -4,50 +4,57 @@ import { trackSignIn } from '../analytics.ts'
 import { type Action, type App, withApp } from '../app.ts'
 import { keptComposerTexts } from '../composer-texts.ts'
 import { preferredLanguage } from '../languages.ts'
+import { QUIET_RETRY_SECONDS } from '../load-timing.ts'
 import { refusalText } from '../refusals.ts'
 import { strings, useLanguage } from '../strings.ts'
 import { followEvents, latestEvent } from './events.ts'
 import { reportUnsettled } from './held.ts'
 import { reportVisibility } from './presence.ts'
+import { growingSlow, untilChanged, untilPageEvent } from './waiting-for.ts'
 import { loadBranding, loadWorkspace } from './workspace.ts'
 
 /**
  * Starts the page in two phases. First the branding, the server and the person, which the page cannot
- * draw without: a failure that waiting may mend is repeated, and one that persists gives the page a way to
- * try again. Then the workspace, with the page already drawn: a failure shows a notice, and the workspace
- * loads again when the network is back. Whatever the workspace did, live events follow.
+ * draw without: a failure that waiting may mend is repeated, the page says when this takes longer than
+ * usual and then offers to try again, and the attempt goes on behind that offer. Then the workspace, with
+ * the page already drawn, which is kept loading until it has loaded.
  */
 export const boot: Action = T.gen(function* () {
-  const app = yield* T.ask<App>()
-  const { state, page } = app
+  const { state, page } = yield* T.ask<App>()
   state.start.set('loading')
-  const known = yield* T.result(identifyWithRetries)
+  state.startRetrying.set(false)
+  const known = yield* T.result(identifyWatched)
   if (known._tag === 'Err') return yield* giveUp(known.error)
+  if (known.value._tag === 'restart') return yield* boot
   if (known.value._tag === 'upgrade')
     return state.notice.set({ kind: 'error', text: strings.upgrade[known.value.side] })
   if (known.value._tag === 'signed-out') return state.session.set(null)
   const { me, after } = known.value
   useLanguage(preferredLanguage(me.locale === UNKNOWN ? undefined : me.locale, page.languages()))
   state.composerTexts.set(keptComposerTexts(page.storage, me.member.id))
+  state.workspace.set('loading')
   state.session.set(me)
-  const workspace = yield* T.result(workspaceWithRetries)
-  if (workspace._tag === 'Err') {
-    if (workspace.error._tag === 'Unauthorized') return state.session.set(null)
-    state.notice.set({ kind: 'error', text: refusalText(workspace.error) })
-    loadWorkspaceWhenOnline(app)
-  }
-  yield* trackSignIn
-  yield* T.result(reportUnsettled)
-  yield* followEvents(after)
-  yield* reportVisibility
+  yield* keepLoadingWorkspace(after)
 })
 
-/** Starts again after the page gave up; nothing happens while a start is under way or once it worked. */
+/**
+ * What the person's Try again asks for: a start that gave up begins again; a start that is only slow ends
+ * and begins again; a workspace that is slow or failed loads again. Never two at once.
+ */
 export const startAgain: Action = withApp(({ state }) =>
   T.suspend(() => {
-    if (state.start.get() !== 'failed' && state.start.get() !== 'refused') return T.unit
-    state.start.set('loading')
-    return boot
+    if (state.session.get() === 'loading') {
+      const start = state.start.get()
+      if (start === 'failed' || start === 'refused') {
+        state.start.set('loading')
+        return boot
+      }
+      if (start === 'long') state.startRestarts.update((count) => count + 1)
+      return T.unit
+    }
+    const workspace = state.workspace.get()
+    if (workspace === 'long' || workspace === 'failed') state.workspaceRestarts.update((count) => count + 1)
+    return T.unit
   }),
 )
 
@@ -56,12 +63,20 @@ type Known =
   | { readonly _tag: 'signed-out' }
   | { readonly _tag: 'ready'; readonly me: AsRead.Me; readonly after: number }
 
-const identifyWithRetries: Action<Known> = T.suspend(() =>
-  T.retry({ schedule: startWaits, while: isTransient })(T.tapError((_: ApiError) => noteSlowStart)(identify)),
+const RESTART = { _tag: 'restart' } as const
+const AGAIN = (): typeof RESTART => RESTART
+
+/** One start of phase one, with the clock telling the page how long it takes and Try again able to end it. */
+const identifyWatched: Action<Known | typeof RESTART> = T.scoped((scope) =>
+  T.gen(function* () {
+    const { state } = yield* T.ask<App>()
+    yield* scope.fork(growingSlow((step) => state.start.set(step)))
+    return yield* T.race([identifyWithRetries, T.map(AGAIN)(untilChanged(state.startRestarts))])
+  }),
 )
 
-const workspaceWithRetries: Action = T.suspend(() =>
-  T.retry({ schedule: startWaits, while: isTransient })(loadWorkspace),
+const identifyWithRetries: Action<Known> = T.suspend(() =>
+  T.retry({ schedule: startWaits, while: isTransient })(T.tapError((_: ApiError) => noteRetrying)(identify)),
 )
 
 /** Reads only, and nothing is drawn until it is done, so a whole attempt may be repeated. */
@@ -77,6 +92,70 @@ const identify: Action<Known> = T.gen(function* () {
   return { _tag: 'ready', me, after } as const
 })
 
+/**
+ * Keeps loading the workspace until it has loaded, the page already drawn. A load that takes longer says so
+ * and then offers to try again while it goes on; Try again ends it and loads afresh. One that failed after
+ * its repeats stays told until a load works: it loads again when the network is back and, for a server that was
+ * away, every so often. Live events start once the load is done or has taken too long, never before: events that
+ * arrive during a load would be overwritten by its older answers.
+ */
+const keepLoadingWorkspace = (after: number): Action =>
+  T.gen(function* () {
+    const { state } = yield* T.ask<App>()
+    let live = false
+    const startLive: Action = T.suspend(() => {
+      if (live) return T.unit
+      live = true
+      return T.gen(function* () {
+        yield* trackSignIn
+        yield* followEvents(after)
+        yield* reportVisibility
+      })
+    })
+    let toldOnce = false
+    let quiet = false
+    for (;;) {
+      if (!quiet) state.workspace.set('loading')
+      const attempt = yield* T.scoped((scope) =>
+        T.gen(function* () {
+          if (!quiet) yield* scope.fork(growingSlow((step) => state.workspace.set(step), startLive))
+          return yield* T.race([
+            T.result(workspaceWithRetries),
+            T.map(AGAIN)(untilChanged(state.workspaceRestarts)),
+          ])
+        }),
+      )
+      if (attempt._tag === 'restart') {
+        quiet = false
+        continue
+      }
+      if (attempt._tag === 'Ok') {
+        state.workspace.set('loaded')
+        yield* startLive
+        yield* T.result(reportUnsettled)
+        return
+      }
+      if (attempt.error._tag === 'Unauthorized') return state.session.set(null)
+      state.workspaceRefusal.set(isTransient(attempt.error) ? '' : refusalText(attempt.error))
+      state.workspace.set('failed')
+      if (!toldOnce) state.notice.set({ kind: 'error', text: refusalText(attempt.error) })
+      toldOnce = true
+      yield* startLive
+      const woken = yield* T.race([
+        T.map(AGAIN)(untilChanged(state.workspaceRestarts)),
+        untilPageEvent('online'),
+        isTransient(attempt.error) ? quietRetryTimer : T.never,
+      ])
+      quiet = woken === 'quiet'
+    }
+  })
+
+const quietRetryTimer: Action<'quiet'> = T.map(() => 'quiet' as const)(T.sleep(QUIET_RETRY_SECONDS * 1000))
+
+const workspaceWithRetries: Action = T.suspend(() =>
+  T.retry({ schedule: startWaits, while: isTransient })(loadWorkspace),
+)
+
 const serverInfo: Action<AsRead.ServerInfo> = withApp(({ api, state }) =>
   T.map((info: AsRead.ServerInfo) => {
     state.serverInfo.set(info)
@@ -89,7 +168,7 @@ const signedInPerson: Action<AsRead.Me | null> = withApp(({ api }) =>
   T.catchTag('Unauthorized', () => T.succeed(null))(api['me.get']({})),
 )
 
-const noteSlowStart: Action = withApp(({ state }) => T.sync(() => state.start.set('slow')))
+const noteRetrying: Action = withApp(({ state }) => T.sync(() => state.startRetrying.set(true)))
 
 /** A server that stays away offers to try again; any other refusal says what it was and offers the same. */
 const giveUp = (error: ApiError): Action =>
@@ -101,21 +180,6 @@ const giveUp = (error: ApiError): Action =>
       state.start.set('refused')
     }),
   )
-
-/** The page is drawn without its workspace; the first time the network comes back it is loaded, once. */
-const loadWorkspaceWhenOnline = (app: App): void => {
-  let loading = false
-  const stop = app.page.on('online', () => {
-    if (loading) return
-    loading = true
-    app.launch(loadWorkspace, {
-      done: stop,
-      failed: () => {
-        loading = false
-      },
-    })
-  })
-}
 
 function isTransient(error: ApiError): boolean {
   return error._tag === 'Unavailable' || error._tag === 'RateLimited'

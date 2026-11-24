@@ -110,7 +110,7 @@ describe('channelView', () => {
   it('waits for the channels, then says when there is no such channel', () => {
     const { context } = testContext()
     const shown = channelView(context, lifetime(), 'billing')
-    expect(textOf(shown)).toContain(strings.loading)
+    expect(textOf(shown)).toContain(strings.checking.channels)
     context.state.channelsLoaded.set(true)
     expect(textOf(shown)).toContain(strings.unknownChannel)
   })

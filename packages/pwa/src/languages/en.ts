@@ -36,8 +36,19 @@ export const en = {
     Unavailable: '',
   } satisfies Record<ApiErrorTag, string>,
   loading: 'Loading…',
+  checking: {
+    notes: 'Checking your notes…',
+    channels: 'Checking your channels…',
+    people: 'Checking who is here…',
+    waiting: 'Checking what waits for you…',
+  },
   firstLoad: {
-    slow: 'Still trying to reach the server…',
+    retrying: 'Still trying to reach the server…',
+    usually: {
+      one: 'This usually opens within {count} second. It is taking a little longer.',
+      other: 'This usually opens within {count} seconds. It is taking a little longer.',
+    },
+    tooLong: 'This is taking too long. Try again.',
     failed: 'The server could not be reached. This page tries again by itself when your connection is back.',
   },
   loadFailed: 'This could not be loaded.',

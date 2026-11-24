@@ -18,6 +18,7 @@ export interface Sent {
  */
 export const testApp = (handlers: Handlers = {}, hash = '#/') => {
   const sent: Sent[] = []
+  const aborted: string[] = []
   const api = new Proxy({} as Api, {
     get: (_, route) => (request: unknown) =>
       T.suspend(() => {
@@ -26,6 +27,14 @@ export const testApp = (handlers: Handlers = {}, hash = '#/') => {
           String(route)
         ]
         const answer = handler === undefined ? {} : handler(request)
+        if (isWaiting(answer))
+          return T.promise(
+            (signal) =>
+              new Promise((resolve) => {
+                signal.addEventListener('abort', () => aborted.push(String(route)), { once: true })
+                void answer.waitFor.then(resolve)
+              }),
+          )
         return isRefusal(answer) ? T.fail(answer.refusal) : T.succeed(answer)
       }),
   })
@@ -38,11 +47,23 @@ export const testApp = (handlers: Handlers = {}, hash = '#/') => {
   )
   const run = <A>(task: T.Task<A, ApiError, App>) => T.run(task, app)
   const routes = (): string[] => sent.map((one) => one.route)
-  return { app, api, sent, routes, page, clock, run, launched, state: app.state }
+  return { app, api, sent, aborted, routes, page, clock, run, launched, state: app.state }
 }
 
 /** A refusal for a handler to answer with. */
 export const fail = (error: ApiError) => ({ refusal: error })
+
+/** An answer that comes only when the test says so: `hold()` gives it with the call that releases it. */
+export const hold = <A>(): { readonly waiting: unknown; readonly release: (answer: A) => void } => {
+  let release: (answer: A) => void = () => {}
+  const waitFor = new Promise<A>((resolve) => {
+    release = resolve
+  })
+  return { waiting: { waitFor }, release }
+}
+
+const isWaiting = (answer: unknown): answer is { readonly waitFor: Promise<unknown> } =>
+  typeof answer === 'object' && answer !== null && 'waitFor' in answer
 
 const isRefusal = (answer: unknown): answer is { readonly refusal: ApiError } =>
   typeof answer === 'object' && answer !== null && 'refusal' in answer

@@ -30,11 +30,17 @@ export const createState = (hash: string): AppState => {
     session,
     start: signal<Start>('loading'),
     startRefusal: signal(''),
+    startRetrying: signal(false),
+    startRestarts: signal(0),
+    workspace: signal<Workspace>('loading'),
+    workspaceRefusal: signal(''),
+    workspaceRestarts: signal(0),
     serverInfo: signal<AsRead.ServerInfo | null>(null),
     branding: signal<Branding>({ name: 'Homingbird', logo: null }),
     route: signal<Route>(parseRoute(hash)),
     conversations: signal<ReadonlyArray<AsRead.Conversation>>([]),
     conversationsLoaded: signal(false),
+    conversationLoads: { started: 0, applied: 0 },
     threads,
     draftsRead,
     directory,
@@ -106,11 +112,23 @@ export interface AppState {
   readonly start: Signal<Start>
   /** What the server refused with when `start` is `'refused'`. */
   readonly startRefusal: Signal<string>
+  /** Whether an attempt of the first load failed and is being repeated. */
+  readonly startRetrying: Signal<boolean>
+  /** Counts the person's asks to start the first load afresh; a running start ends when it changes. */
+  readonly startRestarts: Signal<number>
+  /** How loading the person's workspace is going, which the lists and the line above them tell of. */
+  readonly workspace: Signal<Workspace>
+  /** What the server refused the workspace with, when `workspace` is `'failed'` for a reason waiting does not mend. */
+  readonly workspaceRefusal: Signal<string>
+  /** Counts the person's asks to load the workspace afresh. */
+  readonly workspaceRestarts: Signal<number>
   readonly serverInfo: Signal<AsRead.ServerInfo | null>
   readonly branding: Signal<Branding>
   readonly route: Signal<Route>
   readonly conversations: Signal<ReadonlyArray<AsRead.Conversation>>
   readonly conversationsLoaded: Signal<boolean>
+  /** Which load of the conversation list started last and which answer was applied last, so an older answer never replaces a newer one. */
+  readonly conversationLoads: { started: number; applied: number }
   readonly threads: Signal<ReadonlyMap<ConversationId, Thread>>
   /** Each draft's text and room as the person last read them on this page. */
   readonly draftsRead: Signal<ReadonlyMap<NoteId, DraftAsShown>>
@@ -188,8 +206,11 @@ export interface AppState {
   readonly previewAllowance: Signal<AsRead.DraftPreviewAllowance | null>
 }
 
-/** Loading, still loading after an attempt failed, or given up, because the server stays away or refused. */
-export type Start = 'loading' | 'slow' | 'failed' | 'refused'
+/** Loading, slower than usual, too long (with a way to try again), or given up because the server stays away or refused. */
+export type Start = 'loading' | 'slow' | 'long' | 'failed' | 'refused'
+
+/** The same steps for the workspace, which is loaded behind the drawn page; `'loaded'` once it is. */
+export type Workspace = 'loading' | 'slow' | 'long' | 'failed' | 'loaded'
 
 export type Connection = 'connecting' | 'live' | 'polling' | 'offline'
 

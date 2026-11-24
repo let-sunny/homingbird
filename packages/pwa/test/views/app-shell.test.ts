@@ -1,5 +1,6 @@
 import { getByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it, vi } from 'vitest'
+import { USUAL_LOAD_SECONDS } from '../../src/load-timing.ts'
 import { strings } from '../../src/strings.ts'
 import { showApp } from '../../src/views/app-shell.ts'
 import { testContext } from '../support/context.ts'
@@ -27,15 +28,20 @@ describe('showApp', () => {
   it('shows loading quietly, then a way to try again that also starts by itself when the network is back', () => {
     const { context, root, page, called } = start()
     context.state.start.set('slow')
-    expect(textOf(root)).toBe(strings.firstLoad.slow)
+    expect(textOf(root)).toBe(strings.firstLoad.usually({ count: USUAL_LOAD_SECONDS }))
     expect(page.listening('online')).toBe(0)
+    context.state.start.set('long')
+    expect(textOf(root)).toContain(strings.firstLoad.tooLong)
+    expect(page.listening('online')).toBe(0)
+    getByRole(root, 'button', { name: strings.tryAgain }).click()
+    expect(called('startAgain')).toHaveLength(1)
     context.state.start.set('failed')
     expect(textOf(root)).toContain(strings.firstLoad.failed)
     expect(page.listening('online')).toBe(1)
     getByRole(root, 'button', { name: strings.tryAgain }).click()
-    expect(called('startAgain')).toHaveLength(1)
-    page.emit('online')
     expect(called('startAgain')).toHaveLength(2)
+    page.emit('online')
+    expect(called('startAgain')).toHaveLength(3)
     context.state.start.set('loading')
     expect(page.listening('online')).toBe(0)
     expect(textOf(root)).toBe(strings.loading)

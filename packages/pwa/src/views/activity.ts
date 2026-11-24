@@ -16,6 +16,7 @@ import {
   type ActivityPlace,
   activityModel,
 } from '../models/activity.ts'
+import { checkingWords } from '../models/start.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { reviewCard } from './channel-agent.ts'
@@ -225,7 +226,11 @@ const activityContent = (context: ViewContext, life: Lifetime, me: AsRead.Me): H
   const sources = activitySources(context)
   const model = () => activityModel(activityInputOf(context, me))
   life.add(state.conversations.subscribe(() => actions.loadDraftThreads()))
-  const empty = slice(sources, () => model().empty)
+  const empty = slice([...sources, state.workspace], () =>
+    model().empty === null || state.workspace.get() === 'loaded'
+      ? model().empty
+      : checkingWords(state.workspace.get(), strings.checking.waiting),
+  )
   const agent = slice(sources, () => model().agent)
   return h(
     'div',

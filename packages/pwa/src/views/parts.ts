@@ -3,6 +3,7 @@ import { type Child, type Properties, h } from '@homingbird/ui'
 import { channelLabel } from '../channels.ts'
 import type { SourceShown } from '../draft-basis.ts'
 import type { SlackReplyLines } from '../models/slack-reply.ts'
+import { checkingWords } from '../models/start.ts'
 import type { TimeShown } from '../models/time.ts'
 import { type PresenceMarks, presenceShown } from '../presence.ts'
 import { hrefFor } from '../routes.ts'
@@ -142,6 +143,15 @@ export const timeLabel = (shown: TimeShown): HTMLElement =>
 
 /** Shown while a page or a part of one waits for its data. */
 export const loading = (): HTMLElement => h('p', { class: 'loading' }, strings.loading)
+
+/**
+ * Shown while the workspace has not loaded yet, in place of a list's "nothing here": that the list is being
+ * checked. Nothing once loading took too long or failed, when the line above the lists speaks instead.
+ */
+export const checking = (context: Pick<ViewContext, 'state'>, words: string): HTMLElement | null => {
+  const shown = checkingWords(context.state.workspace.get(), words)
+  return shown === null ? null : h('p', { class: 'loading' }, shown)
+}
 
 /** Shown when a page or a part of one could not load its data, with a way to try again. */
 export const loadFailed = (retry: () => void): HTMLElement =>

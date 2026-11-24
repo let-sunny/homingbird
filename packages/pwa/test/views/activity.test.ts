@@ -230,6 +230,7 @@ describe('activityPanel', () => {
     expect(panel.querySelector('.pending')).toBe(draftCard)
     state.threads.set(new Map([[ROOM, { notes: [], hasMore: false }]]))
     state.conversations.set([])
+    state.workspace.set('loaded')
     expect(textOf(panel)).toContain(strings.activity.empty)
   })
 

@@ -9,22 +9,26 @@ import {
   startingPointsModel,
 } from '../models/home.ts'
 import { hrefFor } from '../routes.ts'
+import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
-import { commandLines, emptyWithPip, loading } from './parts.ts'
+import { checking, commandLines, emptyWithPip } from './parts.ts'
 import { pip } from './pip.ts'
 
 /** Home, which on a wide screen opens the most recent conversation by itself. */
 export const homeView = (context: ViewContext, life: Lifetime): HTMLElement => {
   const { state, page } = context
-  const host = region(life, [state.conversations, state.conversationsLoaded, state.agentCredentials], () =>
-    renderHome(
-      homeModel({
-        loaded: state.conversationsLoaded.get(),
-        conversations: state.conversations.get(),
-        ...startInput(context),
-      }),
-      context,
-    ),
+  const host = region(
+    life,
+    [state.conversations, state.conversationsLoaded, state.agentCredentials, state.workspace],
+    () =>
+      renderHome(
+        homeModel({
+          loaded: state.conversationsLoaded.get(),
+          conversations: state.conversations.get(),
+          ...startInput(context),
+        }),
+        context,
+      ),
   )
   const openMostRecent = (): void => {
     const recent = conversationToRestore({
@@ -89,8 +93,8 @@ const sitsBesideTheList = (host: HTMLElement): boolean =>
   host.checkVisibility() &&
   host.ownerDocument.querySelector<HTMLElement>('.sidebar')?.checkVisibility() === true
 
-const renderHome = (model: HomeModel, context: StartContext): HTMLElement => {
-  if (model.kind === 'loading') return loading()
+const renderHome = (model: HomeModel, context: StartContext): HTMLElement | null => {
+  if (model.kind === 'loading') return checking(context, strings.checking.notes)
   if (model.kind === 'start') return renderStartingPoints(model.start, context)
   return emptyWithPip('waving', model.text)
 }

@@ -1,6 +1,7 @@
 import { lifetime } from '@homingbird/ui'
 import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
+import { USUAL_LOAD_SECONDS } from '../../src/load-timing.ts'
 import { strings } from '../../src/strings.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
 import { shell } from '../../src/views/shell.ts'
@@ -40,6 +41,45 @@ describe('shell', () => {
     expect(getByRole(shown, 'link', { name: strings.navNotes }).hasAttribute('aria-describedby')).toBe(false)
   })
 
+  it('says it is checking, not that there is nothing, until the lists have loaded; and what it found once they have', () => {
+    const { context } = testContext()
+    context.state.session.set(me())
+    const shown = mount(shell(context, lifetime(), me(), document.createElement('main')))
+    expect(textOf(shown)).toContain(strings.checking.channels)
+    expect(textOf(shown)).toContain(strings.checking.notes)
+    expect(textOf(shown)).not.toContain(strings.noChannelRooms)
+    expect(shown.querySelector('.load-line')).toBeNull()
+    context.state.conversationsLoaded.set(true)
+    context.state.workspace.set('loaded')
+    expect(textOf(shown)).toContain(strings.noChannelRooms)
+    expect(textOf(shown)).not.toContain(strings.checking.channels)
+  })
+
+  it('lets the line speak, with Try again, once loading took too long or failed, and says neither checking nor nothing beside it', () => {
+    const { context, called } = testContext()
+    context.state.session.set(me())
+    const shown = mount(shell(context, lifetime(), me(), document.createElement('main')))
+    context.state.workspace.set('slow')
+    expect(shown.querySelector('.load-line')?.textContent).toBe(
+      strings.firstLoad.usually({ count: USUAL_LOAD_SECONDS }),
+    )
+    expect(textOf(shown)).toContain(strings.checking.channels)
+    context.state.workspace.set('long')
+    const line = shown.querySelector('.load-line') as HTMLElement
+    expect(line.textContent).toContain(strings.firstLoad.tooLong)
+    expect(textOf(shown)).not.toContain(strings.checking.channels)
+    expect(textOf(shown)).not.toContain(strings.noChannelRooms)
+    getByRole(line, 'button', { name: strings.tryAgain }).click()
+    expect(called('startAgain')).toHaveLength(1)
+    context.state.workspaceRefusal.set('Not allowed.')
+    context.state.workspace.set('failed')
+    expect(shown.querySelector('.load-line')?.textContent).toContain('Not allowed.')
+    expect(shown.querySelectorAll('.load-line')).toHaveLength(1)
+    expect(textOf(shown)).not.toContain(strings.noChannelRooms)
+    context.state.workspace.set('loaded')
+    expect(shown.querySelector('.load-line')).toBeNull()
+  })
+
   it('shows the header, the user menu, the list and the page, the list alone on home', () => {
     const { context, called } = testContext()
     context.state.session.set(me())
@@ -56,7 +96,7 @@ describe('shell', () => {
     getByRole(shown, 'button', { name: strings.menu }).click()
     getByRole(shown, 'button', { name: strings.menuSignOut }).click()
     expect(called('signOut')).toHaveLength(1)
-    expect(textOf(shown)).toContain(strings.loading)
+    expect(textOf(shown)).toContain(strings.checking.notes)
   })
 
   it('gives each tab a word under a hidden glyph, and hides the phone’s tab bar in a conversation', () => {

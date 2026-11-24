@@ -12,7 +12,7 @@
   block-size: 100%;
 }
 
-.connection-notice-host {
+.notice-host {
   grid-area: notice;
 }
 

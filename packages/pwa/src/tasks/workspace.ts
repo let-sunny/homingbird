@@ -8,13 +8,13 @@ import { closeSettledDraftNotices } from './notifications.ts'
 
 export const loadWorkspace: Action = T.gen(function* () {
   const { api, state } = yield* T.ask<App>()
+  const listing = ++state.conversationLoads.started
   const [listed, people, ties] = yield* T.all([
     api['conversations.list']({}),
     api['directory.list']({ query: {} }),
     api['contacts.list']({}),
   ])
-  state.conversations.set(listed.conversations)
-  state.conversationsLoaded.set(true)
+  keepNewerConversations(state, listing, listed.conversations)
   state.directory.set(people.entries)
   state.directoryLoaded.set(true)
   state.contacts.set(ties.contacts)
@@ -34,11 +34,25 @@ export const loadAgents: Action = T.gen(function* () {
 })
 
 export const loadConversations: Action = withApp(({ api, state }) =>
-  T.map((listed: { conversations: ReadonlyArray<AsRead.Conversation> }) => {
-    state.conversations.set(listed.conversations)
-    state.conversationsLoaded.set(true)
-  })(api['conversations.list']({})),
+  T.suspend(() => {
+    const listing = ++state.conversationLoads.started
+    return T.map((listed: { conversations: ReadonlyArray<AsRead.Conversation> }) =>
+      keepNewerConversations(state, listing, listed.conversations),
+    )(api['conversations.list']({}))
+  }),
 )
+
+/** An answer that started before the one already shown is older, so it never replaces it: a note that arrived meanwhile stays. */
+const keepNewerConversations = (
+  state: App['state'],
+  listing: number,
+  conversations: ReadonlyArray<AsRead.Conversation>,
+): void => {
+  if (listing < state.conversationLoads.applied) return
+  state.conversationLoads.applied = listing
+  state.conversations.set(conversations)
+  state.conversationsLoaded.set(true)
+}
 
 export const loadPeople: Action = T.gen(function* () {
   const { api, state } = yield* T.ask<App>()

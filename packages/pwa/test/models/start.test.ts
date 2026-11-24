@@ -1,27 +1,63 @@
 import { describe, expect, it } from 'vitest'
-import { startModel } from '../../src/models/start.ts'
+import { USUAL_LOAD_SECONDS } from '../../src/load-timing.ts'
+import { checkingWords, startModel, workspaceLineModel } from '../../src/models/start.ts'
 import { strings } from '../../src/strings.ts'
 
+const start = (value: Parameters<typeof startModel>[0]['start'], retrying = false) =>
+  startModel({ start: value, retrying, brandingName: 'Acme', refusal: 'Not allowed.' })
+
 describe('startModel', () => {
-  it('shows plain loading, then says quietly that it is still trying', () => {
-    expect(startModel('loading', 'Homingbird')).toEqual({ kind: 'loading', text: strings.loading })
-    expect(startModel('slow', 'Homingbird')).toEqual({ kind: 'loading', text: strings.firstLoad.slow })
+  it('shows plain loading, then what is usual, and says it is still trying only while repeating', () => {
+    expect(start('loading')).toEqual({ kind: 'loading', text: strings.loading })
+    expect(start('slow')).toEqual({
+      kind: 'loading',
+      text: strings.firstLoad.usually({ count: USUAL_LOAD_SECONDS }),
+    })
+    expect(start('slow', true)).toEqual({ kind: 'loading', text: strings.firstLoad.retrying })
+    expect(start('loading', true)).toEqual({ kind: 'loading', text: strings.firstLoad.retrying })
   })
 
-  it('offers to try again once it has given up, under the organization’s name', () => {
-    expect(startModel('failed', 'Acme')).toEqual({
-      kind: 'failed',
+  it('offers to try again when it takes too long, once it has given up, and when the server refused', () => {
+    expect(start('long')).toEqual({
+      kind: 'retry',
       title: 'Acme',
-      pip: 'offline',
+      pip: 'connecting',
+      text: strings.firstLoad.tooLong,
+      retry: strings.tryAgain,
+    })
+    expect(start('failed')).toMatchObject({ kind: 'retry', pip: 'offline', text: strings.firstLoad.failed })
+    expect(start('refused')).toMatchObject({ kind: 'retry', text: 'Not allowed.' })
+  })
+})
+
+describe('workspaceLineModel', () => {
+  it('says nothing while loading as usual or once loaded', () => {
+    expect(workspaceLineModel('loading', '')).toBeNull()
+    expect(workspaceLineModel('loaded', '')).toBeNull()
+  })
+
+  it('notes slowness quietly, then offers to try again, and names a refusal as what it was', () => {
+    expect(workspaceLineModel('slow', '')).toEqual({
+      text: strings.firstLoad.usually({ count: USUAL_LOAD_SECONDS }),
+      retry: null,
+    })
+    expect(workspaceLineModel('long', '')).toEqual({
+      text: strings.firstLoad.tooLong,
+      retry: strings.tryAgain,
+    })
+    expect(workspaceLineModel('failed', '')).toEqual({
       text: strings.firstLoad.failed,
       retry: strings.tryAgain,
     })
+    expect(workspaceLineModel('failed', 'No.')).toEqual({ text: 'No.', retry: strings.tryAgain })
   })
+})
 
-  it('says what the server refused with, rather than blaming the connection', () => {
-    expect(startModel('refused', 'Acme', 'Not allowed.')).toMatchObject({
-      kind: 'failed',
-      text: 'Not allowed.',
-    })
+describe('checkingWords', () => {
+  it('checks while the load goes on, and leaves the speaking to the line once it took too long or failed', () => {
+    expect(checkingWords('loading', 'Checking…')).toBe('Checking…')
+    expect(checkingWords('slow', 'Checking…')).toBe('Checking…')
+    expect(checkingWords('long', 'Checking…')).toBeNull()
+    expect(checkingWords('failed', 'Checking…')).toBeNull()
   })
 })
