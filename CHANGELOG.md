@@ -5,6 +5,17 @@ Every release of Homingbird, newest first. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may break interfaces and the
 database schema.
 
+## [0.6.3] - 2026-11-24
+
+### Fixed
+
+- **pwa:** do not report a sent note as failed (#188)
+
+  When you sent a note, approved or discarded a draft, decided on a channel agent's answer, or made another change, and the server accepted it, a failure while the page read the lists again could still show "could not send". A held send or discard then looked as if it never happened, and a card could come back inviting a second send. Now the change counts as done, and only the background reload is quiet; being signed out still ends the session.
+- **pwa:** end sessions fully and refresh previews on reconnect (#190)
+
+  * fix(pwa): end sessions fully and refresh previews on reconnect
+
 ## [0.6.2] - 2026-11-24
 
 ### Fixed
@@ -863,6 +874,7 @@ Since 0.1.0-rc.2:
 - The web client has a guided tour and clearer topics, refusals and dark mode.
 - The Claude Code mod asks for the server address at install, finds Node 22 where version managers put it, and signs in from its pane.
 
+[0.6.3]: https://github.com/let-sunny/homingbird/releases/tag/v0.6.3
 [0.6.2]: https://github.com/let-sunny/homingbird/releases/tag/v0.6.2
 [0.6.1]: https://github.com/let-sunny/homingbird/releases/tag/v0.6.1
 [0.6.0]: https://github.com/let-sunny/homingbird/releases/tag/v0.6.0
