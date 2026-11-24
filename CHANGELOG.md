@@ -17,10 +17,10 @@ database schema.
 
 - **pwa:** load each activity list once (#191)
 
-  * fix(pwa): load each activity list once
+  Reviews, suggestions, flocks and the notes waiting for your reply are each asked for once, however many places show them. An answer that comes late no longer brings back a review you already decided, a request that never answers is ended after half a minute, and a flock opened while you were disconnected shows when the connection is back.
 - **pwa:** keep rooms and people current while they load (#193)
 
-  * refactor(pwa): keep a list that failed told while it is asked again
+  A room you left while the page was loading no longer comes back, and an older list of people never replaces a newer one. After a dropped connection the page reads rooms, people, channels and flocks again, and an error page from a proxy no longer empties your list of rooms. Live notes keep arriving while a list is slow.
 - **pwa:** say a loading problem once on every list (#195)
 
   A list that could not be read now says so once, in its own place, with one Try again, and never as a pop-up. This now holds for the groups (the profile, the groups page, administration) and for the channel list, as it already did for the lists that load with the workspace. When the line above the lists is already speaking, no list repeats it, and its Try again asks for these lists too.
