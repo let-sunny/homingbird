@@ -161,13 +161,13 @@ export const listWait = (wait: ListWait | null, retry: () => void): HTMLElement 
     : empty(wait.text, button(wait.retry, retry))
 }
 
-/** What the person typed and has not saved, by field, so that drawing its part of the page again keeps it. */
+/** What the person typed, chose or unfolded and has not saved, so that drawing its part of the page again keeps it. */
 export type Unsaved = Map<string, string>
 
 export const keepTyped = (
   unsaved: Unsaved,
   key: string,
-  input: HTMLInputElement | HTMLTextAreaElement,
+  input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
   value: string,
 ): void => {
   input.value = unsaved.get(key) ?? value
@@ -175,6 +175,49 @@ export const keepTyped = (
     if (input.value === value) unsaved.delete(key)
     else unsaved.set(key, input.value)
   })
+}
+
+/**
+ * Keeps the choice the person saw, the first one included, when the choices change. Once it is no longer
+ * offered it is forgotten, and nothing is chosen until the person chooses again.
+ */
+export const keepChoice = (unsaved: Unsaved, key: string, select: HTMLSelectElement): void => {
+  const kept = unsaved.get(key)
+  const offered = [...select.options].map((option) => option.value)
+  if (kept === undefined) {
+    if (offered.length > 0) unsaved.set(key, select.value)
+  } else {
+    if (!offered.includes(kept)) {
+      unsaved.set(key, GONE)
+      select.prepend(h('option', { value: GONE, disabled: true }, strings.chooseAgain))
+    }
+    select.value = unsaved.get(key)!
+  }
+  select.addEventListener('input', () => unsaved.set(key, select.value))
+}
+
+/** Whether a kept choice would have to be made again among these. */
+export const isChoiceGone = (unsaved: Unsaved, key: string, offered: ReadonlyArray<string>): boolean => {
+  const kept = unsaved.get(key)
+  return kept !== undefined && !offered.includes(kept)
+}
+
+/** What is chosen, or null, said to the person, when they have to choose again. */
+export const chosenIn = (context: Pick<ViewContext, 'state'>, select: HTMLSelectElement): string | null => {
+  if (select.value !== GONE) return select.value
+  context.state.notice.set({ kind: 'error', text: strings.choiceGone })
+  select.focus()
+  return null
+}
+
+/** Keeps open what the person unfolded. */
+export const keepOpen = (unsaved: Unsaved, key: string, details: HTMLDetailsElement): HTMLDetailsElement => {
+  details.open = unsaved.has(key)
+  details.addEventListener('toggle', () => {
+    if (details.open) unsaved.set(key, 'open')
+    else unsaved.delete(key)
+  })
+  return details
 }
 
 /** The field was saved as it was then; what the person typed since stays. */
@@ -296,5 +339,8 @@ export const dialogActions = (label: string, kind: 'primary' | 'danger'): HTMLEl
     h('button', { type: 'button', ...closesDialog }, strings.cancel),
     h('button', { type: 'submit', class: kind }, label),
   )
+
+/** The choice of a person who has to choose again, which no list of choices offers. */
+const GONE = '?gone'
 
 const EMPTY_PIP_SCALE = 3

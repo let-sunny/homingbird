@@ -10,7 +10,7 @@ import { dialogHost } from '../../src/views/dialog.ts'
 import { hold, testApp } from '../support/app.ts'
 import { testContext } from '../support/context.ts'
 import { mount, settle, usingFakeDom } from '../support/dom.ts'
-import { CY, channel, conversation, serverInfo } from '../support/fixtures.ts'
+import { CY, channel, conversation, everything, serverInfo } from '../support/fixtures.ts'
 import { setLoad, setWorkspace } from '../support/resource-load.ts'
 
 usingFakeDom()
@@ -93,6 +93,20 @@ describe('channelsView', () => {
     expect(called('loadChannelPage')[0]!.args).toEqual(['', context.state.channelPage.get()])
     listed(context.state, page([channel('billing'), channel('ops', { joined: true })]))
     expect(getByRole(shown, 'link', { name: '#ops' })).toBeTruthy()
+  })
+
+  it('keeps an open menu open when the list is loaded again with the same channels', () => {
+    const { context } = testContext()
+    const shown = mount(channelsView(context, lifetime()))
+    listed(context.state, page([channel('billing'), channel('deploys')]))
+    const more = getByRole(shown, 'button', { name: strings.channelMore({ channel: '#deploys' }) })
+    const menu = shown.querySelector<HTMLElement>(`#${more.getAttribute('popovertarget')}`)!
+    menu.showPopover()
+    listed(context.state, page([channel('billing'), channel('deploys')]))
+    expect(menu.isConnected).toBe(true)
+    expect(menu.matches(':popover-open')).toBe(true)
+    listed(context.state, page([channel('billing'), channel('deploys', { joined: true })]))
+    expect(menu.isConnected).toBe(false)
   })
 
   it('newest wins while channels change: one page is read again, several are updated in place, and a search is never undone', async () => {
@@ -231,6 +245,31 @@ describe('channelView', () => {
     const list = channelsView(context, lifetime())
     listed(context.state, page([billing]))
     expect(list.querySelector('[data-slug="billing"] .answering-agent-note')?.textContent).toBe(note)
+  })
+
+  it('keeps a question, and an instruction for the agent, being typed while the channel changes', () => {
+    const { context, called } = testContext()
+    context.state.channels.set([channel('billing')])
+    const shown = channelView(context, lifetime(), 'billing')
+    fire.type(getByRole(shown, 'textbox', { name: strings.askChannelPlaceholder }), 'When?')
+    shown.querySelector<HTMLDetailsElement>('details.ask-agent')!.open = true
+    fire.type(getByRole(shown, 'textbox', { name: strings.agentInstructionLabel }), 'Be brief')
+    context.state.channels.set([channel('billing', { memberCount: 9 })])
+    expect(
+      (getByRole(shown, 'textbox', { name: strings.agentInstructionLabel }) as HTMLInputElement).value,
+    ).toBe('Be brief')
+    fire.submit(shown.querySelector('form.ask-channel')!)
+    expect(called('askChannel')[0]!.args).toEqual(['billing', 'When?'])
+  })
+
+  it('offers the person’s agent once the server says it takes requests', () => {
+    const { context } = testContext()
+    context.state.serverInfo.set(serverInfo())
+    context.state.channels.set([channel('billing')])
+    const shown = channelView(context, lifetime(), 'billing')
+    expect(shown.querySelector<HTMLElement>('details.ask-agent')!.hidden).toBe(true)
+    context.state.serverInfo.set(everything())
+    expect(shown.querySelector<HTMLElement>('details.ask-agent')!.hidden).toBe(false)
   })
 
   it('opens the room of a channel the person is in, and only names a private one they are not in', async () => {

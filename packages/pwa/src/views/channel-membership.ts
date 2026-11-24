@@ -5,12 +5,13 @@ import {
   type ReadableSignal,
   h,
   onAnyChange,
-  region,
   replaceChildren,
   signal,
+  slice,
 } from '@homingbird/ui'
 import { isPrivate } from '../channels.ts'
 import { featureOn } from '../features.ts'
+import { groupById } from '../groups.ts'
 import {
   type AnsweringModel,
   type Choice,
@@ -27,15 +28,19 @@ import {
 import { hrefFor } from '../routes.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
+import { type Block, blocks } from './blocks.ts'
 import { agentButtons } from './channel-agent.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, opensDialog } from './dialog.ts'
 import { hinted } from './hint.ts'
 import {
+  type Unsaved,
   button,
+  chosenIn,
   copyWithNotice,
   dialogActions,
   disabledWithReason,
+  keepChoice,
   loading,
   privateMarkOf,
   youMark,
@@ -204,22 +209,21 @@ const membersPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Chan
       for (const memberId of chosen) actions.setChannelMember(channel.slug, memberId, true, changes)
     },
     back: () => back(),
+    unsaved: new Map<string, string>(),
     addTeam: (groupId: GroupId) => actions.addTeam(channel.slug, groupId, changes),
-    setManagers: (groupId: GroupId, memberIds: ReadonlyArray<MemberId>) =>
-      actions.setGroupMembers(groupId, memberIds, changes),
+    changeManagers: (groupId: GroupId, change: (now: ReadonlyArray<MemberId>) => ReadonlyArray<MemberId>) => {
+      const group = groupById(state.groups.get(), groupId)
+      if (group !== null) actions.setGroupMembers(groupId, change(group.memberIds), changes)
+    },
     setMember: (memberId: MemberId, isMember: boolean) =>
       actions.setChannelMember(channel.slug, memberId, isMember, changes),
   }
   const shown = model()
+  const now = slice([listed, state.members, state.directory, state.groups], model)
   const body = [
     shown.managedByAdmin !== null && h('p', { class: 'hint' }, shown.managedByAdmin),
-    region(
-      life,
-      [listed, state.members, state.directory, state.groups],
-      (drawing) => renderMembers(model(), context, channel, panel, drawing),
-      {
-        class: 'members-host',
-      },
+    blocks(life, h('div', { class: 'members-host' }), now, () =>
+      memberBlocks(model(), context, channel, panel),
     ),
   ]
   const back = (): void => replaceChildren(host, ...body)
@@ -231,8 +235,14 @@ interface Panel {
   readonly confirm: (content: HTMLElement) => void
   /** Shows the members again after a confirmation that keeps the panel open. */
   readonly back: () => void
+  /** What is chosen and not yet added, so that it survives a redraw. */
+  readonly unsaved: Unsaved
   readonly addTeam: (groupId: GroupId) => void
-  readonly setManagers: (groupId: GroupId, memberIds: ReadonlyArray<MemberId>) => void
+  /** Changes the managers there are when it is called, which may not be those shown when it was offered. */
+  readonly changeManagers: (
+    groupId: GroupId,
+    change: (now: ReadonlyArray<MemberId>) => ReadonlyArray<MemberId>,
+  ) => void
   readonly setMember: (memberId: MemberId, isMember: boolean) => void
   /** The people picker for adding members, made once so what is typed in it survives a redraw. */
   readonly picker: HTMLElement
@@ -240,41 +250,71 @@ interface Panel {
   readonly addChosen: () => void
 }
 
-const renderMembers = (
+const memberBlocks = (
   model: MembersPanelModel,
   context: ViewContext,
   channel: AsRead.Channel,
   panel: Panel,
-  drawing: Lifetime,
-): Child => {
+): ReadonlyArray<Block | null> => {
+  const { managedBy, addManager, addTeam, addMember, rows, visibility } = model
+  const block = (key: string, from: unknown, draw: (drawing: Lifetime) => HTMLElement): Block => ({
+    key,
+    from,
+    draw,
+  })
   const managing =
-    model.managedBy !== null &&
-    hinted(
-      context,
-      'channelManagers',
-      strings.hints.channelManagers,
-      h('p', { class: 'managed-by' }, model.managedBy.text),
-    )
-  if (model.rows === null) return [managing, loading()]
-  const addManager = model.addManager
+    managedBy === null
+      ? null
+      : block('managed-by', managedBy, () =>
+          h(
+            'div',
+            { class: 'managed-by-host' },
+            ...hinted(
+              context,
+              'channelManagers',
+              strings.hints.channelManagers,
+              h('p', { class: 'managed-by' }, managedBy.text),
+            ),
+          ),
+        )
+  if (rows === null) return [managing, block('loading', null, loading)]
   return [
     managing,
-    addManager !== null &&
-      choiceForm('add-manager', addManager, (memberId) =>
-        panel.setManagers(addManager.groupId, [...addManager.memberIds, memberId]),
+    addManager &&
+      block('add-manager', [addManager.groupId, addManager.label, addManager.choices], () =>
+        choiceForm(context, 'add-manager', addManager, panel.unsaved, (memberId) =>
+          panel.changeManagers(addManager.groupId, (now) => [...now, memberId]),
+        ),
       ),
-    model.addTeam !== null &&
-      choiceForm('add-team', model.addTeam, (groupId) => panel.addTeam(groupId), model.addTeam.hint),
-    h(
-      'ul',
-      { class: 'channel-members' },
-      model.rows.map((row) =>
-        row.kind === 'own' ? ownRow(row, context, channel, panel) : memberRow(row, panel),
+    addTeam &&
+      block('add-team', addTeam, () =>
+        choiceForm(
+          context,
+          'add-team',
+          addTeam,
+          panel.unsaved,
+          (groupId) => panel.addTeam(groupId),
+          addTeam.hint,
+        ),
+      ),
+    block('rows', rows, () =>
+      h(
+        'ul',
+        { class: 'channel-members' },
+        rows.map((row) =>
+          row.kind === 'own' ? ownRow(row, context, channel, panel) : memberRow(row, panel),
+        ),
       ),
     ),
-    model.addMember?.kind === 'nobody' && h('p', { class: 'hint' }, model.addMember.text),
-    model.addMember?.kind === 'choose' && addMemberForm(panel, drawing),
-    model.visibility !== null && h('p', { class: 'visibility' }, model.visibility),
+    addMember?.kind === 'nobody'
+      ? block('nobody', addMember.text, () => h('p', { class: 'hint' }, addMember.text))
+      : null,
+    addMember?.kind === 'choose'
+      ? block('add-member', null, (drawing) => addMemberForm(panel, drawing))
+      : null,
+    visibility === null
+      ? null
+      : block('visibility', visibility, () => h('p', { class: 'visibility' }, visibility)),
   ]
 }
 
@@ -343,7 +383,7 @@ const unmanageButton = (row: MemberRow, panel: Panel): Child => {
         panel.confirm(
           confirmation('unmanage-confirmation', unmanage.confirm, () => {
             panel.back()
-            panel.setManagers(unmanage.groupId, unmanage.memberIds)
+            panel.changeManagers(unmanage.groupId, (now) => now.filter((one) => one !== row.memberId))
           }),
         ),
       { class: 'unmanage' },
@@ -369,8 +409,10 @@ const confirmation = (className: string, words: Confirmation, confirm: () => voi
   )
 
 const choiceForm = <A extends string>(
+  context: ViewContext,
   className: string,
   offer: Choice<A>,
+  unsaved: Unsaved,
   choose: (value: A) => void,
   hint: string | null = null,
 ): HTMLElement => {
@@ -379,6 +421,7 @@ const choiceForm = <A extends string>(
     { name: 'choice', 'aria-label': offer.label },
     offer.choices.map((one) => h('option', { value: one.value }, one.label)),
   )
+  keepChoice(unsaved, className, choice)
   return h(
     'form',
     {
@@ -386,7 +429,8 @@ const choiceForm = <A extends string>(
       on: {
         submit: (event) => {
           event.preventDefault()
-          choose(choice.value as A)
+          const chosen = chosenIn(context, choice)
+          if (chosen !== null) choose(chosen as A)
         },
       },
     },

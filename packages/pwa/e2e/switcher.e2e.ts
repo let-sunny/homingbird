@@ -120,6 +120,7 @@ const scenario = async (): Promise<void> => {
       (id: string) => (globalThis as any).location.hash.startsWith(`#/c/${id}`),
       group.id,
     )
+    await page.waitForSelector('.thread:has-text("Who owns the quarterly report?")')
 
     // -- Shortcuts stay out of the composer; Escape still closes --------------------------------------
     const composer = page.locator('.composer textarea')

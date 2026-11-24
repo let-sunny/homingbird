@@ -1,5 +1,14 @@
 import type { AsRead, CredentialId, DebateExportFormat } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, lifetime, linkedText, region, signal } from '@homingbird/ui'
+import {
+  type Child,
+  type Lifetime,
+  type ReadableSignal,
+  h,
+  linkedText,
+  region,
+  signal,
+  slice,
+} from '@homingbird/ui'
 import { featureOn } from '../features.ts'
 import type { QuotedTurn } from '../models/debate-credit.ts'
 import {
@@ -13,6 +22,7 @@ import { roomKindOf, schedulingRoomModel } from '../models/scheduling-room.ts'
 import { type DebateTab, hrefFor } from '../routes.ts'
 import { locale, strings } from '../strings.ts'
 import { authorButton } from './author-details.ts'
+import { type Block, blocks } from './blocks.ts'
 import type { ViewContext } from './context.ts'
 import {
   citedText,
@@ -26,7 +36,20 @@ import { limitFields, limitsTypedIn } from './debates.ts'
 import { hinted } from './hint.ts'
 import { citedBody } from './note-body.ts'
 import { participantsCount, participantsList } from './participants.ts'
-import { emptyWithPip, field, loading, page, privateMarkOf, timeLabel } from './parts.ts'
+import {
+  type Unsaved,
+  chosenIn,
+  emptyWithPip,
+  field,
+  forgetTyped,
+  keepChoice,
+  keepOpen,
+  keepTyped,
+  loading,
+  page,
+  privateMarkOf,
+  timeLabel,
+} from './parts.ts'
 import { profileName } from './profile-card.ts'
 import { schedulingAgentCard } from './scheduling-agent.ts'
 import { schedulingAttendanceCard } from './scheduling-attendance.ts'
@@ -37,7 +60,8 @@ import { schedulingSlotsCard } from './scheduling-slots.ts'
 /**
  * One flock, one short tab at a time, each its own address: the result the agents settled, how they
  * voted, what each contributed, and the turns as they come. Changing tabs keeps the flock drawn while it is
- * read again. An address naming a turn brings that turn into view once the flock is drawn.
+ * read again, and drawing it again keeps what the person typed, chose or unfolded. An address naming a turn
+ * brings that turn into view once the flock is drawn.
  */
 export const debateView = (
   context: ViewContext,
@@ -51,17 +75,44 @@ export const debateView = (
   const held = state.shownDebate.get()
   if (held === null || held === 'missing' || held.id !== id) state.shownDebate.set(null)
   actions.loadDebate(id)
-  const drawn = lifetime()
-  life.add(drawn.end)
   let focusPending = true
   const pickedHours = signal<ReadonlySet<number> | null>(null)
+  const showsAllHours = signal(false)
+  if (state.debateUnsaved.get().id !== id) state.debateUnsaved.set({ id, typed: new Map() })
+  const unsaved: Unsaved = state.debateUnsaved.get().typed
+  const roomNow = (): DebateRoomModel =>
+    debateRoomModel({
+      debate: state.shownDebate.get(),
+      tab,
+      turn,
+      viewerId: me.member.id,
+      members: state.members.get(),
+      agents: state.agentCredentials.get(),
+      channels: state.channels.get(),
+      directory: state.directory.get(),
+      serverInfo: state.serverInfo.get(),
+      now: context.clock.now(),
+    })
+  const sources = [
+    state.shownDebate,
+    state.members,
+    state.agentCredentials,
+    state.channels,
+    state.serverInfo,
+    state.directory,
+  ]
+  const room = slice(sources, roomNow)
+  const frame = slice(sources, () =>
+    isScheduling(state.shownDebate.get())
+      ? { kind: 'scheduling', sources: sources.map((source) => source.get()), now: context.clock.now() }
+      : frameOf(room.get()),
+  )
   return region(
     life,
-    [state.shownDebate, state.members, state.agentCredentials, state.serverInfo, state.directory],
-    () => {
-      drawn.end()
+    [frame],
+    (drawn) => {
       const current = state.shownDebate.get()
-      if (current !== null && current !== 'missing' && roomKindOf(current) !== 'debate') {
+      if (isScheduling(current)) {
         const enabled = featureOn('schedulingRooms', state.serverInfo.get())
         const room = schedulingRoomModel({
           debate: current,
@@ -76,8 +127,12 @@ export const debateView = (
           room,
           room.kind === 'room'
             ? [
-                schedulingAgentCard(context, { ...person, agents }),
-                schedulingSlotsCard(context, drawn, { ...person, picked: pickedHours }),
+                schedulingAgentCard(context, { ...person, agents, unsaved }),
+                schedulingSlotsCard(context, drawn, {
+                  ...person,
+                  picked: pickedHours,
+                  showsAll: showsAllHours,
+                }),
                 schedulingAttendanceCard(context, {
                   ...person,
                   directory: state.directory.get(),
@@ -88,19 +143,8 @@ export const debateView = (
             : [],
         )
       }
-      const model = debateRoomModel({
-        debate: state.shownDebate.get(),
-        tab,
-        turn,
-        viewerId: me.member.id,
-        members: state.members.get(),
-        agents: state.agentCredentials.get(),
-        channels: state.channels.get(),
-        directory: state.directory.get(),
-        serverInfo: state.serverInfo.get(),
-        now: context.clock.now(),
-      })
-      const view = renderDebateRoom(model, context, drawn)
+      const model = room.get()
+      const view = renderDebateRoom(model, context, drawn, room, unsaved)
       if (model.kind === 'room' && model.focusTurn !== null && focusPending) {
         focusPending = false
         const cited = `.debate-turn[data-position="${model.focusTurn}"]`
@@ -121,7 +165,20 @@ export const debateView = (
   )
 }
 
-const renderDebateRoom = (model: DebateRoomModel, context: ViewContext, drawn: Lifetime): HTMLElement => {
+const isScheduling = (shown: AsRead.Debate | 'missing' | null): shown is AsRead.Debate =>
+  shown !== null && shown !== 'missing' && roomKindOf(shown) !== 'debate'
+
+/** What the page stands on: while it stays the same, only the blocks inside it are drawn again. */
+const frameOf = (model: DebateRoomModel) =>
+  model.kind === 'room' ? { question: model.question, tabs: model.tabs, shown: model.shown } : model
+
+const renderDebateRoom = (
+  model: DebateRoomModel,
+  context: ViewContext,
+  drawn: Lifetime,
+  room: ReadableSignal<DebateRoomModel>,
+  unsaved: Unsaved,
+): HTMLElement => {
   if (model.kind === 'loading') return loading()
   if (model.kind === 'missing')
     return emptyWithPip(
@@ -129,8 +186,31 @@ const renderDebateRoom = (model: DebateRoomModel, context: ViewContext, drawn: L
       model.text,
       h('a', { class: 'button', href: hrefFor({ name: 'debates' }) }, strings.debates.allRooms),
     )
+  const within = (list: (now: Room) => ReadonlyArray<Block | null>) => () => {
+    const now = room.get()
+    return now.kind === 'room' ? list(now) : []
+  }
   return page(
     model.question,
+    blocks(drawn, h('div', { class: 'debate-head' }), room, within(headBlocks)),
+    ...tabsWithHints(model, context),
+    blocks(
+      drawn,
+      h('div', { class: `debate-tab is-${model.shown}` }),
+      room,
+      within((now) => tabBlocks({ ...now, shown: model.shown }, context, room, unsaved)),
+    ),
+  )
+}
+
+const block = (key: string, from: unknown, draw: (drawing: Lifetime) => HTMLElement): Block => ({
+  key,
+  from,
+  draw,
+})
+
+const headBlocks = (model: Room): ReadonlyArray<Block | null> => [
+  block('meta', [model.stage, model.stageText, model.isPrivate, model.closesAt, model.people], () =>
     h(
       'p',
       { class: `debate-meta is-${model.stage}` },
@@ -140,99 +220,136 @@ const renderDebateRoom = (model: DebateRoomModel, context: ViewContext, drawn: L
       model.closesAt !== null && h('span', {}, model.closesAt),
       model.people.people.length > 0 && participantsCount(model.people),
     ),
-    participantsList(model.people),
-    ...tabsWithHints(model, context),
-    h('div', { class: `debate-tab is-${model.shown}` }, ...tabContent(model, context, drawn)),
-  )
-}
+  ),
+  block('people', model.people, () => participantsList(model.people)),
+]
 
-const tabContent = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyArray<Child> => {
+const tabBlocks = (
+  model: Room,
+  context: ViewContext,
+  room: ReadableSignal<DebateRoomModel>,
+  unsaved: Unsaved,
+): ReadonlyArray<Block | null> => {
   switch (model.shown) {
     case 'result':
-      return resultTab(model, context, drawn)
+      return resultBlocks(model, context, unsaved)
     case 'votes':
-      return votesTab(model)
+      return [block('votes', model.votes, () => votesTab(model))]
     case 'credit':
-      return creditTab(model)
+      return [block('credit', model.credit, () => creditTab(model))]
     case 'turns':
-      return turnsTab(model, context, drawn)
+      return turnsBlocks(model, context, room, unsaved)
   }
 }
 
-const resultTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyArray<Child> => [
-  model.ended !== null && section(strings.debates.resultTitle, 'debate-result', h('p', {}, model.ended)),
-  model.agreedEarly !== null && h('p', { class: 'debate-agreed-early' }, model.agreedEarly),
-  model.result !== null && resultSection(model.result),
-  model.moved.length > 0 &&
-    section(
-      strings.debates.movedTitle,
-      'debate-moved',
-      h(
-        'ul',
-        { class: 'debate-moves' },
-        model.moved.map((move) =>
-          h('li', { data: { member: move.memberId } }, h('p', {}, citedText(move.text)), movedBetween(move)),
-        ),
-      ),
-    ),
-  model.closed !== null && h('p', { class: 'hint debate-closed-hint' }, strings.debates.closedHint),
-  model.closed?.answeredBy != null && h('p', { class: 'hint debate-answered-by' }, model.closed.answeredBy),
-  model.closed?.mayPost === true &&
-    section(strings.debates.sendTitle, 'debate-send', postForm(context, model.debate, model.closed)),
-  model.closed !== null &&
-    section(
-      strings.debates.exportTitle,
-      'debate-export',
-      h(
-        'div',
-        { class: 'debate-exports' },
-        exportButton(context, model.debate, 'markdown', strings.debates.exportMarkdown),
-        exportButton(context, model.debate, 'json', strings.debates.exportJson),
-        h('small', {}, strings.debates.exportAudited),
-      ),
-    ),
-  model.drafts !== null &&
-    section(
-      strings.debates.draftsTitle,
-      'debate-drafts',
-      h(
-        'ol',
-        { class: 'debate-draft-list' },
-        model.drafts.map((draft) =>
+const resultBlocks = (
+  { debate, ended, agreedEarly, result, moved, closed, drafts }: Room,
+  context: ViewContext,
+  unsaved: Unsaved,
+): ReadonlyArray<Block | null> => [
+  ended === null
+    ? null
+    : block('ended', ended, () => section(strings.debates.resultTitle, 'debate-result', h('p', {}, ended))),
+  agreedEarlyBlock(agreedEarly),
+  result === null ? null : block('result', result, () => resultSection(result)),
+  moved.length === 0
+    ? null
+    : block('moved', moved, () =>
+        section(
+          strings.debates.movedTitle,
+          'debate-moved',
           h(
-            'li',
-            { class: `debate-draft ${draft.chosen ? 'is-chosen' : ''}`, data: { member: draft.memberId } },
-            h(
-              'details',
-              {},
+            'ul',
+            { class: 'debate-moves' },
+            moved.map((move) =>
               h(
-                'summary',
-                { class: 'debate-draft-head' },
-                h('strong', {}, draft.title),
-                draft.votes !== null && h('span', { class: 'debate-draft-votes' }, draft.votes),
-                draft.chosen && h('span', { class: 'debate-draft-chosen' }, strings.debates.chosen),
-                timeLabel(draft.time),
+                'li',
+                { data: { member: move.memberId } },
+                h('p', {}, citedText(move.text)),
+                movedBetween(move),
               ),
-              h('div', { class: 'debate-draft-author' }, authorButton(context, drawn, draft.details)),
-              draft.chosen && h('p', { class: 'hint' }, strings.debates.chosenHint),
-              ...renderResultBody(draft.body, { contributions: true }),
             ),
           ),
         ),
       ),
-    ),
+  closed === null
+    ? null
+    : block('closed', null, () => h('p', { class: 'hint debate-closed-hint' }, strings.debates.closedHint)),
+  closed?.answeredBy == null
+    ? null
+    : block('answered-by', closed.answeredBy, () =>
+        h('p', { class: 'hint debate-answered-by' }, closed.answeredBy),
+      ),
+  closed?.mayPost === true
+    ? block('post', [debate.id, closed.channels, closed.people], () =>
+        section(strings.debates.sendTitle, 'debate-send', postForm(context, debate, closed, unsaved)),
+      )
+    : null,
+  closed === null
+    ? null
+    : block('export', debate.id, () =>
+        section(
+          strings.debates.exportTitle,
+          'debate-export',
+          h(
+            'div',
+            { class: 'debate-exports' },
+            exportButton(context, debate, 'markdown', strings.debates.exportMarkdown),
+            exportButton(context, debate, 'json', strings.debates.exportJson),
+            h('small', {}, strings.debates.exportAudited),
+          ),
+        ),
+      ),
+  drafts === null ? null : block('drafts', drafts, (drawing) => draftsSection(drafts, context, drawing)),
 ]
 
-const votesTab = ({ votes }: Room): ReadonlyArray<Child> => [
+const agreedEarlyBlock = (text: string | null): Block | null =>
+  text === null ? null : block('agreed-early', text, () => h('p', { class: 'debate-agreed-early' }, text))
+
+const draftsSection = (
+  drafts: NonNullable<Room['drafts']>,
+  context: ViewContext,
+  drawn: Lifetime,
+): HTMLElement =>
+  section(
+    strings.debates.draftsTitle,
+    'debate-drafts',
+    h(
+      'ol',
+      { class: 'debate-draft-list' },
+      drafts.map((draft) =>
+        h(
+          'li',
+          { class: `debate-draft ${draft.chosen ? 'is-chosen' : ''}`, data: { member: draft.memberId } },
+          h(
+            'details',
+            {},
+            h(
+              'summary',
+              { class: 'debate-draft-head' },
+              h('strong', {}, draft.title),
+              draft.votes !== null && h('span', { class: 'debate-draft-votes' }, draft.votes),
+              draft.chosen && h('span', { class: 'debate-draft-chosen' }, strings.debates.chosen),
+              timeLabel(draft.time),
+            ),
+            h('div', { class: 'debate-draft-author' }, authorButton(context, drawn, draft.details)),
+            draft.chosen && h('p', { class: 'hint' }, strings.debates.chosenHint),
+            ...renderResultBody(draft.body, { contributions: true }),
+          ),
+        ),
+      ),
+    ),
+  )
+
+const votesTab = ({ votes }: Room): HTMLElement =>
   section(
     strings.debates.voteRecordTitle,
     'debate-votes',
     votes.voting !== null && h('p', { class: 'debate-voting' }, votes.voting),
     votes.record !== null && renderVoteRecord(votes.record),
-  ),
-]
+  )
 
-const creditTab = ({ credit }: Room): ReadonlyArray<Child> => [
+const creditTab = ({ credit }: Room): HTMLElement =>
   section(
     strings.debates.contributions,
     'debate-credit-list',
@@ -274,8 +391,7 @@ const creditTab = ({ credit }: Room): ReadonlyArray<Child> => [
         ),
       ),
     ),
-  ),
-]
+  )
 
 /** The start of the turn an agent moved from and of the turn it moved in. */
 const movedBetween = (move: { readonly from: QuotedTurn; readonly to: QuotedTurn }): HTMLElement =>
@@ -289,65 +405,112 @@ const movedBetween = (move: { readonly from: QuotedTurn; readonly to: QuotedTurn
  * Opting in first when the person may, then who is in the room and whose turn it is, then the turns; the
  * room's rules and the person's note for their agent come last, folded away.
  */
-const turnsTab = (model: Room, context: ViewContext, drawn: Lifetime): ReadonlyArray<Child> => [
-  model.optIn !== null && optInSection(context, model.debate, model.optIn),
-  section(
-    strings.debates.participantsTitle,
-    'debate-participants',
-    model.waitingFor !== null && h('p', { class: 'debate-waiting-for' }, model.waitingFor),
-    model.agreedEarly !== null && h('p', { class: 'debate-agreed-early' }, model.agreedEarly),
-    model.participants.length === 0
-      ? h('p', {}, strings.debates.noParticipants)
-      : h(
-          'ul',
-          {},
-          model.participants.map((participant) =>
-            h(
-              'li',
-              { data: { member: participant.memberId } },
-              h('span', {}, profileName(participant.memberId, participant.name)),
-              participant.turnsLeft !== null && h('small', {}, participant.turnsLeft),
-              participant.droppedOut !== null &&
-                h('small', { class: 'debate-dropped-out' }, participant.droppedOut),
-              participant.ready !== null && h('small', { class: 'debate-ready' }, participant.ready),
-            ),
-          ),
+const turnsBlocks = (
+  model: Room,
+  context: ViewContext,
+  room: ReadableSignal<DebateRoomModel>,
+  unsaved: Unsaved,
+): ReadonlyArray<Block | null> => {
+  const { optIn, waitingFor, agreedEarly, participants } = model
+  return [
+    optIn === null
+      ? null
+      : block('opt-in', [model.debate.id, { ...optIn, notAwake: null }], (drawing) =>
+          optInSection(context, drawing, model.debate, optIn, room, unsaved),
         ),
-  ),
-  section(
-    strings.debates.turnsTitle,
-    'debate-turns',
-    ...(model.turns.kind === 'none'
-      ? [h('p', {}, model.turns.text)]
-      : [
-          h(
-            'p',
-            { class: 'debate-turn-times' },
-            h('span', { class: 'debate-turns-taken' }, model.turns.taken),
-            h('span', {}, model.turns.timing),
-          ),
-          h(
-            'ol',
-            { class: 'debate-turn-list', 'aria-live': 'polite' },
-            model.turns.groups.map((group) => turnGroup(group, context, drawn)),
-          ),
-        ]),
-  ),
-  h(
-    'details',
-    { class: 'debate-settings' },
-    h('summary', {}, strings.debates.settingsTitle),
-    model.brief !== null && briefSection(context, model.debate, model.brief),
-    h(
-      'div',
-      { class: 'debate-rules' },
-      model.readyHint !== null && h('p', { class: 'debate-ready-hint' }, model.readyHint),
-      h('p', { class: 'debate-limits-summary' }, model.limits),
-      h('p', { class: 'debate-grace-summary' }, model.grace),
-      model.mayChangeLimits && limitsForm(context, model.debate),
-      model.limitsFixed && h('p', { class: 'debate-limits-fixed' }, strings.debates.limitsFixed),
+    block('participants', [waitingFor, agreedEarly, participants], () =>
+      section(
+        strings.debates.participantsTitle,
+        'debate-participants',
+        waitingFor !== null && h('p', { class: 'debate-waiting-for' }, waitingFor),
+        agreedEarly !== null && h('p', { class: 'debate-agreed-early' }, agreedEarly),
+        participants.length === 0
+          ? h('p', {}, strings.debates.noParticipants)
+          : h(
+              'ul',
+              {},
+              participants.map((participant) =>
+                h(
+                  'li',
+                  { data: { member: participant.memberId } },
+                  h('span', {}, profileName(participant.memberId, participant.name)),
+                  participant.turnsLeft !== null && h('small', {}, participant.turnsLeft),
+                  participant.droppedOut !== null &&
+                    h('small', { class: 'debate-dropped-out' }, participant.droppedOut),
+                  participant.ready !== null && h('small', { class: 'debate-ready' }, participant.ready),
+                ),
+              ),
+            ),
+      ),
     ),
+    block('turns', model.turns, (drawn) =>
+      section(
+        strings.debates.turnsTitle,
+        'debate-turns',
+        ...(model.turns.kind === 'none'
+          ? [h('p', {}, model.turns.text)]
+          : [
+              h(
+                'p',
+                { class: 'debate-turn-times' },
+                h('span', { class: 'debate-turns-taken' }, model.turns.taken),
+                h('span', {}, model.turns.timing),
+              ),
+              h(
+                'ol',
+                { class: 'debate-turn-list', 'aria-live': 'polite' },
+                model.turns.groups.map((group) => turnGroup(group, context, drawn)),
+              ),
+            ]),
+      ),
+    ),
+    block('settings', null, (drawing) =>
+      keepOpen(
+        unsaved,
+        'settings',
+        blocks(drawing, h('details', { class: 'debate-settings' }), room, () => {
+          const now = room.get()
+          return now.kind === 'room' ? settingsBlocks(now, context, room, unsaved) : []
+        }),
+      ),
+    ),
+  ]
+}
+
+const settingsBlocks = (
+  { debate, brief }: Room,
+  context: ViewContext,
+  room: ReadableSignal<DebateRoomModel>,
+  unsaved: Unsaved,
+): ReadonlyArray<Block | null> => [
+  block('title', null, () => h('summary', {}, strings.debates.settingsTitle)),
+  brief === null
+    ? null
+    : block('brief', [debate.id, brief], () => briefSection(context, debate, brief, unsaved)),
+  block('rules', null, (drawing) =>
+    blocks(drawing, h('div', { class: 'debate-rules' }), room, () => {
+      const now = room.get()
+      return now.kind === 'room' ? ruleBlocks(now, context, unsaved) : []
+    }),
   ),
+]
+
+const ruleBlocks = (
+  { debate, readyHint, limits, grace, mayChangeLimits, limitsFixed }: Room,
+  context: ViewContext,
+  unsaved: Unsaved,
+): ReadonlyArray<Block | null> => [
+  readyHint === null
+    ? null
+    : block('ready', readyHint, () => h('p', { class: 'debate-ready-hint' }, readyHint)),
+  block('limits', limits, () => h('p', { class: 'debate-limits-summary' }, limits)),
+  block('grace', grace, () => h('p', { class: 'debate-grace-summary' }, grace)),
+  mayChangeLimits
+    ? block('change-limits', [debate.id, debate.limits], () => limitsForm(context, debate, unsaved))
+    : null,
+  limitsFixed
+    ? block('fixed', null, () => h('p', { class: 'debate-limits-fixed' }, strings.debates.limitsFixed))
+    : null,
 ]
 
 const turnGroup = (group: TurnGroup, context: ViewContext, drawn: Lifetime): HTMLElement =>
@@ -402,7 +565,7 @@ const turnItem = (turn: Turn, context: ViewContext, drawn: Lifetime): HTMLElemen
     citedBody(context, turn.body, 'debate-turn-body'),
   )
 
-const limitsForm = (context: ViewContext, debate: AsRead.Debate): HTMLElement => {
+const limitsForm = (context: ViewContext, debate: AsRead.Debate, unsaved: Unsaved): HTMLElement => {
   const form: HTMLFormElement = h(
     'form',
     {
@@ -412,20 +575,34 @@ const limitsForm = (context: ViewContext, debate: AsRead.Debate): HTMLElement =>
           event.preventDefault()
           const typed = limitsTypedIn(form)
           if ('problem' in typed) return context.state.notice.set({ kind: 'error', text: typed.problem })
-          context.actions.changeLimits(debate.id, typed.limits)
+          const saved = controls.map((control) => [control.name, control.value] as const)
+          context.actions.changeLimits(debate.id, typed.limits, {
+            done: () => {
+              for (const [name, value] of saved) forgetTyped(unsaved, `limits ${name}`, value)
+            },
+          })
         },
       },
     },
     limitFields(debate.limits),
     h('button', { type: 'submit' }, strings.debates.saveLimits),
   )
-  return h('details', { class: 'debate-change-limits' }, h('summary', {}, strings.debates.changeLimits), form)
+  const controls = [...form.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select')]
+  for (const control of controls) keepTyped(unsaved, `limits ${control.name}`, control, control.value)
+  return keepOpen(
+    unsaved,
+    'change limits',
+    h('details', { class: 'debate-change-limits' }, h('summary', {}, strings.debates.changeLimits), form),
+  )
 }
 
 const optInSection = (
   context: ViewContext,
+  drawn: Lifetime,
   debate: AsRead.Debate,
   optIn: NonNullable<Room['optIn']>,
+  room: ReadableSignal<DebateRoomModel>,
+  unsaved: Unsaved,
 ): HTMLElement => {
   if (optIn.kind === 'no-agent')
     return section(strings.debates.optInTitle, 'debate-opt-in', h('p', {}, optIn.text))
@@ -434,17 +611,32 @@ const optInSection = (
     { name: 'agent' },
     optIn.agents.map((agent) => h('option', { value: agent.value }, agent.label)),
   )
+  keepChoice(unsaved, 'opt-in agent', choice)
+  const notAwake = slice([room], () => {
+    const now = room.get()
+    return now.kind === 'room' && now.optIn?.kind === 'choose' ? now.optIn.notAwake : null
+  })
   const brief = briefBox(optIn.brief)
+  keepTyped(unsaved, 'opt-in brief', brief, optIn.brief.value)
   return section(
     strings.debates.optInTitle,
     'debate-opt-in',
-    optIn.notAwake !== null && h('p', { class: 'advice debate-not-awake' }, optIn.notAwake),
+    region(
+      drawn,
+      [notAwake],
+      () => notAwake.get() !== null && h('p', { class: 'advice debate-not-awake' }, notAwake.get()),
+      { class: 'debate-head' },
+    ),
     h('p', { class: 'hint' }, strings.debates.optInHint),
-    h(
-      'details',
-      { class: 'debate-opt-in-advice' },
-      h('summary', {}, strings.debates.optInAdviceTitle),
-      h('p', { class: 'hint' }, strings.debates.optInAdvice),
+    keepOpen(
+      unsaved,
+      'opt-in advice',
+      h(
+        'details',
+        { class: 'debate-opt-in-advice' },
+        h('summary', {}, strings.debates.optInAdviceTitle),
+        h('p', { class: 'hint' }, strings.debates.optInAdvice),
+      ),
     ),
     h(
       'form',
@@ -453,9 +645,16 @@ const optInSection = (
         on: {
           submit: (event) => {
             event.preventDefault()
-            const agent = optIn.agents.find((one) => one.value === choice.value)
-            if (agent !== undefined)
-              context.actions.optInAgent(debate.id, agent.value as CredentialId, brief.value)
+            const chosen = chosenIn(context, choice)
+            const agent = optIn.agents.find((one) => one.value === chosen)
+            if (agent === undefined) return
+            const saved = brief.value
+            context.actions.optInAgent(debate.id, agent.value as CredentialId, saved, {
+              done: () => {
+                forgetTyped(unsaved, 'opt-in agent', agent.value)
+                forgetTyped(unsaved, 'opt-in brief', saved)
+              },
+            })
           },
         },
       },
@@ -467,7 +666,12 @@ const optInSection = (
 }
 
 /** The participant's own note on what their agent may use here: a form while turns go on, then text. */
-const briefSection = (context: ViewContext, debate: AsRead.Debate, brief: NonNullable<Room['brief']>) => {
+const briefSection = (
+  context: ViewContext,
+  debate: AsRead.Debate,
+  brief: NonNullable<Room['brief']>,
+  unsaved: Unsaved,
+) => {
   if (brief.kind === 'fixed')
     return section(
       brief.title,
@@ -476,6 +680,7 @@ const briefSection = (context: ViewContext, debate: AsRead.Debate, brief: NonNul
       h('p', { class: 'hint' }, brief.fixed),
     )
   const box = briefBox(brief.field)
+  keepTyped(unsaved, 'brief', box, brief.field.value)
   return section(
     brief.title,
     'debate-brief',
@@ -486,8 +691,12 @@ const briefSection = (context: ViewContext, debate: AsRead.Debate, brief: NonNul
         on: {
           submit: (event) => {
             event.preventDefault()
-            context.actions.setBrief(debate.id, box.value, {
-              done: () => context.state.notice.set({ kind: 'info', text: strings.debates.briefSaved }),
+            const saved = box.value
+            context.actions.setBrief(debate.id, saved, {
+              done: () => {
+                forgetTyped(unsaved, 'brief', saved)
+                context.state.notice.set({ kind: 'info', text: strings.debates.briefSaved })
+              },
             })
           },
         },
@@ -504,16 +713,13 @@ const briefSection = (context: ViewContext, debate: AsRead.Debate, brief: NonNul
   )
 }
 
-const briefBox = (brief: BriefField): HTMLTextAreaElement => {
-  const box = h('textarea', {
+const briefBox = (brief: BriefField): HTMLTextAreaElement =>
+  h('textarea', {
     name: 'brief',
     rows: '4',
     maxlength: String(brief.maxLength),
     placeholder: brief.placeholder,
   })
-  box.value = brief.value
-  return box
-}
 
 const exportButton = (
   context: ViewContext,
@@ -537,6 +743,7 @@ const postForm = (
   context: ViewContext,
   debate: AsRead.Debate,
   closed: NonNullable<Room['closed']>,
+  unsaved: Unsaved,
 ): HTMLElement => {
   const choices = (options: ReadonlyArray<{ readonly value: string; readonly label: string }>) => [
     h('option', { value: '' }, strings.debates.choose),
@@ -544,6 +751,8 @@ const postForm = (
   ]
   const channel = h('select', { name: 'channel' }, choices(closed.channels))
   const person = h('select', { name: 'person' }, choices(closed.people))
+  keepChoice(unsaved, 'post channel', channel)
+  keepChoice(unsaved, 'post person', person)
   const problem = h('p', { class: 'debate-post-problem', role: 'alert' })
   return h(
     'form',
@@ -552,14 +761,19 @@ const postForm = (
       on: {
         submit: (event) => {
           event.preventDefault()
-          const destination = resultDestination(channel.value, person.value)
+          const [toChannel, toPerson] = [chosenIn(context, channel), chosenIn(context, person)]
+          if (toChannel === null || toPerson === null) return
+          const destination = resultDestination(toChannel, toPerson)
           if (destination === null) {
             problem.textContent = closed.chooseFirst
             return channel.focus()
           }
           context.actions.postResult(debate.id, destination, {
-            done: (draft) =>
-              context.page.go(hrefFor({ name: 'conversation', id: draft.conversationId, draft: null })),
+            done: (draft) => {
+              forgetTyped(unsaved, 'post channel', channel.value)
+              forgetTyped(unsaved, 'post person', person.value)
+              context.page.go(hrefFor({ name: 'conversation', id: draft.conversationId, draft: null }))
+            },
           })
         },
       },

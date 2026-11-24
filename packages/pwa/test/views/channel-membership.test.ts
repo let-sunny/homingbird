@@ -1,6 +1,7 @@
 import { fire, getByRole, installFakeDom, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
+import { withPresence } from '../../src/thread.ts'
 import { answeringChip, privateMark, roomControls } from '../../src/views/channel-membership.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
@@ -171,6 +172,64 @@ describe('roomControls', () => {
     fire.submit(dialog.querySelector('form.add-member')!)
     expect(called('setChannelMember')[1]!.args).toEqual(['secret', CY, true])
     expect(add.disabled).toBe(true)
+  })
+
+  it('keeps the manager and team chosen, and the field being typed in, while colleagues come and go', () => {
+    const { context, called } = testContext()
+    signedIn(context)
+    context.state.serverInfo.set(everything())
+    const dan = 'mem_dan000000000' as typeof CY
+    context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben'), entry(CY, 'Cy'), entry(dan, 'Dan')])
+    mount(dialogHost())
+    const secret = channel('secret', { joined: true, managing: true, visibility: 'private', memberCount: 3 })
+    choose(mount(roomControls(context, secret)), strings.manageMembers)
+    const dialog = document.getElementById('dialog')!
+    context.state.groups.set([managersOf('secret', { memberIds: [ANA], mayAdd: true, mayRemove: true })])
+    const reload = () => called('loadChannelMembers').at(-1)!.then!.done!
+    const people = [
+      { memberId: ANA, manager: true, answering: true },
+      { memberId: BEN, manager: false, answering: false },
+      { memberId: CY, manager: false, answering: false },
+    ]
+    reload()(people)
+    fire.select(getByRole(dialog, 'combobox', { name: strings.groups.addManager }), CY)
+    const form = dialog.querySelector('form.add-manager')
+    context.state.directory.update((entries) =>
+      withPresence(entries, [{ memberId: BEN, humanOnline: true, agentOnline: true }]),
+    )
+    expect(dialog.querySelector('form.add-manager')).toBe(form)
+    const field = getByRole(dialog, 'combobox', { name: strings.addMemberLabel })
+    field.focus()
+    reload()([people[0]!, people[2]!])
+    expect(document.activeElement).toBe(field)
+    fire.submit(dialog.querySelector('form.add-manager')!)
+    expect(called('setGroupMembers')[0]!.args[1]).toEqual([ANA, CY])
+  })
+
+  it('changes the managers there are when the person confirms, not those shown before', () => {
+    const { context, called } = testContext()
+    signedIn(context)
+    context.state.serverInfo.set(everything())
+    context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben'), entry(CY, 'Cy')])
+    mount(dialogHost())
+    const secret = channel('secret', { joined: true, managing: true, visibility: 'private', memberCount: 3 })
+    choose(mount(roomControls(context, secret)), strings.manageMembers)
+    const dialog = document.getElementById('dialog')!
+    const managers = (memberIds: ReadonlyArray<typeof CY>) =>
+      context.state.groups.set([
+        managersOf('secret', { memberIds: [...memberIds], mayAdd: true, mayRemove: true }),
+      ])
+    managers([ANA, BEN])
+    called('loadChannelMembers').at(-1)!.then!.done!([
+      { memberId: ANA, manager: true, answering: true },
+      { memberId: BEN, manager: true, answering: false },
+      { memberId: CY, manager: false, answering: false },
+    ])
+    const ben = dialog.querySelector(`[data-member="${BEN}"]`) as HTMLElement
+    getByRole(ben, 'button', { name: strings.groups.unmanage }).click()
+    managers([ANA, BEN, CY])
+    fire.submit(dialog.querySelector('form.unmanage-confirmation')!)
+    expect(called('setGroupMembers')[0]!.args[1]).toEqual([ANA, CY])
   })
 
   it('offers no change of managers while groups are off', () => {

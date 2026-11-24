@@ -4,6 +4,7 @@ import { lifetime } from '@homingbird/ui'
 import { fire, getByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { formats, strings } from '../../src/strings.ts'
+import { withPresence } from '../../src/thread.ts'
 import { adminMembersSection } from '../../src/views/admin-members.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
@@ -50,6 +51,21 @@ describe('adminMembersSection', () => {
       text: strings.character.resetMemberDone({ name: 'Ben' }),
     })
     expect(called('listMembers')).toHaveLength(3)
+  })
+
+  it('leaves the other rows as they are when one colleague comes online', () => {
+    const { context, called } = testContext()
+    const shown = mount(adminMembersSection(context, lifetime(), me({}, { role: 'admin' })))
+    const away = { humanOnline: false, agentOnline: false }
+    context.state.directory.set([entry(BEN, 'Ben', { presence: away }), entry(CY, 'Cy', { presence: away })])
+    called('listMembers')[0]!.then!.done!(listing([member(BEN, 'Ben'), member(CY, 'Cy')]))
+    const row = (id: string) => shown.querySelector(`[data-member-id="${id}"]`)
+    const [ben, cy] = [row(BEN), row(CY)]
+    context.state.directory.update((entries) =>
+      withPresence(entries, [{ memberId: BEN, humanOnline: true, agentOnline: true }]),
+    )
+    expect(row(CY)).toBe(cy)
+    expect(row(BEN)).not.toBe(ben)
   })
 
   it('asks before deactivating someone in a group, naming every group they leave', () => {

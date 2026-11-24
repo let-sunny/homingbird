@@ -272,7 +272,7 @@ const activityContent = (context: ViewContext, life: Lifetime, me: AsRead.Me): H
         activityHeading(context, kind),
         keyedRegion(life, h('ul', { class: 'activity-list' }), sources, items, {
           key: (item) => item.key,
-          signature: (item) => JSON.stringify(item),
+          signature: signatureOf,
           render: (item) => renderItem(context, life, me, item),
         }),
       )
@@ -287,6 +287,12 @@ const activityContent = (context: ViewContext, life: Lifetime, me: AsRead.Me): H
 }
 
 const ACTIVITY_KINDS: ReadonlyArray<ActivityKind> = ['drafts', 'reviews', 'suggestions', 'skipped', 'debates']
+
+/** A suggestion's card follows who is awake by itself: drawing it again would lose what is typed in it. */
+const signatureOf = (item: ActivityItem): string =>
+  JSON.stringify(
+    item.type === 'suggestion' ? { ...item, card: { ...item.card, notAwake: null, askInNote: null } } : item,
+  )
 
 /** A group's heading, with a hint for the kinds other messengers lack: skipped notes and flocks. */
 const activityHeading = (context: ViewContext, kind: ActivityKind): Child => {

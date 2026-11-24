@@ -12,6 +12,7 @@ import {
 import { describe, expect, it } from 'vitest'
 import { heldWordsFor } from '../../src/held-decisions.ts'
 import { formats, strings } from '../../src/strings.ts'
+import { withPresence } from '../../src/thread.ts'
 import { ACTIVITY_PANEL_ID, activityBell, activityPanel, activityView } from '../../src/views/activity.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
 import { testContext } from '../support/context.ts'
@@ -306,6 +307,22 @@ describe('activityPanel', () => {
     opened!.then!.done!({ id: 'debate_000000000000' })
     state.suggestions.set([])
     expect(panel.querySelector('.suggestion-card')).toBeNull()
+  })
+
+  it('keeps what is typed in a suggestion’s card while agents wake, and says who is not awake', () => {
+    const { panel, state, called } = shown()
+    state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben'), entry(CY, 'Cy')])
+    state.suggestions.set([suggestion()])
+    panel.showPopover()
+    const asleep = () => panel.querySelector('.suggestion-not-awake')?.textContent
+    fire.type(getByRole(panel, 'textbox', { name: strings.debateSuggestion.questionLabel }), 'Ship Friday?')
+    const before = asleep()
+    state.directory.update((entries) =>
+      withPresence(entries, [{ memberId: BEN, humanOnline: true, agentOnline: true }]),
+    )
+    expect(asleep()).not.toBe(before)
+    getByRole(panel, 'button', { name: strings.debateSuggestion.open }).click()
+    expect(called('acceptSuggestion')[0]!.args[1]).toMatchObject({ question: 'Ship Friday?' })
   })
 
   it('closes before “Reply yourself” opens the conversation, with the note as the reply target', () => {

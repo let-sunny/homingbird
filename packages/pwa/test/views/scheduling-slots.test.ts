@@ -119,13 +119,24 @@ describe('the card to pick free times', () => {
         ],
       },
     })
-    const { shown } = opened(night, false)
+    const { shown, context } = opened(night, false)
     expect(shown.querySelectorAll('.scheduling-pick-cell')).toHaveLength(12)
     expect(textOf(shown)).toContain('GMT+9')
     getByRole(shown, 'button', { name: strings.scheduling.pickShowAll }).click()
     expect(shown.querySelectorAll('.scheduling-pick-cell')).toHaveLength(24)
+    context.state.shownDebate.set({ ...night, question: 'Planning' })
+    expect(shown.querySelectorAll('.scheduling-pick-cell')).toHaveLength(24)
     getByRole(shown, 'button', { name: strings.scheduling.pickShowWorking }).click()
     expect(shown.querySelectorAll('.scheduling-pick-cell')).toHaveLength(12)
+  })
+
+  it('leaves out hours that passed, even when only what time it is changed', async () => {
+    const { shown, context, clock } = opened(collecting(), false)
+    const hours = () => shown.querySelectorAll('.scheduling-pick-cell').length
+    const before = hours()
+    await clock.advance(WORK + HOUR - clock.now())
+    context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben')])
+    expect(hours()).toBeLessThan(before)
   })
 
   it('says the person is busy throughout by sending no hour', () => {

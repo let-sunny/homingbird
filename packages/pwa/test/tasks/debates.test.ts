@@ -94,6 +94,37 @@ describe('flock tasks', () => {
     expect(left.state.shownDebate.get()).toBeNull()
   })
 
+  it('does not show an answer asked for before the newest one shown', async () => {
+    const answers = [hold<ReturnType<typeof debate>>(), hold<ReturnType<typeof debate>>()]
+    let asked = 0
+    const app = testApp({ 'debates.get': () => answers[asked++]!.waiting }, `#/debate/${ID}`)
+    const older = app.run(tasks.loadDebate(ID))
+    const newer = app.run(tasks.loadDebate(ID))
+    answers[1]!.release(debate({ question: 'Newer' }))
+    await newer
+    answers[0]!.release(debate({ question: 'Older' }))
+    await older
+    expect(app.state.shownDebate.get()).toMatchObject({ question: 'Newer' })
+  })
+
+  it('reads the flock again before it ends when an older change answers after a newer answer is shown', async () => {
+    const saving = hold<ReturnType<typeof debate>>()
+    let asked = 0
+    const app = testApp(
+      {
+        'debates.brief.set': () => saving.waiting,
+        'debates.get': () => debate({ brief: asked++ === 0 ? 'Before.' : 'Saved.' }),
+      },
+      `#/debate/${ID}`,
+    )
+    const change = app.run(tasks.setBrief(ID, 'Saved.'))
+    await app.run(tasks.loadDebate(ID))
+    expect(app.state.shownDebate.get()).toMatchObject({ brief: 'Before.' })
+    saving.release(debate({ brief: 'Saved.' }))
+    await change
+    expect(app.state.shownDebate.get()).toMatchObject({ brief: 'Saved.' })
+  })
+
   it('does not show a flock as missing under the address of another', async () => {
     const other = 'debate_other0000000' as never
     const app = testApp(

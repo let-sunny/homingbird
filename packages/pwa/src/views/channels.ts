@@ -22,6 +22,7 @@ import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { type MenuParts, actionMenu } from './menu.ts'
 import {
+  type Unsaved,
   button,
   channelChips,
   channelCounts,
@@ -29,6 +30,7 @@ import {
   empty,
   emptyWithPip,
   field,
+  keepTyped,
   listWait,
   loading,
   page,
@@ -41,6 +43,9 @@ export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement 
   actions.openChannelPage()
   const listed = state.channelPage
   const awaited = slice([listed.load], () => firstAnswersStep([listed.load.get()]))
+  const shown = slice([listed, awaited, state.workspace], () =>
+    channelListModel(listed.get(), state.channelPageWish.get(), awaited.get(), state.workspace.get()),
+  )
   life.add(state.channels.subscribe(() => actions.reloadChannelPage()))
   const search = h('input', {
     type: 'search',
@@ -57,9 +62,9 @@ export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement 
     strings.channels,
     h('div', { class: 'channels-intro' }, h('p', {}, strings.channelsIntro), newChannelButton(context)),
     field(strings.channelsSearchLabel, search),
-    region(life, [listed, awaited, state.workspace], () =>
+    region(life, [shown], () =>
       renderChannelList(
-        channelListModel(listed.get(), state.channelPageWish.get(), awaited.get(), state.workspace.get()),
+        shown.get(),
         context,
         () => {
           const { query } = state.channelPageWish.get()
@@ -88,13 +93,34 @@ export const channelView = (context: ViewContext, life: Lifetime, slug: string):
   life.add(state.channels.subscribe(enterRoomIfJoined))
   life.add(state.conversations.subscribe(enterRoomIfJoined))
   queueMicrotask(enterRoomIfJoined)
+  const unsaved: Unsaved = new Map()
+  const channelNow = (): AsRead.Channel | null => channelNamed(state.channels.get(), slug)
+  const shownPage = slice(
+    [state.channels, state.channelsLoaded, state.workspace, state.session, state.serverInfo],
+    () => {
+      const channel = channelNow()
+      const model = channel === null ? null : askPageModel(channel, signedIn(state)?.member.role === 'admin')
+      return {
+        loaded: state.channelsLoaded.get(),
+        workspace: channel === null && state.workspace.get(),
+        title: model?.title ?? null,
+        mayAsk: model?.mayAsk === true,
+        mayAskAgent: featureOn('draftRequests', state.serverInfo.get()),
+      }
+    },
+  )
+  const head = slice([state.channels, state.rosters, state.session], () => [
+    channelNow(),
+    state.rosters.get().get(slug),
+    signedIn(state)?.member,
+  ])
   return h(
     'div',
     { class: 'channel-ask-host' },
-    region(life, [state.channels, state.channelsLoaded, state.workspace, state.rosters], () => {
-      const channel = channelNamed(state.channels.get(), slug)
-      if (channel === null && !state.channelsLoaded.get()) return checking(context, strings.checking.channels)
-      if (channel === null)
+    region(life, [shownPage], (drawing) => {
+      const shown = shownPage.get()
+      if (shown.title === null && !shown.loaded) return checking(context, strings.checking.channels)
+      if (shown.title === null)
         return emptyWithPip(
           'failed',
           strings.unknownChannel,
@@ -105,7 +131,11 @@ export const channelView = (context: ViewContext, life: Lifetime, slug: string):
             newChannelButton(context),
           ),
         )
-      return askPage(context, life, channel)
+      return page(
+        shown.title,
+        region(drawing, [head], () => askHead(context, channelNow()), { class: 'channel-ask-head' }),
+        shown.mayAsk && askForm(context, drawing, slug, unsaved),
+      )
     }),
   )
 }
@@ -268,8 +298,20 @@ const visibilityChoice = (): HTMLFieldSetElement =>
     h('p', { class: 'hint' }, strings.visibilityFixed),
   )
 
-const askPage = (context: ViewContext, life: Lifetime, channel: AsRead.Channel): Child => {
+const askHead = (context: ViewContext, channel: AsRead.Channel | null): Child => {
+  if (channel === null) return null
   const model = askPageModel(channel, signedIn(context.state)?.member.role === 'admin')
+  return [
+    privateMark(channel),
+    model.description !== '' && h('p', { class: 'channel-description' }, model.description),
+    h('p', { class: 'channel-meta' }, channelCounts(channel)),
+    model.mayJoin && joinButtons(context, channel),
+    model.seesMembers && roomControls(context, channel),
+    model.intro !== null && h('p', {}, model.intro),
+  ]
+}
+
+const askForm = (context: ViewContext, life: Lifetime, slug: string, unsaved: Unsaved): HTMLElement => {
   const text = h('textarea', {
     name: 'body',
     rows: '4',
@@ -278,37 +320,28 @@ const askPage = (context: ViewContext, life: Lifetime, channel: AsRead.Channel):
     placeholder: strings.askChannelPlaceholder,
     'aria-label': strings.askChannelPlaceholder,
   })
+  keepTyped(unsaved, 'question', text, '')
   const enterRoom = (conversationId: string): void => context.actions.enterRoom(conversationId)
-  return page(
-    model.title,
-    privateMark(channel),
-    model.description !== '' && h('p', { class: 'channel-description' }, model.description),
-    h('p', { class: 'channel-meta' }, channelCounts(channel)),
-    model.mayJoin && joinButtons(context, channel),
-    model.seesMembers && roomControls(context, channel),
-    model.intro !== null && h('p', {}, model.intro),
-    model.mayAsk &&
-      h(
-        'form',
-        {
-          class: 'form ask-channel',
-          on: {
-            submit: (event) => {
-              event.preventDefault()
-              const body = text.value.trim()
-              if (body !== '') context.actions.askChannel(channel.slug, body, { done: enterRoom })
-            },
-          },
+  return h(
+    'form',
+    {
+      class: 'form ask-channel',
+      on: {
+        submit: (event) => {
+          event.preventDefault()
+          const body = text.value.trim()
+          if (body !== '') context.actions.askChannel(slug, body, { done: enterRoom })
         },
-        text,
-        h('button', { type: 'submit', class: 'primary' }, strings.send),
-        agentAsk(
-          context,
-          life,
-          () => ({ channel: channel.slug }),
-          (request) => enterRoom(request.conversationId),
-        ),
-      ),
+      },
+    },
+    text,
+    h('button', { type: 'submit', class: 'primary' }, strings.send),
+    agentAsk(
+      context,
+      life,
+      () => ({ channel: slug }),
+      (request) => enterRoom(request.conversationId),
+    ),
   )
 }
 

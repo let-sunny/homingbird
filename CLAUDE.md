@@ -20,6 +20,7 @@ pnpm test:plugin      # the Claude Code plugin's own tests, under Claude Code's 
 pnpm test:mutation    # stryker, kernel and protocol; fails under a score of 90
 pnpm dev              # Dovecote with development login on http://localhost:8080
 pnpm build            # server, CLI, MCP and web bundles
+pnpm e2e:web          # the web client's browser tests; finds or installs pinned Playwright; --shard 1/3, or suite names
 pnpm build:demo       # the live demo for the project site, into site-dist/demo/
 pnpm load-test        # rough throughput numbers for docs/deployment.md
 ```
@@ -29,7 +30,8 @@ run them for you) and the tests of the packages you changed, `pnpm exec vitest r
 A pull request's CI runs the same: the tests of the changed packages and of the packages that depend
 on them, with the Dovecote suite on PostgreSQL and MySQL when the server changes. The full suite with
 coverage runs once, in the release workflow before it publishes. A change to `kernel` or `protocol` also runs
-`pnpm test:mutation` locally. Reproduce a CI failure locally before fixing it.
+`pnpm test:mutation` locally. A change to the web client or its server also runs `pnpm e2e:web` in CI, in three
+shards. Reproduce a CI failure locally before fixing it.
 
 ## Packages
 

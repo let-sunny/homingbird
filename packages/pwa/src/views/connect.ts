@@ -1,5 +1,5 @@
 import type { ConsentRequest } from '@homingbird/protocol'
-import { type Child, type Lifetime, h, region, signal } from '@homingbird/ui'
+import { type Child, type Lifetime, h, region, signal, slice } from '@homingbird/ui'
 import { logoOf, wordmark } from '../models/branding.ts'
 import { type DeviceTargets, deviceTargetsModel } from '../models/channel-agent.ts'
 import {
@@ -13,7 +13,16 @@ import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
 import { codeForm } from './connection.ts'
 import type { ViewContext } from './context.ts'
-import { button, field, loading } from './parts.ts'
+import {
+  type Unsaved,
+  button,
+  chosenIn,
+  field,
+  isChoiceGone,
+  keepChoice,
+  keepTyped,
+  loading,
+} from './parts.ts'
 import { pip } from './pip.ts'
 
 /** Approving a device sign-in: the code, then what the device asks for, then the outcome. */
@@ -36,15 +45,20 @@ export const deviceView = (context: ViewContext, life: Lifetime, code: string | 
     })
   }
   const { state } = context
+  const unsaved: Unsaved = new Map()
+  const targets = slice([state.channels, state.serverInfo], () =>
+    deviceTargetsModel(state.channels.get(), state.serverInfo.get()),
+  )
   return connectWindow(
     context,
     strings.deviceTitle,
-    region(life, [stage, state.channels, state.serverInfo], () =>
+    region(life, [stage, targets], () =>
       renderConnect(
         deviceModel(stage.get()),
         context,
         decide,
-        deviceTargetsModel(state.channels.get(), state.serverInfo.get()),
+        targetsOffered(targets.get(), unsaved),
+        unsaved,
       ),
     ),
     true,
@@ -81,6 +95,7 @@ const renderConnect = (
   context: ViewContext,
   decide: (approve: boolean, name: string, channel: string) => void,
   targets: DeviceTargets | null = null,
+  unsaved: Unsaved = new Map(),
 ): HTMLElement => {
   switch (model.kind) {
     case 'code':
@@ -96,12 +111,14 @@ const renderConnect = (
         h('p', { class: 'outcome-message' }, model.message),
       )
     case 'decide': {
-      const name = h('input', { name: 'name', required: true, maxlength: '200', value: model.name })
+      const name = h('input', { name: 'name', required: true, maxlength: '200' })
+      keepTyped(unsaved, 'name', name, model.name)
       const target = h(
         'select',
         { name: 'target' },
         (targets?.choices ?? []).map((choice) => h('option', { value: choice.value }, choice.label)),
       )
+      keepChoice(unsaved, 'target', target)
       return h(
         'form',
         {
@@ -109,7 +126,8 @@ const renderConnect = (
           on: {
             submit: (event) => {
               event.preventDefault()
-              decide(true, name.value, target.value)
+              const chosen = chosenIn(context, target)
+              if (chosen !== null) decide(true, name.value, chosen)
             },
           },
         },
@@ -126,6 +144,14 @@ const renderConnect = (
     }
   }
 }
+
+/** Whom to connect as; the person themself is offered alone only to someone whose other choice is gone. */
+const targetsOffered = (targets: DeviceTargets | null, unsaved: Unsaved): DeviceTargets | null => {
+  const alone = { label: strings.channelAgent.connectAs, choices: [connectAsMe()] }
+  return targets ?? (isChoiceGone(unsaved, 'target', ['']) ? alone : null)
+}
+
+const connectAsMe = () => ({ value: '', label: strings.channelAgent.connectAsMe })
 
 const connectWindow = (
   context: ViewContext,

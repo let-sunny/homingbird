@@ -2,11 +2,15 @@ import type { AsRead, CredentialId } from '@homingbird/protocol'
 import { deskUnavailableReason } from '../presence.ts'
 import { strings } from '../strings.ts'
 
-/** The choice of agent when asking one to draft: only offered when the person has more than one. */
+/**
+ * The choice of agent when asking one to draft: only offered when the person has more than one, or when
+ * the one they had chosen is gone and they have to choose again.
+ */
 export const agentChoices = (
   agents: ReadonlyArray<AsRead.Credential>,
+  mustChoose = false,
 ): ReadonlyArray<{ readonly value: string; readonly label: string }> | null =>
-  agents.length <= 1
+  agents.length <= 1 && !mustChoose
     ? null
     : [
         { value: '', label: strings.anyAgent },

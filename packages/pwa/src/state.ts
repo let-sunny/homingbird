@@ -124,6 +124,8 @@ export const createState = (hash: string): AppState => {
     suggestions: resource<ReadonlyArray<AsRead.DebateSuggestion>>([]),
     debates: resource<ReadonlyArray<AsRead.DebateSummary>>([]),
     shownDebate: signal<AsRead.Debate | 'missing' | null>(null),
+    debateAnswers: signal({ asked: 0, shown: 0 }),
+    debateUnsaved: signal<DebateUnsaved>({ id: null, typed: new Map() }),
     waitingOnly: signal(false),
     members: derived(
       [directory, session, channels, notNamedYet],
@@ -161,6 +163,11 @@ export const forgetSession = (state: AppState): void => {
     for (const key of Object.keys(state) as Array<keyof AppState>)
       if (key !== 'session' && !OUTLIVES_SESSION.has(key)) makeInitial(state[key], initial[key])
   })
+}
+
+export interface DebateUnsaved {
+  readonly id: string | null
+  readonly typed: Map<string, string>
 }
 
 /** What the page knows of the server and of its own address, which says nothing of who was signed in. */
@@ -260,6 +267,10 @@ export interface AppState {
   readonly suggestions: Resource<ReadonlyArray<AsRead.DebateSuggestion>>
   readonly debates: Resource<ReadonlyArray<AsRead.DebateSummary>>
   readonly shownDebate: Signal<AsRead.Debate | 'missing' | null>
+  /** Counts the requests that answer with the flock shown, and which of them was the newest shown. */
+  readonly debateAnswers: Signal<{ readonly asked: number; readonly shown: number }>
+  /** What the person typed, chose or unfolded on one flock's page and has not saved, whichever tab it is on. */
+  readonly debateUnsaved: Signal<DebateUnsaved>
   /** Whether the conversation list shows only what waits for the person. */
   readonly waitingOnly: Signal<boolean>
   readonly members: ReadableSignal<ReadonlyMap<MemberId, AsRead.Member>>

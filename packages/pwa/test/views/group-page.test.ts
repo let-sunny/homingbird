@@ -2,6 +2,7 @@ import { lifetime } from '@homingbird/ui'
 import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
+import { withPresence } from '../../src/thread.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
 import { groupPageView } from '../../src/views/group-page.ts'
 import { testContext } from '../support/context.ts'
@@ -10,6 +11,8 @@ import { ANA, BEN, CY, ROOM, TEAM, conversation, entry, group } from '../support
 import { setLoad } from '../support/resource-load.ts'
 
 usingFakeDom()
+
+const DEE = 'mem_dee000000000' as typeof CY
 
 describe('groupPageView', () => {
   it('waits for the groups, offers a retry, and says when the group does not exist', () => {
@@ -67,6 +70,40 @@ describe('groupPageView', () => {
     expect(called('renameGroup')[0]!.args).toEqual([TEAM, 'Money'])
     called('renameGroup')[0]!.then!.done!(undefined)
     expect((dialog as HTMLDialogElement).open).toBe(false)
+  })
+
+  it('keeps the person chosen to be added while colleagues come and go', () => {
+    const { context, called } = testContext()
+    context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben'), entry(CY, 'Cy')])
+    context.state.groups.set([group(TEAM, { name: 'Finance', memberIds: [ANA], mayAdd: true })])
+    setLoad(context.state.groups, { loaded: true })
+    const shown = groupPageView(context, lifetime(), ANA, TEAM)
+    fire.select(shown.querySelector('.add-member select')!, CY)
+    context.state.directory.update((entries) =>
+      withPresence(entries, [{ memberId: BEN, humanOnline: true, agentOnline: true }]),
+    )
+    fire.submit(shown.querySelector('form.add-member')!)
+    expect(called('setGroupMembers')[0]!.args[1]).toEqual([ANA, CY])
+    context.state.directory.update((entries) => [...entries, entry(DEE, 'Dee')])
+    fire.submit(shown.querySelector('form.add-member')!)
+    expect(called('setGroupMembers')[1]!.args[1]).toEqual([ANA, CY])
+  })
+
+  it('never adds a newly listed person in place of the first one shown, nor one once added', () => {
+    const { context, called } = testContext()
+    const team = (memberIds: ReadonlyArray<typeof CY>) =>
+      group(TEAM, { name: 'Finance', memberIds: [...memberIds], mayAdd: true })
+    context.state.directory.set([entry(ANA, 'Ana'), entry(CY, 'Cy')])
+    context.state.groups.set([team([ANA])])
+    setLoad(context.state.groups, { loaded: true })
+    const shown = groupPageView(context, lifetime(), ANA, TEAM)
+    context.state.directory.set([entry(BEN, 'Ben'), entry(ANA, 'Ana'), entry(CY, 'Cy')])
+    fire.submit(shown.querySelector('form.add-member')!)
+    expect(called('setGroupMembers')[0]!.args[1]).toEqual([ANA, CY])
+    context.state.groups.set([team([ANA, CY])])
+    fire.submit(shown.querySelector('form.add-member')!)
+    expect(called('setGroupMembers')).toHaveLength(1)
+    expect(context.state.notice.get()?.text).toBe(strings.choiceGone)
   })
 
   it('shows an administrator who may only remove the remove buttons and no add control', () => {

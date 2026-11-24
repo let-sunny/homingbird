@@ -5,6 +5,7 @@ import { strings } from '../../src/strings.ts'
 import { consentView, deviceView } from '../../src/views/connect.ts'
 import { testContext } from '../support/context.ts'
 import { usingFakeDom } from '../support/dom.ts'
+import { BEN, CY, channel, everything } from '../support/fixtures.ts'
 
 usingFakeDom()
 
@@ -36,6 +37,39 @@ describe('deviceView', () => {
     expect(decide!.args).toEqual(['ABCD-EFGH', true, 'Laptop', ''])
     decide!.then!.done!(undefined)
     expect(getByRole(shown, 'heading', { name: strings.connectedTitle })).toBeTruthy()
+  })
+
+  it('keeps the name typed and the channel’s agent chosen while the channels are read again', () => {
+    const { context, called } = testContext()
+    const wiki = channel('wiki', { runsAgent: true, agent: { id: CY, name: 'Wiki' } })
+    context.state.serverInfo.set(everything())
+    context.state.channels.set([wiki])
+    const shown = deviceView(context, lifetime(), 'ABCD-EFGH')
+    called('lookUpDevice')[0]!.then!.done!(device)
+    fire.type(getByRole(shown, 'textbox', { name: strings.deviceNameLabel }), 'Server')
+    fire.select(shown.querySelector('select')!, 'wiki')
+    context.state.channels.set([wiki, channel('ops', { runsAgent: true, agent: { id: BEN, name: 'Ops' } })])
+    fire.submit(shown.querySelector('form')!)
+    expect(called('decideDevice')[0]!.args).toEqual(['ABCD-EFGH', true, 'Server', 'wiki'])
+  })
+
+  it('approves as nobody else once the channel’s agent chosen is gone, until the person chooses again', () => {
+    const { context, called } = testContext()
+    const wiki = channel('wiki', { runsAgent: true, agent: { id: CY, name: 'Wiki' } })
+    context.state.serverInfo.set(everything())
+    context.state.channels.set([wiki])
+    const shown = deviceView(context, lifetime(), 'ABCD-EFGH')
+    called('lookUpDevice')[0]!.then!.done!(device)
+    fire.select(shown.querySelector('select')!, 'wiki')
+    for (const left of [[], [channel('wiki')], [wiki]]) {
+      context.state.channels.set(left)
+      fire.submit(shown.querySelector('form')!)
+      expect(called('decideDevice')).toHaveLength(0)
+      expect(context.state.notice.get()).toEqual({ kind: 'error', text: strings.choiceGone })
+    }
+    fire.select(shown.querySelector('select')!, '')
+    fire.submit(shown.querySelector('form')!)
+    expect(called('decideDevice')[0]!.args).toEqual(['ABCD-EFGH', true, 'Claude Code', ''])
   })
 
   it('denies under the device’s own name, and asks again for a code that was refused', () => {

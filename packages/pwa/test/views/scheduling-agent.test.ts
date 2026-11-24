@@ -1,5 +1,5 @@
 import { lifetime } from '@homingbird/ui'
-import { getByRole, textOf } from '@homingbird/ui/testing'
+import { fire, getByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
 import { debateView } from '../../src/views/debate-room.ts'
@@ -53,6 +53,31 @@ describe('the card to let an agent answer a scheduling flock', () => {
     choice.value = 'cred_desk00000000'
     getByRole(shown, 'button', { name: strings.scheduling.agentAnswer }).click()
     expect(called('optInAgent')[0]!.args).toEqual([ID, 'cred_desk00000000', ''])
+  })
+
+  it('keeps the chosen agent while colleagues come and go', () => {
+    const { context, shown, called } = opened([
+      credential('cred_laptop000000'),
+      credential('cred_desk00000000'),
+    ])
+    fire.select(shown.querySelector('.scheduling-agent select')!, 'cred_desk00000000')
+    context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Benjamin')])
+    getByRole(shown, 'button', { name: strings.scheduling.agentAnswer }).click()
+    expect(called('optInAgent')[0]!.args).toEqual([ID, 'cred_desk00000000', ''])
+  })
+
+  it('has no other agent answer once the one chosen is gone, until the person chooses', () => {
+    const { context, shown, called } = opened([
+      credential('cred_laptop000000'),
+      credential('cred_desk00000000'),
+    ])
+    fire.select(shown.querySelector('.scheduling-agent select')!, 'cred_desk00000000')
+    context.state.agentCredentials.set([credential('cred_laptop000000')])
+    getByRole(shown, 'button', { name: strings.scheduling.agentAnswer }).click()
+    expect(called('optInAgent')).toHaveLength(0)
+    fire.select(shown.querySelector('.scheduling-agent select')!, 'cred_laptop000000')
+    getByRole(shown, 'button', { name: strings.scheduling.agentAnswer }).click()
+    expect(called('optInAgent')[0]!.args[1]).toBe('cred_laptop000000')
   })
 
   it('is not drawn for a person with no agent', () => {
