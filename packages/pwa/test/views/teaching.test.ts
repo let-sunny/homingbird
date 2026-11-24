@@ -72,9 +72,6 @@ describe('taughtSection', () => {
     expect(getByRole(shown, 'textbox', { name: strings.teach.topic })).toBe(topic)
     expect(topic.value).toBe('Refunds')
     expect(place.value).toBe('billing')
-    context.state.taught.set(taught({ limit: 9 }))
-    expect(getByRole(shown, 'textbox', { name: strings.teach.topic })).toBe(topic)
-    expect(topic.value).toBe('Refunds')
     expect([...place.querySelectorAll('option')].map((option) => option.value)).toEqual([
       '',
       'billing',

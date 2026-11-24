@@ -23,17 +23,19 @@ import { hinted } from './hint.ts'
 import { type PageWait, pageData } from './page-data.ts'
 import { button, field, listWait } from './parts.ts'
 import { principleForm } from './principle-form.ts'
-import { todoAddRow, todoList } from './todo-list.ts'
+import { todoList } from './todo-list.ts'
 
 /** "What I have taught it": the person's principles, chances to teach, and milestones. */
 export const taughtSection = (context: ViewContext, life: Lifetime, wait: PageWait): HTMLElement => {
   const { state, actions } = context
   actions.refreshPrinciples()
   const { shown } = pageData(state, state.taught)
-  const add = ownAddRow(context, life)
-  return region(life, [shown, wait], () => renderTaught(taughtModel(shown.get(), wait.get()), context, add), {
-    class: 'taught',
-  })
+  return region(
+    life,
+    [shown, wait],
+    (drawing) => renderTaught(taughtModel(shown.get(), wait.get()), context, drawing),
+    { class: 'taught' },
+  )
 }
 
 /** The chances to teach that came from one conversation, shown there right after the decision. */
@@ -165,10 +167,19 @@ const chanceCard = (chance: ChanceModel, context: ViewContext): HTMLElement =>
 const principleList = (
   rows: ReadonlyArray<PrincipleRow>,
   context: ViewContext,
-  add: HTMLElement,
+  drawing: Lifetime,
 ): HTMLElement => {
-  const { actions } = context
+  const { actions, state } = context
   const ids = rows.map((row) => row.principle.id as string)
+  const place = placeSelect(context, null, false)
+  drawing.add(
+    slice([state.channels], () => placeChoices(state.channels.get(), null)).subscribe(() => {
+      const chosen = place.value
+      replaceChildren(place, placeOptions(context, chosen === '' ? null : chosen))
+      place.value = chosen
+    }),
+  )
+  let kind: PrincipleKind = 'rule'
   return todoList({
     label: strings.teach.listLabel,
     rows: rows.map((row) => ({
@@ -229,64 +240,50 @@ const principleList = (
     remove: (id) => {
       if (ids.includes(id)) actions.deletePrinciple(id)
     },
-    add,
-  })
-}
-
-const ownAddRow = (context: ViewContext, life: Lifetime): HTMLElement => {
-  const { actions, state } = context
-  const place = placeSelect(context, null, false)
-  life.add(
-    slice([state.channels], () => placeChoices(state.channels.get(), null)).subscribe(() => {
-      const chosen = place.value
-      replaceChildren(place, placeOptions(context, chosen === '' ? null : chosen))
-      place.value = chosen
-    }),
-  )
-  let kind: PrincipleKind = 'rule'
-  return todoAddRow({
-    label: strings.teach.addLabel,
-    fields: [
-      {
-        name: 'topic',
-        label: strings.teach.topic,
-        value: '',
-        maxLength: PRINCIPLE_TOPIC_MAX,
-        placeholder: strings.teach.topicPlaceholder,
-      },
-      {
-        name: 'rule',
-        label: strings.teach.rule,
-        value: '',
-        maxLength: PRINCIPLE_TEXT_MAX,
-        placeholder: strings.teach.rulePlaceholder,
-        wide: true,
-      },
-    ],
-    extra: (reflect) => [
-      kindChoice((chosen) => {
-        kind = chosen
-        reflect()
-      }),
-      field(strings.teach.place, place, strings.teach.placeHint),
-    ],
-    warnings: (values) => addRowWarnings(values, kind),
-    submit: (values, done) =>
-      actions.savePrinciple(
+    add: {
+      label: strings.teach.addLabel,
+      fields: [
         {
-          kind,
-          topic: values.topic ?? '',
-          rule: values.rule ?? '',
-          source: null,
-          place: place.value === '' ? null : place.value,
+          name: 'topic',
+          label: strings.teach.topic,
+          value: '',
+          maxLength: PRINCIPLE_TOPIC_MAX,
+          placeholder: strings.teach.topicPlaceholder,
         },
         {
-          done: () => {
-            done()
-            state.notice.set({ kind: 'info', text: strings.teach.saved })
+          name: 'rule',
+          label: strings.teach.rule,
+          value: '',
+          maxLength: PRINCIPLE_TEXT_MAX,
+          placeholder: strings.teach.rulePlaceholder,
+          wide: true,
+        },
+      ],
+      extra: (reflect) => [
+        kindChoice((chosen) => {
+          kind = chosen
+          reflect()
+        }),
+        field(strings.teach.place, place, strings.teach.placeHint),
+      ],
+      warnings: (values) => addRowWarnings(values, kind),
+      submit: (values, done) =>
+        actions.savePrinciple(
+          {
+            kind,
+            topic: values.topic ?? '',
+            rule: values.rule ?? '',
+            source: null,
+            place: place.value === '' ? null : place.value,
           },
-        },
-      ),
+          {
+            done: () => {
+              done()
+              state.notice.set({ kind: 'info', text: strings.teach.saved })
+            },
+          },
+        ),
+    },
   })
 }
 
@@ -373,7 +370,7 @@ const placeOptions = (context: ViewContext, chosen: string | null): HTMLElement[
     h('option', { value: choice.value, selected: choice.selected }, choice.label),
   )
 
-const renderTaught = (model: TaughtModel, context: ViewContext, add: HTMLElement): Child => {
+const renderTaught = (model: TaughtModel, context: ViewContext, drawing: Lifetime): Child => {
   if (model.kind === 'waiting') return listWait(model.wait, () => context.actions.askAgain())
   return [
     h('p', { class: 'trust-footnote' }, model.intro),
@@ -396,7 +393,7 @@ const renderTaught = (model: TaughtModel, context: ViewContext, add: HTMLElement
       ),
     model.empty !== null &&
       h('div', { class: 'teach-empty' }, h('strong', {}, model.empty.title), h('p', {}, model.empty.hint)),
-    principleList(model.principles, context, add),
+    principleList(model.principles, context, drawing),
     model.milestones !== null &&
       h(
         'section',

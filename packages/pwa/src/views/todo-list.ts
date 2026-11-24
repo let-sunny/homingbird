@@ -30,17 +30,14 @@ export interface TodoList {
   readonly edit: (key: string, field: string, value: string) => void
   readonly move: (key: string, to: number) => void
   readonly remove: (key: string) => void
-  /** A `todoAddRow`, kept by whoever draws the list again, so that what is typed in it stays. */
-  readonly add: HTMLElement
-}
-
-export interface TodoAdd {
-  readonly label: string
-  readonly fields: ReadonlyArray<TodoField>
-  /** More controls beside the fields; given a way to show the warnings again when one of them changes. */
-  readonly extra?: (reflect: () => void) => Child
-  readonly warnings?: (values: Readonly<Record<string, string>>) => ReadonlyArray<string>
-  readonly submit: (values: Readonly<Record<string, string>>, done: () => void) => void
+  readonly add: {
+    readonly label: string
+    readonly fields: ReadonlyArray<TodoField>
+    /** More controls beside the fields; given a way to show the warnings again when one of them changes. */
+    readonly extra?: (reflect: () => void) => Child
+    readonly warnings?: (values: Readonly<Record<string, string>>) => ReadonlyArray<string>
+    readonly submit: (values: Readonly<Record<string, string>>, done: () => void) => void
+  }
 }
 
 /**
@@ -56,62 +53,8 @@ export const todoList = (list: TodoList): HTMLElement =>
       { class: 'todo-list', 'aria-label': list.label },
       list.rows.map((row, index) => todoRow(list, row, index)),
     ),
-    list.add,
+    addRow(list),
   )
-
-export const todoAddRow = (add: TodoAdd): HTMLElement => {
-  const controls = add.fields.map((field) => {
-    const control = h(field.wide === true ? 'textarea' : 'input', {
-      class: `todo-field is-${field.name}`,
-      name: field.name,
-      'aria-label': field.label,
-      placeholder: field.placeholder ?? '',
-      maxlength: String(field.maxLength),
-    }) as HTMLInputElement | HTMLTextAreaElement
-    control.value = field.value
-    if (field.wide === true) growsWithText(control)
-    return [field.name, control] as const
-  })
-  const warnings = h('ul', { class: 'todo-problems', 'aria-live': 'polite' })
-  const valuesOf = (): Record<string, string> =>
-    Object.fromEntries(controls.map(([name, control]) => [name, control.value.trim()]))
-  const reflect = (): void => {
-    warnings.replaceChildren(...(add.warnings?.(valuesOf()) ?? []).map((warning) => h('li', {}, warning)))
-  }
-  for (const [, control] of controls) control.addEventListener('input', reflect)
-  const submit = (): void => {
-    if (controls.some(([, control]) => control.value.trim() === '')) {
-      controls.find(([, control]) => control.value.trim() === '')?.[1].focus()
-      return
-    }
-    add.submit(valuesOf(), () => {
-      for (const [, control] of controls) control.value = ''
-      reflect()
-      controls[0]?.[1].focus()
-    })
-  }
-  for (const [, control] of controls)
-    control.addEventListener('keydown', (event) => {
-      const key = event as KeyboardEvent
-      if (key.key === 'Enter' && !key.shiftKey) {
-        event.preventDefault()
-        submit()
-      }
-    })
-  return h(
-    'div',
-    { class: 'todo-add', role: 'group', 'aria-label': add.label },
-    h('span', { class: 'todo-plus', 'aria-hidden': 'true' }, '+'),
-    h(
-      'div',
-      { class: 'todo-fields' },
-      controls.map(([, control]) => control),
-    ),
-    add.extra?.(reflect),
-    button(add.label, submit, { class: 'primary todo-add-button' }),
-    warnings,
-  )
-}
 
 const todoRow = (list: TodoList, row: TodoRow, index: number): HTMLElement => {
   const menuId = `todo-menu-${row.key}`
@@ -201,6 +144,62 @@ const editableField = (field: TodoField, save: (value: string) => void): HTMLEle
     if (key.key === 'Escape') control.value = field.value
   })
   return control
+}
+
+const addRow = (list: TodoList): HTMLElement => {
+  const controls = list.add.fields.map((field) => {
+    const control = h(field.wide === true ? 'textarea' : 'input', {
+      class: `todo-field is-${field.name}`,
+      name: field.name,
+      'aria-label': field.label,
+      placeholder: field.placeholder ?? '',
+      maxlength: String(field.maxLength),
+    }) as HTMLInputElement | HTMLTextAreaElement
+    control.value = field.value
+    if (field.wide === true) growsWithText(control)
+    return [field.name, control] as const
+  })
+  const warnings = h('ul', { class: 'todo-problems', 'aria-live': 'polite' })
+  const valuesOf = (): Record<string, string> =>
+    Object.fromEntries(controls.map(([name, control]) => [name, control.value.trim()]))
+  const reflect = (): void => {
+    warnings.replaceChildren(
+      ...(list.add.warnings?.(valuesOf()) ?? []).map((warning) => h('li', {}, warning)),
+    )
+  }
+  for (const [, control] of controls) control.addEventListener('input', reflect)
+  const submit = (): void => {
+    if (controls.some(([, control]) => control.value.trim() === '')) {
+      controls.find(([, control]) => control.value.trim() === '')?.[1].focus()
+      return
+    }
+    list.add.submit(valuesOf(), () => {
+      for (const [, control] of controls) control.value = ''
+      reflect()
+      controls[0]?.[1].focus()
+    })
+  }
+  for (const [, control] of controls)
+    control.addEventListener('keydown', (event) => {
+      const key = event as KeyboardEvent
+      if (key.key === 'Enter' && !key.shiftKey) {
+        event.preventDefault()
+        submit()
+      }
+    })
+  return h(
+    'div',
+    { class: 'todo-add', role: 'group', 'aria-label': list.add.label },
+    h('span', { class: 'todo-plus', 'aria-hidden': 'true' }, '+'),
+    h(
+      'div',
+      { class: 'todo-fields' },
+      controls.map(([, control]) => control),
+    ),
+    list.add.extra?.(reflect),
+    button(list.add.label, submit, { class: 'primary todo-add-button' }),
+    warnings,
+  )
 }
 
 const growsWithText = (control: HTMLInputElement | HTMLTextAreaElement): void => {

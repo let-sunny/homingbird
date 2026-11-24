@@ -1,12 +1,10 @@
 import { fire, getByRole } from '@homingbird/ui/testing'
 import { describe, expect, it, vi } from 'vitest'
 import { strings } from '../../src/strings.ts'
-import { type TodoList, todoAddRow, todoList } from '../../src/views/todo-list.ts'
+import { type TodoList, todoList } from '../../src/views/todo-list.ts'
 import { mount, usingFakeDom } from '../support/dom.ts'
 
 usingFakeDom()
-
-const submit = vi.fn((_: unknown, done: () => void) => done())
 
 const list = (fields: Partial<TodoList> = {}): TodoList => ({
   label: 'Steps',
@@ -30,12 +28,12 @@ const list = (fields: Partial<TodoList> = {}): TodoList => ({
   edit: vi.fn(),
   move: vi.fn(),
   remove: vi.fn(),
-  add: todoAddRow({
+  add: {
     label: 'Add step',
     fields: [{ name: 'text', label: 'New step', value: '', maxLength: 100, wide: true }],
     warnings: (values) => (values.text === 'vague' ? ['Be specific'] : []),
-    submit,
-  }),
+    submit: vi.fn((_, done: () => void) => done()),
+  },
   ...fields,
 })
 
@@ -86,23 +84,23 @@ describe('todoList', () => {
     const add = getByRole(shown, 'group', { name: 'Add step' })
     const input = getByRole(add, 'textbox', { name: 'New step' }) as HTMLTextAreaElement
     getByRole(add, 'button', { name: 'Add step' }).click()
-    expect(submit).not.toHaveBeenCalled()
+    expect(given.add.submit).not.toHaveBeenCalled()
     expect(document.activeElement).toBe(input)
     fire.type(input, 'vague')
     expect(add.querySelector('.todo-problems')!.textContent).toBe('Be specific')
     fire.key(input, 'Enter', { shiftKey: true })
     fire.key(input, 'Enter')
-    expect(submit).toHaveBeenCalledWith({ text: 'vague' }, expect.any(Function))
+    expect(given.add.submit).toHaveBeenCalledWith({ text: 'vague' }, expect.any(Function))
     expect(input.value).toBe('')
   })
 
   it('works without warnings and with plain inputs', () => {
     const given = list({
-      add: todoAddRow({
+      add: {
         label: 'Add',
         fields: [{ name: 'topic', label: 'Topic', value: 'x', maxLength: 10, placeholder: 'Topic' }],
         submit: vi.fn(),
-      }),
+      },
     })
     const shown = mount(todoList(given))
     const input = getByRole(shown, 'textbox', { name: 'Topic' })
