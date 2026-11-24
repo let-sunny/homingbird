@@ -39,8 +39,9 @@ export const loadedGroup = (
   actions.loadGroups()
   actions.loadPeople()
   const awaited = slice([state.groups.load], () => firstAnswersStep([state.groups.load.get()]))
-  return {
-    model: () =>
+  const shown = slice(
+    [state.groups, awaited, state.workspace, state.members, state.directory, state.conversations],
+    () =>
       groupPageModel({
         id,
         groups: state.groups.get(),
@@ -52,7 +53,10 @@ export const loadedGroup = (
         viewerId,
         charactersOn: featureOn('characters', state.serverInfo.get()),
       }),
-    sources: [state.groups, awaited, state.workspace, state.members, state.directory, state.conversations],
+  )
+  return {
+    model: shown.get,
+    sources: [shown],
     retry: actions.loadGroupsAgain,
   }
 }

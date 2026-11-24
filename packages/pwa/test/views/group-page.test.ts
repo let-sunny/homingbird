@@ -2,6 +2,7 @@ import { lifetime } from '@homingbird/ui'
 import { fire, getByRole, queryByRole, textOf } from '@homingbird/ui/testing'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../../src/strings.ts'
+import { withPresence } from '../../src/thread.ts'
 import { dialogHost } from '../../src/views/dialog.ts'
 import { groupPageView } from '../../src/views/group-page.ts'
 import { testContext } from '../support/context.ts'
@@ -67,6 +68,20 @@ describe('groupPageView', () => {
     expect(called('renameGroup')[0]!.args).toEqual([TEAM, 'Money'])
     called('renameGroup')[0]!.then!.done!(undefined)
     expect((dialog as HTMLDialogElement).open).toBe(false)
+  })
+
+  it('keeps the person chosen to be added while colleagues come and go', () => {
+    const { context, called } = testContext()
+    context.state.directory.set([entry(ANA, 'Ana'), entry(BEN, 'Ben'), entry(CY, 'Cy')])
+    context.state.groups.set([group(TEAM, { name: 'Finance', memberIds: [ANA], mayAdd: true })])
+    setLoad(context.state.groups, { loaded: true })
+    const shown = groupPageView(context, lifetime(), ANA, TEAM)
+    fire.select(shown.querySelector('.add-member select')!, CY)
+    context.state.directory.update((entries) =>
+      withPresence(entries, [{ memberId: BEN, humanOnline: true, agentOnline: true }]),
+    )
+    fire.submit(shown.querySelector('form.add-member')!)
+    expect(called('setGroupMembers')[0]!.args[1]).toEqual([ANA, CY])
   })
 
   it('shows an administrator who may only remove the remove buttons and no add control', () => {
