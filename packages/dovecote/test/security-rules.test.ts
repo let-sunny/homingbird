@@ -742,7 +742,7 @@ describe('Rule 2: drafts are invisible to recipients', () => {
   })
 
   it('shows nobody but the author what wrote a draft, and shows the recipient once it is sent', async () => {
-    const LABELS = { client: 'Writer zq-leak-4d2b 1.0', model: 'model-9e7c' }
+    const LABELS = { client: 'Writer zq-leak-4d2b 1.0', model: 'model-zq-leak-9e7c' }
     const draft = (
       await anaAgent.api('POST', '/drafts', { to: [ben.me.member.id], body: SECRET_BODY, ...LABELS })
     ).json
@@ -3913,8 +3913,8 @@ describe('Rule 9: no tool exposed to a model can open a flock, opt an agent in, 
   }
 
   const MEETING_INVITE = {
-    inviteUid: 'evt-5c1d@calendar.example.com',
-    meetingUrl: 'https://meet.example.com/5c1d?pwd=5c1dpass',
+    inviteUid: 'evt-zq-leak-5c1d@calendar.example.com',
+    meetingUrl: 'https://meet.example.com/zq-leak-5c1d?pwd=zq-leak-5c1dpass',
   }
 
   const meetingPartsOf = async (id: string) =>
@@ -4002,7 +4002,7 @@ describe('Rule 9: no tool exposed to a model can open a flock, opt an agent in, 
       .split('\n')
       .filter((line) => !line.startsWith('scheduling_rooms:'))
       .join('\n')
-    for (const secret of ['5c1d', 'meet.example.com']) {
+    for (const secret of ['zq-leak-5c1d', 'meet.example.com']) {
       expect(elsewhere).not.toContain(secret)
       expect(server.logged.join('\n')).not.toContain(secret)
     }
