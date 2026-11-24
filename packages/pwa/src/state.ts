@@ -97,6 +97,7 @@ export const createState = (hash: string): AppState => {
     seenDrafts: new Set(),
     previews: signal<ReadonlyMap<ConversationId, ReadonlyArray<AsRead.DraftPreview>>>(new Map()),
     previewedBodies: signal<ReadonlyMap<NoteId, string>>(new Map()),
+    previewReads: changeCounter(),
     previewAllowance: signal<AsRead.DraftPreviewAllowance | null>(null),
   }
 }
@@ -221,6 +222,8 @@ export interface AppState {
   readonly previews: Signal<ReadonlyMap<ConversationId, ReadonlyArray<AsRead.DraftPreview>>>
   /** Each preview's words as this page last showed them, so a sent note can say whether they changed. */
   readonly previewedBodies: Signal<ReadonlyMap<NoteId, string>>
+  /** Counts each load and hide of a conversation's previews, so that an older answer never counts. */
+  readonly previewReads: ChangeCounter
   /** Whom the person lets see their own agent's drafts early, once loaded. */
   readonly previewAllowance: Signal<AsRead.DraftPreviewAllowance | null>
 }

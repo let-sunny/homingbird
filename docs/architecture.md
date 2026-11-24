@@ -619,7 +619,8 @@ sequenceDiagram
 - **Reconnecting.** The web client hides the draft previews it holds as soon as it knows its events are
   lost (offline, a stream that ended, broke or was refused) and shows them again only as the server then
   answers; a failed answer keeps them hidden, since a discarded draft's preview must not show (rule 2).
-  While it polls it reads them again after each poll. It also asks `me.get`, and starts the page anew when
+  It reads them again after the first connect and, while it polls, after each poll. An answer counts only
+  while no later load or hide of that conversation began (`previewReads` in `pwa/src/state.ts`). It also asks `me.get`, and starts the page anew when
   another person signed in meanwhile in another tab (`pwa/src/tasks/reconnect.ts`).
 - **Session end.** A 401 on any request or on the event stream, and signing out, end the session in the
   page (`endSession` in `pwa/src/app.ts`): the one `AbortSignal` that every launched task, the stream,

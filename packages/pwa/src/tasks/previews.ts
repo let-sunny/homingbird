@@ -4,12 +4,22 @@ import { type Action, type App, withApp } from '../app.ts'
 import { featureOn } from '../features.ts'
 import type { AppState } from '../state.ts'
 
-/** The previews this person may see in a conversation; none while the organization has previews off. */
+/**
+ * The previews this person may see in a conversation; none while the organization has previews off. An
+ * answer counts only while no later load or hide of the conversation began; the conversation counts as
+ * held from the start, so a reconnect reads it even when this load never answers.
+ */
 export const loadPreviews = (id: ConversationId): Action =>
   T.gen(function* () {
     const { api, state } = yield* T.ask<App>()
     if (!featureOn('draftPreviews', state.serverInfo.get())) return
-    const { previews } = yield* api['previews.list']({ params: { id } })
+    if (!state.previews.get().has(id)) state.previews.update((all) => new Map(all).set(id, []))
+    state.previewReads.count(id)
+    const started = state.previewReads.changesTo(id)
+    const answered = yield* T.result(api['previews.list']({ params: { id } }))
+    if (state.previewReads.changedSince(id, started)) return
+    if (answered._tag === 'Err') return yield* T.fail(answered.error)
+    const { previews } = answered.value
     state.previewedBodies.update((seen) => {
       const next = new Map(seen)
       for (const preview of previews)
@@ -18,6 +28,16 @@ export const loadPreviews = (id: ConversationId): Action =>
     })
     state.previews.update((all) => new Map(all).set(id, previews))
   })
+
+/** Shows none of the conversations' previews, and forgets the words they showed, until a later load answers. */
+export const hidePreviews = (state: AppState, ids: ReadonlyArray<ConversationId>): void => {
+  for (const id of ids) state.previewReads.count(id)
+  const held = state.previews.get()
+  const hidden = new Set(ids.flatMap((id) => (held.get(id) ?? []).map((preview) => preview.noteId)))
+  if (hidden.size === 0) return
+  state.previewedBodies.update((seen) => new Map([...seen].filter(([noteId]) => !hidden.has(noteId))))
+  state.previews.update((all) => new Map([...all, ...ids.map((id) => [id, []] as const)]))
+}
 
 /**
  * Reads again every conversation's previews this page holds, as when someone's allowance changed. One that
