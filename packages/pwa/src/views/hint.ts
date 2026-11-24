@@ -61,6 +61,10 @@ export const hinted = <Target extends HTMLElement>(
     hint.setAttribute('popover', 'hint')
     hint.classList.add('is-anchored')
     target.setAttribute('interestfor', id)
+    const isPressed = followsPress(context, target)
+    hint.addEventListener('beforetoggle', (event) => {
+      if ((event as ToggleEvent).newState === 'open' && isPressed()) event.preventDefault()
+    })
   } else showsOnRest(context, target, hint)
   return [target, hint]
 }
@@ -123,19 +127,15 @@ const showsOnRest = (context: HintContext, target: HTMLElement, hint: HTMLElemen
       place(context, target, hint)
     })
   }
-  let pressed = false
+  const isPressed = followsPress(context, target)
   target.addEventListener('pointerenter', (event) => {
     if ((event as PointerEvent).pointerType === 'mouse') soon()
   })
   target.addEventListener('pointerleave', hide)
-  target.addEventListener('pointerdown', () => {
-    pressed = true
-  })
   target.addEventListener('focusin', () => {
-    if (!pressed) soon()
+    if (!isPressed()) soon()
   })
   target.addEventListener('focusout', () => {
-    pressed = false
     hide()
   })
   hint.addEventListener('toggle', (event) => {
@@ -146,6 +146,35 @@ const showsOnRest = (context: HintContext, target: HTMLElement, hint: HTMLElemen
       if ((press as KeyboardEvent).key === 'Escape') hide()
     })
   })
+}
+
+/**
+ * Whether the attention on the control is what a press left behind: the focus a press brought, or the
+ * focus that comes back to it after the press opened a dialog and the dialog closed. The mouse moving on
+ * the control, or any key but Escape, hands the control back to the hints.
+ */
+const followsPress = (context: HintContext, target: HTMLElement): (() => boolean) => {
+  let pressed = false
+  let stopWatchingKeys = (): void => {}
+  const release = (): void => {
+    stopWatchingKeys()
+    stopWatchingKeys = (): void => {}
+    pressed = false
+  }
+  const press = (): void => {
+    pressed = true
+    stopWatchingKeys()
+    stopWatchingKeys = context.document.listen('keydown', (event) => {
+      if ((event as KeyboardEvent).key !== 'Escape') release()
+    })
+  }
+  target.addEventListener('pointerdown', press)
+  target.addEventListener('click', press)
+  target.addEventListener('pointermove', (event) => {
+    const { movementX, movementY } = event as PointerEvent
+    if ((movementX ?? 0) !== 0 || (movementY ?? 0) !== 0) release()
+  })
+  return () => pressed
 }
 
 /** Puts the hint under its control, or above it where there is no room below. */
