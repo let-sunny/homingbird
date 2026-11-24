@@ -1,5 +1,5 @@
-import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { spawn, spawnSync } from 'node:child_process'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -39,7 +39,7 @@ export interface Suite {
   readonly needs: 'pwa' | 'demo'
 }
 
-/** The Playwright the runs were checked with. */
+/** The Playwright the runs were checked with, as `scripts/playwright` locks it. */
 export const PLAYWRIGHT_VERSION = '1.59.0'
 
 /** The environment variables the suites read to choose where their screenshots go. */
@@ -106,12 +106,36 @@ const main = (): void => {
   for (const needs of ['pwa', 'demo'] as const)
     if (chosen.some((suite) => suite.needs === needs)) build(root, needs)
   const environment = environmentFor(playwright, out)
-  const results = chosen.map((suite) => runSuite(root, suite, environment, out))
-  const summary = results.map((result) => `${result.ok ? 'ok  ' : 'FAIL'} ${result.name} ${result.seconds}s`)
-  const total = results.reduce((sum, result) => sum + result.seconds, 0)
-  process.stdout.write(`\n${summary.join('\n')}\ntotal ${total}s\n`)
-  writeFileSync(join(out, 'summary.txt'), `${summary.join('\n')}\ntotal ${total}s\n`)
-  if (results.some((result) => !result.ok)) process.exit(1)
+  runInTurn(chosen, (suite) => runSuite(root, suite, environment, out), report(out))
+}
+
+const report =
+  (out: string) =>
+  (results: ReadonlyArray<SuiteResult>): void => {
+    const summary = results.map(
+      (result) => `${result.ok ? 'ok  ' : 'FAIL'} ${result.name} ${result.seconds}s`,
+    )
+    const total = results.reduce((sum, result) => sum + result.seconds, 0)
+    process.stdout.write(`\n${summary.join('\n')}\ntotal ${total}s\n`)
+    writeFileSync(join(out, 'summary.txt'), `${summary.join('\n')}\ntotal ${total}s\n`)
+    if (results.some((result) => !result.ok)) process.exit(1)
+  }
+
+interface SuiteResult {
+  readonly name: string
+  readonly ok: boolean
+  readonly seconds: number
+}
+
+const runInTurn = (
+  suites: ReadonlyArray<Suite>,
+  runOne: (suite: Suite) => Promise<SuiteResult>,
+  done: (results: ReadonlyArray<SuiteResult>) => void,
+  results: ReadonlyArray<SuiteResult> = [],
+): void => {
+  const [next, ...rest] = suites
+  if (next === undefined) done(results)
+  else void runOne(next).then((result) => runInTurn(rest, runOne, done, [...results, result]))
 }
 
 const parseArguments = (
@@ -152,7 +176,7 @@ interface Playwright {
 /**
  * Where the pinned Playwright lives: one the shell already offers through NODE_PATH, else the cache
  * folder `HB_PLAYWRIGHT_DIR` (default `~/.cache/homingbird/playwright-<version>`), where it is installed
- * with Chromium on the first run. Nothing is added to the workspace.
+ * from the lockfile in `scripts/playwright`, with Chromium, on the first run. Nothing is added to the workspace.
  */
 const playwrightFor = (): Playwright => {
   const offered = (process.env.NODE_PATH ?? '')
@@ -167,12 +191,9 @@ const playwrightFor = (): Playwright => {
   const browsers = join(folder, 'browsers')
   if (versionIn(join(modules, 'playwright')) !== PLAYWRIGHT_VERSION) {
     mkdirSync(folder, { recursive: true })
-    writeFileSync(join(folder, 'package.json'), '{"private":true}\n')
-    run(
-      'npm',
-      ['install', '--no-audit', '--no-fund', '--save-exact', `playwright@${PLAYWRIGHT_VERSION}`],
-      folder,
-    )
+    for (const file of ['package.json', 'package-lock.json'])
+      copyFileSync(join(import.meta.dirname, 'playwright', file), join(folder, file))
+    run('npm', ['ci', '--no-audit', '--no-fund', '--ignore-scripts'], folder)
   }
   const install = [
     'exec',
@@ -215,23 +236,56 @@ const runSuite = (
   suite: Suite,
   environment: NodeJS.ProcessEnv,
   out: string,
-): { name: string; ok: boolean; seconds: number } => {
+): Promise<SuiteResult> => {
   process.stdout.write(`running ${suite.name}\n`)
   const started = process.hrtime.bigint()
-  const done = spawnSync('pnpm', ['exec', 'tsx', `packages/pwa/e2e/${suite.name}.e2e.ts`], {
-    cwd: root,
-    env: environment,
-    encoding: 'utf8',
-    timeout: SUITE_TIMEOUT_MS,
-    maxBuffer: 64 * 1024 * 1024,
-  })
-  const seconds = Math.round(Number(process.hrtime.bigint() - started) / 1e9)
-  const text = `${done.stdout}${done.stderr}${done.error ? `\n${done.error.message}\n` : ''}`
-  writeFileSync(join(out, 'logs', `${suite.name}.log`), text)
-  const ok = done.status === 0
-  if (!ok) process.stdout.write(`${text}\n`)
-  return { name: suite.name, ok, seconds }
+  const command = ['exec', 'tsx', `packages/pwa/e2e/${suite.name}.e2e.ts`]
+  return runWithin(SUITE_TIMEOUT_MS, 'pnpm', command, { cwd: root, env: environment }).then(
+    ({ ok, text }) => {
+      const seconds = Math.round(Number(process.hrtime.bigint() - started) / 1e9)
+      writeFileSync(join(out, 'logs', `${suite.name}.log`), text)
+      if (!ok) process.stdout.write(`${text}\n`)
+      return { name: suite.name, ok, seconds }
+    },
+  )
 }
+
+/** Runs a command and, when it takes longer than it may, ends it with every process it started. */
+export const runWithin = (
+  limitMs: number,
+  command: string,
+  args: ReadonlyArray<string>,
+  options: { readonly cwd?: string; readonly env?: NodeJS.ProcessEnv } = {},
+): Promise<{ readonly ok: boolean; readonly text: string }> =>
+  new Promise((resolve) => {
+    const child = spawn(command, args, { ...options, detached: true, stdio: ['ignore', 'pipe', 'pipe'] })
+    const said: Buffer[] = []
+    let end = ''
+    const endGroup = (): void => {
+      if (child.pid === undefined) return
+      try {
+        process.kill(-child.pid, 'SIGKILL')
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error
+      }
+    }
+    const limit = setTimeout(() => {
+      end = `\nended after ${limitMs / 1000} s\n`
+      endGroup()
+    }, limitMs)
+    const finish = (ok: boolean): void => {
+      clearTimeout(limit)
+      process.off('exit', endGroup)
+      resolve({ ok, text: `${Buffer.concat(said).toString('utf8')}${end}` })
+    }
+    process.on('exit', endGroup)
+    for (const stream of [child.stdout, child.stderr]) stream.on('data', (chunk: Buffer) => said.push(chunk))
+    child.on('error', (error) => {
+      end = `\n${error.message}\n`
+      finish(false)
+    })
+    child.on('close', (code) => finish(code === 0))
+  })
 
 const SUITE_TIMEOUT_MS = 6 * 60 * 1000
 
@@ -241,4 +295,7 @@ export const suiteFilesIn = (folder: string): string[] =>
     .filter((file) => file.endsWith('.e2e.ts') && file !== 'readme-screenshots.e2e.ts')
     .map((file) => file.replace(/\.e2e\.ts$/, ''))
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) main()
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => process.exit(1))
+  main()
+}

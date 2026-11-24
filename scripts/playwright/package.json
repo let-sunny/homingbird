@@ -1,0 +1,7 @@
+{
+  "name": "homingbird-e2e-playwright",
+  "private": true,
+  "dependencies": {
+    "playwright": "1.59.0"
+  }
+}

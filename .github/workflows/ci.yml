@@ -63,7 +63,7 @@ jobs:
             echo "database=$(matches "$core|^packages/(a2a|dovecote)/")"
             echo "image=$(matches "^packages/(kernel|protocol|sprites|client|cli|mcp|a2a|dovecote|ui|pwa)/|^Dockerfile$|^\.dockerignore$")"
             echo "terraform=$(matches '^deploy/terraform/')"
-            echo "web=$(matches '^packages/(kernel|protocol|dovecote|client|ui|pwa|demo|sprites)/|^scripts/web-e2e\.ts$')"
+            echo "web=$(matches '^packages/(kernel|protocol|dovecote|client|ui|pwa|demo|sprites)/|^scripts/(web-e2e\.ts$|playwright/)')"
           } >> "$GITHUB_OUTPUT"
 
   check:
@@ -212,14 +212,8 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Playwright is not a dependency of the project: the runner installs the one version it names into a
-      # folder outside the workspace, and the folder is cached by that version.
-      - id: playwright
-        run: echo "version=$(node -e "import('./scripts/web-e2e.ts').then((runner) => console.log(runner.PLAYWRIGHT_VERSION))")" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ~/.cache/homingbird
-          key: playwright-${{ steps.playwright.outputs.version }}-chromium
+      # Playwright is not a dependency of the project: the runner installs the version that
+      # scripts/playwright locks into a folder outside the workspace, without its install scripts.
       - name: Build, install Chromium and run this shard
         timeout-minutes: 15
         run: pnpm e2e:web --shard ${{ matrix.shard }}/3
