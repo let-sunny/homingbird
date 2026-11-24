@@ -81,6 +81,8 @@ export interface Resources {
 
 export type ResourceKey = keyof Resources
 
+export const isResourceKey = (name: string): name is ResourceKey => Object.hasOwn(ASKS, name)
+
 /** How each is asked for. One whose feature is off is empty, and nothing is asked. */
 const ASKS: { readonly [Key in ResourceKey]: Action<Resources[Key]> } = {
   conversations: withApp(({ api }) =>

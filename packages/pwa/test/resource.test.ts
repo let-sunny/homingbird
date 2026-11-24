@@ -10,6 +10,7 @@ import {
 } from '../src/load-timing.ts'
 import { type Source, resource } from '../src/resource.ts'
 import { settle } from './support/app.ts'
+import { recordOf, timelineText, withTimeline } from './support/timeline.ts'
 
 type Ids = ReadonlyArray<string>
 
@@ -165,9 +166,16 @@ interface Refreshed {
   newestAnswer: number
 }
 
-/** Plays a script, checking what must hold at every moment, and tells what it counted. */
-const play = async (script: ReadonlyArray<Scripted>) => {
+/** Plays a script, recorded unless told not to, so that a failure prints what the resource did. */
+const play = async (script: ReadonlyArray<Scripted>, recorded = true) => {
   const test = setUp()
+  const recording = recordOf(recorded ? { ids: test.ids } : {}, test.clock)
+  const played = await withTimeline(recording, () => checkedPlay(script, test))
+  return { ...played, recording }
+}
+
+/** Checks what must hold at every moment of a script, and tells what it counted and saw. */
+const checkedPlay = async (script: ReadonlyArray<Scripted>, test: ReturnType<typeof setUp>) => {
   const { ids, server, source, running, requests, clock } = test
   const events: Array<() => void> = []
   const refreshes: Refreshed[] = []
@@ -176,6 +184,7 @@ const play = async (script: ReadonlyArray<Scripted>) => {
   let hasEnded = false
   let wasLoaded = false
   const broken: string[] = []
+  const seen: unknown[] = []
   const gone = new Set<string>()
   const removeHere = (id: string): void => {
     if (!server.ids.includes(id)) gone.add(id)
@@ -190,6 +199,8 @@ const play = async (script: ReadonlyArray<Scripted>) => {
   }
   ids.subscribe(check)
   ids.load.subscribe(check)
+  ids.subscribe((now) => seen.push(now))
+  ids.load.subscribe((now) => seen.push(now))
   const refresh = (): void => {
     counted.wanted++
     const refreshed: Refreshed = { startedAfter: requests.length, outcome: null, newestAnswer: -1 }
@@ -282,28 +293,30 @@ const play = async (script: ReadonlyArray<Scripted>) => {
   await settle()
   expect(broken).toEqual([])
   expect(test.defects).toEqual([])
-  return { ...test, refreshes, counted, hasEnded }
+  return { ...test, refreshes, counted, hasEnded, seen }
 }
 
 describe('a resource, whatever the order of events, actions and answers', () => {
   it('has one request at a time, ends every refresh with a newer answer, and ends as the server is', async () => {
     await fc.assert(
       fc.asyncProperty(steps(false), async (script) => {
-        const { ids, server, refreshes, requests, counted, counts, answered } = await play(script)
-        for (const refreshed of refreshes) {
-          expect(refreshed.outcome, 'I5: every refresh ends').not.toBeNull()
-          if (refreshed.outcome === true)
-            expect(refreshed.newestAnswer, 'I2: with an answer asked for after it').toBeGreaterThanOrEqual(
-              refreshed.startedAfter,
-            )
-        }
-        const { loaded, step } = ids.load.get()
-        if (loaded && step !== 'failed')
-          expect([...ids.get()].sort(), 'I3: ends as the server is').toEqual([...server.ids].sort())
-        if (answered.length > 0) expect(loaded, 'I7').toBe(true)
-        expect(requests.length, 'I9: no request nobody asked for').toBeLessThanOrEqual(
-          counted.wanted + counted.failed + counts.timedOut,
-        )
+        const { ids, server, refreshes, requests, counted, counts, answered, recording } = await play(script)
+        await withTimeline(recording, async () => {
+          for (const refreshed of refreshes) {
+            expect(refreshed.outcome, 'I5: every refresh ends').not.toBeNull()
+            if (refreshed.outcome === true)
+              expect(refreshed.newestAnswer, 'I2: with an answer asked for after it').toBeGreaterThanOrEqual(
+                refreshed.startedAfter,
+              )
+          }
+          const { loaded, step } = ids.load.get()
+          if (loaded && step !== 'failed')
+            expect([...ids.get()].sort(), 'I3: ends as the server is').toEqual([...server.ids].sort())
+          if (answered.length > 0) expect(loaded, 'I7').toBe(true)
+          expect(requests.length, 'I9: no request nobody asked for').toBeLessThanOrEqual(
+            counted.wanted + counted.failed + counts.timedOut,
+          )
+        })
       }),
       { numRuns: 1000 },
     )
@@ -322,6 +335,32 @@ describe('a resource, whatever the order of events, actions and answers', () => 
       }),
       { numRuns: 500 },
     )
+  })
+
+  it('does the same at the same moments while it is inspected', async () => {
+    await fc.assert(
+      fc.asyncProperty(steps(true), async (script) => {
+        const plain = await play(script, false)
+        const inspected = await play(script)
+        expect(inspected.seen).toEqual(plain.seen)
+        expect(inspected.requests.length).toBe(plain.requests.length)
+        expect(inspected.refreshes).toEqual(plain.refreshes)
+        expect(inspected.answered).toEqual(plain.answered)
+        expect(inspected.failures).toEqual(plain.failures)
+      }),
+      { numRuns: 500 },
+    )
+  })
+
+  it('prints what the resource did when a check fails', async () => {
+    const { ids, clock, askAndAnswer } = setUp()
+    const recording = recordOf({ ids }, clock)
+    await askAndAnswer(['a'])
+    const failing = withTimeline(recording, () => Promise.reject(new Error('not as expected')))
+    await expect(failing).rejects.toThrow(
+      `not as expected\n\nWhat the resources did:\n${timelineText(recording)}`,
+    )
+    expect(timelineText(recording)).toContain('ids answered')
   })
 
   it('asks once more for any number of changes during one request', async () => {
