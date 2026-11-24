@@ -12,7 +12,17 @@ import { strings } from '../strings.ts'
 import { renderAvatar } from './character-avatar.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, opensDialog } from './dialog.ts'
-import { button, dialogActions, emptyWithPip, field, listWait, page, youMark } from './parts.ts'
+import {
+  type Unsaved,
+  button,
+  dialogActions,
+  emptyWithPip,
+  field,
+  keepTyped,
+  listWait,
+  page,
+  youMark,
+} from './parts.ts'
 
 /** A team's page: its name and its members, changed where the person may. */
 export const groupPageView = (
@@ -22,7 +32,8 @@ export const groupPageView = (
   id: string,
 ): HTMLElement => {
   const shown = loadedGroup(context, viewerId, id)
-  return region(life, shown.sources, () => renderGroupPage(shown.model(), context, shown.retry))
+  const unsaved: Unsaved = new Map()
+  return region(life, shown.sources, () => renderGroupPage(shown.model(), context, shown.retry, unsaved))
 }
 
 /** Loads the groups and the people a team's page needs, and the page's model over them as they change. */
@@ -61,25 +72,35 @@ export const loadedGroup = (
   }
 }
 
-const renderGroupPage = (model: GroupPageModel, context: ViewContext, retry: () => void): Child => {
+const renderGroupPage = (
+  model: GroupPageModel,
+  context: ViewContext,
+  retry: () => void,
+  unsaved: Unsaved,
+): Child => {
   switch (model.kind) {
     case 'waiting':
       return page(strings.groups.title, listWait(model.wait, retry))
     case 'missing':
       return emptyWithPip('failed', model.text, h('a', { class: 'button', href: '#/' }, strings.backHome))
     case 'group':
-      return groupPage(model, context)
+      return groupPage(model, context, unsaved)
   }
 }
 
-const groupPage = (model: GroupModel, context: ViewContext): HTMLElement =>
-  page(model.title, groupEditor(model, context))
+const groupPage = (model: GroupModel, context: ViewContext, unsaved: Unsaved): HTMLElement =>
+  page(model.title, groupEditor(model, context, unsaved))
 
 /**
  * A team's members and what the person may do with them: write to one or all of them, rename the team, add
  * or remove people. `more` goes beside renaming; the group page and the administration's editor share this.
  */
-export const groupEditor = (model: GroupModel, context: ViewContext, more: Child = null): Child => {
+export const groupEditor = (
+  model: GroupModel,
+  context: ViewContext,
+  unsaved: Unsaved,
+  more: Child = null,
+): Child => {
   const group = model.group
   const changes = { attempt: 'managers' as const }
   const setMembers = (memberIds: ReadonlyArray<MemberId>): void =>
@@ -133,7 +154,7 @@ export const groupEditor = (model: GroupModel, context: ViewContext, more: Child
       ),
     ),
     model.addMember !== null &&
-      addMemberForm(model.addMember, (memberId) => setMembers([...group.memberIds, memberId])),
+      addMemberForm(model.addMember, unsaved, (memberId) => setMembers([...group.memberIds, memberId])),
   ]
 }
 
@@ -175,6 +196,7 @@ const renameForm = (context: ViewContext, group: AsRead.Group, value: string): H
 
 const addMemberForm = (
   add: NonNullable<Extract<GroupPageModel, { kind: 'group' }>['addMember']>,
+  unsaved: Unsaved,
   choose: (memberId: MemberId) => void,
 ): HTMLElement => {
   const choice = h(
@@ -182,6 +204,7 @@ const addMemberForm = (
     { name: 'member', 'aria-label': add.label },
     add.choices.map((one) => h('option', { value: one.value }, one.label)),
   )
+  keepTyped(unsaved, 'member', choice, choice.value)
   return h(
     'form',
     {

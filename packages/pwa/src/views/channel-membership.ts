@@ -8,6 +8,7 @@ import {
   region,
   replaceChildren,
   signal,
+  slice,
 } from '@homingbird/ui'
 import { isPrivate } from '../channels.ts'
 import { featureOn } from '../features.ts'
@@ -28,14 +29,17 @@ import { hrefFor } from '../routes.ts'
 import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import { agentButtons } from './channel-agent.ts'
+import { unlessComposing } from './composing.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, opensDialog } from './dialog.ts'
 import { hinted } from './hint.ts'
 import {
+  type Unsaved,
   button,
   copyWithNotice,
   dialogActions,
   disabledWithReason,
+  keepTyped,
   loading,
   privateMarkOf,
   youMark,
@@ -204,6 +208,7 @@ const membersPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Chan
       for (const memberId of chosen) actions.setChannelMember(channel.slug, memberId, true, changes)
     },
     back: () => back(),
+    unsaved: new Map<string, string>(),
     addTeam: (groupId: GroupId) => actions.addTeam(channel.slug, groupId, changes),
     setManagers: (groupId: GroupId, memberIds: ReadonlyArray<MemberId>) =>
       actions.setGroupMembers(groupId, memberIds, changes),
@@ -211,15 +216,17 @@ const membersPanel = (context: ViewContext, life: Lifetime, channel: AsRead.Chan
       actions.setChannelMember(channel.slug, memberId, isMember, changes),
   }
   const shown = model()
+  const { drawn, watch } = unlessComposing(
+    context,
+    life,
+    slice([listed, state.members, state.directory, state.groups], model),
+  )
   const body = [
     shown.managedByAdmin !== null && h('p', { class: 'hint' }, shown.managedByAdmin),
-    region(
-      life,
-      [listed, state.members, state.directory, state.groups],
-      (drawing) => renderMembers(model(), context, channel, panel, drawing),
-      {
+    watch(
+      region(life, [drawn], (drawing) => renderMembers(model(), context, channel, panel, drawing), {
         class: 'members-host',
-      },
+      }),
     ),
   ]
   const back = (): void => replaceChildren(host, ...body)
@@ -231,6 +238,8 @@ interface Panel {
   readonly confirm: (content: HTMLElement) => void
   /** Shows the members again after a confirmation that keeps the panel open. */
   readonly back: () => void
+  /** What is chosen and not yet added, so that it survives a redraw. */
+  readonly unsaved: Unsaved
   readonly addTeam: (groupId: GroupId) => void
   readonly setManagers: (groupId: GroupId, memberIds: ReadonlyArray<MemberId>) => void
   readonly setMember: (memberId: MemberId, isMember: boolean) => void
@@ -260,11 +269,17 @@ const renderMembers = (
   return [
     managing,
     addManager !== null &&
-      choiceForm('add-manager', addManager, (memberId) =>
+      choiceForm('add-manager', addManager, panel.unsaved, (memberId) =>
         panel.setManagers(addManager.groupId, [...addManager.memberIds, memberId]),
       ),
     model.addTeam !== null &&
-      choiceForm('add-team', model.addTeam, (groupId) => panel.addTeam(groupId), model.addTeam.hint),
+      choiceForm(
+        'add-team',
+        model.addTeam,
+        panel.unsaved,
+        (groupId) => panel.addTeam(groupId),
+        model.addTeam.hint,
+      ),
     h(
       'ul',
       { class: 'channel-members' },
@@ -371,6 +386,7 @@ const confirmation = (className: string, words: Confirmation, confirm: () => voi
 const choiceForm = <A extends string>(
   className: string,
   offer: Choice<A>,
+  unsaved: Unsaved,
   choose: (value: A) => void,
   hint: string | null = null,
 ): HTMLElement => {
@@ -379,6 +395,7 @@ const choiceForm = <A extends string>(
     { name: 'choice', 'aria-label': offer.label },
     offer.choices.map((one) => h('option', { value: one.value }, one.label)),
   )
+  keepTyped(unsaved, className, choice, choice.value)
   return h(
     'form',
     {

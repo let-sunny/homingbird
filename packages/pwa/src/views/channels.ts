@@ -18,10 +18,12 @@ import { signedIn } from '../state.ts'
 import { strings } from '../strings.ts'
 import { agentAsk } from './agent-ask.ts'
 import { joinButtons, privateMark, roomControls } from './channel-membership.ts'
+import { unlessComposing } from './composing.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { type MenuParts, actionMenu } from './menu.ts'
 import {
+  type Unsaved,
   button,
   channelChips,
   channelCounts,
@@ -29,6 +31,7 @@ import {
   empty,
   emptyWithPip,
   field,
+  keepTyped,
   listWait,
   loading,
   page,
@@ -91,25 +94,45 @@ export const channelView = (context: ViewContext, life: Lifetime, slug: string):
   life.add(state.channels.subscribe(enterRoomIfJoined))
   life.add(state.conversations.subscribe(enterRoomIfJoined))
   queueMicrotask(enterRoomIfJoined)
+  const unsaved: Unsaved = new Map()
+  const ask = agentAsk(
+    context,
+    life,
+    () => ({ channel: slug }),
+    (request) => actions.enterRoom(request.conversationId),
+  )
+  const { drawn, watch } = unlessComposing(
+    context,
+    life,
+    slice([state.channels, state.channelsLoaded, state.workspace, state.rosters], () => ({
+      channel: channelNamed(state.channels.get(), slug),
+      loaded: state.channelsLoaded.get(),
+      workspace: state.workspace.get(),
+      roster: state.rosters.get().get(slug),
+    })),
+  )
   return h(
     'div',
     { class: 'channel-ask-host' },
-    region(life, [state.channels, state.channelsLoaded, state.workspace, state.rosters], () => {
-      const channel = channelNamed(state.channels.get(), slug)
-      if (channel === null && !state.channelsLoaded.get()) return checking(context, strings.checking.channels)
-      if (channel === null)
-        return emptyWithPip(
-          'failed',
-          strings.unknownChannel,
-          h(
-            'div',
-            { class: 'empty-actions' },
-            h('a', { class: 'button', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
-            newChannelButton(context),
-          ),
-        )
-      return askPage(context, life, channel)
-    }),
+    watch(
+      region(life, [drawn], () => {
+        const channel = channelNamed(state.channels.get(), slug)
+        if (channel === null && !state.channelsLoaded.get())
+          return checking(context, strings.checking.channels)
+        if (channel === null)
+          return emptyWithPip(
+            'failed',
+            strings.unknownChannel,
+            h(
+              'div',
+              { class: 'empty-actions' },
+              h('a', { class: 'button', href: hrefFor({ name: 'channels' }) }, strings.browseChannels),
+              newChannelButton(context),
+            ),
+          )
+        return askPage(context, channel, unsaved, ask)
+      }),
+    ),
   )
 }
 
@@ -271,7 +294,12 @@ const visibilityChoice = (): HTMLFieldSetElement =>
     h('p', { class: 'hint' }, strings.visibilityFixed),
   )
 
-const askPage = (context: ViewContext, life: Lifetime, channel: AsRead.Channel): Child => {
+const askPage = (
+  context: ViewContext,
+  channel: AsRead.Channel,
+  unsaved: Unsaved,
+  ask: HTMLElement,
+): Child => {
   const model = askPageModel(channel, signedIn(context.state)?.member.role === 'admin')
   const text = h('textarea', {
     name: 'body',
@@ -281,6 +309,7 @@ const askPage = (context: ViewContext, life: Lifetime, channel: AsRead.Channel):
     placeholder: strings.askChannelPlaceholder,
     'aria-label': strings.askChannelPlaceholder,
   })
+  keepTyped(unsaved, 'question', text, '')
   const enterRoom = (conversationId: string): void => context.actions.enterRoom(conversationId)
   return page(
     model.title,
@@ -305,12 +334,7 @@ const askPage = (context: ViewContext, life: Lifetime, channel: AsRead.Channel):
         },
         text,
         h('button', { type: 'submit', class: 'primary' }, strings.send),
-        agentAsk(
-          context,
-          life,
-          () => ({ channel: channel.slug }),
-          (request) => enterRoom(request.conversationId),
-        ),
+        ask,
       ),
   )
 }

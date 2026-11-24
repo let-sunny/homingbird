@@ -12,6 +12,8 @@ import { setLoad } from '../support/resource-load.ts'
 
 usingFakeDom()
 
+const DEE = 'mem_dee000000000' as typeof CY
+
 describe('groupPageView', () => {
   it('waits for the groups, offers a retry, and says when the group does not exist', () => {
     const { context, called } = testContext()
@@ -82,6 +84,9 @@ describe('groupPageView', () => {
     )
     fire.submit(shown.querySelector('form.add-member')!)
     expect(called('setGroupMembers')[0]!.args[1]).toEqual([ANA, CY])
+    context.state.directory.update((entries) => [...entries, entry(DEE, 'Dee')])
+    fire.submit(shown.querySelector('form.add-member')!)
+    expect(called('setGroupMembers')[1]!.args[1]).toEqual([ANA, CY])
   })
 
   it('shows an administrator who may only remove the remove buttons and no add control', () => {

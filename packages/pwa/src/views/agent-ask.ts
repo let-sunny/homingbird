@@ -1,11 +1,11 @@
 import { type CredentialId, DRAFT_INSTRUCTION_MAX, type DraftRequest } from '@homingbird/protocol'
-import { type Lifetime, h, region } from '@homingbird/ui'
+import { type Lifetime, h, region, slice } from '@homingbird/ui'
 import type { DraftDestination } from '../draft-requests.ts'
 import { featureOn } from '../features.ts'
 import { agentChoices, chosenAgent } from '../models/agent-ask.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
-import { button } from './parts.ts'
+import { type Unsaved, button, keepTyped } from './parts.ts'
 
 /** "Let my agent write it": asks the person's agent for a draft, with an optional instruction. */
 export const agentAsk = (
@@ -44,19 +44,21 @@ export const agentAskPanel = (
     placeholder: strings.agentInstructionPlaceholder,
     'aria-label': strings.agentInstructionLabel,
   })
+  const unsaved: Unsaved = new Map()
+  const offered = slice([state.agentCredentials], () => agentChoices(state.agentCredentials.get()))
   const picker = region(
     life,
-    [state.agentCredentials],
+    [offered],
     () => {
-      const choices = agentChoices(state.agentCredentials.get())
-      return (
-        choices !== null &&
-        h(
-          'select',
-          { name: 'agent', 'aria-label': strings.agentPickerLabel },
-          choices.map((choice) => h('option', { value: choice.value }, choice.label)),
-        )
+      const choices = offered.get()
+      if (choices === null) return null
+      const choice = h(
+        'select',
+        { name: 'agent', 'aria-label': strings.agentPickerLabel },
+        choices.map((one) => h('option', { value: one.value }, one.label)),
       )
+      keepTyped(unsaved, 'agent', choice, '')
+      return choice
     },
     { class: 'agent-picker' },
   )

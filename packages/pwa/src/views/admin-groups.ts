@@ -18,7 +18,7 @@ import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { closeDialog, closesDialog, opensDialog } from './dialog.ts'
 import { groupEditor, loadedGroup } from './group-page.ts'
-import { dialogActions, empty, field, listWait, loading } from './parts.ts'
+import { type Unsaved, dialogActions, empty, field, listWait, loading } from './parts.ts'
 
 /** Administration → Groups: every team, each opening its editor, and creating one. */
 export const adminGroupsSection = (context: ViewContext, life: Lifetime): HTMLElement => {
@@ -42,10 +42,11 @@ export const adminGroupEditor = (
   id: string,
 ): HTMLElement => {
   const shown = loadedGroup(context, viewerId, id)
+  const unsaved: Unsaved = new Map()
   return region(
     life,
     shown.sources,
-    () => renderAdminGroup(adminGroupModel(shown.model()), context, shown.retry),
+    () => renderAdminGroup(adminGroupModel(shown.model()), context, shown.retry, unsaved),
     { class: 'admin-group' },
   )
 }
@@ -83,7 +84,12 @@ const groupRow = (row: AdminGroupRow): HTMLElement =>
     ),
   )
 
-const renderAdminGroup = (model: AdminGroupModel, context: ViewContext, retry: () => void): Child => {
+const renderAdminGroup = (
+  model: AdminGroupModel,
+  context: ViewContext,
+  retry: () => void,
+  unsaved: Unsaved,
+): Child => {
   const back = h('a', { class: 'admin-group-back', href: model.back.href }, `← ${model.back.label}`)
   if (model.kind !== 'group')
     return [back, model.kind === 'waiting' ? listWait(model.wait, retry) : empty(strings.notFound)]
@@ -94,6 +100,7 @@ const renderAdminGroup = (model: AdminGroupModel, context: ViewContext, retry: (
     groupEditor(
       model.page,
       context,
+      unsaved,
       model.importCsv !== null &&
         h(
           'button',

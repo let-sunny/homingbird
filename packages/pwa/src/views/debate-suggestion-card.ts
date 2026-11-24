@@ -1,6 +1,10 @@
 import type { AsRead, MemberId } from '@homingbird/protocol'
-import { type Lifetime, h, signal } from '@homingbird/ui'
-import { type SuggestionCard, suggestionAcceptance } from '../models/debate-suggestion-card.ts'
+import { type Lifetime, h, region, signal, slice } from '@homingbird/ui'
+import {
+  type SuggestionCard,
+  suggestionAcceptance,
+  suggestionCardModel,
+} from '../models/debate-suggestion-card.ts'
 import { chosenAmong, roomCandidates } from '../models/people-picker.ts'
 import { hrefFor } from '../routes.ts'
 import { strings } from '../strings.ts'
@@ -11,7 +15,7 @@ import { peoplePicker } from './people-picker.ts'
 /**
  * A suggestion from the person's own agent to talk a note over first: why, the question and the colleagues
  * it would ask, all of which the person may change. Opening the flock leads to it; answering alone only
- * clears the card.
+ * clears the card. Whose agents are awake is drawn by itself, so that presence never draws the fields again.
  */
 export const debateSuggestionCard = (
   context: ViewContext,
@@ -40,6 +44,15 @@ export const debateSuggestionCard = (
     chosen,
     limit: card.people.limit,
   })
+  const presence = slice([state.directory], () => {
+    const { notAwake, askInNote } = suggestionCardModel({
+      suggestion: card.suggestion,
+      members: state.members.get(),
+      directory: state.directory.get(),
+      viewerId: me.member.id,
+    })
+    return { notAwake, askInNote }
+  })
   const problem = h('p', { class: 'advice', role: 'alert', hidden: true })
   const open = (): void => {
     const typed = suggestionAcceptance({
@@ -64,17 +77,25 @@ export const debateSuggestionCard = (
     h('p', { class: 'suggestion-reason' }, h('small', {}, card.reason.label), ' ', card.reason.text),
     field(card.question.label, question),
     picker.element,
-    card.notAwake !== null && h('p', { class: 'hint suggestion-not-awake' }, card.notAwake),
+    region(life, [presence], () => {
+      const { notAwake } = presence.get()
+      return notAwake !== null && h('p', { class: 'hint suggestion-not-awake' }, notAwake)
+    }),
     field(card.brief.label, brief, card.brief.hint),
     h('p', { class: 'trust-footnote' }, card.limits),
-    card.askInNote !== null &&
-      h(
-        'p',
-        { class: 'advice suggestion-ask-in-note' },
-        card.askInNote.text,
-        ' ',
-        h('a', { href: card.askInNote.href }, card.askInNote.label),
-      ),
+    region(life, [presence], () => {
+      const { askInNote } = presence.get()
+      return (
+        askInNote !== null &&
+        h(
+          'p',
+          { class: 'advice suggestion-ask-in-note' },
+          askInNote.text,
+          ' ',
+          h('a', { href: askInNote.href }, askInNote.label),
+        )
+      )
+    }),
     problem,
     h(
       'div',

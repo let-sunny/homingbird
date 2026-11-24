@@ -5177,6 +5177,10 @@ textarea:disabled {
   border-style: solid;
 }
 
+.suggestion-card > .region:empty {
+  display: none;
+}
+
 .suggestion-card textarea {
   inline-size: 100%;
 }

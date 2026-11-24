@@ -247,6 +247,21 @@ describe('channelView', () => {
     expect(list.querySelector('[data-slug="billing"] .answering-agent-note')?.textContent).toBe(note)
   })
 
+  it('keeps a question, and an instruction for the agent, being typed while the channel changes', () => {
+    const { context, called } = testContext()
+    context.state.channels.set([channel('billing')])
+    const shown = channelView(context, lifetime(), 'billing')
+    fire.type(getByRole(shown, 'textbox', { name: strings.askChannelPlaceholder }), 'When?')
+    shown.querySelector<HTMLDetailsElement>('details.ask-agent')!.open = true
+    fire.type(getByRole(shown, 'textbox', { name: strings.agentInstructionLabel }), 'Be brief')
+    context.state.channels.set([channel('billing', { memberCount: 9 })])
+    expect(
+      (getByRole(shown, 'textbox', { name: strings.agentInstructionLabel }) as HTMLInputElement).value,
+    ).toBe('Be brief')
+    fire.submit(shown.querySelector('form.ask-channel')!)
+    expect(called('askChannel')[0]!.args).toEqual(['billing', 'When?'])
+  })
+
   it('opens the room of a channel the person is in, and only names a private one they are not in', async () => {
     const { context, page } = testContext()
     const secret = channel('secret', { visibility: 'private' })
