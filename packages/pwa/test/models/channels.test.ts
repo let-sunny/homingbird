@@ -19,28 +19,45 @@ const listed = (fields: Partial<ListedChannels> = {}): ListedChannels => ({
   ...fields,
 })
 
+const wishFor = (query: string) => ({ query, after: null })
+
 describe('channelListModel', () => {
+  it('keeps the answer to the word before while the new one comes quickly, and never once it is late or failed', () => {
+    const before = listed({ query: 'a', channels: [channel('a')] })
+    expect(channelListModel(before, wishFor('ab'), 'loading', 'loaded')).toMatchObject({
+      kind: 'channels',
+      wait: null,
+    })
+    expect(channelListModel(listed({ query: 'a' }), wishFor('ab'), 'loading', 'loaded').kind).toBe('no-match')
+    expect(channelListModel(listed({ query: 'ab' }), wishFor('ab'), 'loading', 'loaded').kind).toBe('waiting')
+    for (const step of ['long', 'failed'] as const)
+      expect(channelListModel(before, wishFor('ab'), step, 'loaded')).toMatchObject({
+        kind: 'waiting',
+        wait: { kind: step },
+      })
+  })
+
   it('waits, invites the first channel, or says none matched what was typed', () => {
-    expect(channelListModel(listed(), 'loading', 'loaded')).toEqual({
+    expect(channelListModel(listed(), wishFor(''), 'loading', 'loaded')).toEqual({
       kind: 'waiting',
       wait: { kind: 'checking', text: strings.checking.channels },
     })
-    expect(channelListModel(listed(), null, 'loaded')).toEqual({
+    expect(channelListModel(listed(), wishFor(''), null, 'loaded')).toEqual({
       kind: 'none-yet',
       text: strings.noChannelsYet,
     })
-    expect(channelListModel(listed({ query: 'x' }), null, 'loaded')).toEqual({
+    expect(channelListModel(listed({ query: 'x' }), wishFor('x'), null, 'loaded')).toEqual({
       kind: 'no-match',
       text: strings.noChannels,
     })
   })
 
   it('says it is taking too long or could not load, with Try again', () => {
-    expect(channelListModel(listed(), 'long', 'loaded')).toEqual({
+    expect(channelListModel(listed(), wishFor(''), 'long', 'loaded')).toEqual({
       kind: 'waiting',
       wait: { kind: 'long', text: strings.firstLoad.tooLong, retry: strings.tryAgain },
     })
-    expect(channelListModel(listed(), 'failed', 'loaded')).toEqual({
+    expect(channelListModel(listed(), wishFor(''), 'failed', 'loaded')).toEqual({
       kind: 'waiting',
       wait: { kind: 'failed', text: strings.loadFailed, retry: strings.tryAgain },
     })
@@ -48,7 +65,7 @@ describe('channelListModel', () => {
 
   it('keeps the pages shown while the next is on its way or did not come, and says so below them once', () => {
     const shown = (step: 'loading' | 'long' | 'failed', workspace: 'loaded' | 'failed' = 'loaded') =>
-      channelListModel(listed({ channels: [channel('a')], hasMore: true }), step, workspace)
+      channelListModel(listed({ channels: [channel('a')], hasMore: true }), wishFor(''), step, workspace)
     expect(shown('loading')).toMatchObject({
       more: strings.showMoreChannels,
       wait: { kind: 'checking', text: strings.checking.channels },
@@ -64,6 +81,7 @@ describe('channelListModel', () => {
   it('shows each card with where the person stands, joining only an open channel, a hint and more to load', () => {
     const only = channelListModel(
       listed({ channels: [channel('billing', { answering: true, joined: true })] }),
+      wishFor(''),
       null,
       'loaded',
     )
@@ -82,6 +100,7 @@ describe('channelListModel', () => {
         channels: [channel('a', { joined: true }), channel('b', { visibility: 'private' }), channel('c')],
         hasMore: true,
       }),
+      wishFor(''),
       null,
       'loaded',
     )
@@ -114,6 +133,7 @@ describe('channelListModel', () => {
           channel('d', { joined: true, answering: true }),
         ],
       }),
+      wishFor(''),
       null,
       'loaded',
     )

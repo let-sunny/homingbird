@@ -139,6 +139,7 @@ describe('channelsView', () => {
     const { context, called } = testContext()
     const shown = mount(channelsView(context, lifetime()))
     listed(context.state, page([channel('billing')], true))
+    context.state.channelPageWish.set({ query: '', after: context.state.channelPage.get() })
     setLoad(context.state.channelPage, { step: 'loading' })
     const more = getByRole(shown, 'button', { name: strings.showMoreChannels })
     expect(textOf(shown)).toContain(strings.checking.channels)

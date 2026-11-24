@@ -22,7 +22,7 @@ import {
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
 import { field, loading } from './parts.ts'
-import { todoList } from './todo-list.ts'
+import { todoAddRow, todoList } from './todo-list.ts'
 
 /** Administration → Settings: who may sign in, how people reach each other, the answering flow, features. */
 export const settingsSection = (context: ViewContext, life: Lifetime): HTMLElement => {
@@ -212,7 +212,7 @@ const answeringFlowEditor = (
         if (step !== undefined) steps.set(moveStep(steps.get(), step, to))
       },
       remove: (key) => steps.update((all) => all.filter((step) => keyOf(step) !== key)),
-      add: {
+      add: todoAddRow({
         label: strings.answeringFlow.addStep,
         fields: [
           {
@@ -231,7 +231,7 @@ const answeringFlowEditor = (
           steps.set(moveStep([...steps.get(), added], added, Number.POSITIVE_INFINITY))
           done()
         },
-      },
+      }),
     })
   }
   const example = h('button', {

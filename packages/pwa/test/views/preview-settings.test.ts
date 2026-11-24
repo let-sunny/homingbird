@@ -30,6 +30,20 @@ describe('previewSettingsSection', () => {
     expect((getByRole(shown, 'checkbox', { name: '#ops' }) as HTMLInputElement).checked).toBe(false)
   })
 
+  it('keeps the ticks when the people and the channels are read again', () => {
+    const { context, shown, called } = shownWith()
+    called('loadPreviewAllowance')[0]!.then!.done!({ people: [BEN], channels: [] })
+    const cy = getByRole(shown, 'checkbox', { name: 'Cy' })
+    fire.click(cy)
+    context.state.directory.set([
+      entry(BEN, 'Ben', { presence: { humanOnline: true, agentOnline: true } }),
+      entry(CY, 'Cy'),
+    ])
+    context.state.channels.set([channel('ops', { joined: true, memberCount: 9 })])
+    expect(getByRole(shown, 'checkbox', { name: 'Cy' })).toBe(cy)
+    expect((cy as HTMLInputElement).checked).toBe(true)
+  })
+
   it('says when the allowance could not be read', () => {
     const { shown, called } = shownWith()
     called('loadPreviewAllowance')[0]!.then!.failed!({})

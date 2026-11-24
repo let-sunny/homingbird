@@ -14,7 +14,7 @@ import { opensDialog } from './dialog.ts'
 import { pageData } from './page-data.ts'
 import { type Unsaved, field, forgetTyped, keepTyped, listWait } from './parts.ts'
 import { principleForm } from './principle-form.ts'
-import { todoList } from './todo-list.ts'
+import { todoAddRow, todoList } from './todo-list.ts'
 
 /**
  * The Teach tab of a channel agent's page, for its managers: the instruction and sources, then the same
@@ -31,10 +31,19 @@ export const channelTeachingSection = (
   const held = state.channelTeaching.use(slug, life)
   actions.openAgentPage('channelTeaching', slug)
   const { shown, wait } = pageData(state, held)
+  const add = channelAddRow(context, slug)
   return region(
     life,
     [shown, wait],
-    () => renderTeaching(channelTeachingModel(shown.get(), wait.get(), agent), context, slug, agent, unsaved),
+    () =>
+      renderTeaching(
+        channelTeachingModel(shown.get(), wait.get(), agent),
+        context,
+        slug,
+        agent,
+        unsaved,
+        add,
+      ),
     { class: 'taught channel-teaching' },
   )
 }
@@ -66,6 +75,7 @@ const renderTeaching = (
   slug: string,
   agent: string,
   unsaved: Unsaved,
+  add: HTMLElement,
 ): Child => {
   if (model.kind === 'waiting') return listWait(model.wait, () => context.actions.askAgain())
   return [
@@ -80,7 +90,7 @@ const renderTeaching = (
     ),
     model.empty !== null &&
       h('div', { class: 'teach-empty' }, h('strong', {}, model.empty.title), h('p', {}, model.empty.hint)),
-    principleList(model.principles, model.listLabel, context, slug, agent),
+    principleList(model.principles, model.listLabel, context, slug, agent, add),
     h('p', { class: 'trust-footnote' }, model.footnotes[0]),
     h('p', { class: 'trust-footnote teach-audit' }, model.footnotes[1]),
   ]
@@ -147,8 +157,9 @@ const principleList = (
   context: ViewContext,
   slug: string,
   agent: string,
+  add: HTMLElement,
 ): HTMLElement => {
-  const { actions, state } = context
+  const { actions } = context
   const ids = rows.map((row) => row.principle.id as string)
   return todoList({
     label,
@@ -172,40 +183,43 @@ const principleList = (
     remove: (id) => {
       if (ids.includes(id)) actions.deleteChannelPrinciple(slug, id)
     },
-    add: {
-      label: strings.teach.addLabel,
-      fields: [
-        {
-          name: 'topic',
-          label: strings.teach.topic,
-          value: '',
-          maxLength: PRINCIPLE_TOPIC_MAX,
-          placeholder: strings.teach.topicPlaceholder,
-        },
-        {
-          name: 'rule',
-          label: strings.teach.rule,
-          value: '',
-          maxLength: PRINCIPLE_TEXT_MAX,
-          placeholder: strings.teach.rulePlaceholder,
-          wide: true,
-        },
-      ],
-      warnings: addRowWarnings,
-      submit: (values, done) =>
-        actions.saveChannelPrinciple(
-          slug,
-          { topic: values.topic ?? '', rule: values.rule ?? '', source: null },
-          {
-            done: () => {
-              done()
-              state.notice.set({ kind: 'info', text: strings.channelTeach.saved })
-            },
-          },
-        ),
-    },
+    add,
   })
 }
+
+const channelAddRow = ({ actions, state }: ViewContext, slug: string): HTMLElement =>
+  todoAddRow({
+    label: strings.teach.addLabel,
+    fields: [
+      {
+        name: 'topic',
+        label: strings.teach.topic,
+        value: '',
+        maxLength: PRINCIPLE_TOPIC_MAX,
+        placeholder: strings.teach.topicPlaceholder,
+      },
+      {
+        name: 'rule',
+        label: strings.teach.rule,
+        value: '',
+        maxLength: PRINCIPLE_TEXT_MAX,
+        placeholder: strings.teach.rulePlaceholder,
+        wide: true,
+      },
+    ],
+    warnings: addRowWarnings,
+    submit: (values, done) =>
+      actions.saveChannelPrinciple(
+        slug,
+        { topic: values.topic ?? '', rule: values.rule ?? '', source: null },
+        {
+          done: () => {
+            done()
+            state.notice.set({ kind: 'info', text: strings.channelTeach.saved })
+          },
+        },
+      ),
+  })
 
 const detailsButton = (
   context: ViewContext,

@@ -66,7 +66,11 @@ describe('channelTeachingSection', () => {
     const typed = (name: string) => shown.querySelector<HTMLTextAreaElement>(`textarea[name="${name}"]`)!
     fire.type(typed('instruction'), 'Half an instruction')
     fire.type(typed('sources'), 'https://wiki.example/b')
+    const topic = shown.querySelector<HTMLInputElement>('.todo-add .is-topic')!
+    fire.type(topic, 'Half a principle')
     held.set(teaching({ principles: [principle('Refunds')] }))
+    expect(shown.querySelector('.todo-add .is-topic')).toBe(topic)
+    expect(topic.value).toBe('Half a principle')
     expect(textOf(shown)).toContain(strings.teach.limit({ count: 1, limit: 50 }))
     expect(typed('instruction').value).toBe('Half an instruction')
     expect(typed('sources').value).toBe('https://wiki.example/b')

@@ -1,5 +1,5 @@
 import type { AsRead } from '@homingbird/protocol'
-import { type Lifetime, h, region, signal } from '@homingbird/ui'
+import { type Lifetime, h, region, signal, slice } from '@homingbird/ui'
 import { type Choice, allowanceFrom, previewSettingsModel } from '../models/preview-settings.ts'
 import { strings } from '../strings.ts'
 import type { ViewContext } from './context.ts'
@@ -16,13 +16,16 @@ export const previewSettingsSection = (context: ViewContext, life: Lifetime, me:
     done: (read) => allowance.set(read),
     failed: () => allowance.set('failed'),
   })
-  return region(life, [allowance, saved, state.directory, state.channels], () => {
-    const model = previewSettingsModel({
+  const shown = slice([allowance, state.directory, state.channels], () =>
+    previewSettingsModel({
       me,
       allowance: allowance.get(),
       directory: state.directory.get(),
       channels: state.channels.get(),
-    })
+    }),
+  )
+  return region(life, [shown, saved], () => {
+    const model = shown.get()
     if (model.kind === 'loading') return loading()
     if (model.kind === 'failed') return h('p', { class: 'hint' }, model.text)
     return h(

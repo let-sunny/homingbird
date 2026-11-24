@@ -54,8 +54,11 @@ describe('channel tasks', () => {
       app.launch(tasks.loadChannelPage(query, isNext ? shown : null))
       await settle()
       expect(load()).toMatchObject({ loaded: false, step: 'loading' })
+      expect(state.channelPage.get().channels).toEqual(shown.channels)
+      await clock.advance(tasks.QUICK_SEARCH_MS)
+      await settle()
       expect(state.channelPage.get().channels).toEqual(isNext ? shown.channels : [])
-      await clock.advance(TOO_LONG_LOAD_SECONDS * 1000)
+      await clock.advance(TOO_LONG_LOAD_SECONDS * 1000 - tasks.QUICK_SEARCH_MS)
       expect(load()).toMatchObject({ loaded: false, step: 'long' })
       answer = fail({ _tag: 'Forbidden', message: 'no' })
       await run(tasks.loadChannelPage(query, isNext ? shown : null))
@@ -76,6 +79,49 @@ describe('channel tasks', () => {
       expect(state.notice.get()).toBeNull()
     },
   )
+
+  it('never empties the list for a quick search, and never draws an older answer under a newer word', async () => {
+    const holds = [hold<unknown>(), hold<unknown>()]
+    let asked = 0
+    const found = (slug: string) => ({ channels: [channel(slug)], hasMore: false, cursor: null })
+    const { app, run, state, clock } = testApp({
+      'channels.list': () => (asked++ === 0 ? found('old') : holds[asked - 2]!.waiting),
+    })
+    await run(tasks.openChannelPage)
+    const rows: string[] = []
+    state.channelPage.subscribe(({ query, channels }) =>
+      rows.push(`${query}: ${channels.map((one) => one.slug).join()}`),
+    )
+    app.launch(tasks.loadChannelPage('a', null))
+    await clock.advance(600)
+    app.launch(tasks.loadChannelPage('ab', null))
+    await clock.advance(600)
+    await settle()
+    holds[0]!.release(found('a'))
+    await settle()
+    expect(state.channelPage.get()).toMatchObject({ query: '', channels: [{ slug: 'old' }] })
+    holds[1]!.release(found('ab'))
+    await settle()
+    await clock.advance(tasks.QUICK_SEARCH_MS)
+    await settle()
+    expect(state.channelPage.get()).toMatchObject({ query: 'ab', channels: [{ slug: 'ab' }] })
+    expect(new Set(rows)).toEqual(new Set([': old', 'ab: ab']))
+  })
+
+  it('drops the rows of the word before at once when the search fails', async () => {
+    let answer: unknown = { channels: [channel('old')], hasMore: false, cursor: null }
+    const { app, run, state } = testApp({ 'channels.list': () => answer })
+    await run(tasks.openChannelPage)
+    answer = fail({ _tag: 'Forbidden', message: 'no' })
+    await run(tasks.loadChannelPage('a', null))
+    expect(state.channelPage.get()).toMatchObject({ query: 'a', channels: [] })
+    expect(state.channelPage.load.get()).toMatchObject({ loaded: false, step: 'failed' })
+    answer = hold<unknown>().waiting
+    app.launch(tasks.loadChannelPage('ab', null))
+    await settle()
+    expect(state.channelPage.get()).toMatchObject({ query: 'ab', channels: [] })
+    app.endSession()
+  })
 
   it('tells nobody when only reading the same list again fails', async () => {
     let isDown = false

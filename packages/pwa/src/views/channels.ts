@@ -48,7 +48,8 @@ export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement 
     placeholder: strings.channelsSearchPlaceholder,
     on: {
       input: () => {
-        actions.loadChannelPage(search.value.trim(), null)
+        const query = search.value.trim()
+        if (query !== state.channelPageWish.get().query) actions.loadChannelPage(query, null)
       },
     },
   })
@@ -58,14 +59,19 @@ export const channelsView = (context: ViewContext, life: Lifetime): HTMLElement 
     field(strings.channelsSearchLabel, search),
     region(life, [listed, awaited, state.workspace], () =>
       renderChannelList(
-        channelListModel(listed.get(), awaited.get(), state.workspace.get()),
+        channelListModel(listed.get(), state.channelPageWish.get(), awaited.get(), state.workspace.get()),
         context,
-        () => actions.loadChannelPage(listed.get().query, listed.get()),
-        () =>
+        () => {
+          const { query } = state.channelPageWish.get()
+          if (listed.get().query === query) actions.loadChannelPage(query, listed.get())
+        },
+        () => {
+          const { query, after } = state.channelPageWish.get()
           actions.loadChannelPage(
-            state.channelPageWish.get().query,
-            listed.get().channels.length === 0 ? null : listed.get(),
-          ),
+            query,
+            after === null || listed.get().channels.length === 0 ? null : listed.get(),
+          )
+        },
       ),
     ),
   )

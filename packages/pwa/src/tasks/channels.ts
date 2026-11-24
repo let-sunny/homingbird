@@ -10,23 +10,40 @@ import type {
 } from '@homingbird/protocol'
 import { batch } from '@homingbird/ui'
 import { type Action, type App, withApp } from '../app.ts'
-import { type ListedChannels, withChannel, withRowsOf } from '../channels.ts'
+import { type ChannelPageWish, type ListedChannels, answering, withChannel, withRowsOf } from '../channels.ts'
 import { hrefFor } from '../routes.ts'
 import { again, invalidate, open, reread } from './resources.ts'
+import { untilHolds } from './waiting-for.ts'
 
 /**
  * The channel list for what the person typed, asked afresh; the next page follows the ones shown. What
- * answered something else goes at once, so that it never passes for an answer that does not come.
+ * answered an earlier word stays while the new answer comes quickly, and goes once it is late or fails.
  */
 export const loadChannelPage = (query: string, after: ListedChannels | null): Action =>
   withApp(({ state }) => {
+    const wish = { query, after }
     batch(() => {
-      state.channelPageWish.set({ query, after })
+      const shown = state.channelPage.get()
+      const mayStay = state.channelPage.load.get().loaded || shown.channels.length > 0
+      state.channelPageWish.set(wish)
       state.channelPage.reset()
-      if (after !== null) state.channelPage.set(after)
+      state.channelPage.set(after ?? (mayStay ? shown : answering(query, shown)))
     })
-    return again('channelPage')
+    return T.flatMap(() => dropLateRows(wish))(again('channelPage'))
   })
+
+const dropLateRows = (wish: ChannelPageWish): Action =>
+  withApp(({ state: { channelPage, channelPageWish } }) =>
+    T.map(() => {
+      if (channelPageWish.get() === wish) channelPage.update((listed) => answering(wish.query, listed))
+    })(
+      T.result(
+        T.timeout(QUICK_SEARCH_MS)(
+          untilHolds(channelPage.load, ({ loaded, step }) => loaded || step === 'failed'),
+        ),
+      ),
+    ),
+  )
 
 /** The first page, as the channels page opens; nothing of an earlier visit stays. */
 export const openChannelPage: Action = withApp(({ state }) => {
@@ -152,3 +169,6 @@ export const archiveChannel = (slug: string, moveMembersTo: string | null): Acti
   )
 
 const afterChannelChange: Action = T.suspend(() => reread('channels', 'conversations', 'directory'))
+
+/** How long the rows of the word before stay while a search is on its way. */
+export const QUICK_SEARCH_MS = 1000

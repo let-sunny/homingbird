@@ -1,5 +1,6 @@
 import type { AsRead, ConversationId, Group, GroupId, MemberId } from '@homingbird/protocol'
 import {
+  type ChannelPageWish,
   type ListedChannels,
   channelLabel,
   channelNamed,
@@ -17,11 +18,14 @@ import { type ListStep, type ListWait, listWaitModel, offersRetry } from './star
 /** Channels: waiting for the list, none yet, none matching, or the cards with a hint and a way to see more. */
 export const channelListModel = (
   listed: ListedChannels,
-  awaited: ListStep | null,
+  wish: ChannelPageWish,
+  step: ListStep | null,
   workspace: Workspace,
 ): ChannelListModel => {
+  const isOfWordBefore = step !== null && listed.query !== wish.query
+  const awaited = isOfWordBefore && step === 'loading' ? null : step
   const wait = awaited === null ? null : listWaitModel(awaited, workspace, strings.checking.channels)
-  if (wait !== null && listed.channels.length === 0) return { kind: 'waiting', wait }
+  if (wait !== null && (isOfWordBefore || listed.channels.length === 0)) return { kind: 'waiting', wait }
   if (listed.channels.length === 0 && listed.query === '')
     return { kind: 'none-yet', text: strings.noChannelsYet }
   if (listed.channels.length === 0) return { kind: 'no-match', text: strings.noChannels }
