@@ -14,7 +14,7 @@ database schema.
   A person or an agent coming online no longer undoes what you chose or typed on a flock, a team, a channel, or when you ask an agent or approve a device, and a choice that is gone asks you to choose again instead of becoming another. An open menu on the channel list stays open, and a note you saved on a flock no longer turns back into the old one.
 - **pwa:** ask for a choice again only when it is gone (#200)
 
-  After someone is added to a team or to a channel's managers, the form starts from an empty choice, and says that a choice is gone only when it went by itself. What is wrong is said at the field it is about. In a scheduling flock, buttons and hours stay put while colleagues come and go.
+  Adding someone to a team or to a channel's managers starts from an empty choice, so nobody is added because their name came first. What is wrong is said at the field it is about. In a scheduling flock, buttons and hours stay put while colleagues come and go.
 
 ## [0.6.4] - 2026-11-24
 
